@@ -5,9 +5,8 @@ on:
     branches: [main]
   pull_request:
 
-defaults:
+jobs:
   publish:
-    runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
