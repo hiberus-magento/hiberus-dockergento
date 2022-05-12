@@ -1,0 +1,37 @@
+name: Dockerhub Publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+defaults:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: ${{ matrix.docker_file }}
+          push: true
+          tags: hiberusmagento/${{ matrix.docker_name }}:${{ matrix.docker_version }}
+    strategy:
+      matrix:
+        include:
+          - docker_file: ./Dockerfiles/php/8.1/
+            docker_name: hiberus-dockergento-php
+            docker_version: 8.1
+          - docker_file: ./Dockerfiles/php/7.4/
+            docker_name: hiberus-dockergento-php
+            docker_version: 7.4
+          - docker_file: ./Dockerfiles/php/7.3/
+            docker_name: hiberus-dockergento-php
+            docker_version: 7.3
