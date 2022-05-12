@@ -26,7 +26,7 @@ Docker environment for Magento 2 projects
 [(c) Hiberus Tecnología](https://hiberus.com)
 
 
-# Licence
+## Licence
 
 [GNU General Public License, version 3 (GPLv3)](https://opensource.org/licenses/gpl-3.0)
 
