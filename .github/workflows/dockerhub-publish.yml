@@ -34,3 +34,36 @@ jobs:
           - docker_file: ./Dockerfiles/php/7.3/
             docker_name: hiberus-dockergento-php
             docker_version: 7.3
+          - docker_file: ./Dockerfiles/php/7.2/
+            docker_name: hiberus-dockergento-php
+            docker_version: 7.2
+          - docker_file: ./Dockerfiles/mysql/5.7/
+            docker_name: hiberus-dockergento-mysql
+            docker_version: 5.7
+          - docker_file: ./Dockerfiles/mysql/8.0/
+            docker_name: hiberus-dockergento-mysql
+            docker_version: 8.0
+          - docker_file: ./Dockerfiles/nginx/1.18/
+            docker_name: hiberus-dockergento-nginx
+            docker_version: 1.18
+          - docker_file: ./Dockerfiles/elastic/5.6/
+            docker_name: hiberus-dockergento-elastic
+            docker_version: 5.6
+          - docker_file: ./Dockerfiles/elastic/6.5/
+            docker_name: hiberus-dockergento-elastic
+            docker_version: 6.5
+          - docker_file: ./Dockerfiles/elastic/7.17/
+            docker_name: hiberus-dockergento-elastic
+            docker_version: 7.17
+          - docker_file: ./Dockerfiles/rabbitmq/3.9/
+            docker_name: hiberus-dockergento-rabbitmq
+            docker_version: 3.9
+          - docker_file: ./Dockerfiles/varnish/6.0/
+            docker_name: hiberus-dockergento-varnish
+            docker_version: 6.0
+          - docker_file: ./Dockerfiles/varnish/7.1/
+            docker_name: hiberus-dockergento-varnish
+            docker_version: 7.1
+          - docker_file: ./Dockerfiles/mailhog/1.0/
+            docker_name: hiberus-dockergento-mailhog
+            docker_version: 1.0
