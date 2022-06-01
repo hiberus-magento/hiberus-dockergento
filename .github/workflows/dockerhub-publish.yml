@@ -58,6 +58,9 @@ jobs:
           - docker_file: ./Dockerfiles/rabbitmq/3.9/
             docker_name: hiberus-dockergento-rabbitmq
             docker_version: 3.9
+          - docker_file: ./Dockerfiles/varnish/5.0/
+            docker_name: hiberus-dockergento-varnish
+            docker_version: 5.0
           - docker_file: ./Dockerfiles/varnish/6.0/
             docker_name: hiberus-dockergento-varnish
             docker_version: 6.0

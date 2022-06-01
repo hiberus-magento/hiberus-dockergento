@@ -1,0 +1,1 @@
+FROM varnish:5.0
