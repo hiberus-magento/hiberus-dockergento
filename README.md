@@ -1,4 +1,4 @@
-# Hiberus Dockergento
+# Hiberus 
 
 Docker environment for Magento 2 projects
 
@@ -31,7 +31,25 @@ Docker environment for Magento 2 projects
 [GNU General Public License, version 3 (GPLv3)](https://opensource.org/licenses/gpl-3.0)
 
 
-## Thanks to
+### Install Hiberus CLI
 
-This project is based on [Dockergento](https://github.com/ModestCoders/magento2-dockergento). Special thanks to **ModestCoders** for their work. 
+1. Clone this repo
+
+    ```bash
+    cd ~
+    git clone https://github.com/hiberus-magento/hiberus-dockergento.git
+    ```
+
+2. Add `hm` bin into your `$PATH`
+
+    ```bash
+    sudo ln -s $(pwd)hiberus-dockergento/bin/run /usr/local/bin/hm
+    ```
+    
+3. Open a new terminal tab/window and check that `hm` works
+
+    ```bash
+    which hm
+    hm
+    ```
 
