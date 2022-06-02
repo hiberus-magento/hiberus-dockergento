@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   phpfpm:
-    image: modestcoders/php:7.1-fpm
+    image: hiberusmagento/hiberus-dockergento-php:<php_version>
     volumes: &appvolumes
       - sockdata:/sock
       - ../.composer:/var/www/.composer:delegated
@@ -15,7 +15,7 @@ services:
       - elasticsearch
 
   nginx:
-    image: modestcoders/nginx:1.13
+    image: hiberusmagento/hiberus-dockergento-nginx:1.18
     ports:
       - 80:8000
     volumes: *appvolumes
@@ -23,7 +23,7 @@ services:
       - phpfpm
 
   db:
-    image: mysql:5.7
+    image: hiberusmagento/hiberus-dockergento-mysql:<mysql_version>
     ports:
       - 3306:3306
     environment:
@@ -34,22 +34,45 @@ services:
     volumes:
       - dbdata:/var/lib/mysql
 
-  node:
-    image: modestcoders/node-php:node8-php7.1
-    ports:
-      - 35729:35729
-    volumes: *appvolumes
-    depends_on:
-      - phpfpm
-
   elasticsearch:
-    image: modestcoders/elasticsearch:6.5
+    image: hiberusmagento/hiberus-dockergento-elastic:<elastic_version>
     environment:
       - discovery.type=single-node
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
 
+  varnish:
+    image: hiberusmagento/hiberus-dockergento-varnish:<varnish_version>
+    tty: true
+    ports:
+      - 80:80
+    depends_on:
+      - nginx
+
+  redis:
+    image: hiberusmagento/hiberus-dockergento-redis:<redis_version>
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data:delegated
+
+  mailhog:
+    image: hiberusmagento/hiberus-dockergento-mailhog:1
+    ports:
+      - 8025:8025
+
+  rabbitmq:
+    image: hiberusmagento/hiberus-dockergento-rabbitmq:3.9
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+
 volumes:
   dbdata:
   sockdata:
   elasticsearch_data:
+  tlsdata:
+  redisdata:
+  rabbitmqdata:

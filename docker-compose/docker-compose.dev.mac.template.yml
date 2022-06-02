@@ -14,9 +14,6 @@ services:
   nginx:
     volumes: *appvolumes-mac
 
-  node:
-    volumes: *appvolumes-mac
-
   unison:
     image: modestcoders/unison:2.51.2
     volumes:
