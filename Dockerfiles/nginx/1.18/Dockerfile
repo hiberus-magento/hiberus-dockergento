@@ -27,9 +27,11 @@ COPY ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT [ "docker-entrypoint.sh" ]
 
-USER app:app
+RUN mkdir /var/www/html && chown -R app:app /var/www /var/www/html
 VOLUME /var/www
 WORKDIR /var/www/html
+USER app:app
+
 EXPOSE 8843
 EXPOSE 8000
 
