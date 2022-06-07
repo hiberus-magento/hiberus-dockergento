@@ -13,7 +13,10 @@ services:
     depends_on:
       - db
       - elasticsearch
-
+      - redis
+      - mailhog
+      - rabbitmq
+      
   nginx:
     image: hiberusmagento/hiberus-dockergento-nginx:1.18
     ports:

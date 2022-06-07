@@ -27,7 +27,7 @@
         "php": "7.4",
         "mysql": "8",
         "elastic": "7.17",
-        "redis": "6.0",
+        "redis": "6.2",
         "varnish": "6.0",
         "composer": "2"
     },
@@ -43,7 +43,7 @@
         "php": "7.4",
         "mysql": "8",
         "elastic": "7.17",
-        "redis": "6.0",
+        "redis": "6.2",
         "varnish": "6.0",
         "composer": "2"
     },
@@ -51,7 +51,7 @@
         "php": "8.1",
         "mysql": "8",
         "elastic": "7.17",
-        "redis": "6.0",
+        "redis": "6.2",
         "varnish": "7.0",
         "composer": "2"
     }

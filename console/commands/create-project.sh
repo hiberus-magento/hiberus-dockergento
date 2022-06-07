@@ -46,10 +46,10 @@ check_composer_files_exist() {
 # Get magento edition
 # 
 get_magento_edition() {
-  printf "${BLUE}Magento edition:\n${COLOR_RESET}"
-
   AVAILABLE_MAGENTO_EDITIONS="community commerce"
   DEFAULT_MAGENTO_EDITION="community"
+  printf "${BLUE}Magento edition:\n${COLOR_RESET}[${DEFAULT_MAGENTO_EDITION}]"
+
   select MAGENTO_EDITION in ${AVAILABLE_MAGENTO_EDITIONS};
   do
       if $(${TASKS_DIR}/in_list.sh "${MAGENTO_EDITION}" "${AVAILABLE_MAGENTO_EDITIONS}");
@@ -75,7 +75,8 @@ get_magento_edition() {
 # 
 get_magento_version() {
   DEFAULT_MAGENTO_VERSION="2.4.4"
-  printf "${BLUE}Magento version: ${COLOR_RESET}"
+  
+  printf "${BLUE}Magento version: ${COLOR_RESET}[${DEFAULT_MAGENTO_VERSION}]"
 
   read MAGENTO_VERSION
 
