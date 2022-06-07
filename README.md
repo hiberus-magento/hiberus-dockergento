@@ -43,7 +43,7 @@ Docker environment for Magento 2 projects
 2. Add `hm` bin into your `$PATH`
 
     ```bash
-    sudo ln -s $(pwd)hiberus-dockergento/bin/run /usr/local/bin/hm
+    sudo ln -s $(pwd)/hiberus-dockergento/bin/run /usr/local/bin/hm
     ```
     
 3. Open a new terminal tab/window and check that `hm` works
@@ -52,4 +52,7 @@ Docker environment for Magento 2 projects
     which hm
     hm
     ```
+4. Install `jq` dependency
+
+    [Download](https://stedolan.github.io/jq/download/)
 
