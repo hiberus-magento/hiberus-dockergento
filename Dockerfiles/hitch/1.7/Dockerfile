@@ -1,4 +1,7 @@
 FROM hitch:1.7
 MAINTAINER "Hiberus Tecnologia <dabad@hiberus.com>"
 
-CMD ["hitch", "--config=/etc/hitch/hitch.conf", "--backend=[varnish]:6081:/etc/hitch/certs/default"]
+RUN chown hitch /etc/hitch/testcert.pem
+USER hitch
+
+CMD ["hitch", "--user=hitch", "--backend=[varnish]:6081", "--frontend=[*]:443", "--ciphers=EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH", "/etc/hitch/testcert.pem"]
