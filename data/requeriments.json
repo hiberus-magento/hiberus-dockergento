@@ -1,0 +1,58 @@
+{
+    "2.3.0": {
+        "php": "7.2",
+        "mysql": "5.7",
+        "elastic": "5.6",
+        "redis": "5.0",
+        "varnish": "5.0",
+        "composer": "1"
+    },
+    "2.3.3": {
+        "php": "7.3",
+        "mysql": "5.7",
+        "elastic": "6.5",
+        "redis": "5.0",
+        "varnish": "6.0",
+        "composer": "1"
+    },
+    "2.3.5": {
+        "php": "7.3",
+        "mysql": "5.7",
+        "elastic": "7.17",
+        "redis": "5.0",
+        "varnish": "6.0",
+        "composer": "1"
+    },
+    "2.3.7": {
+        "php": "7.4",
+        "mysql": "8",
+        "elastic": "7.17",
+        "redis": "6.0",
+        "varnish": "6.0",
+        "composer": "2"
+    },
+    "2.4.0": {
+        "php": "7.4",
+        "mysql": "8",
+        "elastic": "7.17",
+        "redis": "5.0",
+        "varnish": "6.0",
+        "composer": "1"
+    },
+    "2.4.2": {
+        "php": "7.4",
+        "mysql": "8",
+        "elastic": "7.17",
+        "redis": "6.0",
+        "varnish": "6.0",
+        "composer": "2"
+    },
+    "2.4.4": {
+        "php": "8.1",
+        "mysql": "8",
+        "elastic": "7.17",
+        "redis": "6.0",
+        "varnish": "7.0",
+        "composer": "2"
+    }
+}
