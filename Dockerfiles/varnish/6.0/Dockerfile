@@ -8,7 +8,6 @@ ENV VARNISH_STORAGE malloc,2048m
 
 COPY config/varnish.vcl /etc/varnish/default.vcl
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 6081
 EXPOSE 6082
