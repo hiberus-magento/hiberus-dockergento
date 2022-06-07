@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-usage()
-{
+usage() {
     printf "${YELLOW}Usage:${COLOR_RESET}\n"
     echo "  mirror-host [path1] ... [pathN]"
     echo ""
@@ -20,8 +19,7 @@ if [[ "${MACHINE}" != "mac" ]] && [[ "${MACHINE}" != "windows" ]]; then
     exit 1
 fi
 
-validate_mirror_host_path()
-{
+validate_mirror_host_path() {
     PATH_TO_MIRROR=$1
 
     BIND_MOUNT_PATH=$(${TASKS_DIR}/get_bind_mount_path.sh "${WORKDIR_PHP}/${PATH_TO_MIRROR}")

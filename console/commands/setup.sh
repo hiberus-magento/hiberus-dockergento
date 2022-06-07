@@ -166,9 +166,17 @@ get_requeriments() {
             MAGENTO_VERSION=$(cat "${MAGENTO_DIR}/composer.lock" | \
             jq -r '.packages | map(select(.name == "magento/product-community-edition"))[].version')
             printf "\n${YELLOW}Version detected: ${COLOR_RESET} ${MAGENTO_VERSION}\n"
-            requeriments=$(cat "${DATA_DIR}/requeriments.json" | jq -r '.['\"${MAGENTO_VERSION}\"']')
-            change_requeriments 
+            
+        else
+            echo -e "\n${RED}--------------------------------------------${COLOR_RESET}"
+            echo -e "\n${RED} We need a magento project in ${MAGENTO_DIR}/ path${COLOR_RESET}"
+            echo -e "\n You can clone a project and after execute ${BROWN}${COMMAND_BIN_NAME} setup${COLOR_RESET} or"
+            echo -e " create a new magento project with ${BROWN}${COMMAND_BIN_NAME} create-project${COLOR_RESET}"
+            echo -e "\n${RED}--------------------------------------------${COLOR_RESET}\n"
+            exit 1
         fi
+        requeriments=$(cat "${DATA_DIR}/requeriments.json" | jq -r '.['\"${MAGENTO_VERSION}\"']')
+        change_requeriments
     fi
 }
 
@@ -300,7 +308,7 @@ check_if_docker_enviroment_exist
 if [ "$#" != 0 ];
 then
     get_requeriments $1
-else  
+else
     get_requeriments
 fi
 "${TASKS_DIR}/write_from_docker-compose_templates.sh" "${requeriments}"

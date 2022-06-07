@@ -56,3 +56,6 @@ Docker environment for Magento 2 projects
 
     [Download](https://stedolan.github.io/jq/download/)
 
+## Thanks to
+
+This project is based on [Dockergento](https://github.com/ModestCoders/magento2-dockergento). Special thanks to **ModestCoders** for their work. 
