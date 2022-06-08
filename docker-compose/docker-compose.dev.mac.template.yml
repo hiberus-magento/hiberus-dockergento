@@ -14,18 +14,5 @@ services:
   nginx:
     volumes: *appvolumes-mac
 
-  unison:
-    image: modestcoders/unison:2.51.2
-    volumes:
-      - workspace:/var/www/html
-      - ./vendor:/sync/vendor
-    environment:
-      - SYNC_SOURCE_BASE_PATH=/sync
-      - SYNC_DESTINATION_BASE_PATH=/var/www/html
-      - SYNC_MAX_INOTIFY_WATCHES=60000
-    depends_on:
-      - phpfpm
-    privileged: true
-
 volumes:
   workspace:
