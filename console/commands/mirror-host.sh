@@ -1,29 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+#
+# Define usage
+#
 usage() {
     printf "${YELLOW}Usage:${COLOR_RESET}\n"
     echo "  mirror-host [path1] ... [pathN]"
     echo ""
     echo "Example:"
-    printf "  ${GREEN}dockergento mirror-host vendor${COLOR_RESET}\n"
+    printf "  ${GREEN}hiberus-docker mirror-host vendor${COLOR_RESET}\n"
 }
 
-if [ "$#" == 0 ] || [ "$1" == "--help" ]; then
-    usage
-    exit 0
-fi
-
-if [[ "${MACHINE}" != "mac" ]] && [[ "${MACHINE}" != "windows" ]]; then
-    printf "${RED} This command is only for mac and windows systems.${COLOR_RESET}\n"
-    exit 1
-fi
-
+#
+# Validate mirror host path
+#
 validate_mirror_host_path() {
     PATH_TO_MIRROR=$1
 
     BIND_MOUNT_PATH=$(${TASKS_DIR}/get_bind_mount_path.sh "${WORKDIR_PHP}/${PATH_TO_MIRROR}")
-    if [[ ${BIND_MOUNT_PATH} != false ]]; then
+    if [[ ${BIND_MOUNT_PATH} != false ]];
+    then
         echo ""
         printf "${RED}Path cannot be mirrored. Following path is a bind mount inside container:${COLOR_RESET}\n"
         echo ""
@@ -32,6 +29,18 @@ validate_mirror_host_path() {
         exit 1
     fi
 }
+
+if [ "$#" == 0 ] || [ "$1" == "--help" ];
+then
+    usage
+    exit 0
+fi
+
+if [[ "${MACHINE}" != "mac" ]];
+then
+    printf "${RED} This command is only for mac systems.${COLOR_RESET}\n"
+    exit 1
+fi
 
 source ${TASKS_DIR}/mirror_path.sh
 
@@ -51,7 +60,8 @@ do
     DEST_DIR=$(dirname ${DEST_PATH})
 
     SRC_IS_DIR=$([ -d ${SRC_PATH} ] && echo true || echo false)
-    if [[ ${SRC_IS_DIR} == *true* ]]; then
+    if [[ ${SRC_IS_DIR} == *true* ]];
+    then
         echo " > removing destination dir content: '${SERVICE_PHP}:${DEST_PATH}/*'"
         ${COMMANDS_DIR}/exec.sh sh -c "rm -rf ${DEST_PATH}/*"
         SRC_PATH="${SRC_PATH}/."
@@ -61,7 +71,8 @@ do
     echo " > ensure destination dir exists: '${DEST_DIR}'"
     ${COMMANDS_DIR}/exec.sh sh -c "mkdir -p ${DEST_DIR}"
 
-    if [[ ${SRC_IS_DIR} == *true* && $(find ${SRC_PATH} -maxdepth 0 -empty) ]]; then
+    if [[ ${SRC_IS_DIR} == *true* && $(find ${SRC_PATH} -maxdepth 0 -empty) ]];
+    then
         echo " > skipping copy. Source dir is empty: '${SRC_PATH}'"
     else
         echo " > copying '${SRC_PATH}' into '${SERVICE_PHP}:${WORKDIR_PHP}/${DEST_PATH}'"

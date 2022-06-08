@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mirror_vendor_host_into_container()
-{
+mirror_vendor_host_into_container() {
     printf "${GREEN}Mirror vendor into container before executing composer${COLOR_RESET}\n"
-    if [ ! -d "${MAGENTO_DIR}/vendor" ]; then
+
+    if [ ! -d "${MAGENTO_DIR}/vendor" ];
+    then
         echo " > creating '${MAGENTO_DIR}/vendor' in host"
         mkdir -p "${MAGENTO_DIR}/vendor"
     fi
+
     ${COMMANDS_DIR}/mirror-host.sh vendor
 }
 
-sync_all_from_container_to_host()
-{
+sync_all_from_container_to_host() {
     # IMPORTANT:
     # Docker cp from container to host needs to be done in a not running container.
     # Otherwise the docker.hyperkit gets crazy and breaks the bind mounts
@@ -30,7 +31,8 @@ sync_all_from_container_to_host()
     ${COMMANDS_DIR}/start.sh
 }
 
-if [[ "$#" != 0 && "$1" == "create-project" ]]; then
+if [[ "$#" != 0 && "$1" == "create-project" ]];
+then
     printf "${RED}create-project is not compatible with ${COMMAND_BIN_NAME}. Please use:${COLOR_RESET}\n"
         echo -p "\n  dockergento create-project\n"
         exit 1
@@ -41,7 +43,8 @@ if [[ "$#" != 0 \
     && ( $@ == *" -d "*  || $@ == *" -d="* \
         || $@ == "-d "* || $@ == "-d="*  \
         || $@ == *" --working-dir "* || $@ == *" --working-dir="*   \
-        || $@ == "--working-dir "* || $@ == "--working-dir="* ) ]]; then
+        || $@ == "--working-dir "* || $@ == "--working-dir="* ) ]];
+then
      printf "${RED}Composer directory option not compatible with dockergento. This option is automatically set: ${COLOR_RESET}\n"
      echo ""
      echo "    --working-dir=${COMPOSER_DIR}"
@@ -60,7 +63,8 @@ then
     MAGENTO2_MODULE_PATH="${MAGENTO_DIR}/vendor/magento/magento2-base"
     MAGENTO_EXISTS_IN_CONTAINER=$(${COMMANDS_DIR}/exec.sh sh -c "[ -f ${MAGENTO2_MODULE_PATH}/composer.json ] && echo true || echo false")
     MAGENTO_EXISTS_IN_HOST=$([ -f ${MAGENTO2_MODULE_PATH}/composer.json ] && echo true || echo false)
-    if [[ ${MAGENTO_EXISTS_IN_HOST} == true && ${MAGENTO_EXISTS_IN_CONTAINER} == *false* ]]; then
+    if [[ ${MAGENTO_EXISTS_IN_HOST} == true && ${MAGENTO_EXISTS_IN_CONTAINER} == *false* ]];
+    then
         printf "${RED}Magento is not set up yet in container. Please remove 'magento2-base' and try again.${COLOR_RESET}\n"
         echo ""
         echo "   rm -rf ${HOST_DIR}/${MAGENTO2_MODULE_PATH}"

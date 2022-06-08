@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-usage()
-{
+#
+# Define usage
+#
+usage() {
     printf "${YELLOW}Usage:${COLOR_RESET}\n"
     echo "  exec [options] command"
     echo ""
@@ -13,24 +15,28 @@ usage()
     printf "  ${GREEN}dockergento exec ls -lah${COLOR_RESET}\n"
 }
 
-if [ "$#" == 0 ] || [ "$1" == "--help" ]; then
+if [ "$#" == 0 ] || [ "$1" == "--help" ];
+then
     usage
     exit 0
 fi
 
 : ${EXEC_OPTIONS:=""}
 
-if [ ${TTY_DISABLE} == true ]; then
+if [ ${TTY_DISABLE} == true ];
+then
     EXEC_OPTIONS="${EXEC_OPTIONS} -T"
 fi
 
-if [[ "$1" == "--root" ]]; then
+if [[ "$1" == "--root" ]];
+then
     shift
     EXEC_OPTIONS="${EXEC_OPTIONS} -u root"
 fi
 
 DOCKER_COMPOSE_EXEC="${DOCKER_COMPOSE} exec"
-if [ "${EXEC_OPTIONS}" != "" ]; then
+if [ "${EXEC_OPTIONS}" != "" ];
+then
     DOCKER_COMPOSE_EXEC="${DOCKER_COMPOSE_EXEC} ${EXEC_OPTIONS}"
 fi
 

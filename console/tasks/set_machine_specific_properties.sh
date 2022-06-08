@@ -16,7 +16,8 @@ case "${UNAMEOUT}" in
         ;;
 esac
 
-if [[ "${MACHINE}" == "UNKNOWN" ]]; then
+if [[ "${MACHINE}" == "UNKNOWN" ]];
+then
     echo "Error: Unsupported system type"
     echo "System must be a Macintosh or Linux"
     echo ""

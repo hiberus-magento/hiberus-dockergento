@@ -4,7 +4,9 @@ set -euo pipefail
 COMMAND_BIN_NAME="hm"
 export COMMAND_BIN_NAME="${COMMAND_BIN_NAME}"
 
+#
 # Resolve absolute path directories
+#
 resolve_absolute_dir() {
     SOURCE="${BASH_SOURCE[0]}"
     while [ -h "$SOURCE" ];
@@ -17,7 +19,9 @@ resolve_absolute_dir() {
     ABSOLUTE_PATH="${ABSOLUTE_BIN_PATH}/.."
 }
 
+#
 # Export absolute paths of main directories
+#
 init_dirs() {
     resolve_absolute_dir
     export COMMAND_BIN_DIR="${ABSOLUTE_PATH}"
@@ -28,7 +32,9 @@ init_dirs() {
     export PROPERTIES_DIR="${ABSOLUTE_PATH}/console/properties"
 }
 
+#
 # Print usages of command
+#
 usage() {
     printf "${YELLOW}Usage:${COLOR_RESET}\n"
     echo "  [options] command [arguments]"
@@ -59,7 +65,7 @@ source ${TASKS_DIR}/load_properties.sh
 source ${PROPERTIES_DIR}/command_descriptions
 
 # If there are arguments and the first argument is --help
-if [ "$#" == 0 ] || [ "$1" == "--help" ];
+if [ "$#" == 0 ] || [ "$1" == "--help" ] || [ "$1" == "-h" ];
 then
     usage
     exit 0
@@ -77,7 +83,7 @@ fi
 COMMAND_NAME="$1.sh"
 if [ ! -f ${COMMANDS_DIR}/${COMMAND_NAME} ];
 then
-    if [[ ! -f ${CUSTOM_COMMANDS_DIR}/${COMMAND_NAME} ]];ç
+    if [[ ! -f ${CUSTOM_COMMANDS_DIR}/${COMMAND_NAME} ]];
     then
         printf "${RED}Command not found${COLOR_RESET}\n"
         printf " Execute ${GREEN}${COMMAND_BIN_NAME} --help${COLOR_RESET} to see commands available\n"

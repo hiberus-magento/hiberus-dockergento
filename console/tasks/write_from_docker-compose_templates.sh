@@ -8,7 +8,6 @@ REGEX=""
 #
 compose_regex() {
     local services=$(echo "${REQUERIMENTS}" | jq -r 'keys|join(" ")')
-echo "${services}"
 
     for index in ${services}
     do
@@ -28,5 +27,6 @@ wirte_docker_compose() {
     cp "${COMMAND_BIN_DIR}/docker-compose/docker-compose.dev.linux.template.yml" "${DOCKER_COMPOSE_FILE_LINUX}"
     cp "${COMMAND_BIN_DIR}/docker-compose/docker-compose.dev.mac.template.yml" "${DOCKER_COMPOSE_FILE_MAC}"
 }
+
 REQUERIMENTS=$1
 wirte_docker_compose

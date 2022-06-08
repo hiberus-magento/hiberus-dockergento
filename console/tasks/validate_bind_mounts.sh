@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${MACHINE}" == "mac" ]]; then
+if [[ "${MACHINE}" == "mac" ]];
+then
     BIND_MOUNT_PATH=$(${TASKS_DIR}/get_bind_mount_path.sh "${WORKDIR_PHP}/${MAGENTO_DIR}/vendor")
-    if [[ ${BIND_MOUNT_PATH} != false ]]; then
+    
+    if [[ ${BIND_MOUNT_PATH} != false ]];
+    then
         echo ""
         printf "${RED}Vendor cannot be a bind mount. Please do the following:${COLOR_RESET}\n"
         echo ""

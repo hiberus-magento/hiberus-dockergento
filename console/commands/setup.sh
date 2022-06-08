@@ -11,6 +11,7 @@ get_magento_root_directory() {
     read ANSWER_MAGENTO_DIR
 
     MAGENTO_DIR=${ANSWER_MAGENTO_DIR:-${MAGENTO_DIR}}
+
     if [ "${MAGENTO_DIR}" != "." ];
     then
         printf "${GREEN}Setting custom magento dir: '${MAGENTO_DIR}'${COLOR_RESET}\n"
@@ -39,7 +40,7 @@ check_if_docker_enviroment_exist() {
         while true;
         do
             printf "\n${RED}----------------------------------------------------------------------${COLOR_RESET}\n"
-            printf "%14s${RED}WE HAVE DETECTED DOCKER COMPOSE FILES!!! ${COLOR_RESET}\n\n"
+            printf "%12s${RED}¡¡¡WE HAVE DETECTED DOCKER COMPOSE FILES!!! ${COLOR_RESET}\n\n"
             printf "%4s${RED}If you continue with this proccess these files will be removed${COLOR_RESET}\n"
             printf "${RED}----------------------------------------------------------------------${COLOR_RESET}\n\n"
             printf "${BLUE}Do you want continue? [y/n] ${COLOR_RESET}"
@@ -79,6 +80,7 @@ sanitize_path() {
 sed_in_file() {
     local SED_REGEX=$1
     local TARGET_PATH=$2
+
     if [[ "${MACHINE}" == "mac" ]];
     then
         sed -i '' "${SED_REGEX}" "${TARGET_PATH}"
@@ -96,22 +98,29 @@ add_git_bind_paths_in_file() {
     SUFFIX_BIND_PATH=$3
 
     BIND_PATHS=""
-    while read FILENAME_IN_GIT; do
+    while read FILENAME_IN_GIT;
+    do
         if [[ "${MAGENTO_DIR}" == "${FILENAME_IN_GIT}" ]] || \
             [[ "${MAGENTO_DIR}" == "${FILENAME_IN_GIT}/"* ]] || \
             [[ "${FILENAME_IN_GIT}" == "vendor" ]] || \
             [[ "${FILENAME_IN_GIT}" == "${DOCKER_COMPOSE_FILE%.*}"* ]]; then
             continue
         fi
+
         NEW_PATH="./${FILENAME_IN_GIT}:/var/www/html/${FILENAME_IN_GIT}"
         BIND_PATH_EXISTS=$(grep -q -e "${NEW_PATH}" ${FILE_TO_EDIT} && echo true || echo false)
-        if [ "${BIND_PATH_EXISTS}" == true ]; then
+
+        if [ "${BIND_PATH_EXISTS}" == true ];
+        then
             continue
         fi
-        if [ "${BIND_PATHS}" != "" ]; then
+
+        if [ "${BIND_PATHS}" != "" ];
+        then
             BIND_PATHS="${BIND_PATHS}\\
       " # IMPORTANT: This must be a new line with 6 indentation spaces.
         fi
+        
         BIND_PATHS="${BIND_PATHS}- ${NEW_PATH}${SUFFIX_BIND_PATH}"
 
     done <<< "${GIT_FILES}"
@@ -135,6 +144,7 @@ print_info() {
     echo "      * ${DOCKER_COMPOSE_FILE_MAC}"
     echo ""
     echo "   Please check that they are right or edit them accordingly."
+    # TODO: update message
     echo "   Be aware that vendor cannot be bound for performance reasons."
     echo ""
     printf "${YELLOW}----------------------------------------------------------------------${COLOR_RESET}\n"
@@ -175,6 +185,7 @@ get_requeriments() {
             echo -e "\n${RED}--------------------------------------------${COLOR_RESET}\n"
             exit 1
         fi
+
         requeriments=$(cat "${DATA_DIR}/requeriments.json" | jq -r '.['\"${MAGENTO_VERSION}\"']')
         change_requeriments
     fi
@@ -192,6 +203,7 @@ set_settings() {
     if [[ -f ".git/HEAD" ]];
     then
         GIT_FILES=$(git ls-files | awk -F / '{print $1}' | uniq)
+
         if [[ "${GIT_FILES}" != "" ]];
         then
             add_git_bind_paths_in_file "${GIT_FILES}" "${DOCKER_COMPOSE_FILE_MAC}" ":delegated"
@@ -265,6 +277,7 @@ edit_version() {
         then
             break
         fi
+
         if $(${TASKS_DIR}/in_list.sh "${REPLY}" "${OPTIONS}");
         then
             PHP_VERSION_SELECT=${REPLY}
@@ -290,27 +303,30 @@ edit_versions() {
         then
             break
         fi
+
         if $(${TASKS_DIR}/in_list.sh "${REPLY}" "${OPTIONS}");
         then
             PHP_VERSION_SELECT=${REPLY}
             break
         fi
+
         echo "invalid option '${REPLY}'"
     done
 
     edit_version $SELECT_RESULT
-
     change_requeriments
 }
 
 get_magento_root_directory
 check_if_docker_enviroment_exist
+
 if [ "$#" != 0 ];
 then
     get_requeriments $1
 else
     get_requeriments
 fi
+
 "${TASKS_DIR}/write_from_docker-compose_templates.sh" "${requeriments}"
 set_settings
 save_properties
@@ -319,4 +335,3 @@ save_properties
 ${COMMANDS_DIR}/stop.sh
 
 print_info
-
