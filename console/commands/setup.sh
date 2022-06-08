@@ -39,10 +39,10 @@ check_if_docker_enviroment_exist() {
         while true;
         do
             printf "\n${RED}----------------------------------------------------------------------${COLOR_RESET}\n"
-            printf "%14s${RED}¡¡¡WE HAVE DETECTED DOCKER COMPOSE FILES!!! ${COLOR_RESET}\n\n"
+            printf "%14s${RED}WE HAVE DETECTED DOCKER COMPOSE FILES!!! ${COLOR_RESET}\n\n"
             printf "%4s${RED}If you continue with this proccess these files will be removed${COLOR_RESET}\n"
             printf "${RED}----------------------------------------------------------------------${COLOR_RESET}\n\n"
-            printf "${BLUE}Do you wnat continue? [y/n] ${COLOR_RESET}"
+            printf "${BLUE}Do you want continue? [y/n] ${COLOR_RESET}"
             read yn
             case $yn in
                 [Yy]* ) break;;
