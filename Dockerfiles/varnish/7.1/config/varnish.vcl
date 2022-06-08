@@ -4,7 +4,7 @@ import std;
 
 backend default {
     .host = "nginx";
-    .port = "8843";
+    .port = "8080";
     .first_byte_timeout = 600s;
     .probe = {
         .url = "/health_check.php";
