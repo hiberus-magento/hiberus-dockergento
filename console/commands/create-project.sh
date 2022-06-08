@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+#
+# Define usage
+#
 usage() {
   printf "${YELLOW}Usage:${COLOR_RESET}\n"
   echo "  create-project"
@@ -9,12 +12,15 @@ usage() {
   echo "  This command creates a new magento project from scratch"
 }
 
+#
+#
+#
 overwrite_file_consent() {
   local TARGET_FILE=$1
 
   if [[ -f "${TARGET_FILE}" ]];
   then
-    printf "${RED} overwrite ${TARGET_FILE}? [y/n] ${COLOR_RESET}"
+    printf "${RED}overwrite ${TARGET_FILE}? [y/n] ${COLOR_RESET}"
     read ANSWER_OVERWRITE_TARGET
     if [ "${ANSWER_OVERWRITE_TARGET}" != "y" ];
     then
@@ -48,7 +54,8 @@ check_composer_files_exist() {
 get_magento_edition() {
   AVAILABLE_MAGENTO_EDITIONS="community commerce"
   DEFAULT_MAGENTO_EDITION="community"
-  printf "${BLUE}Magento edition:\n${COLOR_RESET}[${DEFAULT_MAGENTO_EDITION}]"
+
+  printf "${BLUE}Magento edition:${COLOR_RESET}\n"
 
   select MAGENTO_EDITION in ${AVAILABLE_MAGENTO_EDITIONS};
   do
@@ -56,6 +63,7 @@ get_magento_edition() {
       then
           break
       fi
+
       if $(${TASKS_DIR}/in_list.sh "${REPLY}" "${AVAILABLE_MAGENTO_EDITIONS}");
       then
           MAGENTO_EDITION=${REPLY}
@@ -63,11 +71,6 @@ get_magento_edition() {
       fi
       echo "invalid option '${REPLY}'"
   done
-
-  if [[ $MAGENTO_EDITION == '' ]];
-  then
-    MAGENTO_EDITION=$DEFAULT_MAGENTO_EDITION
-  fi
 }
 
 #
@@ -80,11 +83,13 @@ get_magento_version() {
 
   read MAGENTO_VERSION
 
-  if [[ $MAGENTO_VERSION == '' ]]; then
+  if [[ $MAGENTO_VERSION == '' ]];
+  then
       MAGENTO_VERSION=$DEFAULT_MAGENTO_VERSION
   fi
 
   EQUIVALENT_VERSION=$(${TASKS_DIR}/get_equivalent_version.sh "${MAGENTO_VERSION}")
+
   if [[ "null" == "$EQUIVALENT_VERSION" ]];
   then
     echo -e "\n${RED}-----------------------------------------${COLOR_RESET}"
@@ -95,39 +100,62 @@ get_magento_version() {
 }
 
 #
+# Check vendor/bin
 #
-#
-check_vendor() {
-   if [[ "${MAGENTO_DIR}/vendor/bin" != "${BIN_DIR}" ]];
+check_vendor_bin() {
+  if [[ "${MAGENTO_DIR}/vendor/bin" != "${BIN_DIR}" ]];
   then
-    printf "${YELLOW}Warning:${COLOR_RESET} bin dir is not inside magento dir\n"
-    echo "  Magento dir: '${MAGENTO_DIR}'"
-    echo "  Bin dir: '${BIN_DIR}'\n"
-    printf "${YELLOW}Edit ${MAGENTO_DIR}/composer.json accordingly and execute:\n"
-    echo ""
-    echo "  ${COMMAND_BIN_NAME} composer install"
-    echo ""
+    printf "${YELLOW}Warning:${COLOR_RESET} bin dir is not inside magento dir\n\n"
+    printf "  Magento dir: '${MAGENTO_DIR}'\n"
+    printf "  Bin dir: '${BIN_DIR}'\n"
+    printf "${YELLOW}Edit ${MAGENTO_DIR}/composer.json accordingly and execute:\n\n"
+    printf "  ${COMMAND_BIN_NAME} composer install\n\n"
     exit 0
   fi
 }
 
+#
+# Initialize command script
+#
 init_docker() {
+  # Get magento version information
+  get_magento_edition
+  get_magento_version
+
+  # Create docker environment
+  ${COMMANDS_DIR}/setup.sh "${EQUIVALENT_VERSION}"
+
+  # Manage composer files
   overwrite_file_consent "${COMPOSER_DIR}/composer.json"
   check_composer_files_exist
+
+  # Manage git files
   overwrite_file_consent ".gitignore"
+
+  # Start services
   ${TASKS_DIR}/start_service_if_not_running.sh ${SERVICE_APP}
+
+  # Create project tmp directory
   CREATE_PROJECT_TMP_DIR="${COMMAND_BIN_NAME}-create-project-tmp"
   ${COMMANDS_DIR}/exec.sh sh -c "rm -rf ${CREATE_PROJECT_TMP_DIR}/*"
-  ${COMMANDS_DIR}/exec.sh composer create-project --no-install --repository=https://repo.magento.com/ magento/project-${MAGENTO_EDITION}-edition ${CREATE_PROJECT_TMP_DIR} ${MAGENTO_VERSION}
 
+  # Execute composer create-project and copy composer.json
+  ${COMMANDS_DIR}/exec.sh composer create-project --no-install --repository=https://repo.magento.com/ magento/project-${MAGENTO_EDITION}-edition ${CREATE_PROJECT_TMP_DIR} ${MAGENTO_VERSION}
   echo " > Copying project files into host"
   ${COMMANDS_DIR}/exec.sh sh -c "cat ${CREATE_PROJECT_TMP_DIR}/composer.json > ${COMPOSER_DIR}/composer.json"
-  CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q ${SERVICE_PHP})
+  
+  # Copy .gitignore
   if [ -f "${CREATE_PROJECT_TMP_DIR}/.gitignore" ];
   then
+    CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q ${SERVICE_PHP})
     docker cp ${CONTAINER_ID}:${WORKDIR_PHP}/${CREATE_PROJECT_TMP_DIR}/.gitignore .gitignore
   fi
+
+  # Remove temporal directory
   ${COMMANDS_DIR}/exec.sh sh -c "rm -rf ${CREATE_PROJECT_TMP_DIR}"
+
+  check_vendor_bin
+  ${COMMANDS_DIR}/composer.sh install
 }
 
 # Check if command "jq" exists
@@ -135,20 +163,13 @@ if ! command -v jq  &> /dev/null
 then
     printf "${RED}Required 'jq' not found${COLOR_RESET}\n"
     printf "${BLUE}https://stedolan.github.io/jq/download/${COLOR_RESET}\n"
-    exit
+    exit 0
 fi
 
-if [ "$#" != 0 ] && [ "$1" == "--help" ]
+if [ "$#" != 0 ] && [ "$1" == "--help" ] [ "$1" == "-h" ]
 then
   usage
   exit 0
 fi
 
-get_magento_edition
-get_magento_version
-${COMMANDS_DIR}/setup.sh "${EQUIVALENT_VERSION}"
 init_docker
-check_vendor
-
-# pending composer command
-${COMMANDS_DIR}/composer.sh install

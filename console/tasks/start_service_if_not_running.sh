@@ -8,6 +8,7 @@ ${DOCKER_COMPOSE} exec -T ${SERVICE} sh -c "echo 'check ${SERVICE} service is ru
 SERVICE_RUNNING_ERROR=$?
 set -e # Enable interruption in case of error
 
-if [ ${SERVICE_RUNNING_ERROR} == 1 ]; then
-    ${COMMANDS_DIR}/start.sh ${SERVICE}
+if [ ${SERVICE_RUNNING_ERROR} == 1 ];
+then
+    ${COMMANDS_DIR}/start.sh
 fi
