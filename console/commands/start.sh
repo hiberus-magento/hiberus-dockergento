@@ -5,7 +5,7 @@ printf "${GREEN}Starting containers in detached mode${COLOR_RESET}\n"
 
 if [ "$#" == 0 ];
 then
-    ${DOCKER_COMPOSE} up -d ${SERVICE_APP}
+    ${DOCKER_COMPOSE} up -d
 else
     ${DOCKER_COMPOSE} up -d "$@"
 fi
