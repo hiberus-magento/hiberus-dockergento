@@ -1,6 +1,6 @@
 # Hiberus 
 
-Docker environment for Magento 2 projects
+Docker environment for Magento 2 projects. Please visit our [Dockerhub repository](https://hub.docker.com/u/hiberusmagento).
 
 
 ## Docker images
@@ -22,17 +22,7 @@ Docker environment for Magento 2 projects
 - **Magento 2.3**: `2.3.0`, `2.3.1`, `2.3.2`, `2.3.3`, `2.3.4`, `2.3.5`, `2.3.6`, `2.3.7`.
 
 
-## Copyright
-
-[(c) Hiberus Tecnología](https://hiberus.com)
-
-
-## Licence
-
-[GNU General Public License, version 3 (GPLv3)](https://opensource.org/licenses/gpl-3.0)
-
-
-### Install Hiberus CLI
+## Install Hiberus CLI
 
 1. Clone this repo
 
@@ -53,10 +43,20 @@ Docker environment for Magento 2 projects
     which hm
     hm
     ```
-4. Install `jq` dependency
 
-    [Download](https://stedolan.github.io/jq/download/)
+4. Install `jq` dependency: [Download](https://stedolan.github.io/jq/download/)
 
 ## Thanks to
 
 This project is based on [Dockergento](https://github.com/ModestCoders/magento2-dockergento). Special thanks to **ModestCoders** for their work. 
+
+
+## Copyright
+
+[(c) Hiberus Tecnología](https://hiberus.com)
+
+
+## Licence
+
+[GNU General Public License, version 3 (GPLv3)](https://opensource.org/licenses/gpl-3.0)
+
