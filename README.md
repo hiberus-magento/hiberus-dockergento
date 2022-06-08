@@ -13,6 +13,7 @@ Docker environment for Magento 2 projects
 - **Elastic**: `5.6`, `6.5`, `7.17`
 - **Mailhog**: `1.0`
 - **Varnish**: `6.0`, `7.1`
+- **Hitch**: `1.7`
 
 
 ## Magento compatible versions

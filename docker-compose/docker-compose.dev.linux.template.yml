@@ -7,6 +7,3 @@ services:
 
   nginx:
     volumes: *appvolumes-linux
-
-  node:
-    volumes: *appvolumes-linux

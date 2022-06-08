@@ -4,7 +4,7 @@
         "mysql": "5.7",
         "elastic": "5.6",
         "redis": "5.0",
-        "varnish": "5.0",
+        "varnish": "6.0",
         "composer": "1"
     },
     "2.3.3": {
@@ -52,7 +52,7 @@
         "mysql": "8",
         "elastic": "7.17",
         "redis": "6.2",
-        "varnish": "7.0",
+        "varnish": "7.1",
         "composer": "2"
     }
 }

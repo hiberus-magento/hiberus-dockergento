@@ -3,7 +3,6 @@ name: Dockerhub Publish
 on:
   push:
     branches: [main]
-  pull_request:
 
 jobs:
   publish:
@@ -67,3 +66,12 @@ jobs:
           - docker_file: ./Dockerfiles/mailhog/1.0/
             docker_name: hiberus-dockergento-mailhog
             docker_version: 1.0
+          - docker_file: ./Dockerfiles/redis/5.0/
+            docker_name: hiberus-dockergento-redis
+            docker_version: 5.0
+          - docker_file: ./Dockerfiles/redis/6.2/
+            docker_name: hiberus-dockergento-redis
+            docker_version: 6.2
+          - docker_file: ./Dockerfiles/hitch/1.7/
+            docker_name: hiberus-dockergento-hitch
+            docker_version: 1.7
