@@ -6,13 +6,6 @@ backend default {
     .host = "nginx";
     .port = "8080";
     .first_byte_timeout = 600s;
-    .probe = {
-        .url = "/health_check.php";
-        .timeout = 2s;
-        .interval = 5s;
-        .window = 10;
-        .threshold = 5;
-   }
 }
 
 # Add hostnames, IP addresses and subnets that are allowed to purge content
