@@ -6,8 +6,8 @@ if [ "$#" -eq  "0" ]; then
 else
   DOMAIN=$1
 fi
-CERT_FILE="${DOMAIN}.pem"
-CERT_NAME="Hiberus Local Cert: ${DOMAIN}"
+CERT_FILE="${DOMAIN}.crt"
+CERT_NAME="${DOMAIN}"
 
 if [ -z "$(docker ps|grep hitch)" ]; then
   printf "${RED}Error: Hitch is not running!${COLOR_RESET}\n"
@@ -17,11 +17,13 @@ fi
 printf "${GREEN}Generating SSL certificates for domain '${DOMAIN}'...${COLOR_RESET}\n"
 
 # Generate SSL certificate in Hitch container
-docker-compose exec -T -u root hitch openssl req -newkey rsa:2048 -sha256 -keyout testcert.key -nodes -x509 -days 365 -out testcert.crt -subj "/C=ES/ST=Spain/L=Spain/O=Hiberus/OU=Hiberus Magento/CN=${DOMAIN}" && cat testcert.key testcert.crt > /etc/hitch/testcert.pem && chown hitch /etc/hitch/testcert.pem
+docker-compose exec -T -u root hitch bash -c "mkcert -install"
+docker-compose exec -T -u root hitch bash -c "mkcert -cert-file testcert.crt -key-file testcert.key ${DOMAIN} localhost 127.0.0.1 ::1"
+docker-compose exec -T -u root hitch bash -c "cat testcert.crt testcert.key > /etc/hitch/testcert.pem && chown hitch /etc/hitch/testcert.pem"
 docker-compose restart hitch
 
 # Get generated SSL certificate
-docker cp "$(docker-compose ps -q hitch|awk '{print $1}')":/etc/hitch/testcert.pem ${CERT_FILE}
+docker cp "$(docker-compose ps -q hitch|awk '{print $1}')":/root/.local/share/mkcert/rootCA.pem ${CERT_FILE}
 
 printf "${GREEN}Installing SSL certificate into local environment...${COLOR_RESET}\n"
 
@@ -66,6 +68,6 @@ else
       certutil -D -n "${CERT_NAME}" -i ${CERT_FILE} -d sql:"${certdir}"
       certutil -A -n "${CERT_NAME}" -t "TCu,Cu,Tu" -i ${CERT_FILE} -d sql:"${certdir}"
   done
-  sudo mv ${CERT_FILE} /usr/local/share/ca-certificates/${CERT_FILE}.crt
+  sudo mv ${CERT_FILE} /usr/local/share/ca-certificates/${CERT_FILE}
   sudo update-ca-certificates
 fi
