@@ -48,7 +48,7 @@ RUN docker-php-ext-install \
     sockets
 
 RUN pecl channel-update pecl.php.net \
-    && pecl install xdebug \
+    && pecl install xdebug-3.1.5 \
     && docker-php-ext-enable xdebug \
     && sed -i -e 's/^zend_extension/\;zend_extension/g' /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
