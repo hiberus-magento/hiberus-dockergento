@@ -9,4 +9,4 @@ RUN curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64" \
 
 USER hitch
 
-CMD ["hitch", "--user=hitch", "--backend=[varnish]:6081", "--frontend=[*]:443", "/etc/hitch/testcert.pem"]
+CMD ["hitch", "--user=hitch", "--backend=[varnish]:6081", "--frontend=[*]:443", "--ciphers=EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH", "/etc/hitch/testcert.pem"]
