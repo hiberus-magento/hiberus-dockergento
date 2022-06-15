@@ -7,7 +7,6 @@ services:
       - sockdata:/sock
       - ../.composer:/var/www/.composer:delegated
       - ../.composer:/var/www/html/var/composer_home:delegated
-      - ./config/dockergento/nginx/conf/default.conf:/var/www/conf/nginx/default.conf:delegated
     environment:
       PHP_IDE_CONFIG: serverName=localhost
     depends_on:
