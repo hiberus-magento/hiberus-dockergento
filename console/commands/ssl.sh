@@ -6,6 +6,7 @@ if [ "$#" -eq  "0" ]; then
 else
   DOMAIN=$1
 fi
+
 CERT_FILE="${DOMAIN}.crt"
 CERT_NAME="${DOMAIN}"
 
@@ -16,58 +17,40 @@ fi
 
 printf "${GREEN}Generating SSL certificates for domain '${DOMAIN}'...${COLOR_RESET}\n"
 
-# Generate SSL certificate in Hitch container
-docker-compose exec -T -u root hitch bash -c "mkcert -install"
-docker-compose exec -T -u root hitch bash -c "mkcert -cert-file testcert.crt -key-file testcert.key ${DOMAIN} localhost 127.0.0.1 ::1"
-docker-compose exec -T -u root hitch bash -c "cat testcert.crt testcert.key > /etc/hitch/testcert.pem && chown hitch /etc/hitch/testcert.pem"
+# Check if command "mkcert" exists
+if ! command -v mkcert  &> /dev/null
+then
+    printf "${RED}Required 'mkcert' command not found. Trying to install...${COLOR_RESET}\n"
+
+    # Install on MacOS
+    if [ "$(uname)" == "Darwin" ]; then
+      sudo brew install mkcert nss
+      mkcert -install
+
+    # Install on Linux
+    else
+      if ! command -v curl  &> /dev/null; then
+        sudo apt-get -y install curl
+      fi
+      curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+      chmod +x mkcert-v*-linux-amd64
+      sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+      mkcert -install
+
+    fi
+fi
+
+if ! command -v mkcert  &> /dev/null; then
+  printf "${RED}Error during 'mkcert' installation. Please do it manually and try again...${COLOR_RESET}\n"
+  exit 1
+fi
+
+# Generate mkcert certificate
+printf "${GREEN}Installing SSL certificate into docker environment...${COLOR_RESET}\n"
+mkcert -cert-file ssl.crt -key-file ssl.key ${DOMAIN} localhost 127.0.0.1 0.0.0.0 ::1
+cat ssl.crt ssl.key > ssl.pem && rm ssl.crt ssl.key
+docker cp ./ssl.pem "$(docker-compose ps -q hitch|awk '{print $1}')":/etc/hitch/testcert.pem
+docker-compose exec -T -u root hitch chown hitch /etc/hitch/testcert.pem
 docker-compose restart hitch
 
-# Get generated SSL certificate
-docker cp "$(docker-compose ps -q hitch|awk '{print $1}')":/root/.local/share/mkcert/rootCA.pem ${CERT_FILE}
-
-printf "${GREEN}Installing SSL certificate into local environment...${COLOR_RESET}\n"
-
-# Install on MacOS
-if [ "$(uname)" == "Darwin" ]; then
-  sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ${CERT_FILE}
-  FFoxBin="/Applications/Firefox.app/Contents/MacOS/firefox-bin"
-  if [ -f "$FFoxBin" ]; then
-    echo "{\"policies\": {\"Certificates\": {\"ImportEnterpriseRoots\": true}}}" | sudo tee policies.json
-    DistDirectory="/Applications/Firefox.app/Contents/Resources/distribution"
-    if [ ! -d "$DistDirectory" ]; then
-      sudo mkdir -p "$DistDirectory"
-    fi
-    sudo mv policies.json "$DistDirectory"/policies.json
-    CertDirectory="/Library/Application Support/Mozilla/Certificates"
-    if [ ! -d "$CertDirectory" ]; then
-      sudo mkdir -p "$CertDirectory"
-    fi
-    sudo mv ${CERT_FILE} "$CertDirectory"/${CERT_FILE}
-  else
-    sudo rm ${CERT_FILE}
-  fi
-
-# Install on Linux
-else
-  REQUIRED_PKG="libnss3-tools"
-  PKG_OK=$(dpkg-query -W --showformat='${Status}\n' $REQUIRED_PKG|grep "install ok installed")
-  echo Checking for $REQUIRED_PKG: "$PKG_OK"
-  if [ "" = "$PKG_OK" ]; then
-    echo "No $REQUIRED_PKG found. Setting up $REQUIRED_PKG."
-    sudo apt-get --yes install $REQUIRED_PKG
-  fi
-  find ~/ -name "cert8.db" -print0 | while read -r certDB
-  do
-      certdir=$(dirname "${certDB}");
-      certutil -D -n "${CERT_NAME}" -i ${CERT_FILE} -d dbm:"${certdir}"
-      certutil -A -n "${CERT_NAME}" -t "TCu,Cu,Tu" -i ${CERT_FILE} -d dbm:"${certdir}"
-  done
-  find ~/ -name "cert9.db" -print0 | while read -r certDB
-  do
-      certdir=$(dirname "${certDB}");
-      certutil -D -n "${CERT_NAME}" -i ${CERT_FILE} -d sql:"${certdir}"
-      certutil -A -n "${CERT_NAME}" -t "TCu,Cu,Tu" -i ${CERT_FILE} -d sql:"${certdir}"
-  done
-  sudo mv ${CERT_FILE} /usr/local/share/ca-certificates/${CERT_FILE}
-  sudo update-ca-certificates
-fi
+printf "${GREEN}SSL certificate installed! Remember to restart your browser${COLOR_RESET}\n"
