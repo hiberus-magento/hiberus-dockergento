@@ -63,14 +63,6 @@ then
     MAGENTO2_MODULE_PATH="${MAGENTO_DIR}/vendor/magento/magento2-base"
     MAGENTO_EXISTS_IN_CONTAINER=$(${COMMANDS_DIR}/exec.sh sh -c "[ -f ${MAGENTO2_MODULE_PATH}/composer.json ] && echo true || echo false")
     MAGENTO_EXISTS_IN_HOST=$([ -f ${MAGENTO2_MODULE_PATH}/composer.json ] && echo true || echo false)
-    if [[ ${MAGENTO_EXISTS_IN_HOST} == true && ${MAGENTO_EXISTS_IN_CONTAINER} == *false* ]];
-    then
-        printf "${RED}Magento is not set up yet in container. Please remove 'magento2-base' and try again.${COLOR_RESET}\n"
-        echo ""
-        echo "   rm -rf ${HOST_DIR}/${MAGENTO2_MODULE_PATH}"
-        echo ""
-        exit 1
-    fi
 
     mirror_vendor_host_into_container
     ${COMMANDS_DIR}/exec.sh composer "$@" ${COMPOSER_DIR_OPTION}

@@ -7,7 +7,7 @@ if [ "$#" == 0 ];
 then
     ${DOCKER_COMPOSE} up -d
 else
-    ${DOCKER_COMPOSE} up -d "$@"
+    ${DOCKER_COMPOSE} up -d --remove-orphans "$@"
 fi
 
 ${TASKS_DIR}/validate_bind_mounts.sh

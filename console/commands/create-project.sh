@@ -126,35 +126,21 @@ init_docker() {
   ${COMMANDS_DIR}/setup.sh "${EQUIVALENT_VERSION}"
 
   # Manage composer files
-  overwrite_file_consent "${COMPOSER_DIR}/composer.json"
   check_composer_files_exist
 
-  # Manage git files
-  overwrite_file_consent ".gitignore"
-
   # Start services
-  ${TASKS_DIR}/start_service_if_not_running.sh ${SERVICE_APP}
-
-  # Create project tmp directory
-  CREATE_PROJECT_TMP_DIR="${COMMAND_BIN_NAME}-create-project-tmp"
-  ${COMMANDS_DIR}/exec.sh sh -c "rm -rf ${CREATE_PROJECT_TMP_DIR}/*"
+  docker-compose -f docker-compose.yml up -d
 
   # Execute composer create-project and copy composer.json
-  ${COMMANDS_DIR}/exec.sh composer create-project --no-install --repository=https://repo.magento.com/ magento/project-${MAGENTO_EDITION}-edition ${CREATE_PROJECT_TMP_DIR} ${MAGENTO_VERSION}
-  echo " > Copying project files into host"
-  ${COMMANDS_DIR}/exec.sh sh -c "cat ${CREATE_PROJECT_TMP_DIR}/composer.json > ${COMPOSER_DIR}/composer.json"
-  
-  # Copy .gitignore
-  if [ -f "${CREATE_PROJECT_TMP_DIR}/.gitignore" ];
-  then
-    CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q ${SERVICE_PHP})
-    docker cp ${CONTAINER_ID}:${WORKDIR_PHP}/${CREATE_PROJECT_TMP_DIR}/.gitignore .gitignore
-  fi
+  ${COMMANDS_DIR}/exec.sh composer create-project --no-install --repository=https://repo.magento.com/ magento/project-${MAGENTO_EDITION}-edition . ${MAGENTO_VERSION}
 
-  # Remove temporal directory
-  ${COMMANDS_DIR}/exec.sh sh -c "rm -rf ${CREATE_PROJECT_TMP_DIR}"
+  # Copy composer.js to host
+	${COMMANDS_DIR}/mirror-container.sh composer.json
 
-  check_vendor_bin
+  # Restart docker
+	${COMMANDS_DIR}/restart.sh
+
+  # Composer install
   ${COMMANDS_DIR}/composer.sh install
 }
 

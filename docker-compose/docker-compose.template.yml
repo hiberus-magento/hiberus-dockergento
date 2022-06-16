@@ -6,7 +6,6 @@ services:
     volumes: &appvolumes
       - sockdata:/sock
       - ../.composer:/var/www/.composer:delegated
-      - ../.composer:/var/www/html/var/composer_home:delegated
     environment:
       PHP_IDE_CONFIG: serverName=localhost
     depends_on:
@@ -40,7 +39,7 @@ services:
     environment:
       - discovery.type=single-node
     volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
+      - elasticsearchdata:/usr/share/elasticsearch/data
     ulimits:
       memlock:
         soft: -1
@@ -82,6 +81,6 @@ services:
 volumes:
   dbdata:
   sockdata:
-  elasticsearch_data:
+  elasticsearchdata:
   redisdata:
   rabbitmqdata:
