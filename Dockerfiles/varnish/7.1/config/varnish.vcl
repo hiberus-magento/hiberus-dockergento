@@ -45,6 +45,9 @@ sub vcl_recv {
         set req.grace = 300s;
     }
 
+    # Skip varnish if custom command is launched
+    #return(pass); #skip-varnish
+
     # Purge logic to remove objects from the cache
     # Tailored to Magento's cache invalidation mechanism
     if (req.method == "PURGE") {
