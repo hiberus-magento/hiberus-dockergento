@@ -1,0 +1,147 @@
+{
+    "bash": {
+        "description": "Connect into container using bash [Default container: php]",
+        "usage": "bash [options]",
+        "opts": [
+            {
+                "name": "--root",
+                "description": "Use bash as root user"
+            }
+        ]
+    },
+    "composer": {
+        "usage": "composer [arguments]",
+        "description": "Execute composer inside php container",
+        "args": [
+            {
+                "name": "[args]",
+                "description": "composer commands (install, update, ...)"
+            }
+        ]
+    },
+    "create_project": {
+        "description": "Create new magento project inside current directory",
+        "usage": "create-project [options]",
+        "opts": [
+            {
+                "name": "--yyy",
+                "description": "Ejecute command without question, install the last version with default configurations"
+            },
+            {
+                "name": "[version]",
+                "description": "Install magento version wished"
+            }
+        ]
+    },
+    "debug_off": {
+        "usage": "debug-off",
+        "description": "Disable xDebug"
+    },
+    "debug_on": {
+        "usage": "debug-on",
+        "description": "Enable xDebug"
+    },
+    "docker_compose": {
+        "usage": "docker-compose",
+        "description": "Execute docker-compose using configuration for your machine",
+        "args": [
+            {
+                "name": "[docker options]",
+                "description": "docker-compose commands (exec, up, down, ...)"
+            }
+        ]
+    },
+    "docker_remove_all": {
+        "usage": "docker-remove-all",
+        "description": "Remove all containers, volumes and images (Confirmation needed)"
+    },
+    "docker_stop_all": {
+        "usage": "docker_stop_all",
+        "description": "Stop all running containers"
+    },
+    "down": {
+        "usage": "down",
+        "description": "Stop and remove containers, networks, images, and volumes"
+    },
+    "exec": {
+        "usage": "exec [option] [arguments]",
+        "description": "Execute a command in a running container [Default container: php]",
+        "args": [
+            {
+                "name": "--root",
+                "description": "Run command as root user"
+            }
+        ],
+        "example": "exec ls -lah"
+    },
+    "magento": {
+        "usage": "magento [arguments]",
+        "description": "Execute magento console commands"
+    },
+    "copy_from_container": {
+        "usage": "copy-from-container [options] [path1] ... [pathN]",
+        "description": "(Mac only) Copy and overwrite container content into host",
+        "opts": [
+            {
+                "name": "[args]",
+                "description": "Do not ask confirmation to remove host destination"
+            }
+        ],
+        "example": "copy-from-container generated",
+        "mac": true
+    },
+    "copy_to_container": {
+        "usage": "copy-to-container [path1] ... [pathN]",
+        "description": "(Mac only) Copy and overwrite host content into container",
+        "args": [
+            {
+                "name": "[args]",
+                "description": "Folder to copy"
+            }
+        ],
+        "example": "copy-to-container vendor",
+        "mac": true
+    },
+    "purge": {
+        "description": "Remove all magento generated code (caches, generated, static, view_preprocessed)"
+    },
+   
+    "rebuild": {
+        "description": "Rebuild docker services with current configuration"
+    },
+    "restart": {
+        "description": "Restart docker services"
+    },
+    "npm": {
+        "description": "Execute npm commands inside node container"
+    },
+    "setup": {
+        "description": "Dockerize project"
+    },
+    "ssl": {
+        "description": "Install SSL certificates for docker environment"
+    },
+    "start": {
+        "description": "Start docker services"
+    },
+    "stop": {
+        "description": "Stop docker services"
+    },
+    "test_integration": {
+        "description": "Execute your magento integration tests"
+    },
+    "test_unit": {
+        "description": "Execute your magento unit test"
+    },
+    "urn_generate": {
+        "usage": "urn-generate <path>",
+        "description": "Generates the catalog of URNs to *.xsd mappings for the IDE to highlight xml",
+        "example": "urn-generate .idea/misc.xml"
+    },
+    "watch": {
+        "usage": "watch [path1] ... [pathN]",
+        "description": "(Mac only) Synchronise changes for paths that are not a bind mount (i.e: vendor)",
+        "example": "watch vendor/namespace/<module-to-watch>",
+        "mac": true
+    }
+}

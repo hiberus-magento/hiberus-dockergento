@@ -7,20 +7,6 @@ set -euo pipefail
 # For this reason and to simplify the logic, we support only dir copies.
 
 #
-# Define usage
-#
-usage() {
-    printf "${YELLOW}Usage:${COLOR_RESET}\n"
-    echo "  mirror-container [options] [path1] ... [pathN]"
-    echo ""
-    printf "${YELLOW}Options:${COLOR_RESET}\n"
-    printf "  ${GREEN}-f, --force${COLOR_RESET}     Do not ask confirmation to remove host destination\n"
-    echo ""
-    echo "Example:"
-    printf "  ${GREEN}dockergento mirror-container generated${COLOR_RESET}\n"
-}
-
-#
 # Clear destination directory
 #
 clear_dest_dir() {
@@ -39,12 +25,6 @@ clear_dest_dir() {
         echo " > deletion skipped"
     fi
 }
-
-if [ "$#" == 0 ] || [ "$1" == "--help" ];
-then
-    usage
-    exit 0
-fi
 
 if [[ "${MACHINE}" != "mac" ]];
 then
