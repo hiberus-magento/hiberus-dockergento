@@ -39,6 +39,9 @@ sub vcl_recv {
     # Add X-Forwarded-Proto header when using https (Custom: Forcing to use HTTPS)
     set req.http.X-Forwarded-Proto = "https";
 
+    # Skip varnish if custom command is launched
+    #return(pass); #skip-varnish
+
     # Reduce grace to 300s if the backend is healthy
     # In case of an unhealthy backend, the original grace is used
     if (std.healthy(req.backend_hint)) {
