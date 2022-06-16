@@ -10,9 +10,12 @@ backend default {
 
 # Add hostnames, IP addresses and subnets that are allowed to purge content
 acl purge {
+    "phpfpm";
+    "hitch";
     "nginx";
     "localhost";
     "127.0.0.1";
+    "0.0.0.0";
     "::1";
 }
 
@@ -33,10 +36,8 @@ sub vcl_recv {
     # See https://httpoxy.org/
     unset req.http.proxy;
 
-    # Add X-Forwarded-Proto header when using https
-    if (!req.http.X-Forwarded-Proto && (std.port(server.ip) == 443)) {
-        set req.http.X-Forwarded-Proto = "https";
-    }
+    # Add X-Forwarded-Proto header when using https (Custom: Forcing to use HTTPS)
+    set req.http.X-Forwarded-Proto = "https";
 
     # Reduce grace to 300s if the backend is healthy
     # In case of an unhealthy backend, the original grace is used
