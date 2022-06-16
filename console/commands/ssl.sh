@@ -24,7 +24,11 @@ then
 
     # Install on MacOS
     if [ "$(uname)" == "Darwin" ]; then
-      sudo brew install mkcert nss
+      if ! command -v brew  &> /dev/null; then
+        printf "${RED}Error: Brew is required. Please install it and try again.${COLOR_RESET}\n"
+        exit 1
+      fi
+      brew install mkcert nss
       mkcert -install
 
     # Install on Linux
