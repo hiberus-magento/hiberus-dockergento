@@ -7,7 +7,6 @@ services:
       - sockdata:/sock
       - ../.composer:/var/www/.composer:delegated
       - ../.composer:/var/www/html/var/composer_home:delegated
-      - ./config/dockergento/nginx/conf/default.conf:/var/www/conf/nginx/default.conf:delegated
     environment:
       PHP_IDE_CONFIG: serverName=localhost
     depends_on:
@@ -32,7 +31,7 @@ services:
       MYSQL_DATABASE: magento
       MYSQL_USER: magento
       MYSQL_PASSWORD: magento
-    command: [ '--default-authentication-plugin=mysql_native_password', '--sql_mode="STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION' ]
+    command: [ '--default-authentication-plugin=mysql_native_password', '--sql_mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' ]
     volumes:
       - dbdata:/var/lib/mysql
 
@@ -42,6 +41,10 @@ services:
       - discovery.type=single-node
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
 
   varnish:
     image: hiberusmagento/hiberus-dockergento-varnish:<varnish_version>
