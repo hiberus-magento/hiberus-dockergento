@@ -2,17 +2,6 @@
 set -euo pipefail
 
 #
-# Define usage
-#
-usage() {
-  printf "${YELLOW}Usage:${COLOR_RESET}\n"
-  echo "  create-project"
-  echo ""
-  printf "${YELLOW}Description:${COLOR_RESET}\n"
-  echo "  This command creates a new magento project from scratch"
-}
-
-#
 #
 #
 overwrite_file_consent() {
@@ -145,8 +134,7 @@ init_docker() {
   ${COMMANDS_DIR}/exec.sh sh -c "cat ${CREATE_PROJECT_TMP_DIR}/composer.json > ${COMPOSER_DIR}/composer.json"
   
   # Copy .gitignore
-  if [ -f "${CREATE_PROJECT_TMP_DIR}/.gitignore" ];
-  then
+  if [ -f "${CREATE_PROJECT_TMP_DIR}/.gitignore" ]; then
     CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q ${SERVICE_PHP})
     docker cp ${CONTAINER_ID}:${WORKDIR_PHP}/${CREATE_PROJECT_TMP_DIR}/.gitignore .gitignore
   fi
@@ -159,17 +147,10 @@ init_docker() {
 }
 
 # Check if command "jq" exists
-if ! command -v jq  &> /dev/null
-then
+if ! command -v jq  &> /dev/null; then
     printf "${RED}Required 'jq' not found${COLOR_RESET}\n"
     printf "${BLUE}https://stedolan.github.io/jq/download/${COLOR_RESET}\n"
     exit 0
-fi
-
-if [ "$#" != 0 ] && [ "$1" == "--help" ] [ "$1" == "-h" ]
-then
-  usage
-  exit 0
 fi
 
 init_docker

@@ -32,43 +32,23 @@ init_dirs() {
     export PROPERTIES_DIR="${ABSOLUTE_PATH}/console/properties"
 }
 
-#
-# Print usages of command
-#
-usage() {
-    printf "${YELLOW}Usage:${COLOR_RESET}\n"
-    echo "  [options] command [arguments]"
-    echo ""
-    printf "${YELLOW}Options:${COLOR_RESET}\n"
-    printf "  ${GREEN}--help${COLOR_RESET}    Display this help message\n"
-    printf "  ${GREEN}-T${COLOR_RESET}        Disable pseudo-tty allocation\n"
-    echo ""
-    printf "${YELLOW}Commands Help:${COLOR_RESET}\n"
-    printf "  ${GREEN}${COMMAND_BIN_NAME} <command> --help${COLOR_RESET}    Display help for a specific command\n"
-    echo ""
-    printf "${YELLOW}Available commands:${COLOR_RESET}\n"
-	COMMANDS_OUTPUT=""
-	for script in "${COMMANDS_DIR}"/*
-	do
-	    COMMAND_BASENAME=$(basename ${script})
-	    COMMAND_NAME=${COMMAND_BASENAME%.sh}
-	    COMMAND_DESC_PROPERTY="command_desc_${COMMAND_NAME//-/_}"
-	    COMMAND_DESC="${!COMMAND_DESC_PROPERTY:-}"
-	    COMMAND_OUTPUT=$(printf "  ${GREEN}%-30s${COLOR_RESET} %s" "${COMMAND_NAME}" "${COMMAND_DESC}")
-	    COMMANDS_OUTPUT="${COMMANDS_OUTPUT}${COMMAND_OUTPUT}\n"
-	done
-    printf "${COMMANDS_OUTPUT}"
-}
-
 init_dirs
 source ${TASKS_DIR}/load_properties.sh
 source ${PROPERTIES_DIR}/command_descriptions
 
 # If there are arguments and the first argument is --help
-if [ "$#" == 0 ] || [ "$1" == "--help" ] || [ "$1" == "-h" ];
-then
-    usage
-    exit 0
+if [ "$#" -gt 0 ]; then
+
+	if [ "$1" = "--help" ] ||
+		[ "$1" = "-h" ]; then
+		"${TASKS_DIR}/print_help.sh"
+		exit 0
+	elif [ "$#" -gt 1 ] &&
+		([ "$2" = "--help" ] || [ "$2" = "-h" ]); then
+			"${TASKS_DIR}/print_help.sh" $1
+			exit 0
+	fi
+
 fi
 
 # Manage tty option
