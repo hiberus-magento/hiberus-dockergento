@@ -17,8 +17,8 @@ print_commands_info() {
     TITLE="Custom command list"
     UNDERLINE="-------------------\n"
 
-    if [ -f "${CUSTOM_COMMANDS_DIR}/commands_description.json" ]; then
-      FILE_CONTENT=å$(cat ${CUSTOM_COMMANDS_DIR}/commands_description.json)
+    if [ -f "${CUSTOM_COMMANDS_DIR}/command_descriptions.json" ]; then
+      FILE_CONTENT=$(cat ${CUSTOM_COMMANDS_DIR}/command_descriptions.json)
     else
       FILE_CONTENT=$(echo "{}")
     fi
