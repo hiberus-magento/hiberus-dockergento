@@ -2,17 +2,6 @@
 set -euo pipefail
 
 #
-# Define usage
-#
-usage() {
-    printf "${YELLOW}Usage:${COLOR_RESET}\n"
-    echo "  mirror-host [path1] ... [pathN]"
-    echo ""
-    echo "Example:"
-    printf "  ${GREEN}hiberus-docker mirror-host vendor${COLOR_RESET}\n"
-}
-
-#
 # Validate mirror host path
 #
 validate_mirror_host_path() {
@@ -29,12 +18,6 @@ validate_mirror_host_path() {
         exit 1
     fi
 }
-
-if [ "$#" == 0 ] || [ "$1" == "--help" ];
-then
-    usage
-    exit 0
-fi
 
 if [[ "${MACHINE}" != "mac" ]];
 then

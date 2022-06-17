@@ -51,6 +51,6 @@ then
 fi
 
 # Transfer pub/media files
-rsync -az --ignore-existing --max-size=10m ${sshUser}@${sshHost}:${sshPath} ./pub/media
+rsync -az --ignore-existing --exclude '**/cache' --max-size=10m ${sshUser}@${sshHost}:${sshPath} ./pub
 
 printf "${GREEN}All media content transferred! ${COLOR_RESET}\n"

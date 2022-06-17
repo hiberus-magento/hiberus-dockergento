@@ -1,21 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-usage()
-{
-    printf "${YELLOW}Usage:${COLOR_RESET}\n"
-    echo "  watch [path1] ... [pathN]"
-    echo ""
-    echo "Example:"
-    printf "  ${GREEN}dockergento watch vendor/namespace/<module-to-watch>${COLOR_RESET}\n"
-}
-
-if [ "$#" == 0 ] || [ "$1" == "--help" ];
-then
-    usage
-    exit 0
-fi
-
 if [[ "${MACHINE}" != "mac" ]] && [[ "${MACHINE}" != "windows" ]];
 then
     printf "${RED} This command is only for mac and windows systems.${COLOR_RESET}\n"
