@@ -26,3 +26,4 @@ command_desc_watch="(Mac only) Synchronise changes for paths that are not a bind
 command_desc_ssl="Install SSL certificates for docker environment"
 command_desc_transfer_media="Transfer media content files from remote to local environment"
 command_desc_transfer_db="Transfer database content from remote to local environment (Preserving 'core_config' table)"
+command_desc_update="Update Hiberus Dockergento"

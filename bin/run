@@ -3,6 +3,7 @@ set -euo pipefail
 
 COMMAND_BIN_NAME="hm"
 export COMMAND_BIN_NAME="${COMMAND_BIN_NAME}"
+export COMMAND_TOOLNAME="Hiberus Dockergento"
 
 #
 # Resolve absolute path directories
