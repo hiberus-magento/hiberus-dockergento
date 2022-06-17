@@ -23,6 +23,9 @@ test-integration \
 test-unit \ 
 transfer-db \ 
 transfer-media \ 
+update \ 
 urn-generate \ 
+varnish-off \ 
+varnish-on \ 
 watch \ 
 " hm
