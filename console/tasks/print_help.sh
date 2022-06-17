@@ -59,7 +59,7 @@ print_all_commands_help_info() {
 }
 
 #
-# Print arguments data array
+# Print options data array
 #
 print_opts() {
   local LENGTH=$(echo "${FILE}" | jq -r '.'$1'.opts | length')
@@ -71,7 +71,28 @@ print_opts() {
   for (( i=0; i<$LENGTH; i++ )); do
     name=$(echo "${FILE}" | jq -r '.'$1'.opts['$i'].name')
     description=$(echo "${FILE}" | jq -r '.'$1'.opts['$i'].description')
-    printf "   ${GREEN}%-12s${COLOR_RESET}%s\n" "${name}" "${description}"
+    printf "   ${GREEN}%-20s${COLOR_RESET}%s\n" "${name}" "${description}"
+  done
+
+  if [[ $LENGTH > 0 ]]; then
+    printf "\n"
+  fi
+}
+
+#
+# Print arguments data array
+#
+print_args() {
+  local LENGTH=$(echo "${FILE}" | jq -r '.'$1'.args | length')
+
+  if [[ $LENGTH > 0 ]]; then
+    printf "${YELLOW}Arguments:${COLOR_RESET}\n"
+  fi
+
+  for (( i=0; i<$LENGTH; i++ )); do
+    name=$(echo "${FILE}" | jq -r '.'$1'.args['$i'].name')
+    description=$(echo "${FILE}" | jq -r '.'$1'.args['$i'].description')
+    printf "   ${GREEN}%-20s${COLOR_RESET}%s\n" "${name}" "${description}"
   done
 
   if [[ $LENGTH > 0 ]]; then
@@ -115,6 +136,11 @@ usage() {
       # Prinf options seccion
       if [[ "$PARAMS" == *"opts"* ]]; then
         print_opts $COMMAND_NAME
+      fi
+
+      # Prinf options seccion
+      if [[ "$PARAMS" == *"args"* ]]; then
+        print_args $COMMAND_NAME
       fi
     fi
   fi
