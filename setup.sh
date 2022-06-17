@@ -2,17 +2,18 @@
 
 DIR="${HOME}/hiberus-dockergento";
 EXECUTABLE="source ${DIR}/console/hm-completion.bash"
-SOURCE_FILE="${HOME}/.zshrc"
+if [ "$(uname)" == "Darwin" ]; then
+  SOURCE_FILE="${HOME}/.zshrc"
+else
+  SOURCE_FILE="${HOME}/.bashrc"
+fi
 
 # Compose string with all commands
 COMMANDS=""
 for script in "${DIR}/console/commands/"*.sh; do
-    COMMAND_BASENAME=$(basename ${script})
-    COMMAND_NAME=${COMMAND_BASENAME%.sh}
-    COMMAND_DESC_PROPERTY="command_desc_${COMMAND_NAME//-/_}"
-    COMMAND_DESC="${!COMMAND_DESC_PROPERTY:-}"
-    COMMAND_OUTPUT=$(printf "  ${GREEN}%-30s${COLOR_RESET} %s" "${COMMAND_NAME}" "${COMMAND_DESC}")
-    COMMANDS="${COMMANDS}${COMMAND_NAME} \\ \n"
+  COMMAND_BASENAME=$(basename ${script})
+  COMMAND_NAME=${COMMAND_BASENAME%.sh}
+  COMMANDS="${COMMANDS}${COMMAND_NAME} \\ \n"
 done
 
 # Write autocomplete file
