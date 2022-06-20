@@ -29,3 +29,4 @@ command_desc_transfer_db="Transfer database content from remote to local environ
 command_desc_update="Update Hiberus Dockergento"
 command_desc_varnish_off="Disable Varnish cache"
 command_desc_varnish_on="Enable Varnish cache"
+command_desc_grunt="Prepare grunt configuration and compile theme styles using grunt"

@@ -21,5 +21,5 @@ echo -e "#/usr/bin/env bash\n\ncomplete -W \"${COMMANDS}\" hm" > "${DIR}"/consol
 
 # Write source sentence in .zshrc
 if ! grep -q "${EXECUTABLE}" $SOURCE_FILE; then
-  echo "${EXECUTABLE}" >> $HOME/.zshrc
+  echo "${EXECUTABLE}" >> $SOURCE_FILE
 fi

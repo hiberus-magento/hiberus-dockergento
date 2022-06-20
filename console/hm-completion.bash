@@ -6,8 +6,9 @@ create-project \
 docker-compose \ 
 docker-stop-all \ 
 down \ 
-exec \ 
-install \ 
+exec \
+grunt \
+install \
 magento \ 
 mirror-container \ 
 mirror-host \ 
@@ -27,5 +28,5 @@ update \
 urn-generate \ 
 varnish-off \ 
 varnish-on \ 
-watch \ 
+watch \
 " hm
