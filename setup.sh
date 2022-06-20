@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DIR="${HOME}/hiberus-dockergento";
+DIR=$(dirname -- "$( readlink -f -- "$0"; )");
 EXECUTABLE="source ${DIR}/console/hm-completion.bash"
 if [ "$(uname)" == "Darwin" ]; then
   SOURCE_FILE="${HOME}/.zshrc"
