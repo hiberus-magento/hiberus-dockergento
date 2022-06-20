@@ -144,5 +144,10 @@
     "description": "(Mac only) Synchronise changes for paths that are not a bind mount (i.e: vendor)",
     "example": "watch vendor/namespace/<module-to-watch>",
     "mac": true
+  },
+  "grunt": {
+    "usage": "grunt <Vendor/theme> <locale_LOCALE>",
+    "description": "Prepare grunt configuration and compile theme styles using grunt",
+    "example": "grunt Hiberus/luma es_ES"
   }
 }
