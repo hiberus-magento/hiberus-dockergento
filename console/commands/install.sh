@@ -52,7 +52,6 @@ get_base_url() {
 get_argument_command() {
   ARGUMENT=$(cat "${DATA_DIR}/config.json" | jq -r '."'$1'"')
 
-  echo "$1: ${ARGUMENT}"
   if [ null != "$ARGUMENT" ]; then
     printf "${BLUE}Define $1: ${COLOR_RESET}[ ${ARGUMENT} ] "
   else
@@ -65,7 +64,6 @@ get_argument_command() {
     ARGUMENT=$RESPONSE
   fi
 
-  echo "$ARGUMENT"
   RESULT=$(cat "${DATA_DIR}/config.json" | jq --arg ARGUMENT "$ARGUMENT" '. | ."'$1'"=$ARGUMENT')
 
   echo "${RESULT}" > "${DATA_DIR}/config.json"
@@ -75,7 +73,6 @@ get_argument_command() {
 # Get config and run comand
 #
 get_config() {
-    echo "joe"
   get_argument_command "language"
   get_argument_command "currency"
   get_argument_command "timezone"
