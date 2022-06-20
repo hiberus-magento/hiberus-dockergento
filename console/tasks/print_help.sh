@@ -40,10 +40,9 @@ print_commands_info() {
       COMMAND_BASENAME=$(basename ${script})
       COMMAND_NAME=${COMMAND_BASENAME%.sh}
       COMMAND_DESC_PROPERTY=$(echo "${FILE_CONTENT}" | jq -r 'if .'${COMMAND_NAME//-/_}'.description then .'${COMMAND_NAME//-/_}'.description else "" end')
-      COMMAND_DESC="${!COMMAND_DESC_PROPERTY:-}"
       printf "   ${COMMAND_COLOR}%-20s${COLOR_RESET} %s\n" "${COMMAND_NAME}" "${COMMAND_DESC_PROPERTY}"
     done
-    
+
     echo "\n"
   fi
 }
