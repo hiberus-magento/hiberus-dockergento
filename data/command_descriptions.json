@@ -19,15 +19,9 @@
       }
     ]
   },
-  "create_project": {
+  "create-project": {
     "description": "Create new magento project inside current directory",
-    "usage": "create-project [options | arguments]",
-    "opts": [
-      {
-        "name": "--yyy",
-        "description": "Ejecute command without question, install the last version with default configurations"
-      }
-    ],
+    "usage": "create-project",
     "args": [
       {
         "name": "[version]",
@@ -35,15 +29,15 @@
       }
     ]
   },
-  "debug_off": {
+  "debug-off": {
     "usage": "debug-off",
     "description": "Disable xDebug"
   },
-  "debug_on": {
+  "debug-on": {
     "usage": "debug-on",
     "description": "Enable xDebug"
   },
-  "docker_compose": {
+  "docker-compose": {
     "usage": "docker-compose [arguments]",
     "description": "Execute docker-compose using configuration for your machine",
     "args": [
@@ -53,12 +47,8 @@
       }
     ]
   },
-  "docker_remove_all": {
-    "usage": "docker-remove-all",
-    "description": "Remove all containers, volumes and images (Confirmation needed)"
-  },
-  "docker_stop_all": {
-    "usage": "docker_stop_all",
+  "docker-stop-all": {
+    "usage": "docker-stop-all",
     "description": "Stop all running containers"
   },
   "down": {
@@ -76,11 +66,27 @@
     ],
     "example": "exec ls -lah"
   },
+  "install": {
+    "usage": "install [--yyy | domain]",
+    "description": "Execute setup:install magento command with custom config",
+    "opts": [
+      {
+        "name": "--yyy",
+        "description": "Run command with configeraion saved and https://magento-hm.local/ domain"
+      }
+    ],
+    "args": [
+      {
+        "name": "domain",
+        "description": "Run command with this domain"
+      }
+    ]
+  },
   "magento": {
     "usage": "magento [arguments]",
     "description": "Execute magento console commands"
   },
-  "copy_from_container": {
+  "copy-from-container": {
     "usage": "copy-from-container [options] [path1] ... [pathN]",
     "description": "(Mac only) Copy and overwrite container content into host",
     "opts": [
@@ -92,7 +98,7 @@
     "example": "copy-from-container generated",
     "mac": true
   },
-  "copy_to_container": {
+  "copy-to-container": {
     "usage": "copy-to-container [path1] ... [pathN]",
     "description": "(Mac only) Copy and overwrite host content into container",
     "args": [
@@ -116,6 +122,17 @@
   "npm": {
     "description": "Execute npm commands inside node container"
   },
+  "set-host": {
+    "usage": "set-host [domain]",
+    "example": "set-host my-project.local",
+    "description": "Set host name in /etc/hosts and core_config_data",
+    "args": [
+      {
+        "name": "domain",
+        "description": "Domain is desired to set"
+      }
+    ]
+  },
   "setup": {
     "description": "Dockerize project"
   },
@@ -128,13 +145,13 @@
   "stop": {
     "description": "Stop docker services"
   },
-  "test_integration": {
+  "test-integration": {
     "description": "Execute your magento integration tests"
   },
-  "test_unit": {
+  "test-unit": {
     "description": "Execute your magento unit test"
   },
-  "urn_generate": {
+  "urn-generate": {
     "usage": "urn-generate <path>",
     "description": "Generates the catalog of URNs to *.xsd mappings for the IDE to highlight xml",
     "example": "urn-generate .idea/misc.xml"
