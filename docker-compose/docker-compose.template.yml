@@ -40,7 +40,7 @@ services:
     environment:
       - discovery.type=single-node
     volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
+      - elasticsearchdata:/usr/share/elasticsearch/data
     ulimits:
       memlock:
         soft: -1
@@ -82,6 +82,6 @@ services:
 volumes:
   dbdata:
   sockdata:
-  elasticsearch_data:
+  elasticsearchdata:
   redisdata:
   rabbitmqdata:

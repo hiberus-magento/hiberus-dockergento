@@ -22,20 +22,20 @@ print_commands_info() {
     else
       FILE_CONTENT=$(echo "{}")
     fi
-    
+
     COMMAND_COLOR="${PURPLE}"
   fi
-  
+
   if [ ! -d "${COMMANDS_PATH}" ]; then
     exit 0
   fi
 
   local FILES=$(find "${COMMANDS_PATH}" -name '*.sh' | wc -l)
-  
+
   if [ $FILES -gt 0 ]; then
     printf "${COMMAND_COLOR}\n${TITLE}${COLOR_RESET}\n"
     printf "${COMMAND_COLOR}${UNDERLINE}${COLOR_RESET}\n"
-  
+
     for script in "${COMMANDS_PATH}"/*.sh; do
       COMMAND_BASENAME=$(basename ${script})
       COMMAND_NAME=${COMMAND_BASENAME%.sh}
@@ -67,7 +67,7 @@ print_opts() {
     printf "${YELLOW}Options:${COLOR_RESET}\n"
   fi
 
-  for (( i=0; i<$LENGTH; i++ )); do
+  for ((i = 0; i < $LENGTH; i++)); do
     name=$(echo "${FILE}" | jq -r '.'$1'.opts['$i'].name')
     description=$(echo "${FILE}" | jq -r '.'$1'.opts['$i'].description')
     printf "   ${GREEN}%-20s${COLOR_RESET}%s\n" "${name}" "${description}"
@@ -88,7 +88,7 @@ print_args() {
     printf "${YELLOW}Arguments:${COLOR_RESET}\n"
   fi
 
-  for (( i=0; i<$LENGTH; i++ )); do
+  for ((i = 0; i < $LENGTH; i++)); do
     name=$(echo "${FILE}" | jq -r '.'$1'.args['$i'].name')
     description=$(echo "${FILE}" | jq -r '.'$1'.args['$i'].description')
     printf "   ${GREEN}%-20s${COLOR_RESET}%s\n" "${name}" "${description}"

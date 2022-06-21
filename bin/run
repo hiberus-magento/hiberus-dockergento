@@ -35,6 +35,7 @@ init_dirs() {
     export CUSTOM_COMMANDS_DIR="${PWD}/config/${COMMAND_BIN_NAME}/commands"
     export TASKS_DIR="${ABSOLUTE_PATH}/console/tasks"
     export PROPERTIES_DIR="${ABSOLUTE_PATH}/console/properties"
+    export COMPONENTS_DIR="${ABSOLUTE_PATH}/console/components"
 }
 
 init_dirs
