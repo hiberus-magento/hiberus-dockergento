@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-DOMAIN="magento-${COMMAND_BIN_NAME}.local/"
-
 YML_FILE="${MAGENTO_DIR}/docker-compose.yml"
 PAHT_TO_MYSQL_KEYS="services_db_environment_MYSQL"
 LOOK_TASK="${TASKS_DIR}/look_at_yml.sh"
@@ -26,47 +24,44 @@ COMMAND_ARGUMENTS="--db-host=db \
 #
 # Run magento setup:install command
 #
-run_install_magento_command () {
-  CONFIG=$(cat "${DATA_DIR}/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")')
-  echo "${COMMANDS_DIR}/magento.sh" setup:install ${COMMAND_ARGUMENTS} ${CONFIG}
-  "${COMMANDS_DIR}/magento.sh" setup:install ${COMMAND_ARGUMENTS} ${CONFIG}
+run_install_magento_command() {
+  CONFIG=$(cat < "${DATA_DIR}/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")')
+  
+  ${COMMANDS_DIR}/magento.sh setup:install $COMMAND_ARGUMENTS $CONFIG
 }
 
 #
 # Get base url
 #
 get_base_url() {
-  if [ $# == 0 ]; then
-    printf "${BLUE}Define base url: ${COLOR_RESET}"
-    read DOMAIN
-  else
-    DOMAIN=$1
-  fi
+  source "${COMPONENTS_DIR}/input_info.sh" 
 
-  COMMAND_ARGUMENTS="$COMMAND_ARGUMENTS --base-url=http://${DOMAIN}/"
+  get_domain "$@"
+
+  COMMAND_ARGUMENTS="$COMMAND_ARGUMENTS --base-url=https://${DOMAIN}/"
 }
 
 #
 # Get arguments for setup-install command
 #
 get_argument_command() {
-  ARGUMENT=$(cat "${DATA_DIR}/config.json" | jq -r '."'$1'"')
+  ARGUMENT=$(cat < "${DATA_DIR}/config.json" | jq -r '."'"$1"'"')
 
   if [ null != "$ARGUMENT" ]; then
-    printf "${BLUE}Define $1: ${COLOR_RESET}[ ${ARGUMENT} ] "
+    printf "%bDefine %s: %b[ %s ] " "${BLUE}" "$1" "${COLOR_RESET}" "${ARGUMENT}"
   else
-    printf "${BLUE}Define $1: ${COLOR_RESET}"
+    printf "%bDefine %s: %b" "${BLUE}" "$1" "${COLOR_RESET}"
   fi
 
-  read RESPONSE
+  read -r RESPONSE
 
   if [[ $RESPONSE != '' ]]; then
     ARGUMENT=$RESPONSE
   fi
 
-  RESULT=$(cat "${DATA_DIR}/config.json" | jq --arg ARGUMENT "$ARGUMENT" '. | ."'$1'"=$ARGUMENT')
+  RESULT=$(cat < "${DATA_DIR}/config.json" | jq --arg ARGUMENT "$ARGUMENT" '. | ."'"$1"'"=$ARGUMENT')
 
-  echo "${RESULT}" > "${DATA_DIR}/config.json"
+  echo "${RESULT}" >"${DATA_DIR}/config.json"
 }
 
 #
@@ -83,26 +78,15 @@ get_config() {
   get_argument_command "admin-password"
   # Pendding to confirm
   # get_argument_command "search-engine"
-
-  run_install_magento_command
 }
 
 #
 # Initialize script
 #
 init() {
-  if [ $# == 0 ]; then
-    get_base_url
-    get_config
-  else
-    if [ $1 == '--yyy' ]; then
-      get_base_url $DOMAIN
-    else 
-        
-      get_base_url $1
-    fi
-    run_install_magento_command
-  fi
+  get_base_url "$@"
+  get_config
+  run_install_magento_command
 }
 
 init "$@"

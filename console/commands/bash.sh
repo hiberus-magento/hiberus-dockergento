@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [ "$#" != 0 ] && [ "$1" == "--root" ]; then
-  ${COMMANDS_DIR}/exec.sh --root bash
+  ${COMMAND_BIN_NAME} exec --root bash
 else
-  ${COMMANDS_DIR}/exec.sh bash
+  ${COMMAND_BIN_NAME} exec bash
 fi
