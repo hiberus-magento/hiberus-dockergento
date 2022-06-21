@@ -134,7 +134,15 @@
     ]
   },
   "setup": {
-    "description": "Dockerize project"
+    "usage": "setup [version]",
+    "description": "Dockerize magento project",
+    "example": "setup 2.4.3-p2",
+    "args": [
+      {
+        "name": "version",
+        "description": "Magento version you wish dockerize"
+      }
+    ]
   },
   "ssl": {
     "description": "Install SSL certificates for docker environment"
