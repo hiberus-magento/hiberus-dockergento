@@ -1,7 +1,8 @@
 ## JVM configuration
 
--Xms128m
--Xmx512m
+-Xms256m
+-Xmx256m
+-Dlog4j2.disable.jmx=true
 
 ## GC configuration
 8-13:-XX:+UseConcMarkSweepGC
@@ -14,7 +15,7 @@
 14-:-XX:InitiatingHeapOccupancyPercent=30
 
 ## JVM temporary directory
--Djava.io.tmpdir=${ES_TMPDIR}
+-Djava.io.tmpdir=/tmp
 
 ## Heap
 -XX:+HeapDumpOnOutOfMemoryError

@@ -38,9 +38,11 @@ services:
 
   search:
     image: hiberusmagento/search:<search_version>
+    environment:
+      - discovery.type=single-node
     volumes:
       - elasticdata:/usr/share/elasticsearch/data
-      - opensearchdata:/usr/share/elasticsearch/data
+      - opensearchdata:/usr/share/opensearch/data
     ulimits:
       memlock:
         soft: -1

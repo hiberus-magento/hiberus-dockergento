@@ -32,6 +32,10 @@ COPY conf/logrotate /etc/logrotate.d/elasticsearch
 COPY conf/log4j2.properties /usr/share/elasticsearch/config/log4j2.properties
 COPY conf/jvm.options /usr/share/elasticsearch/config/jvm.options
 
+# Install plugins
+RUN /usr/share/elasticsearch/bin/elasticsearch-plugin install --batch analysis-icu
+RUN /usr/share/elasticsearch/bin/elasticsearch-plugin install --batch analysis-phonetic
+
 WORKDIR /usr/share/elasticsearch
 VOLUME ["/usr/share/elasticsearch/data"]
 USER elasticsearch
