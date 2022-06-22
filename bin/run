@@ -5,7 +5,7 @@ COMMAND_BIN_NAME="hm"
 export COMMAND_BIN_NAME="${COMMAND_BIN_NAME}"
 export COMMAND_TOOLNAME="Hiberus Dockergento"
 
-if [ "$#" -eq  "0" ]; then
+if [ "$#" -eq "0" ]; then
   set -- -h
 fi
 
@@ -13,29 +13,28 @@ fi
 # Resolve absolute path directories
 #
 resolve_absolute_dir() {
-    SOURCE="${BASH_SOURCE[0]}"
-    while [ -h "$SOURCE" ];
-    do # resolve $SOURCE until the file is no longer a symlink
-      DIR="$( cd -P "$( dirname ${SOURCE} )" && pwd )"
-      SOURCE="$(readlink ${SOURCE})"
-      [[ ${SOURCE} != /* ]] && SOURCE="${DIR}/${SOURCE}" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
-    done
-    ABSOLUTE_BIN_PATH="$( cd -P "$( dirname ${SOURCE} )" && pwd )"
-    ABSOLUTE_PATH="${ABSOLUTE_BIN_PATH}/.."
+  SOURCE="${BASH_SOURCE[0]}"
+  while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+    DIR=$(cd -P "$(dirname "${SOURCE}")" && pwd)
+    SOURCE="$(readlink "${SOURCE}")"
+    [[ ${SOURCE} != /* ]] && SOURCE="${DIR}/${SOURCE}" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+  done
+  ABSOLUTE_BIN_PATH="$(cd -P "$(dirname "${SOURCE}")" && pwd)"
+  ABSOLUTE_PATH="${ABSOLUTE_BIN_PATH}/.."
 }
 
 #
 # Export absolute paths of main directories
 #
 init_dirs() {
-    resolve_absolute_dir
-    export COMMAND_BIN_DIR="${ABSOLUTE_PATH}"
-    export COMMANDS_DIR="${ABSOLUTE_PATH}/console/commands"
-    export DATA_DIR="${ABSOLUTE_PATH}/data"
-    export CUSTOM_COMMANDS_DIR="${PWD}/config/${COMMAND_BIN_NAME}/commands"
-    export TASKS_DIR="${ABSOLUTE_PATH}/console/tasks"
-    export PROPERTIES_DIR="${ABSOLUTE_PATH}/console/properties"
-    export COMPONENTS_DIR="${ABSOLUTE_PATH}/console/components"
+  resolve_absolute_dir
+  export COMMAND_BIN_DIR="${ABSOLUTE_PATH}"
+  export COMMANDS_DIR="${ABSOLUTE_PATH}/console/commands"
+  export DATA_DIR="${ABSOLUTE_PATH}/data"
+  export CUSTOM_COMMANDS_DIR="${PWD}/config/${COMMAND_BIN_NAME}/commands"
+  export TASKS_DIR="${ABSOLUTE_PATH}/console/tasks"
+  export PROPERTIES_DIR="${ABSOLUTE_PATH}/console/properties"
+  export COMPONENTS_DIR="${ABSOLUTE_PATH}/console/components"
 }
 
 init_dirs
@@ -45,55 +44,50 @@ source ${PROPERTIES_DIR}/command_descriptions
 # If there are arguments and the first argument is --help
 if [ "$#" -gt 0 ]; then
 
-	if [ "$1" = "--help" ] ||
-		[ "$1" = "-h" ]; then
-		"${TASKS_DIR}/print_help.sh"
-		exit 0
-	elif [ "$#" -gt 1 ] &&
-		([ "$2" = "--help" ] || [ "$2" = "-h" ]); then
-			"${TASKS_DIR}/print_help.sh" $1
-			exit 0
-	fi
+  if [ "$1" = "--help" ] ||
+    [ "$1" = "-h" ]; then
+    "${TASKS_DIR}/print_help.sh"
+    exit 0
+  elif [ "$#" -gt 1 ] &&
+    { [ "$2" = "--help" ] || [ "$2" = "-h" ]; }; then
+    "${TASKS_DIR}/print_help.sh" "$1"
+    exit 0
+  fi
 
 fi
 
 # Manage tty option
 export TTY_DISABLE=${TTY_DISABLE:=false}
-if [ "$1" == "-T" ];
-then
-    shift
-    TTY_DISABLE=true
+if [ "$1" == "-T" ]; then
+  shift
+  TTY_DISABLE=true
 fi
 
 # Set composer project name
 COMMAND_NAME="$1.sh"
-if [ ! -f ${COMMANDS_DIR}/${COMMAND_NAME} ];
-then
-    if [[ ! -f ${CUSTOM_COMMANDS_DIR}/${COMMAND_NAME} ]];
-    then
-        printf "${RED}Command not found${COLOR_RESET}\n"
-        printf " Execute ${GREEN}${COMMAND_BIN_NAME} --help${COLOR_RESET} to see commands available\n"
-        exit 1
-    else
-        COMMANDS_DIR=${CUSTOM_COMMANDS_DIR}
-    fi
+if [ ! -f "${COMMANDS_DIR}/${COMMAND_NAME}" ]; then
+  if [[ ! -f ${CUSTOM_COMMANDS_DIR}/${COMMAND_NAME} ]]; then
+    echo -e "${RED}Command not found${COLOR_RESET}"
+    echo -e " Execute ${GREEN}${COMMAND_BIN_NAME} --help${COLOR_RESET} to see commands available\n"
+    exit 1
+  else
+    COMMANDS_DIR=${CUSTOM_COMMANDS_DIR}
+  fi
 fi
 
-source ${TASKS_DIR}/set_machine_specific_properties.sh
+source "${TASKS_DIR}/set_machine_specific_properties.sh"
 
 # Set composer project name
-if [[ ! -z "${COMPOSE_PROJECT_NAME+}" ]];
-then
-    export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME}"
+if [[ -n "${COMPOSE_PROJECT_NAME+}" ]]; then
+  export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME}"
 fi
 
 export DOCKER_COMPOSE="docker-compose -f ${DOCKER_COMPOSE_FILE} -f ${DOCKER_COMPOSE_FILE_MACHINE}"
 
 # Validation docker compose
-if [[ "$1" != "setup" && "$1" != "create-project" && "$1" != "docker-stop-all" && "$1" != "docker-remove-all" ]];
-then
-    ${TASKS_DIR}/validate_docker_compose.sh
+if [[ "$1" != "setup" && "$1" != "create-project" && "$1" != "docker-stop-all" && "$1" != "docker-remove-all" ]]; then
+  "${TASKS_DIR}/validate_docker_compose.sh"
 fi
 
 shift
-${COMMANDS_DIR}/${COMMAND_NAME} "$@"
+"${COMMANDS_DIR}/${COMMAND_NAME}" "$@"
