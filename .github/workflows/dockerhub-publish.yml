@@ -36,12 +36,15 @@ jobs:
           - docker_file: ./Dockerfiles/php/7.2/
             docker_name: hiberus-dockergento-php
             docker_version: 7.2
-          - docker_file: ./Dockerfiles/mysql/5.7/
-            docker_name: hiberus-dockergento-mysql
-            docker_version: 5.7
-          - docker_file: ./Dockerfiles/mysql/8.0/
-            docker_name: hiberus-dockergento-mysql
-            docker_version: 8.0
+          - docker_file: ./Dockerfiles/mariadb/10.2/
+            docker_name: hiberus-dockergento-mariadb
+            docker_version: 10.2
+          - docker_file: ./Dockerfiles/mariadb/10.3/
+            docker_name: hiberus-dockergento-mariadb
+            docker_version: 10.3
+          - docker_file: ./Dockerfiles/mariadb/10.4/
+            docker_name: hiberus-dockergento-mariadb
+            docker_version: 10.4
           - docker_file: ./Dockerfiles/nginx/1.18/
             docker_name: hiberus-dockergento-nginx
             docker_version: 1.18
