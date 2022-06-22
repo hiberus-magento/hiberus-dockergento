@@ -1,2 +1,2 @@
-FROM mysql:8.0
+FROM mariadb:10.4
 MAINTAINER "Hiberus Tecnologia <jluque@hiberus.com>"

@@ -8,15 +8,18 @@ sshUser=""
 printf "${GREEN}Media transfer assistant: ${COLOR_RESET}\n"
 
 for i in "$@"; do
-    case $i in
-        --ssh-host=*)
-            sshHost="${i#*=}" && shift;;
-        --ssh-user=*)
-            sshUser="${i#*=}" && shift;;
-        --ssh-path=*)
-            sshPath="${i#*=}" && shift;;
-        -*|--*|*);;
-    esac
+  case $i in
+  --ssh-host=*)
+    sshHost="${i#*=}" && shift
+    ;;
+  --ssh-user=*)
+    sshUser="${i#*=}" && shift
+    ;;
+  --ssh-path=*)
+    sshPath="${i#*=}" && shift
+    ;;
+  -* | --* | *) ;;
+  esac
 done
 
 # Request data
@@ -37,15 +40,13 @@ printf "${GREEN}You are going to transfer files from [${sshHost}] to [LOCALHOST]
 read
 
 # Check rsync data
-if ! command -v rsync  &> /dev/null
-then
+if ! command -v rsync &>/dev/null; then
   printf "${RED}Error: Rsync command not available${COLOR_RESET}\n"
   exit 1
 fi
 
 # Check local pub/media directory
-if [ ! -d "./pub/media" ]
-then
+if [ ! -d "./pub/media" ]; then
   printf "${RED}Error: Local pub/media directory not found. Are you in the correct path?${COLOR_RESET}\n"
   exit 1
 fi

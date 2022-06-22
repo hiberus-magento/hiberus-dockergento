@@ -2,18 +2,16 @@
 set -euo pipefail
 
 #
-#
+# Overwrite file consent
 #
 overwrite_file_consent() {
   local TARGET_FILE=$1
 
-  if [[ -f "${TARGET_FILE}" ]];
-  then
-    printf "${RED}overwrite ${TARGET_FILE}? [y/n] ${COLOR_RESET}"
-    read ANSWER_OVERWRITE_TARGET
-    if [ "${ANSWER_OVERWRITE_TARGET}" != "y" ];
-    then
-      printf "${RED} Setup interrupted. This commands needs to overwrite this file.${COLOR_RESET}\n"
+  if [[ -f "${TARGET_FILE}" ]]; then
+    printf "${RED}Overwrite %s? [y/n] ${COLOR_RESET}" "${TARGET_FILE}?"
+    read -r ANSWER_OVERWRITE_TARGET
+    if [ "${ANSWER_OVERWRITE_TARGET}" != "y" ]; then
+      echo -e "${RED}Setup interrupted. This commands needs to overwrite this file.${COLOR_RESET}"
       exit 1
     fi
   fi
@@ -23,68 +21,15 @@ overwrite_file_consent() {
 # Create composer.josn and composer.lock if these not exits. If exist composer project, get magento version
 #
 check_composer_files_exist() {
-    if [ ! -f "${MAGENTO_DIR}/composer.json" ];
-    then
-        printf "${GREEN}Creating non existing '${MAGENTO_DIR}/composer.json'${COLOR_RESET}\n"
-        mkdir -p ${MAGENTO_DIR}
-        echo "{}" > ${MAGENTO_DIR}/composer.json
-    fi
-
-    if [ ! -f "${MAGENTO_DIR}/composer.lock" ];
-    then
-        printf "${GREEN}Creating non existing '${MAGENTO_DIR}/composer.lock'${COLOR_RESET}\n"
-        echo "{}" > ${MAGENTO_DIR}/composer.lock
-    fi
-}
-
-# 
-# Get magento edition
-# 
-get_magento_edition() {
-  AVAILABLE_MAGENTO_EDITIONS="community commerce"
-  DEFAULT_MAGENTO_EDITION="community"
-
-  printf "${BLUE}Magento edition:${COLOR_RESET}\n"
-
-  select MAGENTO_EDITION in ${AVAILABLE_MAGENTO_EDITIONS};
-  do
-      if $(${TASKS_DIR}/in_list.sh "${MAGENTO_EDITION}" "${AVAILABLE_MAGENTO_EDITIONS}");
-      then
-          break
-      fi
-
-      if $(${TASKS_DIR}/in_list.sh "${REPLY}" "${AVAILABLE_MAGENTO_EDITIONS}");
-      then
-          MAGENTO_EDITION=${REPLY}
-          break
-      fi
-      echo "invalid option '${REPLY}'"
-  done
-}
-
-#
-# Get magento version
-# 
-get_magento_version() {
-  DEFAULT_MAGENTO_VERSION="2.4.4"
-  
-  printf "${BLUE}Magento version: ${COLOR_RESET}[${DEFAULT_MAGENTO_VERSION}]"
-
-  read MAGENTO_VERSION
-
-  if [[ $MAGENTO_VERSION == '' ]];
-  then
-      MAGENTO_VERSION=$DEFAULT_MAGENTO_VERSION
+  if [ ! -f "${MAGENTO_DIR}/composer.json" ]; then
+    echo -e "${GREEN}Creating non existing '${MAGENTO_DIR}/composer.json'${COLOR_RESET}"
+    mkdir -p "${MAGENTO_DIR}"
+    echo "{}" > "${MAGENTO_DIR}"/composer.json
   fi
 
-  EQUIVALENT_VERSION=$(${TASKS_DIR}/get_equivalent_version.sh "${MAGENTO_VERSION}")
-
-  if [[ "null" == "$EQUIVALENT_VERSION" ]];
-  then
-    echo -e "\n${RED}-----------------------------------------${COLOR_RESET}"
-    echo -e "\n${RED}   The desired version is not supported${COLOR_RESET}"
-    echo -e "\n${RED}-----------------------------------------${COLOR_RESET}\n"
-    exit 1
+  if [ ! -f "${MAGENTO_DIR}/composer.lock" ]; then
+    echo -e "${GREEN}Creating non existing '${MAGENTO_DIR}/composer.lock'${COLOR_RESET}"
+    echo "{}" > "${MAGENTO_DIR}"/composer.lock
   fi
 }
 
@@ -92,14 +37,12 @@ get_magento_version() {
 # Check vendor/bin
 #
 check_vendor_bin() {
-  if [[ "${MAGENTO_DIR}/vendor/bin" != "${BIN_DIR}" ]];
-  then
-    printf "${YELLOW}Warning:${COLOR_RESET} bin dir is not inside magento dir\n\n"
-    printf "  Magento dir: '${MAGENTO_DIR}'\n"
-    printf "  Bin dir: '${BIN_DIR}'\n"
-    printf "${YELLOW}Edit ${MAGENTO_DIR}/composer.json accordingly and execute:\n\n"
-    printf "  ${COMMAND_BIN_NAME} composer install\n\n"
-    exit 0
+  if [[ "${MAGENTO_DIR}/vendor/bin" != "${BIN_DIR}" ]]; then
+    echo -e "${YELLOW}Warning:${MAGENTO_DIR} bin dir is not inside magento dir\n"
+    echo -e "  Magento dir: '${MAGENTO_DIR}"
+    echo -e "  Bin dir: ${BIN_DIR}'\n"
+    echo -e "${YELLOW}Edit ${MAGENTO_DIR}/composer.json accordingly and execute:\n"
+    echo -e "  ${COMMAND_BIN_NAME} composer install\n"
   fi
 }
 
@@ -107,12 +50,14 @@ check_vendor_bin() {
 # Initialize command script
 #
 init_docker() {
+  source "${COMPONENTS_DIR}"/input_info.sh
   # Get magento version information
   get_magento_edition
   get_magento_version
+  get_domain
 
   # Create docker environment
-  ${COMMANDS_DIR}/setup.sh "${EQUIVALENT_VERSION}"
+  ${COMMAND_BIN_NAME} setup "${EQUIVALENT_VERSION}" "${DOMAIN}"
 
   # Manage composer files
   overwrite_file_consent "${COMPOSER_DIR}/composer.json"
@@ -122,35 +67,53 @@ init_docker() {
   overwrite_file_consent ".gitignore"
 
   # Start services
-  ${TASKS_DIR}/start_service_if_not_running.sh ${SERVICE_APP}
+  "${TASKS_DIR}/start_service_if_not_running.sh" "${SERVICE_APP}"
 
   # Create project tmp directory
   CREATE_PROJECT_TMP_DIR="${COMMAND_BIN_NAME}-create-project-tmp"
-  ${COMMANDS_DIR}/exec.sh sh -c "rm -rf ${CREATE_PROJECT_TMP_DIR}/*"
+  ${COMMAND_BIN_NAME} exec sh -c "rm -rf ${CREATE_PROJECT_TMP_DIR}/*"
 
   # Execute composer create-project and copy composer.json
-  ${COMMANDS_DIR}/exec.sh composer create-project --no-install --repository=https://repo.magento.com/ magento/project-${MAGENTO_EDITION}-edition ${CREATE_PROJECT_TMP_DIR} ${MAGENTO_VERSION}
-  echo " > Copying project files into host"
-  ${COMMANDS_DIR}/exec.sh sh -c "cat ${CREATE_PROJECT_TMP_DIR}/composer.json > ${COMPOSER_DIR}/composer.json"
-  
+  ${COMMAND_BIN_NAME} exec composer create-project \
+    --no-install \
+    --repository=https://repo.magento.com/ \
+    magento/project-"${MAGENTO_EDITION}"-edition \
+    "${CREATE_PROJECT_TMP_DIR}" \
+    "${MAGENTO_VERSION}"
+
+  ${COMMAND_BIN_NAME} exec sh -c "cat ${CREATE_PROJECT_TMP_DIR}/composer.json > ${COMPOSER_DIR}/composer.json"
+
   # Copy .gitignore
   if [ -f "${CREATE_PROJECT_TMP_DIR}/.gitignore" ]; then
-    CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q ${SERVICE_PHP})
-    docker cp ${CONTAINER_ID}:${WORKDIR_PHP}/${CREATE_PROJECT_TMP_DIR}/.gitignore .gitignore
+    CONTAINER_ID=$("${DOCKER_COMPOSE}" ps -q phpfpm)
+    docker cp "${CONTAINER_ID}":"${WORKDIR_PHP}"/"${CREATE_PROJECT_TMP_DIR}"/.gitignore .gitignore
   fi
 
   # Remove temporal directory
-  ${COMMANDS_DIR}/exec.sh sh -c "rm -rf ${CREATE_PROJECT_TMP_DIR}"
+  ${COMMAND_BIN_NAME} exec sh -c "rm -rf ${CREATE_PROJECT_TMP_DIR}"
 
   check_vendor_bin
-  ${COMMANDS_DIR}/composer.sh install
+  ${COMMAND_BIN_NAME} composer install
+
+  ${COMMAND_BIN_NAME} install "$DOMAIN"
+
+  # Magento commands
+  ${COMMAND_BIN_NAME} magento setup:upgrade
+  ${COMMAND_BIN_NAME} magento deploy:mode:set developer
+  ${COMMAND_BIN_NAME} magento setup:static-content:deploy -f
+  ${COMMAND_BIN_NAME} magento setup:di:compile
+
+  ${COMMAND_BIN_NAME} ssl "$DOMAIN"
+  ${COMMAND_BIN_NAME} set-host "$DOMAIN" --no-database
+
+  echo -e "${YELLOW}Open ${BLUE}https://$DOMAIN/${COLOR_RESET}"
 }
 
 # Check if command "jq" exists
-if ! command -v jq  &> /dev/null; then
-    printf "${RED}Required 'jq' not found${COLOR_RESET}\n"
-    printf "${BLUE}https://stedolan.github.io/jq/download/${COLOR_RESET}\n"
-    exit 0
+if ! command -v jq &>/dev/null; then
+  echo -e "${RED}Required 'jq' not found${COLOR_RESET}"
+  echo -e "${BLUE}https://stedolan.github.io/jq/download/${COLOR_RESET}"
+  exit 0
 fi
 
 init_docker
