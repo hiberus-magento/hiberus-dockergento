@@ -133,7 +133,7 @@ get_requeriments() {
     exit
   fi
 
-  if [ "$#" -eq 0 ]; then
+  if [ "$#" -gt 0 ]; then
     requeriments=$(cat < "${DATA_DIR}/requeriments.json" | jq -r '.['\""$1"\"']')
     change_requeriments 
   else
