@@ -22,8 +22,8 @@ sync_all_from_container_to_host() {
   echo " > removing vendor in host: '${HOST_DIR}/${MAGENTO_DIR}/vendor/*'"
   rm -rf ${HOST_DIR}/${MAGENTO_DIR}/vendor/*
 
-  echo " > copying '${SERVICE_PHP}:${WORKDIR_PHP}/.' into '${HOST_DIR}'"
-  CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q ${SERVICE_PHP})
+  echo " > copying 'phpfpm:${WORKDIR_PHP}/.' into '${HOST_DIR}'"
+  CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q phpfpm)
   docker cp ${CONTAINER_ID}:${WORKDIR_PHP}/. ${HOST_DIR}
 
   # Start containers again because we needed to stop them before mirroring
