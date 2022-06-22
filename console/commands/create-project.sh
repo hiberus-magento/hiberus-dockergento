@@ -8,7 +8,7 @@ overwrite_file_consent() {
   local TARGET_FILE=$1
 
   if [[ -f "${TARGET_FILE}" ]]; then
-    echo -e "${RED}Overwrite ${TARGET_FILE}? [y/n] ${COLOR_RESET}"
+    printf "${RED}Overwrite %s? [y/n] ${COLOR_RESET}" "${TARGET_FILE}?"
     read -r ANSWER_OVERWRITE_TARGET
     if [ "${ANSWER_OVERWRITE_TARGET}" != "y" ]; then
       echo -e "${RED}Setup interrupted. This commands needs to overwrite this file.${COLOR_RESET}"
@@ -81,7 +81,6 @@ init_docker() {
     "${CREATE_PROJECT_TMP_DIR}" \
     "${MAGENTO_VERSION}"
 
-  echo " > Copying project files into host"
   ${COMMAND_BIN_NAME} exec sh -c "cat ${CREATE_PROJECT_TMP_DIR}/composer.json > ${COMPOSER_DIR}/composer.json"
 
   # Copy .gitignore
