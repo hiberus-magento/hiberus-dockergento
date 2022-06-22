@@ -10,4 +10,4 @@ USER=$(${LOOK_TASK} "${YML_FILE}" "${PAHT_TO_MYSQL_KEYS}_USER")
 PASSWORD=$(${LOOK_TASK} "${YML_FILE}" "${PAHT_TO_MYSQL_KEYS}_PASSWORD")
 DATABASE=$(${LOOK_TASK} "${YML_FILE}" "${PAHT_TO_MYSQL_KEYS}_DATABASE")
 
-${COMMAND_BIN_NAME} docker-compose exec -T db mysql  -u"${USER}" -p"${PASSWORD}" "${DATABASE}" "$@"
+${COMMAND_BIN_NAME} docker-compose exec -T db mysql -u"${USER}" -p"${PASSWORD}" "${DATABASE}" "$@"

@@ -3,6 +3,8 @@
 complete -W "bash \ 
 composer \ 
 create-project \ 
+debug-off \ 
+debug-on \ 
 docker-compose \ 
 docker-stop-all \ 
 down \ 

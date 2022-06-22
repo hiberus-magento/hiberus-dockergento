@@ -85,7 +85,7 @@ init_docker() {
 
   # Copy .gitignore
   if [ -f "${CREATE_PROJECT_TMP_DIR}/.gitignore" ]; then
-    CONTAINER_ID=$("${DOCKER_COMPOSE}" ps -q "${SERVICE_PHP}")
+    CONTAINER_ID=$("${DOCKER_COMPOSE}" ps -q phpfpm)
     docker cp "${CONTAINER_ID}":"${WORKDIR_PHP}"/"${CREATE_PROJECT_TMP_DIR}"/.gitignore .gitignore
   fi
 

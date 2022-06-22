@@ -13,7 +13,7 @@ sanitize_path() {
 PATH_TO_CHECK="$1"
 BIND_PATH_NEEDLE="bind:${PATH_TO_CHECK}"
 
-CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q ${SERVICE_PHP})
+CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q phpfpm)
 if [[ ${CONTAINER_ID} != "" ]]; then
   MOUNTS=$(docker container inspect -f '{{ range .Mounts }}{{ .Type }}:{{ .Destination }} {{ end }}' ${CONTAINER_ID})
 

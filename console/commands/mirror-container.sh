@@ -43,10 +43,10 @@ ${COMMANDS_DIR}/stop.sh
 source ${TASKS_DIR}/mirror_path.sh
 
 printf "${GREEN}Start mirror copy of container into host${COLOR_RESET}\n"
-CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q ${SERVICE_PHP})
+CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q phpfpm)
 
 for PATH_TO_MIRROR in $@; do
-  printf "${YELLOW}${SERVICE_PHP}:${PATH_TO_MIRROR} -> ${PATH_TO_MIRROR}${COLOR_RESET}\n"
+  printf "${YELLOW}phpfpm:${PATH_TO_MIRROR} -> ${PATH_TO_MIRROR}${COLOR_RESET}\n"
 
   echo " > validating and sanitizing path: '${PATH_TO_MIRROR}'"
   PATH_TO_MIRROR=$(sanitize_mirror_path "${PATH_TO_MIRROR}")
@@ -59,7 +59,7 @@ for PATH_TO_MIRROR in $@; do
   echo " > ensure destination exists: '${DEST_PATH}'"
   mkdir -p ${DEST_PATH}
 
-  echo " > copying '${SERVICE_PHP}:${WORKDIR_PHP}/${SRC_PATH}' into '${DEST_PATH}'"
+  echo " > copying 'phpfpm:${WORKDIR_PHP}/${SRC_PATH}' into '${DEST_PATH}'"
   docker cp ${CONTAINER_ID}:${WORKDIR_PHP}/${SRC_PATH} ${DEST_PATH}
 done
 

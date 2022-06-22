@@ -18,8 +18,8 @@ set_local_host() {
   if [ "$#" -gt 1 ] && [ "$2" != "--no-database" ]; then
     echo -p "${YELLOW}Set ${BLUE}https://${DOMAIN}/${YELLOW} to web/secure/base_url and web/secure/base_url${COLOR_RESET}"
     # Add domain in core_config_data table
-    "${COMMANDS_DIR}/magento.sh" config:set web/secure/base_url https://${DOMAIN}/
-    "${COMMANDS_DIR}/magento.sh" config:set web/unsecure/base_url https://${DOMAIN}/
+    "${COMMANDS_DIR}/magento.sh" config:set web/secure/base_url https://"${DOMAIN}"/
+    "${COMMANDS_DIR}/magento.sh" config:set web/unsecure/base_url https://"${DOMAIN}"/
   fi
 }
 

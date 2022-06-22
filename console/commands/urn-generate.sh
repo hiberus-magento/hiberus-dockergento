@@ -11,5 +11,5 @@ echo " > Replacing paths: '${WORKDIR_PHP} -> ${ABSOLUTE_HOST_DIR}'"
 ${COMMANDS_DIR}/exec.sh sh -c "sed -i s#${WORKDIR_PHP}#${ABSOLUTE_HOST_DIR}#g ${MISC_PATH}"
 
 echo " > Copying generated urn from container into host"
-CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q ${SERVICE_PHP})
+CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q phpfpm)
 docker cp ${CONTAINER_ID}:${WORKDIR_PHP}/${MISC_PATH} ${MISC_PATH}

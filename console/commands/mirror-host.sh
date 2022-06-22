@@ -26,10 +26,10 @@ fi
 source ${TASKS_DIR}/mirror_path.sh
 
 echo -e "${GREEN}Start mirror copy of host into container${COLOR_RESET}"
-CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q ${SERVICE_PHP})
+CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q phpfpm)
 
 for PATH_TO_MIRROR in $@; do
-  echo -e "${YELLOW}${PATH_TO_MIRROR} -> ${SERVICE_PHP}:${PATH_TO_MIRROR}${COLOR_RESET}\n"
+  echo -e "${YELLOW}${PATH_TO_MIRROR} -> phpfpm:${PATH_TO_MIRROR}${COLOR_RESET}\n"
 
   echo " > validating and sanitizing path: '${PATH_TO_MIRROR}'"
   PATH_TO_MIRROR=$(sanitize_mirror_path "${PATH_TO_MIRROR}")
@@ -41,7 +41,7 @@ for PATH_TO_MIRROR in $@; do
 
   SRC_IS_DIR=$([ -d "${SRC_PATH}" ] && echo true || echo false)
   if [[ ${SRC_IS_DIR} == *true* ]]; then
-    echo " > removing destination dir content: '${SERVICE_PHP}:${DEST_PATH}/*'"
+    echo " > removing destination dir content: 'phpfpm:${DEST_PATH}/*'"
     ${COMMANDS_DIR}/exec.sh sh -c "rm -rf ${DEST_PATH}/*"
     SRC_PATH="${SRC_PATH}/."
     DEST_DIR="${DEST_PATH}"
@@ -53,7 +53,7 @@ for PATH_TO_MIRROR in $@; do
   if [[ ${SRC_IS_DIR} == *true* && $(find ${SRC_PATH} -maxdepth 0 -empty) ]]; then
     echo " > skipping copy. Source dir is empty: '${SRC_PATH}'"
   else
-    echo " > copying '${SRC_PATH}' into '${SERVICE_PHP}:${WORKDIR_PHP}/${DEST_PATH}'"
+    echo " > copying '${SRC_PATH}' into 'phpfpm:${WORKDIR_PHP}/${DEST_PATH}'"
     docker cp ${SRC_PATH} ${CONTAINER_ID}:${WORKDIR_PHP}/${DEST_PATH}
   fi
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-${COMMANDS_DIR}/stop.sh
-${COMMANDS_DIR}/start.sh
+${COMMAND_BIN_NAME} stop
+${COMMAND_BIN_NAME} start
