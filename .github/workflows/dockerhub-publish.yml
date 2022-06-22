@@ -10,6 +10,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -19,59 +23,66 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: ${{ matrix.docker_file }}
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: hiberusmagento/${{ matrix.docker_name }}:${{ matrix.docker_version }}
     strategy:
       matrix:
         include:
           - docker_file: ./Dockerfiles/php/8.1/
-            docker_name: hiberus-dockergento-php
+            docker_name: php
             docker_version: 8.1
           - docker_file: ./Dockerfiles/php/7.4/
-            docker_name: hiberus-dockergento-php
+            docker_name: php
             docker_version: 7.4
           - docker_file: ./Dockerfiles/php/7.3/
-            docker_name: hiberus-dockergento-php
+            docker_name: php
             docker_version: 7.3
           - docker_file: ./Dockerfiles/php/7.2/
-            docker_name: hiberus-dockergento-php
+            docker_name: php
             docker_version: 7.2
-          - docker_file: ./Dockerfiles/mysql/5.7/
-            docker_name: hiberus-dockergento-mysql
-            docker_version: 5.7
-          - docker_file: ./Dockerfiles/mysql/8.0/
-            docker_name: hiberus-dockergento-mysql
-            docker_version: 8.0
+          - docker_file: ./Dockerfiles/mariadb/10.2/
+            docker_name: mariadb
+            docker_version: 10.2
+          - docker_file: ./Dockerfiles/mariadb/10.3/
+            docker_name: mariadb
+            docker_version: 10.3
+          - docker_file: ./Dockerfiles/mariadb/10.4/
+            docker_name: mariadb
+            docker_version: 10.4
           - docker_file: ./Dockerfiles/nginx/1.18/
-            docker_name: hiberus-dockergento-nginx
+            docker_name: nginx
             docker_version: 1.18
-          - docker_file: ./Dockerfiles/elastic/5.6/
-            docker_name: hiberus-dockergento-elastic
-            docker_version: 5.6
-          - docker_file: ./Dockerfiles/elastic/6.5/
-            docker_name: hiberus-dockergento-elastic
-            docker_version: 6.5
-          - docker_file: ./Dockerfiles/elastic/7.17/
-            docker_name: hiberus-dockergento-elastic
-            docker_version: 7.17
+          - docker_file: ./Dockerfiles/search/5.6-elasticsearch/
+            docker_name: search
+            docker_version: 5.6-elasticsearch
+          - docker_file: ./Dockerfiles/search/6.5-elasticsearch/
+            docker_name: search
+            docker_version: 6.5-elasticsearch
+          - docker_file: ./Dockerfiles/search/7.17-elasticsearch/
+            docker_name: search
+            docker_version: 7.17-elasticsearch
+          - docker_file: ./Dockerfiles/search/1.2-opensearch/
+            docker_name: search
+            docker_version: 1.2-opensearch
           - docker_file: ./Dockerfiles/rabbitmq/3.9/
-            docker_name: hiberus-dockergento-rabbitmq
+            docker_name: rabbitmq
             docker_version: 3.9
           - docker_file: ./Dockerfiles/varnish/6.0/
-            docker_name: hiberus-dockergento-varnish
+            docker_name: varnish
             docker_version: 6.0
           - docker_file: ./Dockerfiles/varnish/7.1/
-            docker_name: hiberus-dockergento-varnish
+            docker_name: varnish
             docker_version: 7.1
           - docker_file: ./Dockerfiles/mailhog/1.0/
-            docker_name: hiberus-dockergento-mailhog
+            docker_name: mailhog
             docker_version: 1.0
           - docker_file: ./Dockerfiles/redis/5.0/
-            docker_name: hiberus-dockergento-redis
+            docker_name: redis
             docker_version: 5.0
           - docker_file: ./Dockerfiles/redis/6.2/
-            docker_name: hiberus-dockergento-redis
+            docker_name: redis
             docker_version: 6.2
           - docker_file: ./Dockerfiles/hitch/1.7/
-            docker_name: hiberus-dockergento-hitch
+            docker_name: hitch
             docker_version: 1.7

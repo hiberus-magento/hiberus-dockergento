@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ -z "$(docker ps|grep varnish)" ]; then
+if [ -z "$(docker ps | grep varnish)" ]; then
   printf "${RED}Error: Varnish is not running!${COLOR_RESET}\n"
   exit
 fi
-if [ -z "$(docker ps|grep phpfpm)" ]; then
+if [ -z "$(docker ps | grep phpfpm)" ]; then
   printf "${RED}Error: PHP is not running!${COLOR_RESET}\n"
   exit
 fi

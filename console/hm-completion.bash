@@ -1,17 +1,20 @@
-#/usr/bin/env bash
+#!/usr/bin/env bash
 
 complete -W "bash \ 
 composer \ 
 create-project \ 
+debug-off \ 
+debug-on \ 
 docker-compose \ 
 docker-stop-all \ 
 down \ 
-exec \
-grunt \
-install \
+exec \ 
+grunt \ 
+install \ 
 magento \ 
 mirror-container \ 
 mirror-host \ 
+mysql \ 
 purge \ 
 rebuild \ 
 restart \ 
@@ -28,5 +31,5 @@ update \
 urn-generate \ 
 varnish-off \ 
 varnish-on \ 
-watch \
+watch \ 
 " hm

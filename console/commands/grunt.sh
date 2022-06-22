@@ -11,7 +11,7 @@ GRUNT_THEME=$1
 GRUNT_LOCALE=$2
 
 # Check if PHP container is running
-if [ -z "$(docker ps|grep phpfpm)" ]; then
+if [ -z "$(docker ps | grep phpfpm)" ]; then
   printf "${RED}Error: PHP container is not running!${COLOR_RESET}\n"
   exit
 fi
@@ -33,4 +33,3 @@ printf "Prepared grunt configurations...\n"
 # Launch grunt
 printf "${GREEN}Compiling styles...\n${COLOR_RESET}"
 docker-compose exec phpfpm bash -c "grunt exec:magento && grunt watch:magento"
-

@@ -11,33 +11,39 @@ sqlPassword=""
 printf "${GREEN}Database transfer assistant: ${COLOR_RESET}\n"
 
 # Check php container
-if [ -z "$(docker ps|grep php)" ]; then
+if [ -z "$(docker ps | grep php)" ]; then
   printf "${RED}Error: PHP container is not running!${COLOR_RESET}\n"
   exit 1
 fi
 
 # Check mysql container
-if [ -z "$(docker ps|grep mysql)" ]; then
+if [ -z "$(docker ps | grep mysql)" ]; then
   printf "${RED}Error: MySQL container is not running!${COLOR_RESET}\n"
   exit 1
 fi
 
 for i in "$@"; do
-    case $i in
-        --ssh-host=*)
-            sshHost="${i#*=}" && shift;;
-        --ssh-user=*)
-            sshUser="${i#*=}" && shift;;
-        --sql-host=*)
-            sqlHost="${i#*=}" && shift;;
-        --sql-user=*)
-            sqlUser="${i#*=}" && shift;;
-        --sql-db=*)
-            sqlDb="${i#*=}" && shift;;
-        --sql-password=*)
-            sqlPassword="${i#*=}" && shift;;
-        -*|--*|*);;
-    esac
+  case $i in
+  --ssh-host=*)
+    sshHost="${i#*=}" && shift
+    ;;
+  --ssh-user=*)
+    sshUser="${i#*=}" && shift
+    ;;
+  --sql-host=*)
+    sqlHost="${i#*=}" && shift
+    ;;
+  --sql-user=*)
+    sqlUser="${i#*=}" && shift
+    ;;
+  --sql-db=*)
+    sqlDb="${i#*=}" && shift
+    ;;
+  --sql-password=*)
+    sqlPassword="${i#*=}" && shift
+    ;;
+  -* | --* | *) ;;
+  esac
 done
 
 # Request SSH credentials
@@ -92,7 +98,7 @@ else
   scp ${sshUser}@${sshHost}:/tmp/db.sql.gz .
 
   # Copy dump into mysql container
-  docker cp db.sql.gz "$(docker-compose ps -q db|awk '{print $1}')":/tmp/db.sql.gz
+  docker cp db.sql.gz "$(docker-compose ps -q db | awk '{print $1}')":/tmp/db.sql.gz
 
 fi
 
