@@ -23,7 +23,7 @@ services:
       - phpfpm
 
   db:
-    image: hiberusmagento/hiberus-dockergento-mysql:<mysql_version>
+    image: hiberusmagento/hiberus-dockergento-mariadb:<mariadb_version>
     ports:
       - 3306:3306
     environment:
@@ -31,7 +31,7 @@ services:
       MYSQL_DATABASE: magento
       MYSQL_USER: magento
       MYSQL_PASSWORD: magento
-    command: [ '--default-authentication-plugin=mysql_native_password', '--sql_mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' ]
+    command: [ '--max_allowed_packet=64M', '--default-authentication-plugin=mysql_native_password', '--sql_mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' ]
     volumes:
       - dbdata:/var/lib/mysql
 
