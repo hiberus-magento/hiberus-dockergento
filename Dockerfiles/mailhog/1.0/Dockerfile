@@ -6,7 +6,7 @@ RUN apk --no-cache add ca-certificates \
   && apk --no-cache add --virtual build-dependencies go git \
   && mkdir -p /root/gocode \
   && export GOPATH=/root/gocode \
-  && go get github.com/mailhog/MailHog \
+  && go install github.com/mailhog/MailHog@latest \
   && mv /root/gocode/bin/MailHog /usr/local/bin \
   && rm -rf /root/gocode \
   && apk del --purge build-dependencies
