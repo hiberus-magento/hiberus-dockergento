@@ -1,7 +1,8 @@
 ## JVM configuration
 
--Xms128m
--Xmx128m
+-Xms256m
+-Xmx256m
+-Dlog4j2.disable.jmx=true
 
 ## GC configuration
 8-13:-XX:+UseConcMarkSweepGC

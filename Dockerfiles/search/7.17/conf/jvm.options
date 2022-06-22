@@ -1,7 +1,7 @@
 ## JVM configuration
 
 -Xms128m
--Xmx128m
+-Xmx512m
 
 ## GC configuration
 8-13:-XX:+UseConcMarkSweepGC
