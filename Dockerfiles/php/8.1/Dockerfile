@@ -1,4 +1,4 @@
-FROM php:8.1-fpm-alpine
+FROM php:8.1-fpm-alpine3.15
 MAINTAINER "Hiberus Tecnologia <dabad@hiberus.com>"
 
 RUN apk update && apk add \
