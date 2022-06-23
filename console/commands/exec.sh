@@ -3,10 +3,6 @@ set -euo pipefail
 
 : "${EXEC_OPTIONS:=""}"
 
-if [ "${TTY_DISABLE}" == true ]; then
-    EXEC_OPTIONS="${EXEC_OPTIONS} -T"
-fi
-
 if [[ "$1" == "--root" ]]; then
     shift
     EXEC_OPTIONS="${EXEC_OPTIONS} -u root"

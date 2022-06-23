@@ -5,43 +5,40 @@ set -euo pipefail
 # Print al all commands info (native and custom)
 #
 print_commands_info() {
-    local COMMANDS_OUTPUT=""
-    local COMMANDS_PATH="${COMMANDS_DIR}"
-    local FILE_CONTENT="${FILE}"
-    local COMMAND_COLOR="${GREEN}"
-    local TITLE="Command list"
-    local UNDERLINE="------------\n"
+    local command_path="$COMMANDS_DIR"
+    local file_content="$FILE"
+    local command_color="$GREEN"
+    local title="Command list"
+    local underline="------------\n"
 
     if [ $# -gt 0 ] && [ "$1" == 'custom' ]; then
-        COMMANDS_PATH="${CUSTOM_COMMANDS_DIR}"
-        TITLE="Custom command list"
-        UNDERLINE="-------------------\n"
+        command_path="$CUSTOM_COMMANDS_DIR"
+        title="Custom command list"
+        underline="-------------------\n"
+        command_color="$PURPLE"
 
-        if [ -f "${CUSTOM_COMMANDS_DIR}/command_descriptions.json" ]; then
-            FILE_CONTENT=$(cat "${CUSTOM_COMMANDS_DIR}/command_descriptions.json")
+        if [ -f "$CUSTOM_COMMANDS_DIR/command_descriptions.json" ]; then
+            file_content=$(cat "$CUSTOM_COMMANDS_DIR/command_descriptions.json")
         else
-            FILE_CONTENT="{}"
+            file_content="{}"
         fi
-
-        COMMAND_COLOR="${PURPLE}"
     fi
 
-    if [ ! -d "${COMMANDS_PATH}" ]; then
+    if [ ! -d "$command_path" ]; then
         exit 0
     fi
 
     local FILES
-    FILES=$(find "${COMMANDS_PATH}" -name '*.sh' | wc -l)
+    FILES=$(find "$command_path" -name '*.sh' | wc -l)
 
     if [ "$FILES" -gt 0 ]; then
-        echo -e "${COMMAND_COLOR}\n${TITLE}${COLOR_RESET}"
-        echo -e "${COMMAND_COLOR}${UNDERLINE}${COLOR_RESET}"
+        echo -e "${command_color}\n${title}\n${underline}${COLOR_RESET}"
 
-        for script in "${COMMANDS_PATH}"/*.sh; do
-            COMMAND_BASENAME=$(basename "${script}")
+        for script in "$command_path"/*.sh; do
+            COMMAND_BASENAME=$(basename "$script")
             COMMAND_NAME=${COMMAND_BASENAME%.sh}
-            COMMAND_DESC_PROPERTY=$(echo "${FILE_CONTENT}" | jq -r 'if ."'"${COMMAND_NAME}"'".description then ."'"${COMMAND_NAME}"'".description else "" end')
-            printf "   ${COMMAND_COLOR}%-20s${COLOR_RESET} %s\n" "${COMMAND_NAME}" "${COMMAND_DESC_PROPERTY}"
+            COMMAND_DESC_PROPERTY=$(echo "$file_content" | jq -r 'if ."'"$COMMAND_NAME"'".description then ."'"$COMMAND_NAME"'".description else "" end')
+            printf "   $command_color%-20s$COLOR_RESET %s\n" "$COMMAND_NAME" "$COMMAND_DESC_PROPERTY"
         done
 
         printf "\n\n"
@@ -52,12 +49,12 @@ print_commands_info() {
 # Print native commands and custom commands info
 #
 print_all_commands_help_info() {
-    local COMMANDS_OUTPUT
-    local COMMANDS_OUTPUT_ALL
-    COMMANDS_OUTPUT=$(print_commands_info)
-    COMMANDS_OUTPUT_ALL=$(print_commands_info "custom")
-    echo "${COMMANDS_OUTPUT}"
-    echo "${COMMANDS_OUTPUT_ALL}"
+    local commands_output
+    local commands_output_all
+    commands_output=$(print_commands_info)
+    commands_output_all=$(print_commands_info "custom")
+    echo "${commands_output}"
+    echo "${commands_output_all}"
 }
 
 #
@@ -65,16 +62,16 @@ print_all_commands_help_info() {
 #
 print_opts() {
     local LENGTH
-    LENGTH=$(echo "${FILE}" | jq -r '."'"$1"'".opts | length')
+    LENGTH=$(echo "$FILE" | jq -r '."'"$1"'".opts | length')
 
     if [[ $LENGTH -gt 0 ]]; then
-        echo -e "${YELLOW}Options:${COLOR_RESET}\n"
+        print_info "Options:"
     fi
 
-    for ((i = 0; i < $LENGTH; i++)); do
-        name=$(echo "${FILE}" | jq -r '."'"$1"'".opts['"$i"'].name')
-        description=$(echo "${FILE}" | jq -r '."'"$1"'".opts['"$i"'].description')
-        printf "   ${GREEN}%-20s${COLOR_RESET}%s\n" "${name}" "${description}"
+    for ((i = 0; i < LENGTH; i++)); do
+        name=$(echo "$FILE" | jq -r '."'"$1"'".opts['"$i"'].name')
+        description=$(echo "$FILE" | jq -r '."'"$1"'".opts['"$i"'].description')
+        printf "   ${WHITE}%-20s${COLOR_RESET}%s\n" "${name}" "${description}"
     done
 
     if [[ $LENGTH -gt 0 ]]; then
@@ -87,16 +84,16 @@ print_opts() {
 #
 print_args() {
     local LENGTH
-    LENGTH=$(echo "${FILE}" | jq -r '."'"$1"'".args | length')
+    LENGTH=$(echo "$FILE" | jq -r '."'"$1"'".args | length')
 
     if [[ $LENGTH -gt 0 ]]; then
-        echo -e "${YELLOW}Arguments:${COLOR_RESET}\n"
+        print_info "Arguments:"
     fi
 
-    for ((i = 0; i < $LENGTH; i++)); do
-        name=$(echo "${FILE}" | jq -r '."'"$1"'".args['"$i"'].name')
-        description=$(echo "${FILE}" | jq -r '."'"$1"'".args['"$i"'].description')
-        printf "   ${GREEN}%-20s${COLOR_RESET}%s\n" "${name}" "${description}"
+    for ((i = 0; i < LENGTH; i++)); do
+        name=$(echo "$FILE" | jq -r '."'"$1"'".args['"$i"'].name')
+        description=$(echo "$FILE" | jq -r '."'"$1"'".args['"$i"'].description')
+        printf "   ${WHITE}%-20s${COLOR_RESET}%s\n" "${name}" "${description}"
     done
 
     if [[ $LENGTH -gt 0 ]]; then
@@ -111,46 +108,45 @@ usage() {
     if [ $# == 0 ]; then
         print_all_commands_help_info
     else
-        local PARAMS
-        local COMMAND_NAME=$1
+        local params
+        local command_name=$1
 
-        PARAMS=$(echo "${FILE}" | jq -r '."'"${COMMAND_NAME}"'" | if length > 0 then keys[] else false end')
+        params=$(echo "$FILE" | jq -r '."'"$command_name"'" | if length > 0 then keys[] else false end')
 
-        if [[ $PARAMS ]]; then
+        if [[ $params ]]; then
             # Prinf usage seccion
-            if [[ "$PARAMS" == *"usage"* ]]; then
-
+            if [[ "$params" == *"usage"* ]]; then
                 local usage
-                usage=$(echo "${FILE}" | jq -r '."'"$COMMAND_NAME"'".usage')
-                echo -e "${YELLOW}Usage:${COLOR_RESET}"
+                usage=$(echo "$FILE" | jq -r '."'"$command_name"'".usage')
+                print_info "Usage:"
                 printf "%3s${COMMAND_BIN_NAME} ${usage}\n\n"
 
             fi
 
             # Prinf example seccion
-            if [[ "$PARAMS" == *"example"* ]]; then
+            if [[ "$params" == *"example"* ]]; then
                 local example
-                example=$(echo "${FILE}" | jq -r '."'"$COMMAND_NAME"'".example')
-                echo -e "${YELLOW}Example:${COLOR_RESET}"
+                example=$(echo "$FILE" | jq -r '."'"$command_name"'".example')
+                print_info "Example:"
                 printf "%3s${COMMAND_BIN_NAME} ${example}\n\n"
             fi
 
             # Prinf description seccion
-            if [[ "$PARAMS" == *"description"* ]]; then
+            if [[ "$params" == *"description"* ]]; then
                 local description
-                description=$(echo "${FILE}" | jq -r '."'"$COMMAND_NAME"'".description')
-                echo -e "${YELLOW}Description:${COLOR_RESET}"
+                description=$(echo "$FILE" | jq -r '."'"$command_name"'".description')
+                print_info "Description:"
                 printf "%3s${description}\n\n"
             fi
 
             # Prinf options seccion
-            if [[ "$PARAMS" == *"opts"* ]]; then
-                print_opts "$COMMAND_NAME"
+            if [[ "$params" == *"opts"* ]]; then
+                print_opts "$command_name"
             fi
 
             # Prinf options seccion
-            if [[ "$PARAMS" == *"args"* ]]; then
-                print_args "$COMMAND_NAME"
+            if [[ "$params" == *"args"* ]]; then
+                print_args "$command_name"
             fi
         fi
     fi
@@ -158,7 +154,10 @@ usage() {
 
 FILE="$(cat "${DATA_DIR}/command_descriptions.json")"
 
+# shellcheck source=/dev/null
+source "${COMPONENTS_DIR}"/print_message.sh
 # Show copy
+# shellcheck source=/dev/null
 source "${TASKS_DIR}/copyright.sh"
 
 usage "$@"

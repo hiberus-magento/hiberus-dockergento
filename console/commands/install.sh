@@ -25,15 +25,15 @@ COMMAND_ARGUMENTS="--db-host=db \
 # Run magento setup:install command
 #
 run_install_magento_command() {
-    CONFIG=$(cat <"${DATA_DIR}/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")')
-
-    ${COMMANDS_DIR}/magento.sh setup:install $COMMAND_ARGUMENTS $CONFIG
+    CONFIG=$(cat <"${DATA_DIR}/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")') 
+    "${COMMAND_BIN_NAME}" magento setup:install "$COMMAND_ARGUMENTS" "$CONFIG"
 }
 
 #
 # Get base url
 #
 get_base_url() {
+    # shellcheck source=/dev/null 
     source "${COMPONENTS_DIR}/input_info.sh"
 
     get_domain "$@"
