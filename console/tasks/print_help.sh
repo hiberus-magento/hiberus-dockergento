@@ -158,4 +158,7 @@ usage() {
 
 FILE="$(cat "${DATA_DIR}/command_descriptions.json")"
 
+# Show copy
+source "${TASKS_DIR}/copyright.sh"
+
 usage "$@"

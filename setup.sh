@@ -8,6 +8,9 @@ else
   SOURCE_FILE="${HOME}/.bashrc"
 fi
 
+# Show copy
+source "${DIR}/console/tasks/copyright.sh"
+
 # Compose string with all commands
 COMMANDS=""
 for script in "${DIR}/console/commands/"*.sh; do
