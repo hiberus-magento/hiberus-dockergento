@@ -41,6 +41,9 @@ init_dirs
 source ${TASKS_DIR}/load_properties.sh
 source ${PROPERTIES_DIR}/command_descriptions
 
+# Show copy
+source "${TASKS_DIR}/copyright.sh"
+
 # If there are arguments and the first argument is --help
 if [ "$#" -gt 0 ]; then
 

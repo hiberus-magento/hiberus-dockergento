@@ -9,6 +9,11 @@
       }
     ]
   },
+  "compatibility": {
+    "usage": "compatibility",
+    "description": "Check Magento version compatibility",
+    "args": []
+  },
   "composer": {
     "usage": "composer [arguments]",
     "description": "Execute composer inside php container",
