@@ -2,50 +2,50 @@
 set -euo pipefail
 
 if [ "$#" -eq "0" ]; then
-  DOMAIN="localhost"
+    DOMAIN="localhost"
 else
-  DOMAIN=$1
+    DOMAIN=$1
 fi
 
 CERT_FILE="${DOMAIN}.crt"
 CERT_NAME="${DOMAIN}"
 
 if [ -z "$(docker ps | grep hitch)" ]; then
-  printf "${RED}Error: Hitch is not running!${COLOR_RESET}\n"
-  exit
+    printf "${RED}Error: Hitch is not running!${COLOR_RESET}\n"
+    exit
 fi
 
 printf "${GREEN}Generating SSL certificates for domain '${DOMAIN}'...${COLOR_RESET}\n"
 
 # Check if command "mkcert" exists
 if ! command -v mkcert &>/dev/null; then
-  printf "${RED}Required 'mkcert' command not found. Trying to install...${COLOR_RESET}\n"
+    printf "${RED}Required 'mkcert' command not found. Trying to install...${COLOR_RESET}\n"
 
-  # Install on MacOS
-  if [ "$(uname)" == "Darwin" ]; then
-    if ! command -v brew &>/dev/null; then
-      printf "${RED}Error: Brew is required. Please install it and try again.${COLOR_RESET}\n"
-      exit 1
+    # Install on MacOS
+    if [ "$(uname)" == "Darwin" ]; then
+        if ! command -v brew &>/dev/null; then
+            printf "${RED}Error: Brew is required. Please install it and try again.${COLOR_RESET}\n"
+            exit 1
+        fi
+        brew install mkcert nss
+        mkcert -install
+
+    # Install on Linux
+    else
+        if ! command -v curl &>/dev/null; then
+            sudo apt-get -y install curl
+        fi
+        curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+        chmod +x mkcert-v*-linux-amd64
+        sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+        mkcert -install
+
     fi
-    brew install mkcert nss
-    mkcert -install
-
-  # Install on Linux
-  else
-    if ! command -v curl &>/dev/null; then
-      sudo apt-get -y install curl
-    fi
-    curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-    chmod +x mkcert-v*-linux-amd64
-    sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
-    mkcert -install
-
-  fi
 fi
 
 if ! command -v mkcert &>/dev/null; then
-  printf "${RED}Error during 'mkcert' installation. Please do it manually and try again...${COLOR_RESET}\n"
-  exit 1
+    printf "${RED}Error during 'mkcert' installation. Please do it manually and try again...${COLOR_RESET}\n"
+    exit 1
 fi
 
 # Generate mkcert certificate

@@ -39,7 +39,6 @@ init_dirs() {
 
 init_dirs
 source ${TASKS_DIR}/load_properties.sh
-source ${PROPERTIES_DIR}/command_descriptions
 
 # If there are arguments and the first argument is --help
 if [ "$#" -gt 0 ]; then

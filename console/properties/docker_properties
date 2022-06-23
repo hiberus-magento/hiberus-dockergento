@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 MAGENTO_DIR="."
 COMPOSER_DIR="."
 BIN_DIR="./vendor/bin"
