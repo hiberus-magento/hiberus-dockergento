@@ -26,7 +26,7 @@ COMMAND_ARGUMENTS="--db-host=db \
 #
 run_install_magento_command() {
     CONFIG=$(cat <"${DATA_DIR}/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")') 
-    "${COMMAND_BIN_NAME}" magento setup:install "$COMMAND_ARGUMENTS" "$CONFIG"
+    "${COMMAND_BIN_NAME}" magento setup:install $COMMAND_ARGUMENTS $CONFIG
 }
 
 #
