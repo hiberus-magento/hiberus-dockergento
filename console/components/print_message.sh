@@ -1,33 +1,37 @@
 #!/usr/bin/env bash
 
 print_info() {
-    echo -e "${GREEN}$1${COLOR_RESET}"
+    printf "${GREEN}%b${COLOR_RESET}" "$1"
 }
 
 print_warnning() {
-    echo -e "${YELLOW}$1${COLOR_RESET}"
+    printf "${YELLOW}%b${COLOR_RESET}" "$1"
 }
 
 print_error() {
-    echo -e "${RED}$1${COLOR_RESET}"
+    printf "${RED}%b${COLOR_RESET}" "$1"
 }
 
 print_extra_data() {
-    echo -e "${PURPLE}$1${COLOR_RESET}"
+    printf "${PURPLE}%b${COLOR_RESET}" "$1"
 }
 
 print_question() {
-    echo -e "${BLUE}$1${COLOR_RESET}"
+    printf "${BLUE}%b${COLOR_RESET}" "$1"
 }
 
 print_table() {
-    echo -e "${CYAN}$1${COLOR_RESET}"
+    printf "${CYAN}%b${COLOR_RESET}" "$1"
 }
 
 print_code() {
-    echo -e "${BRONW}$1${COLOR_RESET}"
+    printf "${BROWN}%b${COLOR_RESET}" "$1"
 }
 
 print_highlight() {
-    echo -e "${WHITE}$1${COLOR_RESET}"
+    printf "${WHITE}%b${COLOR_RESET}" "$1"
+}
+
+print_default() {
+    printf "%b" "$1"
 }

@@ -2,29 +2,30 @@
 set -euo pipefail
 
 DOCKER_CONFIG_DIR="config/docker"
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
 
 #
 # Ask magento directory
 #
 get_magento_root_directory() {
-    printf "${BLUE}Magento root dir: ${COLOR_RESET}[%s] " "${MAGENTO_DIR}"
-    read -r ANSWER_MAGENTO_DIR
+    print_question "Magento root dir: [$MAGENTO_DIR] "
 
-    MAGENTO_DIR=${ANSWER_MAGENTO_DIR:-${MAGENTO_DIR}}
+    MAGENTO_DIR=${answer_magento_dir:-$MAGENTO_DIR}
 
-    if [ "${MAGENTO_DIR}" != "." ]; then
-        echo -e "${GREEN}Setting custom magento dir: '${MAGENTO_DIR}'${COLOR_RESET}\n"
-        MAGENTO_DIR=$(sanitize_path "${MAGENTO_DIR}")
-        echo -e "${YELLOW}------ ${DOCKER_COMPOSE_FILE} ------"
-        sed_in_file "s#/html/var/composer_home#/html/${MAGENTO_DIR}/var/composer_home#gw /dev/stdout" "${DOCKER_COMPOSE_FILE}"
-        echo "--------------------"
-        echo "------ ${DOCKER_COMPOSE_FILE_MAC} ------"
-        sed_in_file "s#/app:#/${MAGENTO_DIR}/app:#gw /dev/stdout" "${DOCKER_COMPOSE_FILE_MAC}"
-        sed_in_file "s#/vendor#/${MAGENTO_DIR}/vendor#gw /dev/stdout" "${DOCKER_COMPOSE_FILE_MAC}"
-        echo "--------------------"
-        echo "------ ${DOCKER_CONFIG_DIR}/nginx/conf/default.conf ------"
-        sed_in_file "s#/var/www/html#/var/www/html/${MAGENTO_DIR}#gw /dev/stdout" "${DOCKER_CONFIG_DIR}/nginx/conf/default.conf"
-        echo -e "--------------------${COLOR_RESET}"
+    if [ "$MAGENTO_DIR" != "." ]; then
+        print_info "Setting custom magento dir: '$MAGENTO_DIR'\n"
+        MAGENTO_DIR=$(sanitize_path "$MAGENTO_DIR")
+        print_warnning "------ $DOCKER_COMPOSE_FILE ------\n"
+        sed_in_file "s#/html/var/composer_home#/html/$MAGENTO_DIR/var/composer_home#gw /dev/stdout" "$DOCKER_COMPOSE_FILE"
+        print_warnning "--------------------\n"
+        print_warnning "------ $DOCKER_COMPOSE_FILE_MAC ------\n"
+        sed_in_file "s#/app:#/$MAGENTO_DIR/app:#gw /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
+        sed_in_file "s#/vendor#/$MAGENTO_DIR/vendor#gw /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
+        print_warnning "--------------------\n"
+        print_warnning "------ $DOCKER_CONFIG_DIR/nginx/conf/default.conf ------\n"
+        sed_in_file "s#/var/www/html#/var/www/html/$MAGENTO_DIR#gw /dev/stdout" "$DOCKER_CONFIG_DIR/nginx/conf/default.conf"
+        print_warnning "--------------------\n"
     fi
 }
 
@@ -32,13 +33,13 @@ get_magento_root_directory() {
 # Check if exit docker-compose file in magento root
 #
 check_if_docker_enviroment_exist() {
-    if [[ -f "${MAGENTO_DIR}/docker-compose.yml" ]]; then
+    if [[ -f "$MAGENTO_DIR/docker-compose.yml" ]]; then
         while true; do
-            echo -e "\n${RED}----------------------------------------------------------------------${COLOR_RESET}"
-            printf "%12s${RED}¡¡¡WE HAVE DETECTED DOCKER COMPOSE FILES!!! ${COLOR_RESET}\n\n"
-            printf "%4s${RED}If you continue with this proccess these files will be removed${COLOR_RESET}\n"
-            echo -e "${RED}----------------------------------------------------------------------${COLOR_RESET}\n"
-            printf "${BLUE}Do you want continue? [y/n] ${COLOR_RESET}"
+            print_error "\n----------------------------------------------------------------------\n"
+            print_error "             ¡¡¡WE HAVE DETECTED DOCKER COMPOSE FILES!!! \n\n"
+            print_error "    If you continue with this proccess these files will be removed\n"
+            print_error "----------------------------------------------------------------------\n\n"
+            print_question "Do you want continue? [y/n] "
             read -r yn
             case $yn in
             [Yy]*) break ;;
@@ -53,35 +54,36 @@ check_if_docker_enviroment_exist() {
 # Copy File
 #
 copy() {
-    local SOURCE_PATH=$1
-    local TARGET_PATH=$2
-    local TARGET_DIR
-    TARGET_DIR=$(dirname "${TARGET_PATH}")
-    mkdir -p "${TARGET_DIR}"
-    cp -Rf "${SOURCE_PATH}" "${TARGET_PATH}"
+    local source_path=$1
+    local target_path=$2
+    local target_dir
+    
+    target_dir=$(dirname "$target_path")
+    mkdir -p "$target_dir"
+    cp -Rf "$source_path" "$target_path"
 }
 
 #
 # Sanitize path
 #
 sanitize_path() {
-    SANITIZED_PATH=${1#/}
-    SANITIZED_PATH=${SANITIZED_PATH#./}
-    SANITIZED_PATH=${SANITIZED_PATH%/}
-    echo "${SANITIZED_PATH}"
+    sanitized_path=${1#/}
+    sanitized_path=${sanitized_path#./}
+    sanitized_path=${sanitized_path%/}
+    echo "$sanitized_path"
 }
 
 #
 # replace in file
 #
 sed_in_file() {
-    local SED_REGEX=$1
-    local TARGET_PATH=$2
+    local sed_regex=$1
+    local target_path=$2
 
-    if [[ "${MACHINE}" == "mac" ]]; then
-        sed -i '' "${SED_REGEX}" "${TARGET_PATH}"
+    if [[ "$MACHINE" == "mac" ]]; then
+        sed -i '' "$sed_regex" "$target_path"
     else
-        sed -i "${SED_REGEX}" "${TARGET_PATH}"
+        sed -i "$sed_regex" "$target_path"
     fi
 }
 
@@ -89,37 +91,51 @@ sed_in_file() {
 # Add git bind paths in file
 #
 add_git_bind_paths_in_file() {
-    GIT_FILES=$1
-    FILE_TO_EDIT=$2
-    SUFFIX_BIND_PATH=$3
+    git_files=$1
+    file_to_edit=$2
+    suffix_bind_path=$3
 
-    BIND_PATHS=""
-    while read -r FILENAME_IN_GIT; do
-        if [[ "${MAGENTO_DIR}" == "${FILENAME_IN_GIT}" ]] ||
-            [[ "${MAGENTO_DIR}" == "${FILENAME_IN_GIT}/"* ]] ||
-            [[ "${FILENAME_IN_GIT}" == "vendor" ]] ||
-            [[ "${FILENAME_IN_GIT}" == "${DOCKER_COMPOSE_FILE%.*}"* ]]; then
+    bind_paths=""
+    while read -r filename_in_git; do
+        if [[ "$MAGENTO_DIR" == "$filename_in_git" ]] ||
+            [[ "$MAGENTO_DIR" == "$filename_in_git/"* ]] ||
+            [[ "$filename_in_git" == "vendor" ]] ||
+            [[ "$filename_in_git" == "${DOCKER_COMPOSE_FILE%.*}"* ]]; then
             continue
         fi
 
-        NEW_PATH="./${FILENAME_IN_GIT}:/var/www/html/${FILENAME_IN_GIT}"
-        BIND_PATH_EXISTS=$(grep -q -e "${NEW_PATH}" "${FILE_TO_EDIT}" && echo true || echo false)
+        new_path="./$filename_in_git:/var/www/html/$filename_in_git"
+        bind_path_exits=$(grep -q -e "$new_path" "$file_to_edit" && echo true || echo false)
 
-        if [ "${BIND_PATH_EXISTS}" == true ]; then
+        if [ "$bind_path_exits" == true ]; then
             continue
         fi
 
-        if [ "${BIND_PATHS}" != "" ]; then
-            BIND_PATHS="${BIND_PATHS}\\
-  " # IMPORTANT: This must be a new line with 6 indentation spaces.
+        if [ "$bind_paths" != "" ]; then
+            bind_paths="$bind_paths\\ "
         fi
 
-        BIND_PATHS="${BIND_PATHS}- ${NEW_PATH}${SUFFIX_BIND_PATH}"
+        bind_paths="$bind_paths- ${new_path}$suffix_bind_path"
 
-    done <<<"${GIT_FILES}"
-    echo -e "${YELLOW}------ ${FILE_TO_EDIT} ------"
-    sed_in_file "s|# {FILES_IN_GIT}|${BIND_PATHS}|w /dev/stdout" "${FILE_TO_EDIT}"
-    echo -e "--------------------${COLOR_RESET}"
+    done <<<"${git_files}"
+
+    print_warnning "------ $file_to_edit ------"
+    sed_in_file "s|# {FILES_IN_GIT}|$bind_paths|w /dev/stdout" "$file_to_edit"
+    print_warnning "--------------------"
+}
+
+get_equivalent_version_if_exit() {
+    equivalent_version=$("$TASKS_DIR/get_equivalent_version.sh" "$1")
+    if [[ "$equivalent_version" = "null" ]]; then
+        print_warnning "\nWe don´t have support for the version $1 "
+        print_info "\nPlease, write any version between all versions supported or press Ctrl - C to exit"
+
+        $COMMAND_BIN_NAME compatibility
+        read -r MAGENTO_VERSION
+        get_equivalent_version_if_exit "$MAGENTO_VERSION"
+    fi
+
+    get_requeriments "$equivalent_version"
 }
 
 #
@@ -128,31 +144,31 @@ add_git_bind_paths_in_file() {
 get_requeriments() {
     # Check if command "jq" exists
     if ! command -v jq &>/dev/null; then
-        echo -e "${RED}Required 'jq' not found${COLOR_RESET}"
-        echo -e "${BLUE}https://stedolan.github.io/jq/download/${COLOR_RESET}"
+        print_error "Required 'jq' not found"
+        print_question "https://stedolan.github.io/jq/download/"
         exit
     fi
 
     if [ "$#" -gt 0 ]; then
-        requeriments=$(cat <"${DATA_DIR}/requeriments.json" | jq -r '.['\""$1"\"']')
+        requeriments=$(cat <"$DATA_DIR/requeriments.json" | jq -r '.['\""$1"\"']')
         change_requeriments
     else
-
-        if [ -f "${MAGENTO_DIR}/composer.lock" ]; then
-            MAGENTO_VERSION=$(cat <"${MAGENTO_DIR}/composer.lock" |
+        if [ -f "$MAGENTO_DIR/composer.lock" ]; then
+            MAGENTO_VERSION=$(cat <"$MAGENTO_DIR/composer.lock" |
                 jq -r '.packages | map(select(.name == "magento/product-community-edition"))[].version')
-            echo -e "\n${YELLOW}Version detected: ${COLOR_RESET} ${MAGENTO_VERSION}"
+            print_warnning "\nVersion detected: $MAGENTO_VERSION"
         else
-            echo -e "\n${RED}--------------------------------------------${COLOR_RESET}"
-            echo -e "\n${RED} We need a magento project in ${MAGENTO_DIR}/ path${COLOR_RESET}"
-            echo -e "\n You can clone a project and after execute ${BROWN}${COMMAND_BIN_NAME} setup${COLOR_RESET} or"
-            echo -e " create a new magento project with ${BROWN}${COMMAND_BIN_NAME} create-project${COLOR_RESET}"
-            echo -e "\n${RED}--------------------------------------------${COLOR_RESET}\n"
+            print_error "\n------------------------------------------------------\n"
+            print_error "\n       We need a magento project in $MAGENTO_DIR/ path\n"
+            print_default "\n You can clone a project and after execute "
+            print_code "$COMMAND_BIN_NAME setup"
+            print_default "\n or create a new magento project with "
+            print_code "$COMMAND_BIN_NAME create-project"
+            print_error "\n------------------------------------------------------\n"
             exit 1
         fi
 
-        requeriments=$(cat <"${DATA_DIR}/requeriments.json" | jq -r '.['\""${MAGENTO_VERSION}"\"']')
-        change_requeriments
+        get_equivalent_version_if_exit "$MAGENTO_VERSION"
     fi
 }
 
@@ -160,21 +176,21 @@ get_requeriments() {
 # Update git setting in docker-compose
 #
 set_settings() {
-    echo -e "${GREEN}Setting up docker config files${COLOR_RESET}"
-    copy "${COMMAND_BIN_DIR}/${DOCKER_CONFIG_DIR}/" "${DOCKER_CONFIG_DIR}"
+    print_info "Setting up docker config files\n"
+    copy "$COMMAND_BIN_DIR/$DOCKER_CONFIG_DIR/" "$DOCKER_CONFIG_DIR"
 
-    echo -e "${GREEN}Setting bind configuration for files in git repository${COLOR_RESET}"
+    print_info "Setting bind configuration for files in git repository\n"
 
     if [[ -f ".git/HEAD" ]]; then
-        GIT_FILES=$(git ls-files | awk -F / '{print $1}' | uniq)
+        git_files=$(git ls-files | awk -F / '{print $1}' | uniq)
 
-        if [[ "${GIT_FILES}" != "" ]]; then
-            add_git_bind_paths_in_file "${GIT_FILES}" "${DOCKER_COMPOSE_FILE_MAC}" ":delegated"
+        if [[ "${git_files}" != "" ]]; then
+            add_git_bind_paths_in_file "${git_files}" "${DOCKER_COMPOSE_FILE_MAC}" ":delegated"
         else
-            echo " > Skipped. There are no files added in this repository"
+            print_highlight " > Skipped. There are no files added in this repository\n"
         fi
     else
-        echo " > Skipped. This is not a git repository"
+        print_highlight " > Skipped. This is not a git repository\n"
     fi
 }
 
@@ -182,11 +198,11 @@ set_settings() {
 # Set propierties in <root_project>/<docker_config>/propierties
 #
 save_properties() {
-    echo -e "${GREEN}Saving custom properties file: '${DOCKER_CONFIG_DIR}/properties'${COLOR_RESET}"
-    cat <<EOF >./${DOCKER_CONFIG_DIR}/properties
-  MAGENTO_DIR="${MAGENTO_DIR}"
-  BIN_DIR="${BIN_DIR}"
-  COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME}"
+    print_info "Saving custom properties file: '$DOCKER_CONFIG_DIR/properties'\n"
+    cat <<EOF >./$DOCKER_CONFIG_DIR/properties
+  MAGENTO_DIR="$MAGENTO_DIR"
+  BIN_DIR="$BIN_DIR"
+  COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
 EOF
 }
 
@@ -196,14 +212,15 @@ EOF
 print_requeriments() {
     services=$(echo "${requeriments}" | jq -r 'keys|join(" ")')
 
-    echo -e "\n${CYAN}-------------------------------${COLOR_RESET}"
-    printf "%10s${CYAN}REQUERIMENTS${COLOR_RESET}\n"
-    echo -e "${CYAN}-------------------------------${COLOR_RESET}"
+    print_table "\n\n-------------------------------\n"
+    print_table "          REQUERIMENTS"
+    print_table "\n-------------------------------\n"
     for index in ${services}; do
         value=$(echo "${requeriments}" | jq -r '.'"${index}"'')
-        printf "%3s${CYAN}$index:${COLOR_RESET} ${value}\n"
+        print_table "   $index: "
+        print_default "${value}\n"
     done
-    echo -e "${CYAN}-------------------------------${COLOR_RESET}\n"
+    print_table "-------------------------------\n\n"
 }
 
 #
@@ -213,7 +230,7 @@ change_requeriments() {
     print_requeriments
     state="continue"
     while [[ $state == "continue" ]]; do
-        printf "${BLUE}Are you satisfied with these versions? [y/n] ${COLOR_RESET}"
+        print_question "Are you satisfied with these versions? [y/n] "
         read -r yn
         case $yn in
         [Yy]*) state="exit" ;;
@@ -230,55 +247,57 @@ change_requeriments() {
 # Changes especific service value
 #
 edit_version() {
-    SERVICE_NAME=$1
-    OPTIONS="$(cat <"${DATA_DIR}/requeriments.json" | jq -r '[.[] | .'"${SERVICE_NAME}"'] | unique  | join(" ")')"
+    service_name=$1
+    opts="$(cat <"$DATA_DIR/requeriments.json" | jq -r '[.[] | .'"$service_name"'] | unique  | join(" ")')"
 
-    echo -e "${BLUE}${SERVICE_NAME} version:${COLOR_RESET}"
-    select SELECT_RESULT in ${OPTIONS}; do
-        if $(${TASKS_DIR}/in_list.sh "${SELECT_RESULT}" "${OPTIONS}"); then
+    print_question "$service_name version:\n"
+    select select_result in $opts; do
+        if $($TASKS_DIR/in_list.sh "$select_result" "$opts"); then
             break
         fi
 
-        if $(${TASKS_DIR}/in_list.sh "${REPLY}" "${OPTIONS}"); then
-            SELECT_RESULT=${REPLY}
+        if $($TASKS_DIR/in_list.sh "${REPLY}" "$opts"); then
+            select_result=${REPLY}
             break
         fi
         echo "invalid option '${REPLY}'"
     done
 
-    requeriments=$(echo "${requeriments}" | jq -r '.'"${SERVICE_NAME}"'="'"${SELECT_RESULT}"'"')
+echo "service_name: $service_name"
+echo "select_result: $select_result"
+    requeriments=$(echo "$requeriments" | jq -r '.'"$service_name"'="'"$select_result"'"')
 }
 
 #
 # Select editable services and changes her value
 #
 edit_versions() {
-    OPTIONS=$(echo "${requeriments} " | jq -r 'keys | join(" ")')
+    opts=$(echo "${requeriments} " | jq -r 'keys | join(" ")')
 
-    echo -e "${BLUE}Choose service:${COLOR_RESET}"
-    select SELECT_RESULT in ${OPTIONS}; do
-        if $(${TASKS_DIR}/in_list.sh "${SELECT_RESULT}" "${OPTIONS}"); then
+    print_question "Choose service:\n"
+    select select_result in $opts; do
+        if $($TASKS_DIR/in_list.sh "$select_result" "$opts"); then
             break
         fi
 
-        if $(${TASKS_DIR}/in_list.sh "${REPLY}" "${OPTIONS}"); then
-            SELECT_RESULT=${REPLY}
+        if $($TASKS_DIR/in_list.sh "${REPLY}" "$opts"); then
+            select_result=${REPLY}
             break
         fi
 
         echo "invalid option '${REPLY}'"
     done
 
-    edit_version "$SELECT_RESULT"
+    edit_version "$select_result"
     change_requeriments
 }
 
 get_magento_root_directory
 check_if_docker_enviroment_exist
 get_requeriments "$@"
-"${TASKS_DIR}/write_from_docker-compose_templates.sh" "${requeriments}"
+"$TASKS_DIR/write_from_docker-compose_templates.sh" "${requeriments}"
 set_settings
 save_properties
 
 # Stop running containers in case that setup was executed in an already running project
-${COMMAND_BIN_NAME} stop
+$COMMAND_BIN_NAME stop

@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-${DOCKER_COMPOSE} stop "$@"
+$DOCKER_COMPOSE stop "$@"

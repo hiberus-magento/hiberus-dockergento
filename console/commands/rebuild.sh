@@ -1,22 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo -e "${GREEN}Rebuilding and starting containers in detached mode${COLOR_RESET}"
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
+
+print_info "Rebuilding and starting containers in detached mode\n"
 
 if [ "$#" == 0 ]; then
-    ${COMMAND_BIN_NAME} stop
-    ${DOCKER_COMPOSE} up --build -d "${SERVICE_APP}"
+    $COMMAND_BIN_NAME stop
+    $DOCKER_COMPOSE up --build -d "${SERVICE_APP}"
 else
-    ${COMMAND_BIN_NAME} stop "$@"
-    ${DOCKER_COMPOSE} up --build -d "$@"
+    $COMMAND_BIN_NAME stop "$@"
+    $DOCKER_COMPOSE up --build -d "$@"
 fi
 
-${TASKS_DIR}/validate_bind_mounts.sh
+# shellcheck source=/dev/null
+"$TASKS_DIR"/validate_bind_mounts.sh
 
-if [[ "${MACHINE}" == "linux" ]]; then
-    echo "Waiting for everything to spin up..."
+if [[ "$MACHINE" == "linux" ]]; then
+    print_default "Waiting for everything to spin up...\n"
     sleep 5
-    echo " > fixing permissions"
-    ${TASKS_DIR}/fix_linux_permissions.sh
-    echo " > permissions fix finished"
+    print_default " > fixing permissions\n"
+    "$TASKS_DIR"/fix_linux_permissions.sh
+    print_default " > permissions fix finished\n"
 fi

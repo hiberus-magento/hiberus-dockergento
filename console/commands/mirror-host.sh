@@ -1,65 +1,66 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
+# shellcheck source=/dev/null
+source "$TASKS_DIR"/mirror_path.sh
+
 #
 # Validate mirror host path
 #
 validate_mirror_host_path() {
-    PATH_TO_MIRROR=$1
+    path_to_mirror=$1
 
-    BIND_MOUNT_PATH=$("${TASKS_DIR}/get_bind_mount_path.sh" "${WORKDIR_PHP}/${PATH_TO_MIRROR}")
-    if [[ ${BIND_MOUNT_PATH} != false ]]; then
-        echo ""
-        echo -e "${RED}Path cannot be mirrored. Following path is a bind mount inside container:${COLOR_RESET}"
-        echo ""
-        echo "  - ./<host_path>:${BIND_MOUNT_PATH}"
-        echo ""
+    bind_mount_path=$("$TASKS_DIR"/get_bind_mount_path.sh "$WORKDIR_PHP/$path_to_mirror")
+    if [[ $bind_mount_path != false ]]; then
+        print_error "\nPath cannot be mirrored. Following path is a bind mount inside container:\n\n"
+        print_default "  - ./<host_path>:$bind_mount_path\n"
         exit 1
     fi
 }
 
-if [[ "${MACHINE}" != "mac" ]]; then
-    echo -e "${RED} This command is only for mac system.${COLOR_RESET}"
+if [[ "$MACHINE" != "mac" ]]; then
+    print_error " This command is only for mac system.\n"
     exit 1
 fi
 
-source ${TASKS_DIR}/mirror_path.sh
+print_info "Start mirror copy of host into container\n"
+container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
-echo -e "${GREEN}Start mirror copy of host into container${COLOR_RESET}"
-CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q phpfpm)
+for path_to_mirror in "$@"; do
+    print_warnning "$path_to_mirror -> phpfpm:$path_to_mirror\n\n"
 
-for PATH_TO_MIRROR in "$@"; do
-    echo -e "${YELLOW}${PATH_TO_MIRROR} -> phpfpm:${PATH_TO_MIRROR}${COLOR_RESET}\n"
+    print_default " > validating and sanitizing path: '$path_to_mirror'\n"
+    path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
+    validate_mirror_host_path "$path_to_mirror"
 
-    echo " > validating and sanitizing path: '${PATH_TO_MIRROR}'"
-    PATH_TO_MIRROR=$(sanitize_mirror_path "${PATH_TO_MIRROR}")
-    validate_mirror_host_path "${PATH_TO_MIRROR}"
+    src_path=$path_to_mirror
+    dest_path=$path_to_mirror
+    dest_dir=$(dirname "$dest_path")
 
-    SRC_PATH=${PATH_TO_MIRROR}
-    DEST_PATH=${PATH_TO_MIRROR}
-    DEST_DIR=$(dirname "${DEST_PATH}")
-
-    SRC_IS_DIR=$([ -d "${SRC_PATH}" ] && echo true || echo false)
-    if [[ ${SRC_IS_DIR} == *true* ]]; then
-        echo " > removing destination dir content: 'phpfpm:${DEST_PATH}/*'"
-        ${COMMAND_BIN_NAME} exec sh -c "rm -rf ${DEST_PATH}/*"
-        SRC_PATH="${SRC_PATH}/."
-        DEST_DIR="${DEST_PATH}"
+    src_is_dir=$([ -d "$src_path" ] && echo true || echo false)
+    
+    if [[ $src_is_dir == *true* ]]; then
+        print_default " > removing destination dir content: 'phpfpm:$dest_path/*'\n"
+        $COMMAND_BIN_NAME exec sh -c "rm -rf $dest_path/*"
+        src_path="$src_path/."
+        dest_dir="$dest_path"
     fi
 
-    echo " > ensure destination dir exists: '${DEST_DIR}'"
-    ${COMMAND_BIN_NAME} exec sh -c "mkdir -p ${DEST_DIR}"
+    echo " > ensure destination dir exists: '$dest_dir'"
+    $COMMAND_BIN_NAME exec sh -c "mkdir -p $dest_dir"
 
-    if [[ ${SRC_IS_DIR} == *true* && $(find "${SRC_PATH}" -maxdepth 0 -empty) ]]; then
-        echo " > skipping copy. Source dir is empty: '${SRC_PATH}'"
+    if [[ $src_is_dir == *true* && $(find "$src_path" -maxdepth 0 -empty) ]]; then
+        print_default " > skipping copy. Source dir is empty: '$src_path'\n"
     else
-        echo " > copying '${SRC_PATH}' into 'phpfpm:${WORKDIR_PHP}/${DEST_PATH}'"
-        docker cp ${SRC_PATH} ${CONTAINER_ID}:${WORKDIR_PHP}/${DEST_PATH}
+        print_default " > copying '$src_path' into 'phpfpm:$WORKDIR_PHP/$dest_path'\n"
+        docker cp "$src_path" "$container_id:$WORKDIR_PHP/$dest_path"
     fi
 
-    OWNERSHIP_COMMAND="chown -R ${USER_PHP}:${GROUP_PHP} ${WORKDIR_PHP}/${DEST_PATH}"
-    echo " > setting permissions: ${OWNERSHIP_COMMAND}"
-    ${COMMAND_BIN_NAME} exec --root sh -c "${OWNERSHIP_COMMAND}"
+    ownership_command="chown -R $USER_PHP:$GROUP_PHP $WORKDIR_PHP/$dest_path"
+    print_default " > setting permissions: $ownership_command\n"
+    $COMMAND_BIN_NAME exec --root sh -c "$ownership_command"
 done
 
-echo -e "${GREEN}Host mirrored into container${COLOR_RESET}"
+print_info "Host mirrored into container\n"
