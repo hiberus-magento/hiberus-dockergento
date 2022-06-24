@@ -8,7 +8,7 @@ print_warnning() {
     echo -e "${YELLOW}$1${COLOR_RESET}"
 }
 
-print_notice() {
+print_error() {
     echo -e "${RED}$1${COLOR_RESET}"
 }
 
