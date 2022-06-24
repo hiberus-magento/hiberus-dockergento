@@ -6,8 +6,9 @@ source "$COMPONENTS_DIR"/print_message.sh
 
 # Check if command "jq" exists
 if ! command -v jq &>/dev/null; then
-    echo "Required 'jq' not found"
-    exit
+    print_error "Required 'jq' not found"
+    print_question "https://stedolan.github.io/jq/download/"
+    exit 0
 fi
 
 # Check compatible versions
