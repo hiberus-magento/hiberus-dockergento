@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DIR=$(dirname -- "$(readlink -f -- "$0")")
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
 
 # Check if command "jq" exists
 if ! command -v jq &>/dev/null; then
@@ -10,5 +11,30 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # Check compatible versions
-VERSIONS=$(jq -c 'keys[]' $DIR/../../data/equivalent_versions.json | tr '"' " ")
-echo -e "$VERSIONS"
+versions=$(jq -r 'keys[]' < "$DATA_DIR"/equivalent_versions.json)
+
+topBottom=$(printf '=%.0s' {1..100} )
+table=""
+perviousVersion=23
+
+printf "\n"
+
+# Compose tbody
+for version in $versions; do
+    versionNumber=${version:0:3}
+    versionNumber=${versionNumber//./}
+
+    if [ "$versionNumber" -gt $perviousVersion ]; then
+        table="$(echo -n "$table|\n")"
+        perviousVersion=$versionNumber
+    fi
+    table=$(printf "$table| %-9s" "${version}")
+done
+
+# Print table
+title=$(printf "%63s" "SUPPORTED MAGENTO VERSIONS")
+print_table "$topBottom"
+print_table "$title"
+print_table "$topBottom"
+print_table "$table|"
+print_table "$topBottom\n"
