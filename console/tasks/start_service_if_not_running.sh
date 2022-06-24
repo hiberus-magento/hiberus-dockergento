@@ -9,5 +9,5 @@ SERVICE_RUNNING_ERROR=$?
 set -e # Enable interruption in case of error
 
 if [ ${SERVICE_RUNNING_ERROR} == 1 ]; then
-  ${COMMANDS_DIR}/start.sh
+    ${COMMANDS_DIR}/start.sh
 fi

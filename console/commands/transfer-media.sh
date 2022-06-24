@@ -8,18 +8,18 @@ sshUser=""
 printf "${GREEN}Media transfer assistant: ${COLOR_RESET}\n"
 
 for i in "$@"; do
-  case $i in
-  --ssh-host=*)
-    sshHost="${i#*=}" && shift
-    ;;
-  --ssh-user=*)
-    sshUser="${i#*=}" && shift
-    ;;
-  --ssh-path=*)
-    sshPath="${i#*=}" && shift
-    ;;
-  -* | --* | *) ;;
-  esac
+    case $i in
+    --ssh-host=*)
+        sshHost="${i#*=}" && shift
+        ;;
+    --ssh-user=*)
+        sshUser="${i#*=}" && shift
+        ;;
+    --ssh-path=*)
+        sshPath="${i#*=}" && shift
+        ;;
+    -* | --* | *) ;;
+    esac
 done
 
 # Request data
@@ -31,8 +31,8 @@ sshUser=${inputSshUser:-${sshUser}}
 sshPath=${inputSshPath:-${sshPath}}
 
 if [ -z "$sshUser" ] || [ -z "$sshPath" ] || [ -z "$sshHost" ]; then
-  printf "${RED}Error: Please enter all required data${COLOR_RESET}\n"
-  exit 1
+    printf "${RED}Error: Please enter all required data${COLOR_RESET}\n"
+    exit 1
 fi
 
 # Request confirmation
@@ -41,14 +41,14 @@ read
 
 # Check rsync data
 if ! command -v rsync &>/dev/null; then
-  printf "${RED}Error: Rsync command not available${COLOR_RESET}\n"
-  exit 1
+    printf "${RED}Error: Rsync command not available${COLOR_RESET}\n"
+    exit 1
 fi
 
 # Check local pub/media directory
 if [ ! -d "./pub/media" ]; then
-  printf "${RED}Error: Local pub/media directory not found. Are you in the correct path?${COLOR_RESET}\n"
-  exit 1
+    printf "${RED}Error: Local pub/media directory not found. Are you in the correct path?${COLOR_RESET}\n"
+    exit 1
 fi
 
 # Transfer pub/media files

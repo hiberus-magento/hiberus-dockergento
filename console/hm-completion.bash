@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 complete -W "bash \ 
-compatibility \
-composer \
-create-project \
+compatibility \ 
+composer \ 
+create-project \ 
 debug-off \ 
 debug-on \ 
 docker-compose \ 

@@ -25,68 +25,68 @@ COMMAND_ARGUMENTS="--db-host=db \
 # Run magento setup:install command
 #
 run_install_magento_command() {
-  CONFIG=$(cat < "${DATA_DIR}/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")')
-  
-  ${COMMANDS_DIR}/magento.sh setup:install $COMMAND_ARGUMENTS $CONFIG
+    CONFIG=$(cat <"${DATA_DIR}/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")') 
+    "${COMMAND_BIN_NAME}" magento setup:install "$COMMAND_ARGUMENTS" "$CONFIG"
 }
 
 #
 # Get base url
 #
 get_base_url() {
-  source "${COMPONENTS_DIR}/input_info.sh" 
+    # shellcheck source=/dev/null 
+    source "${COMPONENTS_DIR}/input_info.sh"
 
-  get_domain "$@"
+    get_domain "$@"
 
-  COMMAND_ARGUMENTS="$COMMAND_ARGUMENTS --base-url=https://${DOMAIN}/"
+    COMMAND_ARGUMENTS="$COMMAND_ARGUMENTS --base-url=https://${DOMAIN}/"
 }
 
 #
 # Get arguments for setup-install command
 #
 get_argument_command() {
-  ARGUMENT=$(cat < "${DATA_DIR}/config.json" | jq -r '."'"$1"'"')
+    ARGUMENT=$(cat <"${DATA_DIR}/config.json" | jq -r '."'"$1"'"')
 
-  if [ null != "$ARGUMENT" ]; then
-    printf "%bDefine %s: %b[ %s ] " "${BLUE}" "$1" "${COLOR_RESET}" "${ARGUMENT}"
-  else
-    printf "%bDefine %s: %b" "${BLUE}" "$1" "${COLOR_RESET}"
-  fi
+    if [ null != "$ARGUMENT" ]; then
+        printf "%bDefine %s: %b[ %s ] " "${BLUE}" "$1" "${COLOR_RESET}" "${ARGUMENT}"
+    else
+        printf "%bDefine %s: %b" "${BLUE}" "$1" "${COLOR_RESET}"
+    fi
 
-  read -r RESPONSE
+    read -r RESPONSE
 
-  if [[ $RESPONSE != '' ]]; then
-    ARGUMENT=$RESPONSE
-  fi
+    if [[ $RESPONSE != '' ]]; then
+        ARGUMENT=$RESPONSE
+    fi
 
-  RESULT=$(cat < "${DATA_DIR}/config.json" | jq --arg ARGUMENT "$ARGUMENT" '. | ."'"$1"'"=$ARGUMENT')
+    RESULT=$(cat <"${DATA_DIR}/config.json" | jq --arg ARGUMENT "$ARGUMENT" '. | ."'"$1"'"=$ARGUMENT')
 
-  echo "${RESULT}" >"${DATA_DIR}/config.json"
+    echo "${RESULT}" >"${DATA_DIR}/config.json"
 }
 
 #
 # Get config and run comand
 #
 get_config() {
-  get_argument_command "language"
-  get_argument_command "currency"
-  get_argument_command "timezone"
-  get_argument_command "admin-firstname"
-  get_argument_command "admin-lastname"
-  get_argument_command "admin-email"
-  get_argument_command "admin-user"
-  get_argument_command "admin-password"
-  # Pendding to confirm
-  # get_argument_command "search-engine"
+    get_argument_command "language"
+    get_argument_command "currency"
+    get_argument_command "timezone"
+    get_argument_command "admin-firstname"
+    get_argument_command "admin-lastname"
+    get_argument_command "admin-email"
+    get_argument_command "admin-user"
+    get_argument_command "admin-password"
+    # Pendding to confirm
+    # get_argument_command "search-engine"
 }
 
 #
 # Initialize script
 #
 init() {
-  get_base_url "$@"
-  get_config
-  run_install_magento_command
+    get_base_url "$@"
+    get_config
+    run_install_magento_command
 }
 
 init "$@"

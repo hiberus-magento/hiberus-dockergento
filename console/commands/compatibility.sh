@@ -4,10 +4,9 @@ set -euo pipefail
 DIR=$(dirname -- "$(readlink -f -- "$0")")
 
 # Check if command "jq" exists
-if ! command -v jq &> /dev/null
-then
-  echo "Required 'jq' not found"
-  exit
+if ! command -v jq &>/dev/null; then
+    echo "Required 'jq' not found"
+    exit
 fi
 
 # Check compatible versions
