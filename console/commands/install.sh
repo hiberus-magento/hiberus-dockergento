@@ -12,7 +12,7 @@ DATABASE=$(${LOOK_TASK} "${YML_FILE}" "${PAHT_TO_MYSQL_KEYS}_DATABASE")
 # Default configuration
 COMMAND_ARGUMENTS="--db-host=db \
 --backend-frontname=admin \
---elasticsearch-host=elasticsearch \
+--elasticsearch-host=search \
 --use-rewrites=1 \
 --elasticsearch-port=9200 \
 --db-name=${DATABASE} \
