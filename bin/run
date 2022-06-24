@@ -55,9 +55,6 @@ if [ "$#" -gt 0 ]; then
     fi
 fi
 
-
-
-
 # Set composer project name
 COMMAND_NAME="$1.sh"
 if [ ! -f "${COMMANDS_DIR}/${COMMAND_NAME}" ]; then
@@ -81,8 +78,13 @@ fi
 export DOCKER_COMPOSE="docker-compose -f ${DOCKER_COMPOSE_FILE} -f ${DOCKER_COMPOSE_FILE_MACHINE}"
 
 # Validation docker compose
-if [[ "$1" != "setup" && "$1" != "create-project" && "$1" != "docker-stop-all" && "$1" != "docker-remove-all" ]]; then
-    "${TASKS_DIR}/validate_docker_compose.sh"
+if [[ "$1" != "setup" && 
+    "$1" != "create-project" &&
+    "$1" != "docker-stop-all" &&
+    "$1" != "docker-remove-all" &&
+    "$1" != "compatibility" ]]; then
+    
+    "$TASKS_DIR/validate_docker_compose.sh"
 fi
 
 shift

@@ -71,7 +71,7 @@ print_opts() {
     for ((i = 0; i < LENGTH; i++)); do
         name=$(echo "$FILE" | jq -r '."'"$1"'".opts['"$i"'].name')
         description=$(echo "$FILE" | jq -r '."'"$1"'".opts['"$i"'].description')
-        printf "   ${WHITE}%-20s${COLOR_RESET}%s\n" "${name}" "${description}"
+        printf "   $WHITE%-20s$COLOR_RESET%s\n" "$name" "$description"
     done
 
     if [[ $LENGTH -gt 0 ]]; then
@@ -93,7 +93,7 @@ print_args() {
     for ((i = 0; i < LENGTH; i++)); do
         name=$(echo "$FILE" | jq -r '."'"$1"'".args['"$i"'].name')
         description=$(echo "$FILE" | jq -r '."'"$1"'".args['"$i"'].description')
-        printf "   ${WHITE}%-20s${COLOR_RESET}%s\n" "${name}" "${description}"
+        printf "   $WHITE%-20s$COLOR_RESET%s\n" "$name" "$description"
     done
 
     if [[ $LENGTH -gt 0 ]]; then
@@ -119,7 +119,7 @@ usage() {
                 local usage
                 usage=$(echo "$FILE" | jq -r '."'"$command_name"'".usage')
                 print_info "Usage:"
-                printf "%3s${COMMAND_BIN_NAME} ${usage}\n\n"
+                printf "$WHITE%3s$COMMAND_BIN_NAME $usage\n\n"
 
             fi
 
@@ -128,7 +128,7 @@ usage() {
                 local example
                 example=$(echo "$FILE" | jq -r '."'"$command_name"'".example')
                 print_info "Example:"
-                printf "%3s${COMMAND_BIN_NAME} ${example}\n\n"
+                printf "%3s$COMMAND_BIN_NAME $example\n\n"
             fi
 
             # Prinf description seccion
@@ -136,7 +136,7 @@ usage() {
                 local description
                 description=$(echo "$FILE" | jq -r '."'"$command_name"'".description')
                 print_info "Description:"
-                printf "%3s${description}\n\n"
+                printf "%3s$description\n\n"
             fi
 
             # Prinf options seccion
@@ -152,12 +152,12 @@ usage() {
     fi
 }
 
-FILE="$(cat "${DATA_DIR}/command_descriptions.json")"
+FILE="$(cat "$DATA_DIR/command_descriptions.json")"
 
 # shellcheck source=/dev/null
-source "${COMPONENTS_DIR}"/print_message.sh
+source "$COMPONENTS_DIR"/print_message.sh
 # Show copy
 # shellcheck source=/dev/null
-source "${TASKS_DIR}/copyright.sh"
+source "$TASKS_DIR/copyright.sh"
 
 usage "$@"
