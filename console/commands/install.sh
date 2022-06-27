@@ -1,32 +1,38 @@
 #!/usr/bin/env bash
 
-YML_FILE="${MAGENTO_DIR}/docker-compose.yml"
-PAHT_TO_MYSQL_KEYS="services_db_environment_MYSQL"
-LOOK_TASK="${TASKS_DIR}/look_at_yml.sh"
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/input_info.sh
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
+
+yml_file="$MAGENTO_DIR/docker-compose.yml"
+path_to_mysql_keys="services_db_environment_MYSQL"
+look_at_task="$TASKS_DIR/look_at_yml.sh"
 
 # Get credentials
-USER=$(${LOOK_TASK} "${YML_FILE}" "${PAHT_TO_MYSQL_KEYS}_USER")
-PASSWORD=$(${LOOK_TASK} "${YML_FILE}" "${PAHT_TO_MYSQL_KEYS}_PASSWORD")
-DATABASE=$(${LOOK_TASK} "${YML_FILE}" "${PAHT_TO_MYSQL_KEYS}_DATABASE")
+user=$($look_at_task "$yml_file" "${path_to_mysql_keys}_USER")
+password=$($look_at_task "$yml_file" "${path_to_mysql_keys}_PASSWORD")
+database=$($look_at_task "$yml_file" "${path_to_mysql_keys}_DATABASE")
 
 # Default configuration
-COMMAND_ARGUMENTS="--db-host=db \
+command_arguments="--db-host=db \
 --backend-frontname=admin \
 --elasticsearch-host=search \
 --use-rewrites=1 \
 --elasticsearch-port=9200 \
---db-name=${DATABASE} \
---db-user=${USER} \
---db-password=${PASSWORD} \
---elasticsearch-username=${USER} \
---elasticsearch-password=${PASSWORD}"
+--db-name=$database \
+--db-user=$user \
+--db-password=$password \
+--elasticsearch-username=$user \
+--elasticsearch-password=$password"
 
 #
 # Run magento setup:install command
 #
 run_install_magento_command() {
-    CONFIG=$(cat <"${DATA_DIR}/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")') 
-    "${COMMAND_BIN_NAME}" magento setup:install $COMMAND_ARGUMENTS $CONFIG
+    config=$(cat <"$DATA_DIR/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")') 
+    $COMMANDS_DIR/magento.sh setup:install $command_arguments $config
+
 }
 
 #
@@ -34,34 +40,33 @@ run_install_magento_command() {
 #
 get_base_url() {
     # shellcheck source=/dev/null 
-    source "${COMPONENTS_DIR}/input_info.sh"
+    source "$COMPONENTS_DIR"/input_info.sh
 
     get_domain "$@"
 
-    COMMAND_ARGUMENTS="$COMMAND_ARGUMENTS --base-url=https://${DOMAIN}/"
+    command_arguments="$command_arguments --base-url=https://$DOMAIN/"
 }
 
 #
 # Get arguments for setup-install command
 #
 get_argument_command() {
-    ARGUMENT=$(cat <"${DATA_DIR}/config.json" | jq -r '."'"$1"'"')
+    argument=$(cat <"$DATA_DIR/config.json" | jq -r '."'"$1"'"')
 
-    if [ null != "$ARGUMENT" ]; then
-        printf "%bDefine %s: %b[ %s ] " "${BLUE}" "$1" "${COLOR_RESET}" "${ARGUMENT}"
-    else
-        printf "%bDefine %s: %b" "${BLUE}" "$1" "${COLOR_RESET}"
+    print_question "Define $1: "
+    if [ null != "$argument" ]; then
+        print_default "[ $argument ] "
     fi
 
-    read -r RESPONSE
+    read -r response
 
-    if [[ $RESPONSE != '' ]]; then
-        ARGUMENT=$RESPONSE
+    if [[ $response != '' ]]; then
+        argument=$response
     fi
 
-    RESULT=$(cat <"${DATA_DIR}/config.json" | jq --arg ARGUMENT "$ARGUMENT" '. | ."'"$1"'"=$ARGUMENT')
+    RESULT=$(cat <"$DATA_DIR/config.json" | jq --arg ARGUMENT "$argument" '. | ."'"$1"'"=$ARGUMENT')
 
-    echo "${RESULT}" >"${DATA_DIR}/config.json"
+    echo "$RESULT" > "$DATA_DIR/config.json"
 }
 
 #

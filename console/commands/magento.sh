@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-${COMMANDS_DIR}/exec.sh php ${MAGENTO_DIR}/bin/magento "$@"
+"$COMMAND_BIN_NAME" exec php "$MAGENTO_DIR"/bin/magento "$@"

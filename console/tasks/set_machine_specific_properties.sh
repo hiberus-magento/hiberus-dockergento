@@ -16,7 +16,7 @@ Darwin*)
     ;;
 esac
 
-if [[ "${MACHINE}" == "UNKNOWN" ]]; then
+if [[ "$MACHINE" == "UNKNOWN" ]]; then
     echo "Error: Unsupported system type"
     echo "System must be a Macintosh or Linux"
     echo ""
@@ -26,5 +26,5 @@ if [[ "${MACHINE}" == "UNKNOWN" ]]; then
     exit 1
 fi
 
-export MACHINE="${MACHINE}"
+export MACHINE="$MACHINE"
 export DOCKER_COMPOSE_FILE_MACHINE="${DOCKER_COMPOSE_FILE_MACHINE}"

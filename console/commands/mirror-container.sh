@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/input_info.sh
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
+
+
 # IMPORTANT:
 # mirror-container supports only dir copies for now.
 # Because container src is not running, we cannot know whether the source is a file or a dir.
@@ -10,60 +16,61 @@ set -euo pipefail
 # Clear destination directory
 #
 clear_dest_dir() {
-    DEST_PATH=$1
+    dest_path=$1
 
-    if [ "${ANSWER_REMOVE_DEST}" != "y" ]; then
-        read -p "Confirm removing '${DEST_PATH}/*' in host (y/n [n])? " ANSWER_REMOVE_DEST
+    if [ "$answer_remove_dest" != "y" ]; then
+        print_question "Confirm removing '$dest_path/*' in host (y/n [n])? "
+        read -r answer_remove_dest
     fi
 
-    if [ "${ANSWER_REMOVE_DEST}" == "y" ]; then
-        echo "rm -rf ${DEST_PATH}/*"
-        rm -rf ${DEST_PATH}/*
+    if [ "$answer_remove_dest" == "y" ]; then
+        print_default "rm -rf $dest_path/*\n"
+        rm -rf "${dest_path:?}"/*
     else
-        echo " > deletion skipped"
+        print_default " > deletion skipped\n"
     fi
 }
 
-if [[ "${MACHINE}" != "mac" ]]; then
-    printf "${RED} This command is only for mac system.${COLOR_RESET}\n"
+if [[ "$MACHINE" != "mac" ]]; then
+    print_error " This command is only for mac system.\n"
     exit 1
 fi
 
-ANSWER_REMOVE_DEST=""
+answer_remove_dest=""
 if [[ "$1" == "--force" || "$1" == "-f" ]]; then
-    ANSWER_REMOVE_DEST='y'
+    answer_remove_dest='y'
     shift
 fi
 
 # IMPORTANT:
 # Docker cp from container to host needs to be done in a not running container.
 # Otherwise the docker.hyperkit gets crazy and breaks the bind mounts
-${COMMANDS_DIR}/stop.sh
+$COMMAND_BIN_NAME stop
+# shellcheck source=/dev/null
+source "$TASKS_DIR"/mirror_path.sh
 
-source ${TASKS_DIR}/mirror_path.sh
+print_info "Start mirror copy of container into host\n"
+container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
-printf "${GREEN}Start mirror copy of container into host${COLOR_RESET}\n"
-CONTAINER_ID=$(${DOCKER_COMPOSE} ps -q phpfpm)
+for path_to_mirror in "$@"; do
+    print_warnning "phpfpm:$path_to_mirror -> $path_to_mirror\n"
 
-for PATH_TO_MIRROR in $@; do
-    printf "${YELLOW}phpfpm:${PATH_TO_MIRROR} -> ${PATH_TO_MIRROR}${COLOR_RESET}\n"
+    print_default " > validating and sanitizing path: '$path_to_mirror'\n"
+    path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
 
-    echo " > validating and sanitizing path: '${PATH_TO_MIRROR}'"
-    PATH_TO_MIRROR=$(sanitize_mirror_path "${PATH_TO_MIRROR}")
+    SRC_PATH="$path_to_mirror/."
+    dest_path="$path_to_mirror"
 
-    SRC_PATH="${PATH_TO_MIRROR}/."
-    DEST_PATH="${PATH_TO_MIRROR}"
+    print_default " > removing destination content: '$dest_path'\n"
+    clear_dest_dir "$dest_path"
+    print_default " > ensure destination exists: '$dest_path'\n"
+    mkdir -p "$dest_path"
 
-    echo " > removing destination content: '${DEST_PATH}'"
-    clear_dest_dir "${DEST_PATH}"
-    echo " > ensure destination exists: '${DEST_PATH}'"
-    mkdir -p ${DEST_PATH}
-
-    echo " > copying 'phpfpm:${WORKDIR_PHP}/${SRC_PATH}' into '${DEST_PATH}'"
-    docker cp ${CONTAINER_ID}:${WORKDIR_PHP}/${SRC_PATH} ${DEST_PATH}
+    print_default " > copying 'phpfpm:${WORKDIR_PHP}/${SRC_PATH}' into '$dest_path'\n"
+    docker cp "$container_id:$WORKDIR_PHP/$SRC_PATH $dest_path"
 done
 
-printf "${GREEN}Container mirrored into host${COLOR_RESET}\n"
+print_info "Container mirrored into host\n"
 
 # Start containers again because we needed to stop them before mirroring
-${COMMANDS_DIR}/start.sh
+$COMMAND_BIN_NAME start

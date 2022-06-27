@@ -34,8 +34,8 @@ done
 
 # Print table
 title=$(printf "%63s" "SUPPORTED MAGENTO VERSIONS")
-print_table "$topBottom"
-print_table "$title"
-print_table "$topBottom"
-print_table "$table|"
+print_table "$topBottom\n"
+print_table "$title\n"
+print_table "$topBottom\n"
+print_table "$table|\n"
 print_table "$topBottom\n"

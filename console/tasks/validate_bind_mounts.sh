@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${MACHINE}" == "mac" ]]; then
-    BIND_MOUNT_PATH=$(${TASKS_DIR}/get_bind_mount_path.sh "${WORKDIR_PHP}/${MAGENTO_DIR}/vendor")
+if [[ "$MACHINE" == "mac" ]]; then
+    BIND_MOUNT_PATH=$($TASKS_DIR/get_bind_mount_path.sh "${WORKDIR_PHP}/$MAGENTO_DIR/vendor")
 
     if [[ ${BIND_MOUNT_PATH} != false ]]; then
         echo ""
@@ -12,7 +12,7 @@ if [[ "${MACHINE}" == "mac" ]]; then
         echo "      - ./<host_path>:${BIND_MOUNT_PATH}"
         echo ""
         echo "  2. Execute:"
-        echo "      ${COMMAND_BIN_NAME} rebuild"
+        echo "      $COMMAND_BIN_NAME rebuild"
         echo ""
         exit 1
     fi
