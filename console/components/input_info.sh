@@ -42,7 +42,7 @@ get_magento_version() {
 # Get magento edition
 #
 get_magento_edition() {
-    AVAILABLE_MAGENTO_EDITIONS="community commerce"
+    AVAILABLE_MAGENTO_EDITIONS="community enterprise"
     DEFAULT_MAGENTO_EDITION="community"
 
     if [ $# == 0 ]; then
