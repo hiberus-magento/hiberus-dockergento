@@ -17,7 +17,7 @@ database=$($look_at_task "$yml_file" "${path_to_mysql_keys}_DATABASE")
 # Default configuration
 command_arguments="--db-host=db \
 --backend-frontname=admin \
---elasticsearch-host=elasticsearch \
+--elasticsearch-host=search \
 --use-rewrites=1 \
 --elasticsearch-port=9200 \
 --db-name=$database \
@@ -32,6 +32,7 @@ command_arguments="--db-host=db \
 run_install_magento_command() {
     config=$(cat <"$DATA_DIR/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")') 
     $COMMANDS_DIR/magento.sh setup:install $command_arguments $config
+
 }
 
 #
