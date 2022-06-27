@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-YML_FILE="${MAGENTO_DIR}/docker-compose.yml"
-PAHT_TO_MYSQL_KEYS="services_db_environment_MYSQL"
-LOOK_TASK="${TASKS_DIR}/look_at_yml.sh"
+yml_file="$MAGENTO_DIR/docker-compose.yml"
+path_to_mysql_keys="services_db_environment_MYSQL"
+look_at_task="$TASKS_DIR/look_at_yml.sh"
 
-# Get project credentials
-USER=$(${LOOK_TASK} "${YML_FILE}" "${PAHT_TO_MYSQL_KEYS}_USER")
-PASSWORD=$(${LOOK_TASK} "${YML_FILE}" "${PAHT_TO_MYSQL_KEYS}_PASSWORD")
-DATABASE=$(${LOOK_TASK} "${YML_FILE}" "${PAHT_TO_MYSQL_KEYS}_DATABASE")
+# Get credentials
+user=$($look_at_task "$yml_file" "${path_to_mysql_keys}_USER")
+password=$($look_at_task "$yml_file" "${path_to_mysql_keys}_PASSWORD")
+database=$($look_at_task "$yml_file" "${path_to_mysql_keys}_DATABASE")
 
-${COMMAND_BIN_NAME} docker-compose exec -T db mysql -u"${USER}" -p"${PASSWORD}" "${DATABASE}" "$@"
+$COMMAND_BIN_NAME docker-compose exec -T db mysql -u"$user" -p"$password" "$database" "$@"

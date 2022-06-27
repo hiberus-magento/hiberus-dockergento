@@ -1,5 +1,20 @@
 #!/usr/bin/env bash
 
+source "$COMPONENTS_DIR"/print_message.sh
+
+get_equivalent_version_if_exit() {
+    equivalent_version=$("${TASKS_DIR}/get_equivalent_version.sh" "$1")
+    if [[ "$equivalent_version" = "null" ]]; then
+        print_warnning "\nWe don´t have support for the version $1 "
+        print_info "\nPlease, write any version between all versions supported or press Ctrl - C to exit"
+        ${COMMAND_BIN_NAME} compatibility
+        read -r MAGENTO_VERSION
+        get_equivalent_version_if_exit "$MAGENTO_VERSION"
+    fi
+
+    export EQUIVALENT_VERSION=$equivalent_version
+}
+
 #
 # Get magento version
 #
@@ -19,17 +34,8 @@ get_magento_version() {
         MAGENTO_EDITION=$1
     fi
 
-    EQUIVALENT_VERSION=$("${TASKS_DIR}/get_equivalent_version.sh" "${MAGENTO_VERSION}")
-
-    if [[ "null" == "$EQUIVALENT_VERSION" ]]; then
-        echo -e "\n${RED}-----------------------------------------${COLOR_RESET}"
-        echo -e "\n${RED}   The desired version is not supported${COLOR_RESET}"
-        echo -e "\n${RED}-----------------------------------------${COLOR_RESET}\n"
-        exit 1
-    else
-        export MAGENTO_VERSION=$MAGENTO_VERSION
-        export EQUIVALENT_VERSION=$EQUIVALENT_VERSION
-    fi
+    get_equivalent_version_if_exit "$MAGENTO_VERSION"
+    export MAGENTO_VERSION=$MAGENTO_VERSION   
 }
 
 #
@@ -70,7 +76,7 @@ get_domain() {
     PROJECT_NAME=$(basename "$PWD")
 
     if [ $# == 0 ]; then
-        printf "%bDefine base url: %b[ https:/%s.local/ ] " "${BLUE}" "${COLOR_RESET}" "/${PROJECT_NAME}"
+        printf "%bDefine dominio %b[ %s.local ] " "${BLUE}" "${COLOR_RESET}" "${PROJECT_NAME}"
         read -r DOMAIN
 
         if [[ $DOMAIN == '' ]]; then

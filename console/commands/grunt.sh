@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/input_info.sh
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
+
 # Check command usage
 if [ "$#" -ne 2 ] || [[ "$1" != */* ]]; then
-    printf "${RED}Error: You should specify a Magento theme and a locale.\n- Usage: ${COMMAND_BIN_NAME} grunt <Vendor/theme> <locale_LOCALE>${COLOR_RESET}\n"
+    print_error "Error: You should specify a Magento theme and a locale.\n- Usage: $COMMAND_BIN_NAME grunt <Vendor/theme> <locale_LOCALE>\n"
     exit
 fi
 
@@ -12,7 +17,7 @@ GRUNT_LOCALE=$2
 
 # Check if PHP container is running
 if [ -z "$(docker ps | grep phpfpm)" ]; then
-    printf "${RED}Error: PHP container is not running!${COLOR_RESET}\n"
+    print_error "Error: PHP container is not running!\n"
     exit
 fi
 
@@ -31,5 +36,5 @@ docker-compose exec phpfpm bash -c \
 printf "Prepared grunt configurations...\n"
 
 # Launch grunt
-printf "${GREEN}Compiling styles...\n${COLOR_RESET}"
+print_info "Compiling styles...\n"
 docker-compose exec phpfpm bash -c "grunt exec:magento && grunt watch:magento"

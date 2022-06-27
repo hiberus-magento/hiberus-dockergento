@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${EXEC_OPTIONS:=""}"
+: "${exec_options:=""}"
 
 if [[ "$1" == "--root" ]]; then
     shift
-    EXEC_OPTIONS="${EXEC_OPTIONS} -u root"
+    exec_options="$exec_options -u root"
 fi
 
-DOCKER_COMPOSE_EXEC="${DOCKER_COMPOSE} exec"
-if [ "${EXEC_OPTIONS}" != "" ]; then
-    DOCKER_COMPOSE_EXEC="${DOCKER_COMPOSE_EXEC} ${EXEC_OPTIONS}"
+docker_eompose_exec="$DOCKER_COMPOSE exec"
+
+if [ "$exec_options" != "" ]; then
+    docker_eompose_exec="$docker_eompose_exec $exec_options"
 fi
 
-${DOCKER_COMPOSE_EXEC} phpfpm "$@"
+$docker_eompose_exec phpfpm "$@"
