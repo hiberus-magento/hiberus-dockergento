@@ -22,7 +22,7 @@ get_magento_version() {
     DEFAULT_MAGENTO_VERSION="2.4.4"
 
     if [ $# == 0 ]; then
-        printf "%bMagento version: %b[%s] " "$BLUE" "$COLOR_RESET" "$DEFAULT_MAGENTO_VERSION"
+        printf "%bMagento version: %b[ %s ] " "$BLUE" "$COLOR_RESET" "$DEFAULT_MAGENTO_VERSION"
         read -r MAGENTO_VERSION
 
         if [[ $MAGENTO_VERSION == '' ]]; then

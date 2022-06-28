@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-UNAMEOUT="$(uname -s)"
-case "${UNAMEOUT}" in
+unameout="$(uname -s)"
+case "$unameout" in
 Linux*)
     MACHINE="linux"
     DOCKER_COMPOSE_FILE_MACHINE="${DOCKER_COMPOSE_FILE_LINUX}"

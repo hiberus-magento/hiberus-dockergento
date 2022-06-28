@@ -67,7 +67,7 @@ for path_to_mirror in "$@"; do
     mkdir -p "$dest_path"
 
     print_default " > copying 'phpfpm:${WORKDIR_PHP}/${SRC_PATH}' into '$dest_path'\n"
-    docker cp "$container_id:$WORKDIR_PHP/$SRC_PATH $dest_path"
+    docker cp "$container_id:$WORKDIR_PHP/$SRC_PATH" "$dest_path"
 done
 
 print_info "Container mirrored into host\n"
