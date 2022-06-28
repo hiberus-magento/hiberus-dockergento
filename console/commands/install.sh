@@ -23,8 +23,8 @@ command_arguments="--db-host=db \
 --db-name=$database \
 --db-user=$user \
 --db-password=$password \
---elasticsearch-username=$user \
---elasticsearch-password=$password"
+--elasticsearch-username=admin \
+--elasticsearch-password=admin"
 
 #
 # Run magento setup:install command
