@@ -1,10 +1,10 @@
 {
-  "language": "en_GB",
+  "language": "es_ES",
   "currency": "EUR",
   "timezone": "Europe/Madrid",
   "admin-firstname": "hiberus",
   "admin-lastname": "hiberus",
-  "admin-email": "hiberus@company.com",
+  "admin-email": "noreply@hiberus.com",
   "admin-user": "hiberus",
   "admin-password": "hiberus123"
 }
