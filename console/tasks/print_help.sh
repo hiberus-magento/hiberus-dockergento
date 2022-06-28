@@ -1,6 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
+
+FILE="$(cat "$DATA_DIR/command_descriptions.json")"
+
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
+# shellcheck source=/dev/null
+source "$TASKS_DIR"/copyright.sh
+
 #
 # Print al all commands info (native and custom)
 #
@@ -53,8 +61,8 @@ print_all_commands_help_info() {
     local commands_output_all
     commands_output=$(print_commands_info)
     commands_output_all=$(print_commands_info "custom")
-    echo "${commands_output}"
-    echo "${commands_output_all}"
+    echo "$commands_output"
+    echo "$commands_output_all"
 }
 
 #
@@ -65,7 +73,7 @@ print_opts() {
     LENGTH=$(echo "$FILE" | jq -r '."'"$1"'".opts | length')
 
     if [[ $LENGTH -gt 0 ]]; then
-        print_info "Options:"
+        print_info "Options:\n"
     fi
 
     for ((i = 0; i < LENGTH; i++)); do
@@ -87,7 +95,7 @@ print_args() {
     LENGTH=$(echo "$FILE" | jq -r '."'"$1"'".args | length')
 
     if [[ $LENGTH -gt 0 ]]; then
-        print_info "Arguments:"
+        print_info "Arguments:\n"
     fi
 
     for ((i = 0; i < LENGTH; i++)); do
@@ -151,13 +159,5 @@ usage() {
         fi
     fi
 }
-
-FILE="$(cat "$DATA_DIR/command_descriptions.json")"
-
-# shellcheck source=/dev/null
-source "$COMPONENTS_DIR"/print_message.sh
-# Show copy
-# shellcheck source=/dev/null
-source "$TASKS_DIR/copyright.sh"
 
 usage "$@"

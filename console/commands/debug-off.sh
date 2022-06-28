@@ -8,4 +8,4 @@ source "$COMPONENTS_DIR"/input_info.sh
 $COMMAND_BIN_NAME exec sed -i -e 's/^\zend_extension/;zend_extension/g' /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 $DOCKER_COMPOSE restart phpfpm
 
-print_info "  xdebug disabled"
+print_info "  xdebug disabled\n"

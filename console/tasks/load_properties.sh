@@ -3,15 +3,17 @@ set -euo pipefail
 
 set -a # Enable export all variables
 
+# shellcheck source=/dev/null
 source "${PROPERTIES_DIR}"/color_properties
+# shellcheck source=/dev/null
 source "${PROPERTIES_DIR}"/docker_properties
 
-ROOT_DIR=$PWD
+root_dir=$PWD
 
-for PROPERTIES_ROOT_DIR in ${ROOT_DIR} ${ROOT_DIR}/.. ${ROOT_DIR}/../..; do
-    CUSTOM_PROPERTIES=${PROPERTIES_ROOT_DIR}/config/$COMMAND_BIN_NAME/properties
-    if [ -f "$CUSTOM_PROPERTIES" ]; then
-        source "$CUSTOM_PROPERTIES"
+for properties_root_dir in $root_dir $root_dir/.. $root_dir/../..; do
+    custom_properties=$properties_root_dir/config/$COMMAND_BIN_NAME/properties
+    if [ -f "$custom_properties" ]; then
+        source "$custom_properties"
     fi
 done
 

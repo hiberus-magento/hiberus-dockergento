@@ -1,19 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "$MACHINE" == "mac" ]]; then
-    BIND_MOUNT_PATH=$($TASKS_DIR/get_bind_mount_path.sh "${WORKDIR_PHP}/$MAGENTO_DIR/vendor")
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
 
-    if [[ ${BIND_MOUNT_PATH} != false ]]; then
-        echo ""
-        echo -e "${RED}Vendor cannot be a bind mount. Please do the following:${COLOR_RESET}\n"
-        echo ""
-        echo "  1. Remove from your docker-compose configuration:"
-        echo "      - ./<host_path>:${BIND_MOUNT_PATH}"
-        echo ""
-        echo "  2. Execute:"
-        echo "      $COMMAND_BIN_NAME rebuild"
-        echo ""
+if [[ "$MACHINE" == "mac" ]]; then
+    bind_mount_path=$("$TASKS_DIR"/get_bind_mount_path.sh "$WORKDIR_PHP/$MAGENTO_DIR/vendor")
+
+    if [[ $bind_mount_path != false ]]; then
+        print_error "\nVendor cannot be a bind mount. Please do the following:\n\n"
+        print_default "  1. Remove from your docker-compose configuration:\n"
+        print_default "      - ./<host_path>:$bind_mount_path\n\n"
+        print_default "  2. Execute:\n"
+        print_default "      $COMMAND_BIN_NAME rebuild\n\n"
         exit 1
     fi
 fi

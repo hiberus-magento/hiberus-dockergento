@@ -108,8 +108,8 @@ init_docker() {
     $COMMAND_BIN_NAME ssl "$DOMAIN"
     $COMMAND_BIN_NAME set-host "$DOMAIN" --no-database
 
-    print_warnning "Open "
-    print_question "https://$DOMAIN/"
+    print_info "Open "
+    print_question "https://$DOMAIN/\n"
 }
 
 # Check if command "jq" exists

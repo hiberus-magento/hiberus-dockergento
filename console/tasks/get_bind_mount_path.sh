@@ -2,12 +2,10 @@
 set -euo pipefail
 
 sanitize_path() {
-    PATH_TO_SANITIZE=$1
-
-    SANITIZED_PATH=$(echo "${PATH_TO_SANITIZE}" | sed "s#/./#/#g")
-    SANITIZED_PATH=${SANITIZED_PATH%/}
-    SANITIZED_PATH=${SANITIZED_PATH%/.}
-    echo "${SANITIZED_PATH}"
+    sanitized_path=$(echo "$1" | sed "s#/./#/#g")
+    sanitized_path=${sanitized_path%/}
+    sanitized_path=${sanitized_path%/.}
+    echo "$sanitized_path"
 }
 
 PATH_TO_CHECK="$1"

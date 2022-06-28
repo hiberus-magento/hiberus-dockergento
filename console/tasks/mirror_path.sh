@@ -2,26 +2,26 @@
 set -euo pipefail
 
 remove_magento_dir_prefix() {
-    PATH_TO_MIRROR=$1
-    echo "${PATH_TO_MIRROR#"$MAGENTO_DIR/"}"
+    path_mirror=$1
+    echo "${path_mirror#"$MAGENTO_DIR/"}"
 }
 
 remove_magento_slash_at_end() {
-    PATH_TO_MIRROR=$1
-    echo "${PATH_TO_MIRROR%/}"
+    path_mirror=$1
+    echo "${path_mirror%/}"
 }
 
 add_magento_dir_prefix() {
-    PATH_TO_MIRROR=$1
-    echo "$MAGENTO_DIR/${PATH_TO_MIRROR}"
+    path_mirror=$1
+    echo "$MAGENTO_DIR/$path_mirror"
 }
 
 sanitize_mirror_path() {
-    PATH_TO_MIRROR=$1
+    path_mirror=$1
 
-    PATH_TO_MIRROR=$(remove_magento_dir_prefix "${PATH_TO_MIRROR}")
-    PATH_TO_MIRROR=$(remove_magento_slash_at_end "${PATH_TO_MIRROR}")
-    PATH_TO_MIRROR=$(add_magento_dir_prefix "${PATH_TO_MIRROR}")
+    path_mirror=$(remove_magento_dir_prefix "$path_mirror")
+    path_mirror=$(remove_magento_slash_at_end "$path_mirror")
+    path_mirror=$(add_magento_dir_prefix "$path_mirror")
 
-    echo "${PATH_TO_MIRROR}"
+    echo "$path_mirror"
 }
