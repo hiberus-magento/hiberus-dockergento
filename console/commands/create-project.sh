@@ -57,7 +57,6 @@ init_docker() {
     get_magento_edition
     get_magento_version
     get_domain
-    echo $EQUIVALENT_VERSION
 
     # Create docker environment
     $COMMAND_BIN_NAME setup "$EQUIVALENT_VERSION" "$DOMAIN"

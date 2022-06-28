@@ -263,8 +263,6 @@ edit_version() {
         echo "invalid option '${REPLY}'"
     done
 
-echo "service_name: $service_name"
-echo "select_result: $select_result"
     requeriments=$(echo "$requeriments" | jq -r '.'"$service_name"'="'"$select_result"'"')
 }
 
