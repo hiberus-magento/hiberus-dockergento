@@ -11,7 +11,6 @@ backend default {
 # Add hostnames, IP addresses and subnets that are allowed to purge content
 acl purge {
     "phpfpm";
-    "hitch";
     "nginx";
     "localhost";
     "127.0.0.1";
