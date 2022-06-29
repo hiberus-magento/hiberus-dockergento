@@ -7,10 +7,11 @@ Docker environment for Magento 2 projects. Please visit our [Dockerhub repositor
 
 - **Nginx**: `1.18`
 - **PHP**: `7.2`, `7.3`, `7.4`, `8.1`
-- **MySQL**: `5.7`, `8.0`
+- **MariaDB**: `10.2`, `10.3`, `10.4`
 - **RabbitMQ**: `3.9`
 - **Redis**: `5.0`, `6.2`
-- **Elastic**: `5.6`, `6.5`, `7.17`
+- **ElasticSearch**: `5.6`, `6.5`, `7.17`
+- **OpenSearch**: `1.2`
 - **Mailhog**: `1.0`
 - **Varnish**: `6.0`, `7.1`
 - **Hitch**: `1.7`
