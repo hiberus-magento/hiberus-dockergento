@@ -4,3 +4,4 @@ discovery.type: single-node
 node.master: true
 node.ingest: true
 node.data: true
+xpack.ml.enabled: false
