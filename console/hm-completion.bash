@@ -3,6 +3,8 @@
 complete -W "bash \ 
 compatibility \ 
 composer \ 
+copy-from-container \ 
+copy-to-container \ 
 create-project \ 
 debug-off \ 
 debug-on \ 
@@ -13,8 +15,6 @@ exec \
 grunt \ 
 install \ 
 magento \ 
-mirror-container \ 
-mirror-host \ 
 mysql \ 
 purge \ 
 rebuild \ 

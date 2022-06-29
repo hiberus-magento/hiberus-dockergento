@@ -24,15 +24,33 @@
       }
     ]
   },
-  "create-project": {
-    "description": "Create new magento project inside current directory",
-    "usage": "create-project",
+  "copy-from-container": {
+    "usage": "copy-from-container [options] [path1] ... [pathN]",
+    "description": "(Mac only) Copy and overwrite container content into host",
+    "opts": [
+      {
+        "name": "[path]",
+        "description": "Do not ask confirmation to remove host destination"
+      }
+    ],
+    "example": "copy-from-container generated",
+    "mac": true
+  },
+  "copy-to-container": {
+    "usage": "copy-to-container [path1] ... [pathN]",
+    "description": "(Mac only) Copy and overwrite host content into container",
     "args": [
       {
-        "name": "[version]",
-        "description": "Install magento version wished"
+        "name": "[path]",
+        "description": "Folder to copy"
       }
-    ]
+    ],
+    "example": "copy-to-container vendor",
+    "mac": true
+  },
+  "create-project": {
+    "description": "Create new magento project inside current directory",
+    "usage": "create-project"
   },
   "debug-off": {
     "usage": "debug-off",
@@ -72,14 +90,8 @@
     "example": "exec ls -lah"
   },
   "install": {
-    "usage": "install [--yyy | domain]",
+    "usage": "install [domain]",
     "description": "Execute setup:install magento command with custom config",
-    "opts": [
-      {
-        "name": "--yyy",
-        "description": "Run command with configeraion saved and https://magento-hm.local/ domain"
-      }
-    ],
     "args": [
       {
         "name": "domain",
@@ -91,29 +103,13 @@
     "usage": "magento [arguments]",
     "description": "Execute magento console commands"
   },
-  "copy-from-container": {
-    "usage": "copy-from-container [options] [path1] ... [pathN]",
-    "description": "(Mac only) Copy and overwrite container content into host",
-    "opts": [
-      {
-        "name": "[args]",
-        "description": "Do not ask confirmation to remove host destination"
-      }
-    ],
-    "example": "copy-from-container generated",
-    "mac": true
+  "mysql": {
+    "usage": "mysql [arguments]",
+    "example": "mysql < local-path/my-dump.sql",
+    "description": "Execute mysql command to container"
   },
-  "copy-to-container": {
-    "usage": "copy-to-container [path1] ... [pathN]",
-    "description": "(Mac only) Copy and overwrite host content into container",
-    "args": [
-      {
-        "name": "[args]",
-        "description": "Folder to copy"
-      }
-    ],
-    "example": "copy-to-container vendor",
-    "mac": true
+  "npm": {
+    "description": "Execute npm commands inside node container"
   },
   "purge": {
     "description": "Remove all magento generated code (caches, generated, static, view_preprocessed)"
@@ -123,9 +119,6 @@
   },
   "restart": {
     "description": "Restart docker services"
-  },
-  "npm": {
-    "description": "Execute npm commands inside node container"
   },
   "set-host": {
     "usage": "set-host [domain]",
@@ -164,10 +157,25 @@
   "test-unit": {
     "description": "Execute your magento unit test"
   },
+  "transfer-db": {
+    "description": "Tranfer database form external source to this project"
+  },
+  "transfer-media": {
+    "description": "Tranfer multimedia recurses form external source to this project"
+  },
   "urn-generate": {
     "usage": "urn-generate <path>",
     "description": "Generates the catalog of URNs to *.xsd mappings for the IDE to highlight xml",
     "example": "urn-generate .idea/misc.xml"
+  },
+  "update": {
+    "description": "Update hiberus docker tool"
+  },
+  "varnish-off": {
+    "description": "Turn off varnish service"
+  },
+  "varnish-on": {
+    "description": "Turn on varnish service"
   },
   "watch": {
     "usage": "watch [path1] ... [pathN]",
