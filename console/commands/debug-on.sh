@@ -20,7 +20,7 @@ $COMMAND_BIN_NAME exec sed -i -e 's/^\;zend_extension/zend_extension/g' /usr/loc
 
 if [[ "$MACHINE" == "mac" ]]; then
     print_warnning "Copying generated code into host \n"
-    $COMMAND_BIN_NAME mirror-container -f generated
+    $COMMAND_BIN_NAME copy-to-host -f generated
 else
     $DOCKER_COMPOSE restart phpfpm
 fi
