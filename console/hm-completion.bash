@@ -16,6 +16,7 @@ grunt \
 install \ 
 magento \ 
 mysql \ 
+npm \ 
 purge \ 
 rebuild \ 
 restart \ 

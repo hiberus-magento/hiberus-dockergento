@@ -12,7 +12,7 @@ mirror_vendor_host_into_container() {
 		mkdir -p "$MAGENTO_DIR/vendor"
 	fi
 
-	"$COMMAND_BIN_NAME" mirror-host vendor
+	"$COMMAND_BIN_NAME" copy-to-container vendor
 }
 
 sync_all_from_container_to_host() {
