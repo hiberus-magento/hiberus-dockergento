@@ -39,8 +39,11 @@ check_if_docker_enviroment_exist() {
             print_error "             ¡¡¡WE HAVE DETECTED DOCKER COMPOSE FILES!!! \n\n"
             print_error "    If you continue with this proccess these files will be removed\n"
             print_error "----------------------------------------------------------------------\n\n"
-            print_question "Do you want continue? [y/n] "
+            print_question "Do you want continue? [Y/n] "
             read -r yn
+            if [ -z "$yn" ]; then
+                yn="y"
+            fi
             case $yn in
             [Yy]*) break ;;
             [Nn]*) exit ;;
@@ -230,8 +233,11 @@ change_requeriments() {
     print_requeriments
     state="continue"
     while [[ $state == "continue" ]]; do
-        print_question "Are you satisfied with these versions? [y/n] "
+        print_question "Are you satisfied with these versions? [Y/n] "
         read -r yn
+        if [ -z "$yn" ]; then
+            yn="y"
+        fi
         case $yn in
         [Yy]*) state="exit" ;;
         [Nn]*)

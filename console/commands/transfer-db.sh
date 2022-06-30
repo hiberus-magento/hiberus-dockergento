@@ -50,7 +50,7 @@ for i in "$@"; do
 done
 
 # Request SSH credentials
-read -r -p "Do you need to use SSH tunneling? [Yn]: " sshTunnel
+read -r -p "Do you need to use SSH tunneling? [Y/n]: " sshTunnel
 if [ -z "$sshTunnel" ] || [ "$sshTunnel" == "Y" ] || [ "$sshTunnel" == "y" ]; then
     read -p "SSH Host [Default: '${sshHost}']: " inputSshHost
     read -p "SSH User [Default: '${sshUser}']: " inputSshUser
