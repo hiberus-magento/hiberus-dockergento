@@ -8,7 +8,7 @@ running_containers=$(docker ps -q)
 
 if [[ "$running_containers" != "" ]]; then
     print_info "Stopping running containers\n"
-    docker stop "$running_containers"
+    docker stop $running_containers
 else
     echo "No containers running"
 fi
