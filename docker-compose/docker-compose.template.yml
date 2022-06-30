@@ -43,6 +43,8 @@ services:
     volumes:
       - elasticdata:/usr/share/elasticsearch/data
       - opensearchdata:/usr/share/opensearch/data
+    ports:
+      - 9200:9200
     ulimits:
       memlock:
         soft: -1
