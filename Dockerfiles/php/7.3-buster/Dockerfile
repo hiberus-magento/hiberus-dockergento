@@ -83,7 +83,7 @@ COPY conf/php-mailhog.ini /usr/local/etc/php/conf.d/php-mailhog.ini
 RUN mkdir /sock
 RUN chown -R app:app /usr/local/etc/php/conf.d /sock
 RUN mkdir -p /var/www && chown -R app:app /var/www/
-RUN echo "app ALL=(ALL) NOPASSWD: /bin/chown" >> /etc/sudoers.d/app
+RUN echo "app ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/app
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
