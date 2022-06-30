@@ -76,7 +76,7 @@ init_docker() {
 
     # Create project tmp directory
     CREATE_PROJECT_TMP_DIR="$COMMAND_BIN_NAME-create-project-tmp"
-    $COMMAND_BIN_NAME exec sh -c "rm -rf $CREATE_PROJECT_TMP_DIR/*"
+    $COMMAND_BIN_NAME exec sh -c "rm -rf $CREATE_PROJECT_TMP_DIR"
 
     # Execute composer create-project and copy composer.json
     $COMMAND_BIN_NAME exec composer create-project \
@@ -90,7 +90,7 @@ init_docker() {
 
     # Copy .gitignore
     if [ -f "$CREATE_PROJECT_TMP_DIR/.gitignore" ]; then
-        CONTAINER_ID=$("$DOCKER_COMPOSE" ps -q phpfpm)
+        CONTAINER_ID=$($DOCKER_COMPOSE ps -q phpfpm)
         docker cp "$CONTAINER_ID":"$WORKDIR_PHP"/"$CREATE_PROJECT_TMP_DIR"/.gitignore .gitignore
     fi
 

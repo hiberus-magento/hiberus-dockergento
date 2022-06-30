@@ -21,7 +21,7 @@ command_arguments="--db-host=db \
 --use-rewrites=1 \
 --elasticsearch-port=9200 \
 --db-name=$database \
---db-user=$user \
+--dber=$user \
 --db-password=$password \
 --elasticsearch-username=admin \
 --elasticsearch-password=admin"
