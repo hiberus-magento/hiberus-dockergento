@@ -105,8 +105,8 @@ init_docker() {
     # Magento commands
     $COMMAND_BIN_NAME magento setup:upgrade
     $COMMAND_BIN_NAME magento deploy:mode:set developer
-    $COMMAND_BIN_NAME magento setup:static-content:deploy -f
-    $COMMAND_BIN_NAME magento setup:di:compile
+    #$COMMAND_BIN_NAME magento setup:static-content:deploy -f
+    #$COMMAND_BIN_NAME magento setup:di:compile
 
     $COMMAND_BIN_NAME ssl "$DOMAIN"
     $COMMAND_BIN_NAME set-host "$DOMAIN" --no-database
