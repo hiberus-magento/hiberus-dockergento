@@ -1,7 +1,8 @@
-# Hiberus 
+# Hiberus Dockergento
 
 Docker environment for Magento 2 projects. Please visit our [Dockerhub repository](https://hub.docker.com/u/hiberusmagento).
 
+<img alt="Hiberus Dockergento Schema" src="schema.png" width="700"/>
 
 ## Docker images
 
@@ -16,46 +17,60 @@ Docker environment for Magento 2 projects. Please visit our [Dockerhub repositor
 - **Varnish**: `6.0`, `7.1`
 - **Hitch**: `1.7`
 
+<br>
 
 ## Magento compatible versions
 
 - **Magento 2.4**: `2.4.0`, `2.4.1`, `2.4.2`, `2.4.3`, `2.4.4`.
 - **Magento 2.3**: `2.3.0`, `2.3.1`, `2.3.2`, `2.3.3`, `2.3.4`, `2.3.5`, `2.3.6`, `2.3.7`.
+ 
+_(All patched versions are also compatible)_
 
+<br>
 
 ## Install Hiberus CLI
 
-1. Clone this repo
+```bash
+curl https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/setup.sh | bash
+```
 
-    ```bash
-    cd ~
-    git clone https://github.com/hiberus-magento/hiberus-dockergento.git
-    ```
+<br>
 
-2. Add `hm` bin into your `$PATH`
+## Create environment 
 
-    ```bash
-    sudo ln -s $(pwd)/hiberus-dockergento/bin/run /usr/local/bin/hm
-    ```
-    
-3. Open a new terminal tab/window and check that `hm` works
+You can launch following command for creating a Docker environment for an **existing project** (from the project directory):
+```bash
+hm setup
+```
 
-    ```bash
-    which hm
-    hm
-    ```
+You can launch following command for creating a Docker environment for a **new project** (from a new empty directory):
+```bash
+hm create-project
+```
 
-4. Install `jq` dependency: [Download](https://stedolan.github.io/jq/download/)
+<br>
+
+
+## Available commands
+
+You can see all available commands by launching following command:
+```bash
+hm --help
+```
+
+<br>
 
 ## Thanks to
 
-This project is based on [Dockergento](https://github.com/ModestCoders/magento2-dockergento). Special thanks to **ModestCoders** for their work. 
+This project is based on [Dockergento](https://github.com/ModestCoders/magento2-dockergento). Special thanks to **ModestCoders** for their work.
 
+<br>
 
 ## Copyright
 
 [(c) Hiberus Tecnología](https://hiberus.com)
 
+<br/>
 
 ## Licence
 
