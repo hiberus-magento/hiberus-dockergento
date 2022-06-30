@@ -71,9 +71,6 @@ init_docker() {
     # Manage git files
     overwrite_file_consent ".gitignore"
 
-    # Start services
-    "$TASKS_DIR"/start_service_if_not_running.sh "$SERVICE_APP"
-
     # Create project tmp directory
     CREATE_PROJECT_TMP_DIR="$COMMAND_BIN_NAME-create-project-tmp"
     $COMMAND_BIN_NAME exec sh -c "rm -rf $CREATE_PROJECT_TMP_DIR"
@@ -107,9 +104,6 @@ init_docker() {
     $COMMAND_BIN_NAME magento deploy:mode:set developer
     #$COMMAND_BIN_NAME magento setup:static-content:deploy -f
     #$COMMAND_BIN_NAME magento setup:di:compile
-
-    $COMMAND_BIN_NAME ssl "$DOMAIN"
-    $COMMAND_BIN_NAME set-host "$DOMAIN" --no-database
 
     print_info "Open "
     print_question "https://$DOMAIN/\n"

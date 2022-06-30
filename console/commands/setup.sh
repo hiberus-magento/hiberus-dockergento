@@ -4,6 +4,7 @@ set -euo pipefail
 DOCKER_CONFIG_DIR="config/docker"
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
+source "$COMPONENTS_DIR"/input_info.sh
 
 #
 # Ask magento directory
@@ -303,5 +304,17 @@ get_requeriments "$@"
 set_settings
 save_properties
 
-# Stop running containers in case that setup was executed in an already running project
+# Start services
 $COMMAND_BIN_NAME stop
+"$TASKS_DIR"/start_service_if_not_running.sh "$SERVICE_APP"
+
+# Prepare domain
+if [ "$#" -gt 1 ]; then
+  DOMAIN=$2
+else
+  get_domain
+fi
+$COMMAND_BIN_NAME ssl "$DOMAIN"
+$COMMAND_BIN_NAME set-host "$DOMAIN" --no-database
+
+print_info "Setup completed!\n"
