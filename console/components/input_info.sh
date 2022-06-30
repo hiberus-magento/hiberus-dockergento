@@ -76,7 +76,7 @@ get_domain() {
     PROJECT_NAME=$(basename "$PWD")
 
     if [ $# == 0 ]; then
-        printf "%bDefine dominio %b[ %s.local ] " "${BLUE}" "${COLOR_RESET}" "${PROJECT_NAME}"
+        printf "%bDefine domain %b[ %s.local ] " "${BLUE}" "${COLOR_RESET}" "${PROJECT_NAME}"
         read -r DOMAIN
 
         if [[ $DOMAIN == '' ]]; then

@@ -14,17 +14,24 @@ user=$($look_at_task "$yml_file" "${path_to_mysql_keys}_USER")
 password=$($look_at_task "$yml_file" "${path_to_mysql_keys}_PASSWORD")
 database=$($look_at_task "$yml_file" "${path_to_mysql_keys}_DATABASE")
 
+# Get Magento version
+if [ -z $MAGENTO_VERSION ]; then
+  if [ -f "$MAGENTO_DIR/composer.lock" ]; then
+    MAGENTO_VERSION=$(cat <"$MAGENTO_DIR/composer.lock" |
+        jq -r '.packages | map(select(.name == "magento/product-community-edition"))[].version')
+  fi
+  if [ -z $MAGENTO_VERSION ]; then
+    get_magento_version
+  fi
+fi
+
 # Default configuration
 command_arguments="--db-host=db \
 --backend-frontname=admin \
---elasticsearch-host=search \
 --use-rewrites=1 \
---elasticsearch-port=9200 \
 --db-name=$database \
 --db-user=$user \
 --db-password=$password \
---elasticsearch-username=admin \
---elasticsearch-password=admin \
 --session-save=redis \
 --session-save-redis-host=redis \
 --session-save-redis-db=0 \
@@ -38,6 +45,15 @@ command_arguments="--db-host=db \
 --amqp-host=rabbitmq \
 --amqp-user=user \
 --amqp-password=password"
+
+if  [[ $MAGENTO_VERSION != 2.3.* ]] ;
+then
+  command_arguments="$command_arguments \
+    --elasticsearch-host=search \
+    --elasticsearch-port=9200 \
+    --elasticsearch-username=admin \
+    --elasticsearch-password=admin"
+fi
 
 #
 # Run magento setup:install command
