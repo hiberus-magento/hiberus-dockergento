@@ -21,10 +21,23 @@ command_arguments="--db-host=db \
 --use-rewrites=1 \
 --elasticsearch-port=9200 \
 --db-name=$database \
---dber=$user \
+--db-user=$user \
 --db-password=$password \
 --elasticsearch-username=admin \
---elasticsearch-password=admin"
+--elasticsearch-password=admin \
+--session-save=redis \
+--session-save-redis-host=redis \
+--session-save-redis-db=0 \
+--session-save-redis-disable-locking=1 \
+--cache-backend=redis \
+--cache-backend-redis-server=redis \
+--cache-backend-redis-db=1 \
+--page-cache=redis \
+--page-cache-redis-server=redis \
+--page-cache-redis-db=2 \
+--amqp-host=rabbitmq \
+--amqp-user=user \
+--amqp-password=password"
 
 #
 # Run magento setup:install command
@@ -32,7 +45,7 @@ command_arguments="--db-host=db \
 run_install_magento_command() {
     config=$(cat <"$DATA_DIR/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")') 
     $COMMANDS_DIR/magento.sh setup:install $command_arguments $config
-
+    $COMMANDS_DIR/magento.sh config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
 }
 
 #
