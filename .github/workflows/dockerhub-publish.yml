@@ -29,18 +29,18 @@ jobs:
     strategy:
       matrix:
         include:
-          - docker_file: ./Dockerfiles/php/8.1/
+          - docker_file: ./Dockerfiles/php/8.1-buster/
             docker_name: php
-            docker_version: 8.1
-          - docker_file: ./Dockerfiles/php/7.4/
+            docker_version: 8.1-buster
+          - docker_file: ./Dockerfiles/php/7.4-buster/
             docker_name: php
-            docker_version: 7.4
-          - docker_file: ./Dockerfiles/php/7.3/
+            docker_version: 7.4-buster
+          - docker_file: ./Dockerfiles/php/7.3-buster/
             docker_name: php
-            docker_version: 7.3
-          - docker_file: ./Dockerfiles/php/7.2/
+            docker_version: 7.3-buster
+          - docker_file: ./Dockerfiles/php/7.2-buster/
             docker_name: php
-            docker_version: 7.2
+            docker_version: 7.2-buster
           - docker_file: ./Dockerfiles/mariadb/10.2/
             docker_name: mariadb
             docker_version: 10.2
