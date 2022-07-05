@@ -4,38 +4,20 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
-# Check if command "jq" exists
-if ! command -v jq &>/dev/null; then
-    print_error "Required 'jq' not found"
-    print_question "https://stedolan.github.io/jq/download/"
-    exit 0
-fi
-
-# Check compatible versions
-versions=$(jq -r 'keys[]' < "$DATA_DIR"/equivalent_versions.json)
-
-topBottom=$(printf '=%.0s' {1..100} )
-table=""
-perviousVersion=23
-
-printf "\n"
-
-# Compose tbody
-for version in $versions; do
-    versionNumber=${version:0:3}
-    versionNumber=${versionNumber//./}
-
-    if [ "$versionNumber" -gt $perviousVersion ]; then
-        table="$(echo -n "$table|\n")"
-        perviousVersion=$versionNumber
-    fi
-    table=$(printf "$table| %-9s" "${version}")
-done
-
-# Print table
-title=$(printf "%63s" "SUPPORTED MAGENTO VERSIONS")
-print_table "$topBottom\n"
-print_table "$title\n"
-print_table "$topBottom\n"
-print_table "$table|\n"
-print_table "$topBottom\n\n"
+print_table \
+"
+==============================================
+|         SUPPORTED MAGENTO VERSIONS         |
+==============================================
+|         2.3.x       ||        2.4.x        |
+----------------------------------------------
+| 2.3.0    | 2.3.5    || 2.4.0    | 2.4.3-p1 |
+| 2.3.1    | 2.3.5-p1 || 2.4.0-p1 | 2.4.3-p2 |
+| 2.3.2    | 2.3.6    || 2.4.1    | 2.4.4    |
+| 2.3.2-p2 | 2.3.6-p1 || 2.4.1-p1 | 2.4.5    |
+| 2.3.3    | 2.3.7    || 2.4.2    |          |
+| 2.3.3-p1 | 2.3.7-p1 || 2.4.2-p1 |          |
+| 2.3.4    | 2.3.7-p2 || 2.4.2-p2 |          |
+| 2.3.4-p2 | 2.3.7-p3 || 2.4.3    |          |
+----------------------------------------------
+"
