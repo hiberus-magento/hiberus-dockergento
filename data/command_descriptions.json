@@ -106,10 +106,21 @@
   "mysql": {
     "usage": "mysql [arguments]",
     "example": "mysql < local-path/my-dump.sql",
-    "description": "Execute mysql command to container"
+    "description": "Execute mysql command into container"
+  },
+  "mysqldump": {
+    "usage": "mysqldump [path]",
+    "example": "mysqldump local-path/my-dump.sql",
+    "description": "Execute mysqldump command into container",
+    "args": [
+      {
+        "name": "path",
+        "description": "Sql file path when you want save dump"
+      }
+    ]
   },
   "npm": {
-    "description": "Execute npm commands inside node container"
+    "description": "Execute npm commands into node container"
   },
   "purge": {
     "description": "Remove all magento generated code (caches, generated, static, view_preprocessed)"

@@ -61,12 +61,12 @@ init_docker() {
     get_magento_version
     get_domain
 
-    # Create docker environment
-    $COMMAND_BIN_NAME setup "$EQUIVALENT_VERSION" "$DOMAIN"
-
     # Manage composer files
     overwrite_file_consent "$COMPOSER_DIR/composer.json"
     check_composer_files_exist
+
+    # Create docker environment
+    $COMMAND_BIN_NAME setup "$EQUIVALENT_VERSION" "$DOMAIN"
 
     # Manage git files
     overwrite_file_consent ".gitignore"
@@ -102,8 +102,6 @@ init_docker() {
     # Magento commands
     $COMMAND_BIN_NAME magento setup:upgrade
     $COMMAND_BIN_NAME magento deploy:mode:set developer
-    #$COMMAND_BIN_NAME magento setup:static-content:deploy -f
-    #$COMMAND_BIN_NAME magento setup:di:compile
 
     print_info "Open "
     print_question "https://$DOMAIN/\n"
