@@ -29,7 +29,7 @@ print_info "Start mirror copy of host into container\n"
 container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
 for path_to_mirror in "$@"; do
-    print_warnning "$path_to_mirror -> phpfpm:$path_to_mirror\n\n"
+    print_warning "$path_to_mirror -> phpfpm:$path_to_mirror\n\n"
 
     print_default " > validating and sanitizing path: '$path_to_mirror'\n"
     path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")

@@ -4,20 +4,20 @@ set -euo pipefail
 regex=""
 
 #
-# Compose regex with requeriments
+# Compose regex with requirements
 #
 compose_regex() {
     local services
-    services=$(echo "$requeriments" | jq -r 'keys|join(" ")')
+    services=$(echo "$requirements" | jq -r 'keys|join(" ")')
 
     for index in $services; do
-        value=$(echo "$requeriments" | jq -r '.'"$index"'')
+        value=$(echo "$requirements" | jq -r '.'"$index"'')
         regex+="s/<${index}_version>/${value}/g; "
     done
 }
 
 #
-# Adapt docker-compose template with requeriments
+# Adapt docker-compose template with requirements
 #
 wirte_docker_compose() {
     compose_regex
@@ -30,5 +30,5 @@ wirte_docker_compose() {
     cp "$COMMAND_BIN_DIR/docker-compose/docker-compose.dev.mac.template.yml" "$DOCKER_COMPOSE_FILE_MAC"
 }
 
-requeriments=$1
+requirements=$1
 wirte_docker_compose
