@@ -4,7 +4,7 @@ print_info() {
     printf "${GREEN}%b${COLOR_RESET}" "$1"
 }
 
-print_warnning() {
+print_warning() {
     printf "${YELLOW}%b${COLOR_RESET}" "$1"
 }
 

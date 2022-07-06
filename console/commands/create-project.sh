@@ -44,10 +44,10 @@ check_composer_files_exist() {
 #
 check_vendor_bin() {
     if [[ "$MAGENTO_DIR/vendor/bin" != "$BIN_DIR" ]]; then
-        print_warnning "Warning:$MAGENTO_DIR bin dir is not inside magento dir\n"
+        print_warning "Warning:$MAGENTO_DIR bin dir is not inside magento dir\n"
         print_default "  Magento dir: '$MAGENTO_DIR\n"
         print_default "  Bin dir: $BIN_DIR'\n"
-        print_warnning "Edit $MAGENTO_DIR/composer.json accordingly and execute:\n"
+        print_warning "Edit $MAGENTO_DIR/composer.json accordingly and execute:\n"
         print_code "  $COMMAND_BIN_NAME composer install\n"
     fi
 }

@@ -17,16 +17,16 @@ get_magento_root_directory() {
     if [ "$MAGENTO_DIR" != "." ]; then
         print_info "Setting custom magento dir: '$MAGENTO_DIR'\n"
         MAGENTO_DIR=$(sanitize_path "$MAGENTO_DIR")
-        print_warnning "------ $DOCKER_COMPOSE_FILE ------\n"
+        print_warning "------ $DOCKER_COMPOSE_FILE ------\n"
         sed_in_file "s#/html/var/composer_home#/html/$MAGENTO_DIR/var/composer_home#gw /dev/stdout" "$DOCKER_COMPOSE_FILE"
-        print_warnning "--------------------\n"
-        print_warnning "------ $DOCKER_COMPOSE_FILE_MAC ------\n"
+        print_warning "--------------------\n"
+        print_warning "------ $DOCKER_COMPOSE_FILE_MAC ------\n"
         sed_in_file "s#/app:#/$MAGENTO_DIR/app:#gw /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
         sed_in_file "s#/vendor#/$MAGENTO_DIR/vendor#gw /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
-        print_warnning "--------------------\n"
-        print_warnning "------ $DOCKER_CONFIG_DIR/nginx/conf/default.conf ------\n"
+        print_warning "--------------------\n"
+        print_warning "------ $DOCKER_CONFIG_DIR/nginx/conf/default.conf ------\n"
         sed_in_file "s#/var/www/html#/var/www/html/$MAGENTO_DIR#gw /dev/stdout" "$DOCKER_CONFIG_DIR/nginx/conf/default.conf"
-        print_warnning "--------------------\n"
+        print_warning "--------------------\n"
     fi
 }
 
@@ -123,15 +123,15 @@ add_git_bind_paths_in_file() {
 
     done <<<"${git_files}"
 
-    print_warnning "------ $file_to_edit ------"
+    print_warning "------ $file_to_edit ------"
     sed_in_file "s|# {FILES_IN_GIT}|$bind_paths|w /dev/stdout" "$file_to_edit"
-    print_warnning "--------------------"
+    print_warning "--------------------"
 }
 
 get_equivalent_version_if_exit() {
     equivalent_version=$("$TASKS_DIR/get_equivalent_version.sh" "$1")
     if [[ "$equivalent_version" = "null" ]]; then
-        print_warnning "\nWe don´t have support for the version $1 "
+        print_warning "\nWe don´t have support for the version $1 "
         print_info "\nPlease, write any version between all versions supported or press Ctrl - C to exit"
 
         $COMMAND_BIN_NAME compatibility
@@ -139,13 +139,13 @@ get_equivalent_version_if_exit() {
         get_equivalent_version_if_exit "$MAGENTO_VERSION"
     fi
 
-    get_requeriments "$equivalent_version"
+    get_requirements "$equivalent_version"
 }
 
 #
 # If there are arguments
 #
-get_requeriments() {
+get_requirements() {
     # Check if command "jq" exists
     if ! command -v jq &>/dev/null; then
         print_error "Required 'jq' not found"
@@ -154,13 +154,13 @@ get_requeriments() {
     fi
 
     if [ "$#" -gt 0 ]; then
-        requeriments=$(cat <"$DATA_DIR/requeriments.json" | jq -r '.['\""$1"\"']')
-        change_requeriments
+        requirements=$(cat <"$DATA_DIR/requirements.json" | jq -r '.['\""$1"\"']')
+        change_requirements
     else
         if [ -f "$MAGENTO_DIR/composer.lock" ]; then
             MAGENTO_VERSION=$(cat <"$MAGENTO_DIR/composer.lock" |
                 jq -r '.packages | map(select(.name == "magento/product-community-edition"))[].version')
-            print_warnning "\nVersion detected: $MAGENTO_VERSION"
+            print_warning "\nVersion detected: $MAGENTO_VERSION"
         else
             print_error "\n------------------------------------------------------\n"
             print_error "\n       We need a magento project in $MAGENTO_DIR/ path\n"
@@ -211,16 +211,16 @@ EOF
 }
 
 #
-# Print current requeriments
+# Print current requirements
 #
-print_requeriments() {
-    services=$(echo "${requeriments}" | jq -r 'keys|join(" ")')
+print_requirements() {
+    services=$(echo "${requirements}" | jq -r 'keys|join(" ")')
 
     print_table "\n\n-------------------------------\n"
-    print_table "          REQUERIMENTS"
+    print_table "          REQUIREMENTS"
     print_table "\n-------------------------------\n"
     for index in ${services}; do
-        value=$(echo "${requeriments}" | jq -r '.'"${index}"'')
+        value=$(echo "${requirements}" | jq -r '.'"${index}"'')
         print_table "   $index: "
         print_default "${value}\n"
     done
@@ -228,10 +228,10 @@ print_requeriments() {
 }
 
 #
-# Ask if user wants to change requeriments
+# Ask if user wants to change requirements
 #
-change_requeriments() {
-    print_requeriments
+change_requirements() {
+    print_requirements
     state="continue"
     while [[ $state == "continue" ]]; do
         print_question "Are you satisfied with these versions? [Y/n] "
@@ -255,7 +255,7 @@ change_requeriments() {
 #
 edit_version() {
     service_name=$1
-    opts="$(cat <"$DATA_DIR/requeriments.json" | jq -r '[.[] | .'"$service_name"'] | unique  | join(" ")')"
+    opts="$(cat <"$DATA_DIR/requirements.json" | jq -r '[.[] | .'"$service_name"'] | unique  | join(" ")')"
 
     print_question "$service_name version:\n"
     select select_result in $opts; do
@@ -270,14 +270,14 @@ edit_version() {
         echo "invalid option '${REPLY}'"
     done
 
-    requeriments=$(echo "$requeriments" | jq -r '.'"$service_name"'="'"$select_result"'"')
+    requirements=$(echo "$requirements" | jq -r '.'"$service_name"'="'"$select_result"'"')
 }
 
 #
 # Select editable services and changes her value
 #
 edit_versions() {
-    opts=$(echo "${requeriments} " | jq -r 'keys | join(" ")')
+    opts=$(echo "${requirements} " | jq -r 'keys | join(" ")')
 
     print_question "Choose service:\n"
     select select_result in $opts; do
@@ -294,13 +294,13 @@ edit_versions() {
     done
 
     edit_version "$select_result"
-    change_requeriments
+    change_requirements
 }
 
 get_magento_root_directory
 check_if_docker_enviroment_exist
-get_requeriments "$@"
-"$TASKS_DIR/write_from_docker-compose_templates.sh" "${requeriments}"
+get_requirements "$@"
+"$TASKS_DIR/write_from_docker-compose_templates.sh" "${requirements}"
 set_settings
 save_properties
 

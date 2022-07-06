@@ -5,7 +5,7 @@ source "$COMPONENTS_DIR"/print_message.sh
 get_equivalent_version_if_exit() {
     equivalent_version=$("${TASKS_DIR}/get_equivalent_version.sh" "$1")
     if [[ "$equivalent_version" = "null" ]]; then
-        print_warnning "\nWe don´t have support for the version $1 "
+        print_warning "\nWe don´t have support for the version $1 "
         print_info "\nPlease, write any version between all versions supported or press Ctrl - C to exit"
         ${COMMAND_BIN_NAME} compatibility
         read -r MAGENTO_VERSION

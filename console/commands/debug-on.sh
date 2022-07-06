@@ -19,13 +19,13 @@ fi
 $COMMAND_BIN_NAME exec sed -i -e 's/^\;zend_extension/zend_extension/g' /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
 if [[ "$MACHINE" == "mac" ]]; then
-    print_warnning "Copying generated code into host \n"
+    print_warning "Copying generated code into host \n"
     $COMMAND_BIN_NAME copy-to-host -f generated
 else
     $DOCKER_COMPOSE restart phpfpm
 fi
 
-print_warnning "xdebug configuration:\n"
-print_warnning "------------------------------------------------\n"
+print_warning "xdebug configuration:\n"
+print_warning "------------------------------------------------\n"
 $COMMAND_BIN_NAME exec php -i | grep -e "xdebug.idekey" -e "xdebug.client_host" -e "xdebug.client_port" | cut -d= -f1-2
-print_warnning "------------------------------------------------\n"
+print_warning "------------------------------------------------\n"
