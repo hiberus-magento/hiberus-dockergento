@@ -79,10 +79,8 @@ init_docker() {
     $COMMAND_BIN_NAME exec composer create-project \
         --no-install \
         --repository=https://repo.magento.com/ \
-        magento/project-"$MAGENTO_EDITION"-edition \
-        "$CREATE_PROJECT_TMP_DIR" \
-        "$MAGENTO_VERSION"
-
+        magento/project-"$MAGENTO_EDITION"-edition="$MAGENTO_VERSION" \
+        "$CREATE_PROJECT_TMP_DIR"
     $COMMAND_BIN_NAME exec sh -c "cat $CREATE_PROJECT_TMP_DIR/composer.json > $COMPOSER_DIR/composer.json"
 
     # Copy .gitignore
