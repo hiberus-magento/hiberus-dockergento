@@ -317,4 +317,7 @@ fi
 $COMMAND_BIN_NAME ssl "$DOMAIN"
 $COMMAND_BIN_NAME set-host "$DOMAIN" --no-database
 
+# If composer.json file exists, launch composer install
+$COMMAND_BIN_NAME exec [ -f composer.json ] && composer install
+
 print_info "Setup completed!\n"
