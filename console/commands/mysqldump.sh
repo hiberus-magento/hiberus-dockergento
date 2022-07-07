@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-database=$("$TASKS_DIR/look_at_yml.sh" "$MAGENTO_DIR/docker-compose.yml" "services_db_environment_MYSQL_DATABASE")
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
 
-${COMMAND_BIN_NAME} docker-compose exec -T db mysqldump --skip-triggers -uroot -ppassword $database > "$@"
+if [ -z "$@" ]; then
+  print_warning "Please, specify a path for saving the database dump file.\nUsage: $COMMAND_BIN_NAME mysqldump <path>\n"
+  exit
+fi
+
+docker-compose exec db bash -c 'mysqldump --skip-triggers -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' > "$@"
