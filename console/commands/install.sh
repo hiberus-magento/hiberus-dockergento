@@ -43,6 +43,7 @@ command_arguments="--db-host=db \
 --page-cache-redis-server=redis \
 --page-cache-redis-db=2 \
 --amqp-host=rabbitmq \
+--amqp-port=5672 \
 --amqp-user=user \
 --amqp-password=password"
 
