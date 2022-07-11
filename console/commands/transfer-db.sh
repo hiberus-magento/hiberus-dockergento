@@ -20,8 +20,8 @@ if [ -z "$(docker ps | grep php)" ]; then
 fi
 
 # Check mysql container
-if [ -z "$(docker ps | grep mysql)" ]; then
-    print_error "Error: MySQL container is not running!\n"
+if [ -z "$(docker ps | grep db)" ]; then
+    print_error "Error: Database container is not running!\n"
     exit 1
 fi
 
@@ -61,11 +61,11 @@ else
     sshUser=""
 fi
 
-# Request MySQL credentials
-read -p "MySQL Host [Default: '${sqlHost}']: " inputSqlHost
-read -p "MySQL User [Default: '${sqlUser}']: " inputSqlUser
-read -p "MySQL DB Name [Default: '${sqlDb}']: " inputSqlDb
-read -p "MySQL Password [Default: '${sqlPassword}']: " inputSqlPassword
+# Request Database credentials
+read -p "Database Host [Default: '${sqlHost}']: " inputSqlHost
+read -p "Database User [Default: '${sqlUser}']: " inputSqlUser
+read -p "Database DB Name [Default: '${sqlDb}']: " inputSqlDb
+read -p "Database Password [Default: '${sqlPassword}']: " inputSqlPassword
 sqlHost=${inputSqlHost:-${sqlHost}}
 sqlUser=${inputSqlUser:-${sqlUser}}
 sqlDb=${inputSqlDb:-${sqlDb}}
@@ -73,6 +73,14 @@ sqlPassword=${inputSqlPassword:-${sqlPassword}}
 
 # Prepare password
 [ -z "$sqlPassword" ] && sqlPassword="" || sqlPassword="-p'$sqlPassword'"
+
+# Request SSH credentials
+read -r -p "Do you want to exclude 'core_config_data' table? [Y/n]: " sqlExclude
+if [ -z "$sqlExclude" ] || [ "$sqlExclude" == "Y" ] || [ "$sqlExclude" == "y" ]; then
+    sqlExclude=1
+else
+    sqlExclude=0
+fi
 
 print_info "You are going to transfer database from [${sshHost}:${sqlHost}] to [LOCALHOST].\n"
 print_default "Press any key continue..."
@@ -90,13 +98,13 @@ print_info "Creating database dump from origin server...\n"
 if [ -z "$sshHost" ]; then
 
     # Create dump into mysql container
-    docker-compose exec db bash -c "mysqldump -h'$sqlHost' -u'$sqlUser' $sqlPassword $sqlDb --ignore-table=$sqlDb.core_config_data | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
+    docker-compose exec db bash -c "mysqldump -h'$sqlHost' -u'$sqlUser' $sqlPassword $sqlDb | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
 
 # Create database dump from origin server (WITH SSH TUNNEL)
 else
 
     # Create dump
-    ssh ${sshUser}@${sshHost} "mysqldump -h'$sqlHost' -u'$sqlUser' $sqlPassword $sqlDb --ignore-table=$sqlDb.core_config_data | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
+    ssh ${sshUser}@${sshHost} "mysqldump -h'$sqlHost' -u'$sqlUser' $sqlPassword $sqlDb | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
 
     # Download dump
     scp ${sshUser}@${sshHost}:/tmp/db.sql.gz .
@@ -109,16 +117,18 @@ fi
 print_info "Restoring database dump into localhost...\n"
 
 # Restore dump
-docker-compose exec db bash -c "zcat /tmp/db.sql.gz | mysql -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE"
+[ $sqlExclude -eq 1 ] && docker-compose exec db bash -c "mysqldump -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE core_config_data > /tmp/ccd.sql 2> /dev/null"
+docker-compose exec db bash -c "zcat /tmp/db.sql.gz | mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE"
+[ $sqlExclude -eq 1 ] && docker-compose exec db bash -c "[ -f /tmp/ccd.sql ] && mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE < /tmp/ccd.sql"
 
 # Reindex Magento
-read -r "Do you want to reindex Magento? [Y/n]: " reindexMagento
+read -p "Do you want to reindex Magento? [Y/n]: " reindexMagento
 if [ -z "$reindexMagento" ] || [ "$reindexMagento" == 'Y' ] || [ "$reindexMagento" == 'y' ]; then
     docker-compose exec phpfpm bin/magento indexer:reindex
 fi
 
 # Clear Magento cache
-read -r "Do you want to clear Magento cache? [Y/n]: " clearMagento
+read -p "Do you want to clear Magento cache? [Y/n]: " clearMagento
 if [ -z "$clearMagento" ] || [ "$clearMagento" == 'Y' ] || [ "$clearMagento" == 'y' ]; then
     docker-compose exec phpfpm bin/magento c:f
 fi
