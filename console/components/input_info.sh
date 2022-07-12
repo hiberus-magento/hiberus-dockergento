@@ -5,7 +5,7 @@ source "$COMPONENTS_DIR"/print_message.sh
 get_equivalent_version_if_exit() {
     equivalent_version=$("${TASKS_DIR}/get_equivalent_version.sh" "$1")
     if [[ "$equivalent_version" = "null" ]]; then
-        print_warning "\nWe don´t have support for the version $1 "
+        print_warning "\nWe don't have support for the version $1 "
         print_info "\nPlease, write any version between all versions supported or press Ctrl - C to exit"
         ${COMMAND_BIN_NAME} compatibility
         read -r MAGENTO_VERSION
@@ -22,7 +22,9 @@ get_magento_version() {
     DEFAULT_MAGENTO_VERSION="2.4.4"
 
     if [ $# == 0 ]; then
-        printf "%bMagento version: %b[ %s ] " "$BLUE" "$COLOR_RESET" "$DEFAULT_MAGENTO_VERSION"
+        print_question "Magento version: ["
+        print_default "$DEFAULT_MAGENTO_VERSION"
+        print_question "] "
         read -r MAGENTO_VERSION
 
         if [[ $MAGENTO_VERSION == '' ]]; then
@@ -46,7 +48,7 @@ get_magento_edition() {
     DEFAULT_MAGENTO_EDITION="community"
 
     if [ $# == 0 ]; then
-        printf "%bMagento edition:%b\n" "$BLUE" "$COLOR_RESET"
+        print_question "Magento edition:\n"
         select MAGENTO_EDITION in ${AVAILABLE_MAGENTO_EDITIONS}; do
             if $("${TASKS_DIR}/in_list.sh" "${MAGENTO_EDITION}" "${AVAILABLE_MAGENTO_EDITIONS}"); then
                 break
@@ -76,7 +78,9 @@ get_domain() {
     PROJECT_NAME=$(basename "$PWD")
 
     if [ $# == 0 ]; then
-        printf "%bDefine domain %b[ %s.local ] " "${BLUE}" "${COLOR_RESET}" "${PROJECT_NAME}"
+        print_question "Define domain ["
+        print_default "$PROJECT_NAME.local"
+        print_question "] "
         read -r DOMAIN
 
         if [[ $DOMAIN == '' ]]; then
@@ -89,4 +93,30 @@ get_domain() {
     fi
 
     export DOMAIN=$DOMAIN
+}
+
+#
+# Ask magento directory
+#
+get_magento_root_directory() {
+    print_question "Magento root dir: ["
+    print_default "$MAGENTO_DIR"
+    print_question "] "
+    read -r answer_magento_dir
+    MAGENTO_DIR=${answer_magento_dir:-$MAGENTO_DIR}
+
+    if [ "$MAGENTO_DIR" != "." ]; then
+        print_info "Setting custom magento dir: '$MAGENTO_DIR'\n"
+        MAGENTO_DIR=$(sanitize_path "$MAGENTO_DIR")
+        print_warning "------ $DOCKER_COMPOSE_FILE ------\n"
+        sed_in_file "s#/html/var/composer_home#/html/$MAGENTO_DIR/var/composer_home#gw /dev/stdout" "$DOCKER_COMPOSE_FILE"
+        print_warning "--------------------\n"
+        print_warning "------ $DOCKER_COMPOSE_FILE_MAC ------\n"
+        sed_in_file "s#/app:#/$MAGENTO_DIR/app:#gw /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
+        sed_in_file "s#/vendor#/$MAGENTO_DIR/vendor#gw /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
+        print_warning "--------------------\n"
+        print_warning "------ $DOCKER_CONFIG_DIR/nginx/conf/default.conf ------\n"
+        sed_in_file "s#/var/www/html#/var/www/html/$MAGENTO_DIR#gw /dev/stdout" "$DOCKER_CONFIG_DIR/nginx/conf/default.conf"
+        print_warning "--------------------\n"
+    fi
 }
