@@ -62,7 +62,7 @@ init_docker() {
     get_domain
 
     # Manage composer files
-    overwrite_file_consent "$COMPOSER_DIR/composer.json"
+    overwrite_file_consent "$MAGENTO_DIR/composer.json"
     check_composer_files_exist
 
     # Create docker environment
@@ -81,7 +81,7 @@ init_docker() {
         --repository=https://repo.magento.com/ \
         magento/project-"$MAGENTO_EDITION"-edition="$MAGENTO_VERSION" \
         "$CREATE_PROJECT_TMP_DIR"
-    $COMMAND_BIN_NAME exec sh -c "cat $CREATE_PROJECT_TMP_DIR/composer.json > $COMPOSER_DIR/composer.json"
+    $COMMAND_BIN_NAME exec sh -c "cat $CREATE_PROJECT_TMP_DIR/composer.json > $MAGENTO_DIR/composer.json"
 
     # Copy .gitignore
     if [ -f "$CREATE_PROJECT_TMP_DIR/.gitignore" ]; then
