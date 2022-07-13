@@ -62,14 +62,16 @@ add_git_bind_paths_in_file() {
 
         new_path="./$filename_in_git:/var/www/html/$filename_in_git"
         bind_path_exits=$(grep -q -e "$new_path" "$file_to_edit" && echo true || echo false)
-  
-        if [ "$bind_path_exits" == true ]; then
+        default_file_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r '.["'"$filename_in_git"'"]')
+
+        if [[ "$bind_path_exits" == true ]] || [[ $default_file_magento == true ]]; then
             continue
         fi
 
         if [ "$bind_paths" != "" ]; then
             bind_paths="$bind_paths\\      "
         fi
+
         bind_paths="$bind_paths- ${new_path}$suffix_bind_path\n"
 
     done <<<"${git_files}"
@@ -210,7 +212,7 @@ change_requirements() {
 #
 edit_version() {
     service_name=$1
-    opts="$(cat <"$DATA_DIR/requirements.json" | jq -r '[.[] | .'"$service_name"'] | unique  | join(" ")')"
+    opts="$(cat < "$DATA_DIR/requirements.json" | jq -r '[.[] | .'"$service_name"'] | unique  | join(" ")')"
 
     print_question "$service_name version:\n"
     select select_result in $opts; do
@@ -253,7 +255,7 @@ edit_versions() {
 }
 
 #
-#
+# Create docker-compose files
 #
 create_docker_compose() {
     if [[ -f "$MAGENTO_DIR/docker-compose.yml" ]]; then
@@ -283,7 +285,7 @@ create_docker_compose() {
     fi
 
     get_requirements "$@"
-    "$TASKS_DIR/write_from_docker-compose_templates.sh" "${requirements}"
+    "$TASKS_DIR"/write_from_docker-compose_templates.sh "$requirements"
     set_settings
 }
 
@@ -293,9 +295,10 @@ get_magento_root_directory
 create_docker_compose
 save_properties
 
+
 # Start services
-$COMMAND_BIN_NAME stop
 "$TASKS_DIR"/start_service_if_not_running.sh "$SERVICE_APP"
+# Magento instalation
 "$TASKS_DIR"/magento_installation.sh
 
 print_info "\nSetup completed!\n"

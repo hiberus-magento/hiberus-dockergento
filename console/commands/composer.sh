@@ -4,6 +4,9 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
+#
+#
+#
 mirror_vendor_host_into_container() {
     print_info "Mirror vendor into container before executing composer\n"
 
@@ -13,8 +16,20 @@ mirror_vendor_host_into_container() {
     fi
 
     "$COMMAND_BIN_NAME" copy-to-container vendor
+
+    # Copy all deault files magento into container
+     default_files_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r 'keys[]')
+
+      for file in $default_files_magento; do
+          if [[ -e $file ]]; then
+              "$COMMAND_BIN_NAME" copy-to-container $file
+          fi 
+      done
 }
 
+#
+#
+#
 sync_all_from_container_to_host() {
     # IMPORTANT:
     # Docker cp from container to host needs to be done in a not running container.
@@ -40,9 +55,6 @@ if [[ "$#" != 0 && "$1" == "create-project" ]]; then
     exit 1
 fi
 
-# Set composer directory
-composer_dir_option="--working-dir=$COMPOSER_DIR"
-
 # Exit if user wishes to set composer working directory
 if [[ "$#" != 0 &&
     ($@ == *" -d "* || $@ == *" -d="* ||
@@ -54,32 +66,36 @@ if [[ "$#" != 0 &&
     exit 1
 fi
 
-
-if [[ "$#" != 0 &&
-    ("$MACHINE" == "mac") &&
-    ("$1" == "install" || "$1" == "update" || "$1" == "require" || "$1" == "remove") ]]; then
-   
+# Manage composer commands
+if [[ "$#" != 0 && ("$1" == "install" || "$1" == "update" || "$1" == "require" || "$1" == "remove") ]]; then
+    # Composer validation
     print_info "Validating composer before doing anything\n"
-    validation_output=$("$COMMANDS_DIR"/exec.sh composer validate "$composer_dir_option") ||
+    validation_output=$("$COMMANDS_DIR"/exec.sh composer validate) ||
     if [ $? == 1 ]; then
         print_default "$validation_output"
         exit 1
     fi
-print_info "Tras validacion
-\n"
+
+    # Check magento2-base
     module_path="$MAGENTO_DIR/vendor/magento/magento2-base"
     exitsts_in_container=$("$COMMANDS_DIR"/exec.sh sh -c "[ -f $module_path/composer.json ] && echo true || echo false")
     exitsts_in_host=$([ -f "$module_path"/composer.json ] && echo true || echo false)
+
     if [[ $exitsts_in_host == true && $exitsts_in_container == *false* ]]; then
         print_error "Magento is not set up yet in container. Please remove 'magento2-base' and try again.\n"
         print_default "\n   rm -rf $HOST_DIR/$module_path\n"
         exit 1
     fi
 
-    # wrapper over composer
-    mirror_vendor_host_into_container
-    "$COMMAND_BIN_NAME" exec composer "$@" "$composer_dir_option"
-    sync_all_from_container_to_host
+    # Execute install con mirror wrapper
+    if [[ "$#" != 0 &&
+        ("$MACHINE" == "mac") ]]; then
+        mirror_vendor_host_into_container
+        "$COMMAND_BIN_NAME" exec composer "$@"
+        sync_all_from_container_to_host
+    else
+        "$COMMAND_BIN_NAME" exec composer "$@"
+    fi
 else
-    "$COMMAND_BIN_NAME" exec composer "$@" "$composer_dir_option"
+    "$COMMAND_BIN_NAME" exec composer "$@"
 fi

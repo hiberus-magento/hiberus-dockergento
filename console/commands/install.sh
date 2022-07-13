@@ -16,13 +16,13 @@ database=$($look_at_task "$yml_file" "${path_to_mysql_keys}_DATABASE")
 
 # Get Magento version
 if [ -z $MAGENTO_VERSION ]; then
-  if [ -f "$MAGENTO_DIR/composer.lock" ]; then
+    if [ -f "$MAGENTO_DIR/composer.lock" ]; then
     MAGENTO_VERSION=$(cat <"$MAGENTO_DIR/composer.lock" |
         jq -r '.packages | map(select(.name == "magento/product-community-edition"))[].version')
-  fi
-  if [ -z $MAGENTO_VERSION ]; then
-    get_magento_version
-  fi
+    fi
+    if [ -z $MAGENTO_VERSION ]; then
+        get_magento_version
+    fi
 fi
 
 # Default configuration
@@ -47,9 +47,8 @@ command_arguments="--db-host=db \
 --amqp-user=user \
 --amqp-password=password"
 
-if  [[ $MAGENTO_VERSION != 2.3.* ]] ;
-then
-  command_arguments="$command_arguments \
+if  [[ $MAGENTO_VERSION != 2.3.* ]]; then
+    command_arguments="$command_arguments \
     --elasticsearch-host=search \
     --elasticsearch-port=9200 \
     --elasticsearch-username=admin \
@@ -85,7 +84,9 @@ get_argument_command() {
 
     print_question "Define $1: "
     if [ null != "$argument" ]; then
-        print_default "[ $argument ] "
+        print_question "["
+        print_default "$argument"
+        print_question "] "
     fi
 
     read -r response
@@ -111,8 +112,6 @@ get_config() {
     get_argument_command "admin-email"
     get_argument_command "admin-user"
     get_argument_command "admin-password"
-    # Pendding to confirm
-    # get_argument_command "search-engine"
 }
 
 #
