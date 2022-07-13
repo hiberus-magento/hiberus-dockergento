@@ -61,10 +61,8 @@ RUN pecl channel-update pecl.php.net \
     && sed -i -e 's/^zend_extension/\;zend_extension/g' /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
 # Install composer
-RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
-    && php composer-setup.php --install-dir /usr/local/bin --filename=composer \
-    && php -r "unlink('composer-setup.php');" \
-    && composer self-update --2
+RUN curl -sS https://getcomposer.org/installer | \
+  php -- --install-dir=/usr/local/bin --filename=composer
 
 # Install NodeJS
 RUN curl -sL https://deb.nodesource.com/setup_12.x | bash -
