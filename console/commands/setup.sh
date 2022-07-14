@@ -7,54 +7,6 @@ source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
 
 #
-# Ask magento directory
-#
-get_magento_root_directory() {
-    print_question "Magento root dir: [$MAGENTO_DIR] "
-
-    MAGENTO_DIR=${answer_magento_dir:-$MAGENTO_DIR}
-
-    if [ "$MAGENTO_DIR" != "." ]; then
-        print_info "Setting custom magento dir: '$MAGENTO_DIR'\n"
-        MAGENTO_DIR=$(sanitize_path "$MAGENTO_DIR")
-        print_warning "------ $DOCKER_COMPOSE_FILE ------\n"
-        sed_in_file "s#/html/var/composer_home#/html/$MAGENTO_DIR/var/composer_home#gw /dev/stdout" "$DOCKER_COMPOSE_FILE"
-        print_warning "--------------------\n"
-        print_warning "------ $DOCKER_COMPOSE_FILE_MAC ------\n"
-        sed_in_file "s#/app:#/$MAGENTO_DIR/app:#gw /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
-        sed_in_file "s#/vendor#/$MAGENTO_DIR/vendor#gw /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
-        print_warning "--------------------\n"
-        print_warning "------ $DOCKER_CONFIG_DIR/nginx/conf/default.conf ------\n"
-        sed_in_file "s#/var/www/html#/var/www/html/$MAGENTO_DIR#gw /dev/stdout" "$DOCKER_CONFIG_DIR/nginx/conf/default.conf"
-        print_warning "--------------------\n"
-    fi
-}
-
-#
-# Check if exit docker-compose file in magento root
-#
-check_if_docker_enviroment_exist() {
-    if [[ -f "$MAGENTO_DIR/docker-compose.yml" ]]; then
-        while true; do
-            print_error "\n----------------------------------------------------------------------\n"
-            print_error "             ¡¡¡WE HAVE DETECTED DOCKER COMPOSE FILES!!! \n\n"
-            print_error "    If you continue with this proccess these files will be removed\n"
-            print_error "----------------------------------------------------------------------\n\n"
-            print_question "Do you want continue? [Y/n] "
-            read -r yn
-            if [ -z "$yn" ]; then
-                yn="y"
-            fi
-            case $yn in
-            [Yy]*) break ;;
-            [Nn]*) exit ;;
-            *) echo "Please answer yes or no." ;;
-            esac
-        done
-    fi
-}
-
-#
 # Copy File
 #
 copy() {
@@ -110,24 +62,28 @@ add_git_bind_paths_in_file() {
 
         new_path="./$filename_in_git:/var/www/html/$filename_in_git"
         bind_path_exits=$(grep -q -e "$new_path" "$file_to_edit" && echo true || echo false)
+        default_file_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r '.["'"$filename_in_git"'"]')
 
-        if [ "$bind_path_exits" == true ]; then
+        if [[ "$bind_path_exits" == true ]] || [[ $default_file_magento == true ]]; then
             continue
         fi
 
         if [ "$bind_paths" != "" ]; then
-            bind_paths="$bind_paths\\ "
+            bind_paths="$bind_paths\\      "
         fi
 
-        bind_paths="$bind_paths- ${new_path}$suffix_bind_path"
+        bind_paths="$bind_paths- ${new_path}$suffix_bind_path\n"
 
     done <<<"${git_files}"
 
-    print_warning "------ $file_to_edit ------"
+    print_warning "------ $file_to_edit ------\n"
     sed_in_file "s|# {FILES_IN_GIT}|$bind_paths|w /dev/stdout" "$file_to_edit"
-    print_warning "--------------------"
+    print_warning "--------------------\n"
 }
 
+#
+#
+#
 get_equivalent_version_if_exit() {
     equivalent_version=$("$TASKS_DIR/get_equivalent_version.sh" "$1")
     if [[ "$equivalent_version" = "null" ]]; then
@@ -160,7 +116,8 @@ get_requirements() {
         if [ -f "$MAGENTO_DIR/composer.lock" ]; then
             MAGENTO_VERSION=$(cat <"$MAGENTO_DIR/composer.lock" |
                 jq -r '.packages | map(select(.name == "magento/product-community-edition"))[].version')
-            print_warning "\nVersion detected: $MAGENTO_VERSION"
+            IS_NEW_PROJECT="MAGENTO_VERSION"
+            print_warning "\nVersion detected: $MAGENTO_VERSION\n"
         else
             print_error "\n------------------------------------------------------\n"
             print_error "\n       We need a magento project in $MAGENTO_DIR/ path\n"
@@ -188,8 +145,8 @@ set_settings() {
     if [[ -f ".git/HEAD" ]]; then
         git_files=$(git ls-files | awk -F / '{print $1}' | uniq)
 
-        if [[ "${git_files}" != "" ]]; then
-            add_git_bind_paths_in_file "${git_files}" "${DOCKER_COMPOSE_FILE_MAC}" ":delegated"
+        if [[ "$git_files" != "" ]]; then
+            add_git_bind_paths_in_file "$git_files" "${DOCKER_COMPOSE_FILE_MAC}" ":delegated"
         else
             print_highlight " > Skipped. There are no files added in this repository\n"
         fi
@@ -214,15 +171,15 @@ EOF
 # Print current requirements
 #
 print_requirements() {
-    services=$(echo "${requirements}" | jq -r 'keys|join(" ")')
+    services=$(echo "$requirements" | jq -r 'keys|join(" ")')
 
     print_table "\n\n-------------------------------\n"
     print_table "          REQUIREMENTS"
     print_table "\n-------------------------------\n"
-    for index in ${services}; do
-        value=$(echo "${requirements}" | jq -r '.'"${index}"'')
+    for index in $services; do
+        value=$(echo "$requirements" | jq -r '.'"$index"'')
         print_table "   $index: "
-        print_default "${value}\n"
+        print_default "$value\n"
     done
     print_table "-------------------------------\n\n"
 }
@@ -255,7 +212,7 @@ change_requirements() {
 #
 edit_version() {
     service_name=$1
-    opts="$(cat <"$DATA_DIR/requirements.json" | jq -r '[.[] | .'"$service_name"'] | unique  | join(" ")')"
+    opts="$(cat < "$DATA_DIR/requirements.json" | jq -r '[.[] | .'"$service_name"'] | unique  | join(" ")')"
 
     print_question "$service_name version:\n"
     select select_result in $opts; do
@@ -277,7 +234,7 @@ edit_version() {
 # Select editable services and changes her value
 #
 edit_versions() {
-    opts=$(echo "${requirements} " | jq -r 'keys | join(" ")')
+    opts=$(echo "$requirements " | jq -r 'keys | join(" ")')
 
     print_question "Choose service:\n"
     select select_result in $opts; do
@@ -285,39 +242,63 @@ edit_versions() {
             break
         fi
 
-        if $($TASKS_DIR/in_list.sh "${REPLY}" "$opts"); then
-            select_result=${REPLY}
+        if $($TASKS_DIR/in_list.sh "$REPLY" "$opts"); then
+            select_result=$REPLY
             break
         fi
 
-        echo "invalid option '${REPLY}'"
+        echo "invalid option '$REPLY'"
     done
 
     edit_version "$select_result"
     change_requirements
 }
 
-get_magento_root_directory
-check_if_docker_enviroment_exist
-get_requirements "$@"
-"$TASKS_DIR/write_from_docker-compose_templates.sh" "${requirements}"
-set_settings
-save_properties
+#
+# Create docker-compose files
+#
+create_docker_compose() {
+    if [[ -f "$MAGENTO_DIR/docker-compose.yml" ]]; then
+        tool_name=$("$TASKS_DIR"/look_at_yml.sh "$MAGENTO_DIR/docker-compose.yml" "x-toolname")
+        
+        if [[ tool_name != "hiberus-magento" ]]; then
+            while true; do
+                print_error "\n----------------------------------------------------------------------\n"
+                print_error "             ¡¡¡WE HAVE DETECTED DOCKER COMPOSE FILES!!! \n\n"
+                print_error "    If you continue with this proccess these files will be removed\n"
+                print_error "----------------------------------------------------------------------\n\n"
+                print_question "Do you want continue? [Y/n] "
 
-# Start services
-$COMMAND_BIN_NAME stop
-"$TASKS_DIR"/start_service_if_not_running.sh "$SERVICE_APP"
+                read -r yn
+                if [ -z "$yn" ]; then
+                    yn="y"
+                fi
+                case $yn in
+                [Yy]*) break ;;
+                [Nn]*) exit 1;;
+                *) echo "Please answer yes or no." ;;
+                esac
+            done
+        else
+            exit
+        fi
+    fi
+
+    get_requirements "$@"
+    "$TASKS_DIR"/write_from_docker-compose_templates.sh "$requirements"
+    set_settings
+}
 
 # Prepare domain
-if [ "$#" -gt 1 ]; then
-  DOMAIN=$2
-else
-  get_domain
-fi
-$COMMAND_BIN_NAME ssl "$DOMAIN"
-$COMMAND_BIN_NAME set-host "$DOMAIN" --no-database
+get_domain
+get_magento_root_directory
+create_docker_compose
+save_properties
 
-# If composer.json file exists, launch composer install
-$COMMAND_BIN_NAME exec [ -f composer.json ] && composer install
 
-print_info "Setup completed!\n"
+# Start services
+"$TASKS_DIR"/start_service_if_not_running.sh "$SERVICE_APP"
+# Magento instalation
+"$TASKS_DIR"/magento_installation.sh
+
+print_info "\nSetup completed!\n"

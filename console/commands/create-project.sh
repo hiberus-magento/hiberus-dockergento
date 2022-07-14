@@ -11,7 +11,7 @@ overwrite_file_consent() {
     local target_file=$1
 
     if [[ -f "$target_file" ]]; then
-        print_question "Overwrite $target_file? [Y/n]?"
+        print_question "Overwrite $target_file? [Y/n]? "
         read -r answer_overwrite_target
         if [ -z "$answer_overwrite_target" ]; then
             answer_overwrite_target="y"
@@ -91,18 +91,9 @@ init_docker() {
 
     # Remove temporal directory
     $COMMAND_BIN_NAME exec sh -c "rm -rf $CREATE_PROJECT_TMP_DIR"
-
+    
     check_vendor_bin
-    $COMMAND_BIN_NAME composer install
-
-    $COMMAND_BIN_NAME install "$DOMAIN"
-
-    # Magento commands
-    $COMMAND_BIN_NAME magento setup:upgrade
-    $COMMAND_BIN_NAME magento deploy:mode:set developer
-
-    print_info "Open "
-    print_question "https://$DOMAIN/\n"
+    "$TASKS_DIR/magento_installation.sh"
 }
 
 # Check if command "jq" exists
