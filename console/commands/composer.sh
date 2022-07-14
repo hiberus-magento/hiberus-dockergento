@@ -5,7 +5,7 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 
 #
-#
+# Copy vendor and magento defaults files into container
 #
 mirror_vendor_host_into_container() {
     print_info "Mirror vendor into container before executing composer\n"
@@ -16,24 +16,21 @@ mirror_vendor_host_into_container() {
     fi
 
     "$COMMAND_BIN_NAME" copy-to-container vendor
-
-    # Copy all deault files magento into container
-     default_files_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r 'keys[]')
-
-      for file in $default_files_magento; do
-          if [[ -e $file ]]; then
-              "$COMMAND_BIN_NAME" copy-to-container $file
-          fi 
-      done
 }
 
 #
 #
 #
 sync_all_from_container_to_host() {
-    # IMPORTANT:
-    # Docker cp from container to host needs to be done in a not running container.
-    # Otherwise the docker.hyperkit gets crazy and breaks the bind mounts
+    # Copy all deault files magento into container
+    default_files_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r 'keys[]')
+
+    for file in $default_files_magento; do
+        if [[ -e $file ]]; then
+            "$COMMAND_BIN_NAME" copy-to-container $file
+        fi 
+    done
+
     "$COMMAND_BIN_NAME" stop
 
     print_info "Copying all files from container to host\n"
@@ -81,6 +78,7 @@ if [[ "$#" != 0 && ("$1" == "install" || "$1" == "update" || "$1" == "require" |
         ("$MACHINE" == "mac") ]]; then
         mirror_vendor_host_into_container
         "$COMMAND_BIN_NAME" exec composer "$@"
+        "$COMMAND_BIN_NAME" exec cat ./.gitignore
         sync_all_from_container_to_host
     else
         "$COMMAND_BIN_NAME" exec composer "$@"
