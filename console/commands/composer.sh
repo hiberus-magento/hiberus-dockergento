@@ -55,17 +55,6 @@ if [[ "$#" != 0 && "$1" == "create-project" ]]; then
     exit 1
 fi
 
-# Exit if user wishes to set composer working directory
-if [[ "$#" != 0 &&
-    ($@ == *" -d "* || $@ == *" -d="* ||
-    $@ == "-d "* || $@ == "-d="* ||
-    $@ == *" --working-dir "* || $@ == *" --working-dir="* ||
-    $@ == "--working-dir "* || $@ == "--working-dir="*) ]]; then
-    print_error "Composer directory option not compatible with hiberus docker. This option is automatically set:\n"
-    print_default "\n    --working-dir=$COMPOSER_DIR\n"
-    exit 1
-fi
-
 # Manage composer commands
 if [[ "$#" != 0 && ("$1" == "install" || "$1" == "update" || "$1" == "require" || "$1" == "remove") ]]; then
     # Composer validation

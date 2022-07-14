@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 MAGENTO_DIR="."
-COMPOSER_DIR="."
 BIN_DIR="./vendor/bin"
 GENERATED_DIR="generated" # Set to "var/generation" for magento >=2.1
 
