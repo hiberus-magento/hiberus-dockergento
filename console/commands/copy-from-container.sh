@@ -42,10 +42,8 @@ if [[ "$1" == "--force" || "$1" == "-f" ]]; then
     shift
 fi
 
-# IMPORTANT:
-# Docker cp from container to host needs to be done in a not running container.
-# Otherwise the docker.hyperkit gets crazy and breaks the bind mounts
 $COMMAND_BIN_NAME stop
+
 # shellcheck source=/dev/null
 source "$TASKS_DIR"/mirror_path.sh
 

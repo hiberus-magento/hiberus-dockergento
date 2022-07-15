@@ -3,7 +3,6 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
-# shellcheck source=/dev/null
 source "$TASKS_DIR"/mirror_path.sh
 
 #
