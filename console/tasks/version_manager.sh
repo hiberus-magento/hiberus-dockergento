@@ -53,7 +53,7 @@ edit_version() {
             select_result=${REPLY}
             break
         fi
-        echo "invalid option '${REPLY}'"
+        print_warning "invalid option '${REPLY}'\n"
     done
 
     REQUIREMENTS=$(echo "$REQUIREMENTS" | jq -r '.'"$service_name"'="'"$select_result"'"')
@@ -76,7 +76,7 @@ edit_versions() {
             break
         fi
 
-        echo "invalid option '$REPLY'"
+        print_warning "Invalid option '$REPLY'\n"
     done
 
     edit_version "$select_result"
@@ -119,7 +119,7 @@ change_requirements() {
             edit_versions
             break
             ;;
-        *) echo "Please answer yes or no." ;;
+        *) print_warning "Please answer yes or no.\n" ;;
         esac
     done
 }
@@ -131,8 +131,8 @@ get_equivalent_version_if_exit() {
     equivalent_version=$("$TASKS_DIR/get_equivalent_version.sh" "$1")
 
     if [[ "$equivalent_version" = "null" ]]; then
-        print_warning "\nWe don´t have support for the version $1 "
-        print_info "\nPlease, write any version between all versions supported or press Ctrl - C to exit"
+        print_warning "\nWe don´t have support for the version $1\n"
+        print_info "Please, write any version between all versions supported or press Ctrl - C to exit"
 
         $COMMAND_BIN_NAME compatibility
         read -r MAGENTO_VERSION
@@ -149,12 +149,12 @@ get_requirements() {
     # Check if command "jq" exists
     if ! command -v jq &>/dev/null; then
         print_error "Required 'jq' not found"
-        print_question "https://stedolan.github.io/jq/download/"
+        print_link "https://stedolan.github.io/jq/download/\n"
         exit
     fi
 
     if [ "$#" -gt 0 ]; then
-        REQUIREMENTS=$(cat <"$DATA_DIR/requirements.json" | jq -r '.['\""$1"\"']')
+        REQUIREMENTS=$(cat < "$DATA_DIR/requirements.json" | jq -r '.['\""$1"\"']')
         change_requirements
         export REQUIREMENTS=$REQUIREMENTS
     else
@@ -243,10 +243,10 @@ set_settings() {
         if [[ "$git_files" != "" ]]; then
             add_git_bind_paths_in_file "$git_files" "${DOCKER_COMPOSE_FILE_MAC}" ":delegated"
         else
-            print_highlight " > Skipped. There are no files added in this repository\n"
+            print_procesing "Skipped. There are no files added in this repository"
         fi
     else
-        print_highlight " > Skipped. This is not a git repository\n"
+        print_procesing "Skipped. This is not a git repository"
     fi
 }
 

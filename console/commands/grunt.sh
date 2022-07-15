@@ -3,7 +3,6 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/input_info.sh
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
 # Check command usage

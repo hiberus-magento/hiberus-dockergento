@@ -62,4 +62,4 @@ create_docker_compose
 print_info "\nSetup completed!\n"
 
 print_info "Open "
-print_question "https://$DOMAIN/\n"
+print_link "https://$DOMAIN/\n"

@@ -3,7 +3,6 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/input_info.sh
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
 
@@ -27,7 +26,7 @@ clear_dest_dir() {
         print_default "rm -rf $dest_path/*\n"
         rm -rf "${dest_path:?}"/*
     else
-        print_default " > deletion skipped\n"
+        print_procesing "Deletion skipped"
     fi
 }
 
@@ -53,18 +52,18 @@ container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 for path_to_mirror in "$@"; do
     print_warning "phpfpm:$path_to_mirror -> $path_to_mirror\n"
 
-    print_default " > validating and sanitizing path: '$path_to_mirror'\n"
+    print_procesing "Validating and sanitizing path: '$path_to_mirror'"
     path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
 
     SRC_PATH="$path_to_mirror/."
     dest_path="$path_to_mirror"
 
-    print_default " > removing destination content: '$dest_path'\n"
+    print_procesing "Removing destination content: '$dest_path'"
     clear_dest_dir "$dest_path"
-    print_default " > ensure destination exists: '$dest_path'\n"
+    print_procesing "Ensure destination exists: '$dest_path'"
     mkdir -p "$dest_path"
 
-    print_default " > copying 'phpfpm:${WORKDIR_PHP}/${SRC_PATH}' into '$dest_path'\n"
+    print_procesing "Copying 'phpfpm:${WORKDIR_PHP}/${SRC_PATH}' into '$dest_path'"
     docker cp "$container_id:$WORKDIR_PHP/$SRC_PATH" "$dest_path"
 done
 

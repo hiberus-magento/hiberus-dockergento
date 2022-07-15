@@ -63,13 +63,13 @@ init_docker() {
     "$TASKS_DIR"/magento_installation.sh
 
     print_info "Open "
-    print_question "https://$DOMAIN/\n"
+    print_link "https://$DOMAIN/\n"
 }
 
 # Check if command "jq" exists
 if ! command -v jq &>/dev/null; then
     print_error "Required 'jq' not found"
-    print_question "https://stedolan.github.io/jq/download/"
+    print_link "https://stedolan.github.io/jq/download/\n"
     exit 0
 fi
 

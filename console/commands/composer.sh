@@ -11,7 +11,7 @@ mirror_vendor_host_into_container() {
     print_info "Mirror vendor into container before executing composer\n"
 
     if [ ! -d "$MAGENTO_DIR"/vendor ]; then
-        print_default " > creating '$MAGENTO_DIR/vendor' in host\n"
+        print_procesing "Creating '$MAGENTO_DIR/vendor' in host"
         mkdir -p "$MAGENTO_DIR/vendor"
     fi
 
@@ -35,10 +35,10 @@ sync_all_from_container_to_host() {
     "$COMMAND_BIN_NAME" stop
 
     print_info "Copying all files from container to host\n"
-    print_info " > removing vendor in host: '$HOST_DIR/$MAGENTO_DIR/vendor/*'\n"
+    print_procesing "Removing vendor in host: '$HOST_DIR/$MAGENTO_DIR/vendor/*'"
     rm -rf "$HOST_DIR"/"$MAGENTO_DIR"/vendor/*
 
-    print_info " > copying 'phpfpm:${WORKDIR_PHP}/.' into '$HOST_DIR\n"
+    print_procesing "Copying 'phpfpm:${WORKDIR_PHP}/.' into '$HOST_DIR"
     containser_id=$($DOCKER_COMPOSE ps -q phpfpm)
     docker cp "$containser_id":"$WORKDIR_PHP"/. "$HOST_DIR"
 
