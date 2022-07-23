@@ -50,7 +50,6 @@ init_docker() {
         magento/project-"$MAGENTO_EDITION"-edition="$MAGENTO_VERSION" "$MAGENTO_DIR"
 
     # Copy all to host
-    files_in_container=$($COMMAND_BIN_NAME exec ls $WORKDIR_PHP)
     docker cp "$container_id":"$WORKDIR_PHP"/composer.json "$MAGENTO_DIR"
 
     # Create empty composer.lock
