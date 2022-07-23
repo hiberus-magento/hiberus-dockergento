@@ -3,6 +3,7 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/input_info.sh
+source "$COMPONENTS_DIR"/print_message.sh
 
 #
 # Overwrite file consent
@@ -24,35 +25,6 @@ overwrite_file_consent() {
 }
 
 #
-# Create composer.josn and composer.lock if these not exits. If exist composer project, get magento version
-#
-check_composer_files_exist() {
-    if [ ! -f "$MAGENTO_DIR/composer.json" ]; then
-        print_info "Creating non existing '$MAGENTO_DIR/composer.json'\n"
-        mkdir -p "$MAGENTO_DIR"
-        echo "{}" >"$MAGENTO_DIR"/composer.json
-    fi
-
-    if [ ! -f "$MAGENTO_DIR/composer.lock" ]; then
-        print_info "Creating non existing '$MAGENTO_DIR/composer.lock'\n"
-        echo "{}" >"$MAGENTO_DIR"/composer.lock
-    fi
-}
-
-#
-# Check vendor/bin
-#
-check_vendor_bin() {
-    if [[ "$MAGENTO_DIR/vendor/bin" != "$BIN_DIR" ]]; then
-        print_warning "Warning:$MAGENTO_DIR bin dir is not inside magento dir\n"
-        print_default "  Magento dir: '$MAGENTO_DIR\n"
-        print_default "  Bin dir: $BIN_DIR'\n"
-        print_warning "Edit $MAGENTO_DIR/composer.json accordingly and execute:\n"
-        print_code "  $COMMAND_BIN_NAME composer install\n"
-    fi
-}
-
-#
 # Initialize command script
 #
 init_docker() {
@@ -61,45 +33,42 @@ init_docker() {
     get_magento_version
     get_domain
 
-    # Manage composer files
-    overwrite_file_consent "$MAGENTO_DIR/composer.json"
-    check_composer_files_exist
-
     # Create docker environment
-    $COMMAND_BIN_NAME setup "$EQUIVALENT_VERSION" "$DOMAIN"
+    get_magento_root_directory
+    "$TASKS_DIR"/version_manager.sh "$MAGENTO_VERSION"
+    docker-compose -f docker-compose.yml up -d
+    container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
-    # Manage git files
-    overwrite_file_consent ".gitignore"
-
-    # Create project tmp directory
-    CREATE_PROJECT_TMP_DIR="$COMMAND_BIN_NAME-create-project-tmp"
-    $COMMAND_BIN_NAME exec sh -c "rm -rf $CREATE_PROJECT_TMP_DIR"
-
+    # Also make sure alternate auth.json is setup (Magento uses this internally)
+    $COMMAND_BIN_NAME exec [ -d "./var/composer_home" ] && \
+    $COMMAND_BIN_NAME exec cp /var/www/.composer/auth.json ./var/composer_home/auth.json
+    
     # Execute composer create-project and copy composer.json
     $COMMAND_BIN_NAME exec composer create-project \
         --no-install \
         --repository=https://repo.magento.com/ \
-        magento/project-"$MAGENTO_EDITION"-edition="$MAGENTO_VERSION" \
-        "$CREATE_PROJECT_TMP_DIR"
-    $COMMAND_BIN_NAME exec sh -c "cat $CREATE_PROJECT_TMP_DIR/composer.json > $MAGENTO_DIR/composer.json"
+        magento/project-"$MAGENTO_EDITION"-edition="$MAGENTO_VERSION" "$MAGENTO_DIR"
 
-    # Copy .gitignore
-    if [ -f "$CREATE_PROJECT_TMP_DIR/.gitignore" ]; then
-        CONTAINER_ID=$($DOCKER_COMPOSE ps -q phpfpm)
-        docker cp "$CONTAINER_ID":"$WORKDIR_PHP"/"$CREATE_PROJECT_TMP_DIR"/.gitignore .gitignore
-    fi
+    # Copy all to host
+    docker cp "$container_id":"$WORKDIR_PHP"/composer.json "$MAGENTO_DIR"
 
-    # Remove temporal directory
-    $COMMAND_BIN_NAME exec sh -c "rm -rf $CREATE_PROJECT_TMP_DIR"
+    # Create empty composer.lock
+    echo "{}" > "$MAGENTO_DIR"/composer.lock
     
-    check_vendor_bin
-    "$TASKS_DIR/magento_installation.sh"
+    # Run docker-compose especified files of OS
+    "$COMMAND_BIN_NAME" restart
+
+    # Magento instalation
+    "$TASKS_DIR"/magento_installation.sh
+
+    print_info "Open "
+    print_link "https://$DOMAIN/\n"
 }
 
 # Check if command "jq" exists
 if ! command -v jq &>/dev/null; then
     print_error "Required 'jq' not found"
-    print_question "https://stedolan.github.io/jq/download/"
+    print_link "https://stedolan.github.io/jq/download/\n"
     exit 0
 fi
 

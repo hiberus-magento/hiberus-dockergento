@@ -20,7 +20,7 @@ fi
 if [[ "$MACHINE" == "linux" ]]; then
     print_default "Waiting for everything to spin up...\n"
     sleep 5
-    print_default " > fixing permissions\n"
+    print_procesing "Fixing permissions"
     "$TASKS_DIR"/fix_linux_permissions.sh
-    print_default " > permissions fix finished\n"
+    print_procesing "Permissions fix finished"
 fi

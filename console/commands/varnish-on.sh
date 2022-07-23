@@ -3,6 +3,7 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/input_info.sh
+source "$COMPONENTS_DIR"/print_message.sh
 
 if [ -z "$(docker ps | grep varnish)" ]; then
     print_error "Error: Varnish is not running!\n"

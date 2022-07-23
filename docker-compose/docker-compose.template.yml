@@ -5,8 +5,7 @@ services:
     image: hiberusmagento/php:<php_version>
     volumes: &appvolumes
       - sockdata:/sock
-      - ~/.composer:/var/www/.composer:delegated
-      - ~/.composer:/var/www/html/var/composer_home:delegated
+      - ~/.composer:/var/www/.composer:cached
       
     environment:
       PHP_IDE_CONFIG: serverName=localhost
