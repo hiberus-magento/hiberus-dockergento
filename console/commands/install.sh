@@ -4,15 +4,6 @@
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 
-yml_file="$MAGENTO_DIR/docker-compose.yml"
-path_to_mysql_keys="services_db_environment_MYSQL"
-look_at_task="$TASKS_DIR/look_at_yml.sh"
-
-# Get credentials
-user=$($look_at_task "$yml_file" "${path_to_mysql_keys}_USER")
-password=$($look_at_task "$yml_file" "${path_to_mysql_keys}_PASSWORD")
-database=$($look_at_task "$yml_file" "${path_to_mysql_keys}_DATABASE")
-
 # Get Magento version
 if [ -z $MAGENTO_VERSION ]; then
     if [ -f "$MAGENTO_DIR/composer.lock" ]; then
@@ -28,9 +19,9 @@ fi
 command_arguments="--db-host=db \
 --backend-frontname=admin \
 --use-rewrites=1 \
---db-name=$database \
---db-user=$user \
---db-password=$password \
+--db-name=magento \
+--db-user=magento \
+--db-password=magento \
 --session-save=redis \
 --session-save-redis-host=redis \
 --session-save-redis-db=0 \
@@ -58,6 +49,10 @@ fi
 # Run magento setup:install command
 #
 run_install_magento_command() {
+    # Remove existing env.php file
+    if [ -f "$MAGENTO_DIR/app/etc/env.php" ]; then
+      rm -rf "$MAGENTO_DIR/app/etc/env.php"
+    fi
     config=$(cat <"$DATA_DIR/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")') 
     $COMMANDS_DIR/magento.sh setup:install $command_arguments $config
     $COMMANDS_DIR/magento.sh config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
@@ -69,9 +64,7 @@ run_install_magento_command() {
 get_base_url() {
     # shellcheck source=/dev/null 
     source "$COMPONENTS_DIR"/input_info.sh
-
     get_domain "$@"
-
     command_arguments="$command_arguments --base-url=https://$DOMAIN/"
 }
 

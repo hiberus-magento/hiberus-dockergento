@@ -21,31 +21,12 @@ sanitize_path() {
 #
 create_docker_compose() {
     if [[ -f "$MAGENTO_DIR/docker-compose.yml" ]]; then
-        tool_name=$("$TASKS_DIR"/look_at_yml.sh "$MAGENTO_DIR/docker-compose.yml" "x-toolname")
-        
-        if [[ tool_name != "hiberus-magento" ]]; then
-            while true; do
-                print_error "\n----------------------------------------------------------------------\n"
-                print_error "             ¡¡¡WE HAVE DETECTED DOCKER COMPOSE FILES!!! \n\n"
-                print_error "    If you continue with this proccess these files will be removed\n"
-                print_error "----------------------------------------------------------------------\n\n"
-                print_question "Do you want continue? [Y/n] "
-
-                read -r yn
-                if [ -z "$yn" ]; then
-                    yn="y"
-                fi
-                case $yn in
-                [Yy]*) break ;;
-                [Nn]*) exit 1;;
-                *) echo "Please answer yes or no." ;;
-                esac
-            done
-        else
-            exit
+        if [[ -z "$(cat "$MAGENTO_DIR/docker-compose.yml" | grep "hiberus-magento")" ]]; then
+          "$TASKS_DIR"/version_manager.sh
         fi
+    else
+      "$TASKS_DIR"/version_manager.sh
     fi
-    "$TASKS_DIR"/version_manager.sh
 }
 
 # Prepare enviroment
