@@ -22,9 +22,7 @@ get_magento_version() {
     DEFAULT_MAGENTO_VERSION="2.4.4"
 
     if [ $# == 0 ]; then
-        print_question "Magento version: ["
-        print_default "$DEFAULT_MAGENTO_VERSION"
-        print_question "] "
+        print_question "Magento version: " "$DEFAULT_MAGENTO_VERSION"
         read -r MAGENTO_VERSION
 
         if [[ $MAGENTO_VERSION == '' ]]; then
@@ -78,9 +76,7 @@ get_domain() {
     PROJECT_NAME=$(basename "$PWD")
 
     if [ $# == 0 ]; then
-        print_question "Define domain ["
-        print_default "$PROJECT_NAME.local"
-        print_question "] "
+        print_question "Define domain " "$PROJECT_NAME.local"
         read -r DOMAIN
 
         if [[ $DOMAIN == '' ]]; then
@@ -99,9 +95,8 @@ get_domain() {
 # Ask magento directory
 #
 get_magento_root_directory() {
-    print_question "Magento root dir: ["
-    print_default "$MAGENTO_DIR"
-    print_question "] "
+    print_question "Magento root dir " "$MAGENTO_DIR"
+
     read -r answer_magento_dir
     MAGENTO_DIR=${answer_magento_dir:-$MAGENTO_DIR}
 

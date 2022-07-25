@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
+
 unameout="$(uname -s)"
 case "$unameout" in
 Linux*)
@@ -17,12 +20,11 @@ Darwin*)
 esac
 
 if [[ "$MACHINE" == "UNKNOWN" ]]; then
-    echo "Error: Unsupported system type"
-    echo "System must be a Macintosh or Linux"
-    echo ""
-    echo "System detection determined via uname command"
-    echo "If the following is empty, could not find uname command: $(which uname)"
-    echo "Your reported uname is: $(uname -s)"
+    print_error "Error: Unsupported system type\n"
+    print_error "System must be a Macintosh or Linux\n\n"
+    print_error "System detection determined via uname command\n"
+    print_error "If the following is empty, could not find uname command: $(which uname)\n"
+    print_error "Your reported uname is: $(uname -s)\n"
     exit 1
 fi
 

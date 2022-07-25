@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# add check if all containers is up
+
 : "${exec_options:=""}"
 
 if [[ "$1" == "--root" ]]; then

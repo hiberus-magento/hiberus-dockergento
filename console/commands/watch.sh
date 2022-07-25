@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source "$COMPONENTS_DIR"/print_message.sh
+source "$COMPONENTS_DIR"/print_message.sh
+
 if [[ "$MACHINE" != "mac" ]]; then
-    echo -e "${RED} This command is only for mac system.${COLOR_RESET}"
+    print_warning "This command is only for mac system.\b"
     exit 1
 fi
 

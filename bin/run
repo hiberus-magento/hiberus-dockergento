@@ -40,6 +40,7 @@ init_dirs() {
 init_dirs
 # shellcheck source=/dev/null
 source "$TASKS_DIR"/load_properties.sh
+source "$COMPONENTS_DIR"/print_message.sh
 
 # If there are arguments and the first argument is --help
 if [ "$#" -gt 0 ]; then
@@ -59,8 +60,9 @@ fi
 COMMAND_NAME="$1.sh"
 if [ ! -f "${COMMANDS_DIR}/${COMMAND_NAME}" ]; then
     if [[ ! -f ${CUSTOM_COMMANDS_DIR}/${COMMAND_NAME} ]]; then
-        echo -e "${RED}Command not found${COLOR_RESET}"
-        echo -e " Execute ${GREEN}$COMMAND_BIN_NAME --help${COLOR_RESET} to see commands available\n"
+        print_error "Command not found\n"
+
+        print_default "Execute "; print_code "$COMMAND_BIN_NAME --help"; print_default " to see commands available\n"
         exit 1
     else
         COMMANDS_DIR=${CUSTOM_COMMANDS_DIR}

@@ -5,7 +5,6 @@ set -a # Enable export all variables
 
 # shellcheck source=/dev/null
 source "${PROPERTIES_DIR}"/color_properties
-# shellcheck source=/dev/null
 source "${PROPERTIES_DIR}"/docker_properties
 
 root_dir=$PWD

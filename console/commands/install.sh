@@ -2,7 +2,6 @@
 
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/input_info.sh
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
 yml_file="$MAGENTO_DIR/docker-compose.yml"
@@ -82,13 +81,7 @@ get_base_url() {
 get_argument_command() {
     argument=$(cat <"$DATA_DIR/config.json" | jq -r '."'"$1"'"')
 
-    print_question "Define $1: "
-    if [ null != "$argument" ]; then
-        print_question "["
-        print_default "$argument"
-        print_question "] "
-    fi
-
+    print_question "Define $1 " "$argument"
     read -r response
 
     if [[ $response != '' ]]; then

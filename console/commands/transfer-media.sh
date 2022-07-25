@@ -3,6 +3,7 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/input_info.sh
+source "$COMPONENTS_DIR"/print_message.sh
 
 sshHost="ssh.eu-3.magento.cloud"
 sshPath="/app/pub/media"

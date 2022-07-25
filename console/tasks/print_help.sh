@@ -6,7 +6,6 @@ FILE="$(cat "$DATA_DIR/command_descriptions.json")"
 
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
-# shellcheck source=/dev/null
 source "$TASKS_DIR"/copyright.sh
 
 #

@@ -8,10 +8,10 @@ regex=""
 #
 compose_regex() {
     local services
-    services=$(echo "$requirements" | jq -r 'keys|join(" ")')
+    services=$(echo "$REQUIREMENTS" | jq -r 'keys|join(" ")')
 
     for index in $services; do
-        value=$(echo "$requirements" | jq -r '.'"$index"'')
+        value=$(echo "$REQUIREMENTS" | jq -r '.'"$index"'')
         regex+="s/<${index}_version>/${value}/g; "
     done
 }
@@ -30,5 +30,4 @@ wirte_docker_compose() {
     cp "$COMMAND_BIN_DIR/docker-compose/docker-compose.dev.mac.template.yml" "$DOCKER_COMPOSE_FILE_MAC"
 }
 
-requirements=$1
 wirte_docker_compose

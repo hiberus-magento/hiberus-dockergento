@@ -3,6 +3,7 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/input_info.sh
+source "$COMPONENTS_DIR"/print_message.sh
 
 "$TASKS_DIR"/start_service_if_not_running.sh phpfpm
 
