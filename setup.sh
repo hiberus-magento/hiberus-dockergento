@@ -7,35 +7,17 @@ brown="\033[0;33m"
 colorReset="\033[0m"
 
 if ! command -v jq &>/dev/null; then
-    echo -e "${green}Hiberus docker needs to install ${brown}jq${green} library${colorReset}"
-
-    state="continue"
-    while [[ "$state" == "continue" ]]; do
-        printf "${blue}Do you want to install ${brown}jq${blue} in your computer? [y/n] ${colorReset}"
-        read -r yn
-
-        case $yn in
-        [Nn]*)
-            echo -e "${green}You can get information about jq instalation in:${colorReset}"
-            echo -e "${blue}https://stedolan.github.io/jq/download/${colorReset}"
-            exit 1 ;;
-        [Yy]*)
-            # Install on MacOS
-            if [ "$(uname)" == "Darwin" ]; then
-                if ! command -v brew &>/dev/null; then
-                    echo -e "${red}Error: Brew is required. Please install it and try again.${colorReset}"
-                    exit 1
-                fi
-                brew install jq
-            # Install on Linux
-            else
-                sudo sudo apt-get install jq
-            fi
-            break
-            ;;
-        *) echo "Please answer yes or no." ;;
-        esac
-    done
+   if [ "$(uname)" == "Darwin" ]; then
+        # Install on Mac
+        if ! command -v brew &>/dev/null; then
+            echo -e "${red}Error: Brew is required. Please install it and try again.${colorReset}"
+            exit 1
+        fi
+        brew install jq
+    else
+        # Install on Linux
+        sudo sudo apt-get install jq
+    fi
 fi
 
 if [ -f ~/hm ]; then
