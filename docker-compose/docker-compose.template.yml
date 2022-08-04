@@ -41,7 +41,7 @@ services:
     environment:
       - discovery.type=single-node
     volumes:
-      - elasticdata:/usr/share/elasticsearch/data
+      - searchdata:/usr/share/elasticsearch/data
       - opensearchdata:/usr/share/opensearch/data
     ports:
       - 9200:9200
@@ -89,7 +89,7 @@ services:
 volumes:
   dbdata:
   sockdata:
-  elasticdata:
+  searchdata:
   opensearchdata:
   redisdata:
   rabbitmqdata:
