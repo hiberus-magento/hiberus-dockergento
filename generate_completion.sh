@@ -4,7 +4,11 @@ dir=$(dirname -- "$(readlink -f -- "$0")")
 executable="source $dir/console/hm-completion.bash"
 
 if [ "$(uname)" == "Darwin" ]; then
-    sourceFile="$HOME/.zshrc"
+    if [ ! -z "$HOME/.zshrc" ]; then
+        sourceFile="$HOME/.zshrc"
+    else
+        sourceFile="$HOME/.bash_profile"
+    fi
 else
     sourceFile="$HOME/.bashrc"
 fi
@@ -22,11 +26,6 @@ done
 
 # Write autocomplete file
 echo -e "#!/usr/bin/env bash\n\ncomplete -W \"$commands\" hm" >"$dir"/console/hm-completion.bash
-
-# Create source file if not exist
-if [ ! -z $sourceFile ]; then
-    touch $sourceFile
-fi
 
 # Write source sentence in .zshrc
 if ! grep -q "$executable" "$sourceFile"; then
