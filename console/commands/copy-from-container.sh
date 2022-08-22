@@ -47,27 +47,24 @@ $COMMAND_BIN_NAME stop
 source "$TASKS_DIR"/mirror_path.sh
 
 print_info "Start mirror copy of container into host\n"
+print_info "----------------------------------------\n"
 container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
-for path_to_mirror in "$@"; do
-    print_warning "phpfpm:$path_to_mirror -> $path_to_mirror\n"
 
-    print_procesing "Validating and sanitizing path: '$path_to_mirror'"
+for path_to_mirror in "$@"; do
     path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
 
     SRC_PATH="$path_to_mirror/."
     dest_path="$path_to_mirror"
 
-    print_procesing "Removing destination content: '$dest_path'"
     clear_dest_dir "$dest_path"
-    print_procesing "Ensure destination exists: '$dest_path'"
     mkdir -p "$dest_path"
 
-    print_procesing "Copying 'phpfpm:${WORKDIR_PHP}/${SRC_PATH}' into '$dest_path'"
+    print_procesing "Copying phpfpm:$path_to_mirror -> $path_to_mirror'"
     docker cp "$container_id:$WORKDIR_PHP/$SRC_PATH" "$dest_path"
 done
 
-print_info "Container mirrored into host\n"
+print_info "----------------------------------------\n\n"
 
 # Start containers again because we needed to stop them before mirroring
 $COMMAND_BIN_NAME start

@@ -24,13 +24,9 @@ mirror_vendor_host_into_container() {
 #
 sync_all_from_container_to_host() {
     # Copy all deault files magento into container
-    default_files_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r 'keys[]')
+    default_files_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r 'keys | join(" ")')
 
-    for file in $default_files_magento; do
-        if [[ -e $file ]]; then
-            "$COMMAND_BIN_NAME" copy-to-container $file
-        fi 
-    done
+    "$COMMAND_BIN_NAME" copy-to-container $default_files_magento
 
     "$COMMAND_BIN_NAME" stop
 
