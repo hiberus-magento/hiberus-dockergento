@@ -25,12 +25,11 @@ if [[ "$MACHINE" != "mac" ]]; then
 fi
 
 print_info "Start mirror copy of host into container\n"
+print_info "----------------------------------------\n"
+
 container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
 for path_to_mirror in "$@"; do
-    print_warning "$path_to_mirror -> phpfpm:$path_to_mirror\n\n"
-
-    print_procesing "Validating and sanitizing path: '$path_to_mirror'"
     path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
     validate_mirror_host_path "$path_to_mirror"
 
@@ -41,25 +40,22 @@ for path_to_mirror in "$@"; do
     src_is_dir=$([ -d "$src_path" ] && echo true || echo false)
     
     if [[ $src_is_dir == *true* ]]; then
-        print_procesing "Removing destination dir content: 'phpfpm:$dest_path/*'"
         $COMMAND_BIN_NAME exec sh -c "rm -rf $dest_path/*"
         src_path="$src_path/."
         dest_dir="$dest_path"
     fi
 
-    print_procesing "Ensure destination dir exists: '$dest_dir'"
     $COMMAND_BIN_NAME exec sh -c "mkdir -p $dest_dir"
 
     if [[ $src_is_dir == *true* && $(find "$src_path" -maxdepth 0 -empty) ]]; then
         print_procesing "Skipping copy. Source dir is empty: '$src_path'"
     else
-        print_procesing "Copying '$src_path' into 'phpfpm:$WORKDIR_PHP/$dest_path'"
+        print_procesing "Copying $path_to_mirror -> phpfpm:$path_to_mirror'"
         docker cp "$src_path" "$container_id:$WORKDIR_PHP/$dest_path"
     fi
 
     ownership_command="chown -R $USER_PHP:$GROUP_PHP $WORKDIR_PHP/$dest_path"
-    print_procesing "Setting permissions: $ownership_command"
     $COMMAND_BIN_NAME exec --root sh -c "$ownership_command"
 done
 
-print_info "Host mirrored into container\n"
+print_info "----------------------------------------\n\n"
