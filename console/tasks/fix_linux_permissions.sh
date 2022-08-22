@@ -34,7 +34,7 @@ match_user_id_between_host_and_container() {
     if [ "$container_uid" != "$host_uid" ]; then
         print_procesing "Changing UID of $USER_PHP from $container_uid to $host_uid in $service service"
         prepare_container_to_change_user_ids "$service"
-        $docker_root_command "$service" sh -c "usermod -u $host_uid -o {USER_PHP"
+        $docker_root_command "$service" sh -c "usermod -u $host_uid -o $USER_PHP"
         $docker_root_command "$service" sh -c "find / -xdev -user '$container_uid' -exec chown -h '$USER_PHP' {} \;"
     fi
 }
