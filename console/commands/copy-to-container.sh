@@ -33,6 +33,11 @@ for path_to_mirror in "$@"; do
     path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
     validate_mirror_host_path "$path_to_mirror"
 
+    # If not exist jump to the next one
+    if [[ ! -f $path_to_mirror && ! -d $path_to_mirror ]] ; then
+        continue
+    fi
+
     src_path=$path_to_mirror
     dest_path=$path_to_mirror
     dest_dir=$(dirname "$dest_path")
