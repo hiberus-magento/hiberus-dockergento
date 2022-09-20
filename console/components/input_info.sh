@@ -2,6 +2,19 @@
 
 source "$COMPONENTS_DIR"/print_message.sh
 
+#
+# Sanitize path
+#
+sanitize_path() {
+    sanitized_path=${1#/}
+    sanitized_path=${sanitized_path#./}
+    sanitized_path=${sanitized_path%/}
+    echo "$sanitized_path"
+}
+
+#
+# Get equivalent version for docker settings
+#
 get_equivalent_version_if_exit() {
     equivalent_version=$("${TASKS_DIR}/get_equivalent_version.sh" "$1")
     if [[ "$equivalent_version" = "null" ]]; then
@@ -48,15 +61,15 @@ get_magento_edition() {
     if [ $# == 0 ]; then
         print_question "Magento edition:\n"
         select MAGENTO_EDITION in ${AVAILABLE_MAGENTO_EDITIONS}; do
-            if $("${TASKS_DIR}/in_list.sh" "${MAGENTO_EDITION}" "${AVAILABLE_MAGENTO_EDITIONS}"); then
+            if $("$TASKS_DIR/in_list.sh" "$MAGENTO_EDITION" "$AVAILABLE_MAGENTO_EDITIONS"); then
                 break
             fi
 
-            if $("${TASKS_DIR}/in_list.sh" "${REPLY}" "${AVAILABLE_MAGENTO_EDITIONS}"); then
+            if $("$TASKS_DIR/in_list.sh" "$REPLY" "$AVAILABLE_MAGENTO_EDITIONS"); then
                 MAGENTO_EDITION=$REPLY
                 break
             fi
-            echo "invalid option '${REPLY}'"
+            echo "invalid option '$REPLY'"
         done
     elif [[ $1 == '--yyy' ]]; then
         MAGENTO_EDITION=$DEFAULT_MAGENTO_EDITION
@@ -71,7 +84,7 @@ get_magento_edition() {
 # Get base url
 #
 get_domain() {
-    DEFAULT_DOMAIN="magento-${COMMAND_BIN_NAME}.local/"
+    DEFAULT_DOMAIN="magento-$COMMAND_BIN_NAME.local/"
     local PROJECT_NAME
     PROJECT_NAME=$(basename "$PWD")
 
@@ -80,7 +93,7 @@ get_domain() {
         read -r DOMAIN
 
         if [[ $DOMAIN == '' ]]; then
-            DOMAIN="${PROJECT_NAME}.local"
+            DOMAIN="$PROJECT_NAME.local"
         fi
     elif [[ $1 == '--yyy' ]]; then
         DOMAIN=$DEFAULT_DOMAIN
@@ -97,21 +110,22 @@ get_domain() {
 get_magento_root_directory() {
     print_question "Magento root dir " "$MAGENTO_DIR"
 
-    read -r answer_magento_dir
+    read -e answer_magento_dir
     MAGENTO_DIR=${answer_magento_dir:-$MAGENTO_DIR}
 
-    if [ "$MAGENTO_DIR" != "." ]; then
-        print_info "Setting custom magento dir: '$MAGENTO_DIR'\n"
-        MAGENTO_DIR=$(sanitize_path "$MAGENTO_DIR")
-        print_warning "------ $DOCKER_COMPOSE_FILE ------\n"
-        sed_in_file "s#/html/var/composer_home#/html/$MAGENTO_DIR/var/composer_home#gw /dev/stdout" "$DOCKER_COMPOSE_FILE"
-        print_warning "--------------------\n"
-        print_warning "------ $DOCKER_COMPOSE_FILE_MAC ------\n"
-        sed_in_file "s#/app:#/$MAGENTO_DIR/app:#gw /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
-        sed_in_file "s#/vendor#/$MAGENTO_DIR/vendor#gw /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
-        print_warning "--------------------\n"
-        print_warning "------ $DOCKER_CONFIG_DIR/nginx/conf/default.conf ------\n"
-        sed_in_file "s#/var/www/html#/var/www/html/$MAGENTO_DIR#gw /dev/stdout" "$DOCKER_CONFIG_DIR/nginx/conf/default.conf"
-        print_warning "--------------------\n"
+    export MAGENTO_DIR=$MAGENTO_DIR
+}
+
+#
+# replace in file
+#
+sed_in_file() {
+    local sed_regex=$1
+    local target_path=$2
+
+    if [[ "$MACHINE" == "mac" ]]; then
+        sed -i '' "$sed_regex" "$target_path"
+    else
+        sed -i "$sed_regex" "$target_path"
     fi
 }
