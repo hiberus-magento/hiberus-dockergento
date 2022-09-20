@@ -76,7 +76,7 @@ get_domain() {
     PROJECT_NAME=$(basename "$PWD")
 
     if [ $# == 0 ]; then
-        print_question "Define domain " "$PROJECT_NAME.local"
+        print_question "Define domain " "$(echo $PROJECT_NAME | awk '{print tolower($0)}').local"
         read -r DOMAIN
 
         if [[ $DOMAIN == '' ]]; then
@@ -87,6 +87,9 @@ get_domain() {
     else
         DOMAIN=$1
     fi
+
+    # Transform domain name to lowercase
+    DOMAIN=$(echo $DOMAIN | awk '{print tolower($0)}')
 
     export DOMAIN=$DOMAIN
 }
