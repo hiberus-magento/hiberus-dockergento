@@ -23,20 +23,6 @@ copy() {
 }
 
 #
-# replace in file
-#
-sed_in_file() {
-    local sed_regex=$1
-    local target_path=$2
-
-    if [[ "$MACHINE" == "mac" ]]; then
-        sed -i '' "$sed_regex" "$target_path"
-    else
-        sed -i "$sed_regex" "$target_path"
-    fi
-}
-
-#
 # Changes especific service value
 #
 edit_version() {
@@ -241,7 +227,7 @@ set_settings() {
         git_files=$(git ls-files | awk -F / '{print $1}' | uniq)
 
         if [[ "$git_files" != "" ]]; then
-            add_git_bind_paths_in_file "$git_files" "${DOCKER_COMPOSE_FILE_MAC}" ":delegated"
+            add_git_bind_paths_in_file "$git_files" "$DOCKER_COMPOSE_FILE_MAC" ":delegated"
         else
             print_procesing "Skipped. There are no files added in this repository"
         fi
