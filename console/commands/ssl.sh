@@ -54,4 +54,4 @@ docker cp ./ssl.pem "$(docker-compose ps -q hitch | awk '{print $1}')":/etc/hitc
 docker-compose exec -T -u root hitch chown hitch /etc/hitch/testcert.pem
 docker-compose restart hitch
 
-print_info "SSL certificate installed! Remember to restart your browser\n"
+print_info "SSL certificate installed. Remember to restart your browser\n"
