@@ -27,6 +27,6 @@ if ! command -v jq &>/dev/null; then
         brew install jq
     else
         # Install on Linux
-        sudo sudo apt-get install jq
+        sudo sudo apt-get -y install jq
     fi
 fi
