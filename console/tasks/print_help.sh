@@ -78,12 +78,8 @@ print_opts() {
     for ((i = 0; i < LENGTH; i++)); do
         name=$(echo "$FILE" | jq -r '."'"$1"'".opts['"$i"'].name')
         description=$(echo "$FILE" | jq -r '."'"$1"'".opts['"$i"'].description')
-        printf "   $WHITE%-20s$COLOR_RESET%s\n" "$name" "$description"
+        printf "   $BROWN%-16s$COLOR_RESET%s\n" "$name" "$description"
     done
-
-    if [[ $LENGTH -gt 0 ]]; then
-        printf "\n"
-    fi
 }
 
 #
@@ -100,12 +96,8 @@ print_args() {
     for ((i = 0; i < LENGTH; i++)); do
         name=$(echo "$FILE" | jq -r '."'"$1"'".args['"$i"'].name')
         description=$(echo "$FILE" | jq -r '."'"$1"'".args['"$i"'].description')
-        printf "   $WHITE%-20s$COLOR_RESET%s\n" "$name" "$description"
+        printf "   $WHITE%-13s$COLOR_RESET%s\n" "$name" "$description"
     done
-
-    if [[ $LENGTH -gt 0 ]]; then
-        printf "\n"
-    fi
 }
 
 #
@@ -121,40 +113,40 @@ usage() {
         params=$(echo "$FILE" | jq -r '."'"$command_name"'" | if length > 0 then keys[] else false end')
 
         if [[ $params ]]; then
-            # Prinf usage seccion
+            # Print usage section
             if [[ "$params" == *"usage"* ]]; then
                 local usage
                 usage=$(echo "$FILE" | jq -r '."'"$command_name"'".usage')
-                print_info "Usage:"
-                printf "$WHITE%3s$COMMAND_BIN_NAME $usage\n\n"
-
+                print_info "Usage: "
+                print_code "$COMMAND_BIN_NAME $usage\n"
             fi
 
-            # Prinf example seccion
+            # Print example section
             if [[ "$params" == *"example"* ]]; then
                 local example
                 example=$(echo "$FILE" | jq -r '."'"$command_name"'".example')
-                print_info "Example:"
-                printf "%3s$COMMAND_BIN_NAME $example\n\n"
+                print_info "Example: "
+                print_code "$COMMAND_BIN_NAME $example\n"
             fi
 
-            # Prinf description seccion
+            # Print description section
             if [[ "$params" == *"description"* ]]; then
                 local description
                 description=$(echo "$FILE" | jq -r '."'"$command_name"'".description')
                 print_info "Description:"
-                printf "%3s$description\n\n"
+                printf "%1s$description\n"
             fi
 
-            # Prinf options seccion
+            # Print options section
             if [[ "$params" == *"opts"* ]]; then
                 print_opts "$command_name"
             fi
 
-            # Prinf options seccion
+            # Print options section
             if [[ "$params" == *"args"* ]]; then
                 print_args "$command_name"
             fi
+            printf "\n"
         fi
     fi
 }
