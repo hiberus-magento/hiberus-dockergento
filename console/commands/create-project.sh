@@ -47,7 +47,7 @@ init_docker() {
     $COMMAND_BIN_NAME exec composer create-project \
         --no-install \
         --repository=https://repo.magento.com/ \
-        magento/project-"$MAGENTO_EDITION"-edition="$MAGENTO_VERSION" "$MAGENTO_DIR"
+        magento/project-"$MAGENTO_EDITION"-edition="$MAGENTO_VERSION" "."
 
     # Copy all to host
     docker cp "$container_id":"$WORKDIR_PHP"/composer.json "$MAGENTO_DIR"
@@ -55,10 +55,10 @@ init_docker() {
     # Create empty composer.lock
     echo "{}" > "$MAGENTO_DIR"/composer.lock
     
-    # Run docker-compose especified files of OS
+    # Run docker-compose specified files of OS
     "$COMMAND_BIN_NAME" restart
 
-    # Magento instalation
+    # Magento installation
     "$TASKS_DIR"/magento_installation.sh
 
     print_info "Open "

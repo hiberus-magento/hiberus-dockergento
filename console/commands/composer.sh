@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
 #
@@ -20,10 +19,10 @@ mirror_vendor_host_into_container() {
 }
 
 #
-# Syncornize al content from container to host
+# Synchronize al content from container to host
 #
 sync_all_from_container_to_host() {
-    # Copy all deault files magento into container
+    # Copy all default files magento into container
     default_files_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r 'keys | join(" ")')
 
     "$COMMAND_BIN_NAME" copy-to-container $default_files_magento
@@ -31,12 +30,12 @@ sync_all_from_container_to_host() {
     "$COMMAND_BIN_NAME" stop
 
     print_info "Copying all files from container to host\n"
-    print_procesing "Removing vendor in host: '$HOST_DIR/$MAGENTO_DIR/vendor/*'"
-    rm -rf "$HOST_DIR"/"$MAGENTO_DIR"/vendor/*
+    print_procesing "Removing vendor in host: '$MAGENTO_DIR/vendor/*'"
+    rm -rf "$MAGENTO_DIR"/vendor/*
 
-    print_procesing "Copying 'phpfpm:${WORKDIR_PHP}/.' into '$HOST_DIR"
-    containser_id=$($DOCKER_COMPOSE ps -q phpfpm)
-    docker cp "$containser_id":"$WORKDIR_PHP"/. "$HOST_DIR"
+    print_procesing "Copying 'phpfpm:${WORKDIR_PHP}/.' into '$MAGENTO_DIR"
+    container_id=$($DOCKER_COMPOSE ps -q phpfpm)
+    docker cp "$container_id":"$WORKDIR_PHP"/. "$MAGENTO_DIR"
 
     # Start containers again because we needed to stop them before mirroring
     "$COMMAND_BIN_NAME" start
@@ -61,12 +60,12 @@ if [[ "$#" != 0 && ("$1" == "install" || "$1" == "update" || "$1" == "require" |
 
     # Check magento2-base
     module_path="$MAGENTO_DIR/vendor/magento/magento2-base"
-    exitsts_in_container=$("$COMMANDS_DIR"/exec.sh sh -c "[ -f $module_path/composer.json ] && echo true || echo false")
-    exitsts_in_host=$([ -f "$module_path"/composer.json ] && echo true || echo false)
+    exits_in_container=$("$COMMANDS_DIR"/exec.sh sh -c "[ -f $module_path/composer.json ] && echo true || echo false")
+    exits_in_host=$([ -f "$module_path"/composer.json ] && echo true || echo false)
 
-    if [[ $exitsts_in_host == true && $exitsts_in_container == *false* ]]; then
+    if [[ $exits_in_host == true && $exits_in_container == *false* ]]; then
         print_error "Magento is not set up yet in container. Please remove 'magento2-base' and try again.\n"
-        print_default "\n   rm -rf $HOST_DIR/$module_path\n"
+        print_default "\n   rm -rf $module_path\n"
         exit 1
     fi
 

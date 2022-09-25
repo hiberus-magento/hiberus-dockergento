@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
 #
@@ -18,14 +17,14 @@ set_local_host() {
         echo "0.0.0.0 ::1 $DOMAIN" | sudo tee -a /etc/hosts
     fi
 
-    if [ "$#" -gt 1 ] && [ "$2" != "--no-database" ]; then
+    if [[ "$#" -eq 1 ]] || [[ "$#" -gt 1  &&  "$2" != "--no-database" ]]; then
         print_info "Set "
         print_link "https://$DOMAIN/"
         print_info " to web/secure/base_url and web/secure/base_url."
-        
+
         # Add domain in core_config_data table
-        "${COMMANDS_DIR}/magento.sh" config:set web/secure/base_url https://"${DOMAIN}"/
-        "${COMMANDS_DIR}/magento.sh" config:set web/unsecure/base_url https://"${DOMAIN}"/
+        "$COMMANDS_DIR"/magento.sh config:set web/secure/base_url https://"$DOMAIN"/
+        "$COMMANDS_DIR"/magento.sh config:set web/unsecure/base_url https://"$DOMAIN"/
     fi
 }
 
