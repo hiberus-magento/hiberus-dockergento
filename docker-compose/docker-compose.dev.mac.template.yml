@@ -4,11 +4,11 @@ services:
   phpfpm:
     volumes: &appvolumes-mac
       - workspace:/var/www/html
-      - ./app:/var/www/html/app:cached
-      - ./.git:/var/www/html/.git:cached
       - ./config:/var/www/html/config:cached
-      - ./composer.json:/var/www/html/composer.json:cached
-      - ./composer.lock:/var/www/html/composer.lock:cached
+      - {MAGENTO_DIR}/app:/var/www/html/app:cached
+      - {MAGENTO_DIR}/.git:/var/www/html/.git:cached
+      - {MAGENTO_DIR}/composer.json:/var/www/html/composer.json:cached
+      - {MAGENTO_DIR}/composer.lock:/var/www/html/composer.lock:cached
       # {FILES_IN_GIT}
 
   nginx:

@@ -23,7 +23,7 @@ wirte_docker_compose() {
     compose_regex
     local composer_dir_name
 
-    sed "$regex" "$COMMAND_BIN_DIR/docker-compose/docker-compose.template.yml" >"$MAGENTO_DIR/docker-compose.yml"
+    sed "$regex" "$COMMAND_BIN_DIR/docker-compose/docker-compose.template.yml" >"$DOCKER_COMPOSE_FILE"
     composer_dir_name=$(dirname "$DOCKER_COMPOSE_FILE_LINUX")
     mkdir -p "$composer_dir_name"
     cp "$COMMAND_BIN_DIR/docker-compose/docker-compose.dev.linux.template.yml" "$DOCKER_COMPOSE_FILE_LINUX"

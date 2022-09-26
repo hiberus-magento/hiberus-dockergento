@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 source "$TASKS_DIR"/mirror_path.sh
 
@@ -30,6 +29,8 @@ print_info "----------------------------------------\n"
 container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
 for path_to_mirror in "$@"; do
+    dest_path=$path_to_mirror
+
     path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
     validate_mirror_host_path "$path_to_mirror"
 
@@ -39,11 +40,9 @@ for path_to_mirror in "$@"; do
     fi
 
     src_path=$path_to_mirror
-    dest_path=$path_to_mirror
     dest_dir=$(dirname "$dest_path")
-
     src_is_dir=$([ -d "$src_path" ] && echo true || echo false)
-    
+
     if [[ $src_is_dir == *true* ]]; then
         $COMMAND_BIN_NAME exec sh -c "rm -rf $dest_path/*"
         src_path="$src_path/."
@@ -55,7 +54,7 @@ for path_to_mirror in "$@"; do
     if [[ $src_is_dir == *true* && $(find "$src_path" -maxdepth 0 -empty) ]]; then
         print_procesing "Skipping copy. Source dir is empty: '$src_path'"
     else
-        print_procesing "Copying $path_to_mirror -> phpfpm:$path_to_mirror'"
+        print_procesing "Copying $src_path -> phpfpm:$dest_path'"
         docker cp "$src_path" "$container_id:$WORKDIR_PHP/$dest_path"
     fi
 
