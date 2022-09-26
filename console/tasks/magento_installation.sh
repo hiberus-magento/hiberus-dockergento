@@ -1,16 +1,58 @@
 #!/usr/bin/env bash
 set -euo pipefail 
 
-# Magento installation
-$COMMAND_BIN_NAME composer install
-$COMMAND_BIN_NAME install "$DOMAIN"
+source "$COMPONENTS_DIR"/input_info.sh
+
+#
+# Ask sql file and launch mysql import process
+#
+import_database() {
+    print_question "Path of database (sql): "
+    read -re dump
+
+    if [[ -f "$dump" ]]; then
+        "$COMMANDS_DIR"/mysql.sh < "$dump"
+        "$COMMANDS_DIR"/mysql.sh "-e DELETE FROM admin_user;"
+    else
+        print_warning "No such file: $dump\n"
+        import_database
+    fi
+}
+
+#
+# Create database
+#
+create_database() {
+    if [[ $# -gt 0 && $1 == "setup" ]]; then
+        flow_database_opt="mysql(recommended) install"
+
+        print_info "If your project has many custom modules it´s possible that install command can fail.\n"
+        print_question "Choose an option:\n"
+
+        select REPLY in $flow_database_opt; do
+            if [[ " $flow_database_opt " == *" $REPLY "* ]]; then
+                if [[ $REPLY == mysql* ]]; then
+                    import_database
+                fi
+                break
+            fi
+            echo "Invalid option '$REPLY'"
+        done
+    fi
+
+    "$COMMANDS_DIR"/install.sh "$DOMAIN"
+}
+
+# Magento installation and database
+"$COMMANDS_DIR"/composer.sh install
+create_database "$@"
 
 # Magento commands
-$COMMAND_BIN_NAME magento setup:upgrade
-$COMMAND_BIN_NAME magento deploy:mode:set developer
+"$COMMANDS_DIR"/magento.sh setup:upgrade
+"$COMMANDS_DIR"/magento.sh deploy:mode:set developer
 
 # Domain and certificate
-$COMMAND_BIN_NAME ssl "$DOMAIN"
-$COMMAND_BIN_NAME set-host "$DOMAIN" --no-database
+"$COMMANDS_DIR"/ssl.sh "$DOMAIN"
+"$COMMANDS_DIR"/set-host.sh "$DOMAIN" --no-database
 
-$COMMAND_BIN_NAME restart
+"$COMMANDS_DIR"/restart.sh

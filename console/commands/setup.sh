@@ -27,7 +27,7 @@ create_docker_compose
 "$TASKS_DIR"/start_service_if_not_running.sh "$SERVICE_APP"
 
 # Magento installation
-"$TASKS_DIR"/magento_installation.sh
+"$TASKS_DIR"/magento_installation.sh "setup"
 
 print_info "\nSetup completed!\n"
 
