@@ -5,12 +5,13 @@ source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 
 # Get Magento version
-if [ -z $MAGENTO_VERSION ]; then
+if [ -z "$MAGENTO_VERSION" ]; then
     if [ -f "$MAGENTO_DIR/composer.lock" ]; then
-    MAGENTO_VERSION=$(cat <"$MAGENTO_DIR/composer.lock" |
+        MAGENTO_VERSION=$(cat <"$MAGENTO_DIR/composer.lock" |
         jq -r '.packages | map(select(.name == "magento/product-community-edition"))[].version')
     fi
-    if [ -z $MAGENTO_VERSION ]; then
+
+    if [ -z "$MAGENTO_VERSION" ]; then
         get_magento_version
     fi
 fi
@@ -51,11 +52,11 @@ fi
 run_install_magento_command() {
     # Remove existing env.php file
     if [ -f "$MAGENTO_DIR/app/etc/env.php" ]; then
-      rm -rf "$MAGENTO_DIR/app/etc/env.php"
+        rm -rf "$MAGENTO_DIR/app/etc/env.php"
     fi
     config=$(cat <"$DATA_DIR/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")') 
-    $COMMANDS_DIR/magento.sh setup:install $command_arguments $config
-    $COMMANDS_DIR/magento.sh config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
+    "$COMMANDS_DIR"/magento.sh setup:install $command_arguments $config
+    "$COMMANDS_DIR"/magento.sh config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
 }
 
 #
@@ -65,14 +66,14 @@ get_base_url() {
     # shellcheck source=/dev/null 
     source "$COMPONENTS_DIR"/input_info.sh
     get_domain "$@"
-    command_arguments="$command_arguments --base-url=https://$DOMAIN/"
+    command_arguments="$command_arguments --base-url=https://$DOMAIN/ --base-url-secure=https://$DOMAIN/"
 }
 
 #
 # Get arguments for setup-install command
 #
 get_argument_command() {
-    argument=$(cat <"$DATA_DIR/config.json" | jq -r '."'"$1"'"')
+    argument=$(cat < "$DATA_DIR/config.json" | jq -r '."'"$1"'"')
 
     print_question "Define $1 " "$argument"
     read -r response
@@ -81,13 +82,13 @@ get_argument_command() {
         argument=$response
     fi
 
-    RESULT=$(cat <"$DATA_DIR/config.json" | jq --arg ARGUMENT "$argument" '. | ."'"$1"'"=$ARGUMENT')
+    RESULT=$(cat < "$DATA_DIR/config.json" | jq --arg ARGUMENT "$argument" '. | ."'"$1"'"=$ARGUMENT')
 
     echo "$RESULT" > "$DATA_DIR/config.json"
 }
 
 #
-# Get config and run comand
+# Get config and run command
 #
 get_config() {
     get_argument_command "language"
