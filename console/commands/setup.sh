@@ -1,27 +1,16 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
 
-DOCKER_CONFIG_DIR="config/docker"
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
-
-#
-# Sanitize path
-#
-sanitize_path() {
-    sanitized_path=${1#/}
-    sanitized_path=${sanitized_path#./}
-    sanitized_path=${sanitized_path%/}
-    echo "$sanitized_path"
-}
 
 #
 # Create docker-compose files
 #
 create_docker_compose() {
-    if [[ -f "$MAGENTO_DIR/docker-compose.yml" ]]; then
-        if [[ -z "$(cat "$MAGENTO_DIR/docker-compose.yml" | grep "hiberus-magento")" ]]; then
+    if [[ -f "docker-compose.yml" ]]; then
+        if [[ -z "$(cat "docker-compose.yml" | grep "hiberus-magento")" ]]; then
           "$TASKS_DIR"/version_manager.sh
         fi
     else
@@ -29,7 +18,7 @@ create_docker_compose() {
     fi
 }
 
-# Prepare enviroment
+# Prepare environment
 get_domain
 get_magento_root_directory
 create_docker_compose
@@ -37,8 +26,8 @@ create_docker_compose
  # Start services
 "$TASKS_DIR"/start_service_if_not_running.sh "$SERVICE_APP"
 
-# Magento instalation
-"$TASKS_DIR"/magento_installation.sh
+# Magento installation
+"$TASKS_DIR"/magento_installation.sh "setup"
 
 print_info "\nSetup completed!\n"
 

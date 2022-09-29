@@ -89,7 +89,7 @@ get_domain() {
     PROJECT_NAME=$(basename "$PWD")
 
     if [ $# == 0 ]; then
-        print_question "Define domain " "$PROJECT_NAME.local"
+        print_question "Define domain " "$(echo $PROJECT_NAME | awk '{print tolower($0)}').local"
         read -r DOMAIN
 
         if [[ $DOMAIN == '' ]]; then
@@ -101,17 +101,51 @@ get_domain() {
         DOMAIN=$1
     fi
 
+    # Transform domain name to lowercase
+    DOMAIN=$(echo $DOMAIN | awk '{print tolower($0)}')
+
     export DOMAIN=$DOMAIN
+}
+
+#
+# Prepare root path directory
+#
+process_magento_root_directory() {
+    answer_magento_dir=$1
+
+    # Remove last slash
+    if [[ $answer_magento_dir == *"/" ]]; then
+        length=${#answer_magento_dir}
+        answer_magento_dir=${answer_magento_dir:0: length - 1}
+    fi
+
+    # Add dot and slash (./) before relative path
+    if [[ $answer_magento_dir != './'* &&
+        $answer_magento_dir != '/'* &&
+        $answer_magento_dir != '.' &&
+        -n $answer_magento_dir ]]; then
+        answer_magento_dir="./$answer_magento_dir"
+    fi
+
+    # Default value if response is empty
+    if [[ -z $answer_magento_dir ]]; then
+        answer_magento_dir=${answer_magento_dir:-$MAGENTO_DIR}
+    fi
+
+    echo "$answer_magento_dir"
 }
 
 #
 # Ask magento directory
 #
 get_magento_root_directory() {
-    print_question "Magento root dir " "$MAGENTO_DIR"
-
-    read -e answer_magento_dir
-    MAGENTO_DIR=${answer_magento_dir:-$MAGENTO_DIR}
+    if [[ $# -gt 0 && -d $1 ]]; then
+        MAGENTO_DIR=$(process_magento_root_directory "$1")
+    else
+        print_question "Magento root dir " "$MAGENTO_DIR"
+        read -re answer_magento_dir
+        MAGENTO_DIR=$(process_magento_root_directory "$answer_magento_dir")
+    fi
 
     export MAGENTO_DIR=$MAGENTO_DIR
 }

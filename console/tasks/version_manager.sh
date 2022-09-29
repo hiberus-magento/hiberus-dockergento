@@ -5,7 +5,6 @@ export REQUIREMENTS=""
 
 DOCKER_CONFIG_DIR="config/docker"
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
 
@@ -23,7 +22,7 @@ copy() {
 }
 
 #
-# Changes especific service value
+# Changes specific service value
 #
 edit_version() {
     service_name=$1
@@ -68,7 +67,6 @@ edit_versions() {
     edit_version "$select_result"
     change_requirements
 }
-
 
 #
 # Print current requirements
@@ -120,7 +118,7 @@ get_equivalent_version_if_exit() {
         print_warning "\nWe don´t have support for the version $1\n"
         print_info "Please, write any version between all versions supported or press Ctrl - C to exit"
 
-        $COMMAND_BIN_NAME compatibility
+        "$COMMANDS_DIR"/compatibility.sh
         read -r MAGENTO_VERSION
         get_equivalent_version_if_exit "$MAGENTO_VERSION"
     fi
@@ -164,7 +162,7 @@ get_requirements() {
 }
 
 #
-# Set propierties in <root_project>/<docker_config>/propierties
+# Set properties in <root_project>/<docker_config>/properties
 #
 save_properties() {
     print_info "Saving custom properties file: '$DOCKER_CONFIG_DIR/properties'\n"
@@ -175,16 +173,15 @@ save_properties() {
 EOF
 }
 
-
 #
 # Add git bind paths in file
 #
 add_git_bind_paths_in_file() {
-    git_files=$1
-    file_to_edit=$2
-    suffix_bind_path=$3
+    local git_files=$1
+    local file_to_edit=$2
+    local suffix_bind_path=$3
+    local bind_paths=""
 
-    bind_paths=""
     while read -r filename_in_git; do
         if [[ "$MAGENTO_DIR" == "$filename_in_git" ]] ||
             [[ "$MAGENTO_DIR" == "$filename_in_git/"* ]] ||
@@ -193,7 +190,7 @@ add_git_bind_paths_in_file() {
             continue
         fi
 
-        new_path="./$filename_in_git:/var/www/html/$filename_in_git"
+        new_path="$MAGENTO_DIR/$filename_in_git:/var/www/html/$filename_in_git"
         bind_path_exits=$(grep -q -e "$new_path" "$file_to_edit" && echo true || echo false)
         default_file_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r '.["'"$filename_in_git"'"]')
 
@@ -207,7 +204,7 @@ add_git_bind_paths_in_file() {
 
         bind_paths="$bind_paths- ${new_path}$suffix_bind_path\n"
 
-    done <<<"${git_files}"
+    done <<< "${git_files}"
 
     print_warning "------ $file_to_edit ------\n"
     sed_in_file "s|# {FILES_IN_GIT}|$bind_paths|w /dev/stdout" "$file_to_edit"
@@ -223,8 +220,10 @@ set_settings() {
 
     print_info "Setting bind configuration for files in git repository\n"
 
-    if [[ -f ".git/HEAD" ]]; then
-        git_files=$(git ls-files | awk -F / '{print $1}' | uniq)
+    sed_in_file "s|{MAGENTO_DIR}|$MAGENTO_DIR|w /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
+
+    if [[ -f "$MAGENTO_DIR/.git/HEAD" ]]; then
+        git_files=$(git --git-dir="$MAGENTO_DIR/.git" ls-files | awk -F / '{print $1}' | uniq)
 
         if [[ "$git_files" != "" ]]; then
             add_git_bind_paths_in_file "$git_files" "$DOCKER_COMPOSE_FILE_MAC" ":delegated"

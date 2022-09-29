@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
-
 
 # IMPORTANT:
 # mirror-container supports only dir copies for now.
@@ -43,7 +41,6 @@ fi
 
 $COMMAND_BIN_NAME stop
 
-# shellcheck source=/dev/null
 source "$TASKS_DIR"/mirror_path.sh
 
 print_info "Start mirror copy of container into host\n"
@@ -52,16 +49,16 @@ container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
 
 for path_to_mirror in "$@"; do
-    path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
+    src_path="$path_to_mirror/."
 
-    SRC_PATH="$path_to_mirror/."
+    path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
     dest_path="$path_to_mirror"
 
     clear_dest_dir "$dest_path"
     mkdir -p "$dest_path"
 
     print_procesing "Copying phpfpm:$path_to_mirror -> $path_to_mirror'"
-    docker cp "$container_id:$WORKDIR_PHP/$SRC_PATH" "$dest_path"
+    docker cp "$container_id:$WORKDIR_PHP/$src_path" "$dest_path"
 done
 
 print_info "----------------------------------------\n\n"

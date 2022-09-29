@@ -32,9 +32,7 @@ if ! command -v mkcert &>/dev/null; then
 
     # Install on Linux
     else
-        if ! command -v curl &>/dev/null; then
-            sudo apt-get -y install curl
-        fi
+        sudo apt-get -y install curl libnss3-tools
         curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
         chmod +x mkcert-v*-linux-amd64
         sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
@@ -56,4 +54,4 @@ docker cp ./ssl.pem "$(docker-compose ps -q hitch | awk '{print $1}')":/etc/hitc
 docker-compose exec -T -u root hitch chown hitch /etc/hitch/testcert.pem
 docker-compose restart hitch
 
-print_info "SSL certificate installed! Remember to restart your browser\n"
+print_info "SSL certificate installed. Remember to restart your browser\n"

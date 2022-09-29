@@ -14,7 +14,7 @@ fi
 git clone https://github.com/hiberus-magento/hiberus-dockergento.git ~/hm
 sudo ln -s "$HOME"/hm/bin/run /usr/local/bin/hm
 
-# Execute generatt completion for autocomplete commands
+# Execute generate_completion.sh for autocomplete commands
 "$HOME"/hm/generate_completion.sh
 
 if ! command -v jq &>/dev/null; then
@@ -27,6 +27,6 @@ if ! command -v jq &>/dev/null; then
         brew install jq
     else
         # Install on Linux
-        sudo sudo apt-get install jq
+        sudo sudo apt-get -y install jq
     fi
 fi
