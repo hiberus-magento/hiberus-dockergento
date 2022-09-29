@@ -7,7 +7,7 @@ source "$COMPONENTS_DIR"/input_info.sh
 # Ask sql file and launch mysql import process
 #
 import_database() {
-    print_question "Path of database (sql): "
+    print_question "Path of database dump file (sql): "
     read -re dump
 
     if [[ -f "$dump" ]]; then
@@ -24,14 +24,14 @@ import_database() {
 #
 create_database() {
     if [[ $# -gt 0 && $1 == "setup" ]]; then
-        flow_database_opt="mysql(recommended) install"
+        flow_database_opt="SQL-Dump Magento-Installation"
 
         print_info "If your project has many custom modules it´s possible that install command can fail.\n"
         print_question "Choose an option:\n"
 
         select REPLY in $flow_database_opt; do
             if [[ " $flow_database_opt " == *" $REPLY "* ]]; then
-                if [[ $REPLY == mysql* ]]; then
+                if [[ $REPLY == SQL* ]]; then
                     import_database
                 fi
                 break
