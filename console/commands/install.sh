@@ -54,9 +54,21 @@ run_install_magento_command() {
     if [ -f "$MAGENTO_DIR/app/etc/env.php" ]; then
         rm -rf "$MAGENTO_DIR/app/etc/env.php"
     fi
+
+    # If config.php file exists, create a backup and remote it
+    if [ -f "$MAGENTO_DIR/app/etc/config.php" ]; then
+        mv "$MAGENTO_DIR/app/etc/config.php" "$MAGENTO_DIR/app/etc/_config.php"
+    fi
+
     config=$(cat <"$DATA_DIR/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")') 
     "$COMMANDS_DIR"/magento.sh setup:install $command_arguments $config
     "$COMMANDS_DIR"/magento.sh config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
+
+    # If config.php backup file exists, restore it
+    if [ -f "$MAGENTO_DIR/app/etc/_config.php" ]; then
+        rm "$MAGENTO_DIR/app/etc/config.php"
+        mv "$MAGENTO_DIR/app/etc/_config.php" "$MAGENTO_DIR/app/etc/config.php"
+    fi
 }
 
 #
