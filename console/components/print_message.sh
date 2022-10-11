@@ -52,6 +52,6 @@ print_link() {
     printf "$COLOR_LINK%b$COLOR_RESET" "$1"
 }
 
-print_procesing() {
+print_processing() {
     print_default "🚀 $1\n"
 }
