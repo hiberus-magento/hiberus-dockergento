@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
 if [ "$#" -eq "0" ]; then

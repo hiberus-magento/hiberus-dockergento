@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
 print_processing "Generating urn-catalog in container\n"

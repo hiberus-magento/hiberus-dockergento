@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
 docker_root_command="${COMMANDS_DIR}/docker-compose.sh exec -T -u root"
