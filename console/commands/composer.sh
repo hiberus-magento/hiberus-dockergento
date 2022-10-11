@@ -14,7 +14,6 @@ mirror_vendor_host_into_container() {
         mkdir -p "$MAGENTO_DIR/vendor"
     fi
 
-
     "$COMMAND_BIN_NAME" copy-to-container vendor
 }
 

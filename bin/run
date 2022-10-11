@@ -38,7 +38,7 @@ init_dirs() {
 }
 
 init_dirs
-# shellcheck source=/dev/null
+
 source "$TASKS_DIR"/load_properties.sh
 source "$COMPONENTS_DIR"/print_message.sh
 
@@ -69,7 +69,6 @@ if [ ! -f "${COMMANDS_DIR}/${COMMAND_NAME}" ]; then
     fi
 fi
 
-# shellcheck source=/dev/null
 source "$TASKS_DIR"/set_machine_specific_properties.sh
 
 # Set composer project name

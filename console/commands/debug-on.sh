@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 
 "$TASKS_DIR"/start_service_if_not_running.sh phpfpm
 
 if [[ "$MACHINE" == 'linux' && "${XDEBUG_HOST:-}" == "" ]]; then
-    # shellcheck source=/dev/null
     source "$TASKS_DIR"/set_xdebug_host_property.sh
 fi
 

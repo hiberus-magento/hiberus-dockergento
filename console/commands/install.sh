@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 
@@ -75,7 +74,6 @@ run_install_magento_command() {
 # Get base url
 #
 get_base_url() {
-    # shellcheck source=/dev/null 
     source "$COMPONENTS_DIR"/input_info.sh
     get_domain "$@"
     command_arguments="$command_arguments --base-url=https://$DOMAIN/ --base-url-secure=https://$DOMAIN/"
