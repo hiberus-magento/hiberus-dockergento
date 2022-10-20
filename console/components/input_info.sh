@@ -83,10 +83,35 @@ get_magento_edition() {
 #
 # Get base url
 #
+get_project_name() {
+    local PROJECT_NAME
+    PROJECT_NAME=$(basename "$PWD")
+
+    if [ $# == 0 ]; then
+        print_question "Define project name " "$(echo $PROJECT_NAME | awk '{print tolower($0)}')"
+        read -r COMPOSE_PROJECT_NAME
+
+        if [[ $COMPOSE_PROJECT_NAME == '' ]]; then
+            COMPOSE_PROJECT_NAME=$PROJECT_NAME
+        fi
+    else
+        COMPOSE_PROJECT_NAME=$(echo $1 | awk '{print tolower($0)}')
+    fi
+
+    export COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME
+}
+
+#
+# Get base url
+#
 get_domain() {
     DEFAULT_DOMAIN="magento-$COMMAND_BIN_NAME.local/"
     local PROJECT_NAME
     PROJECT_NAME=$(basename "$PWD")
+
+    if [ -n $COMPOSE_PROJECT_NAME ]; then
+        PROJECT_NAME=$COMPOSE_PROJECT_NAME
+    fi
 
     if [ $# == 0 ]; then
         print_question "Define domain " "$(echo $PROJECT_NAME | awk '{print tolower($0)}').local"

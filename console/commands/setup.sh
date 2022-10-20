@@ -19,6 +19,7 @@ create_docker_compose() {
 }
 
 # Prepare environment
+get_project_name
 get_domain
 get_magento_root_directory
 create_docker_compose
