@@ -83,8 +83,8 @@ if [[ "$1" != "setup" &&
     "$1" != "create-project" &&
     "$1" != "docker-stop-all" &&
     "$1" != "docker-remove-all" &&
-    "$1" != "compatibility" ]]; then
-    
+    "$1" != "compatibility" &&
+    "$1" != "update" ]]; then
     "$TASKS_DIR/validate_docker_compose.sh"
 fi
 
