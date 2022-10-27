@@ -5,18 +5,29 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
 
+FORCE_SETUP=false
+
 #
 # Create docker-compose files
 #
 create_docker_compose() {
     if [[ -f "docker-compose.yml" ]]; then
-        if [[ -z "$(cat "docker-compose.yml" | grep "hiberus-magento")" ]]; then
+        if $FORCE_SETUP || [[ -z "$(cat "docker-compose.yml" | grep "hiberus-magento")" ]]; then
           "$TASKS_DIR"/version_manager.sh
         fi
     else
       "$TASKS_DIR"/version_manager.sh
     fi
 }
+
+while getopts ":f" options; do
+    case "${options}" in
+        f)
+            FORCE_SETUP=true
+        ;;
+        *);;
+    esac
+done
 
 # Prepare environment
 get_domain
