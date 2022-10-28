@@ -6,6 +6,7 @@ source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
 
 dump=""
+force_setup=false
 
 #
 # Ask sql file and launch mysql import process
@@ -51,13 +52,22 @@ choice_database_mode_creation() {
 #
 create_docker_compose() {
     if [[ -f "docker-compose.yml" ]]; then
-        if [[ -z "$(cat "docker-compose.yml" | grep "hiberus-magento")" ]]; then
+        if $force_setup || [[ -z "$(cat "docker-compose.yml" | grep "hiberus-magento")" ]]; then
           "$TASKS_DIR"/version_manager.sh
         fi
     else
       "$TASKS_DIR"/version_manager.sh
     fi
 }
+
+while getopts ":f" options; do
+    case "${options}" in
+        f)
+            force_setup=true
+        ;;
+        *);;
+    esac
+done
 
 # Prepare environment
 get_project_name
