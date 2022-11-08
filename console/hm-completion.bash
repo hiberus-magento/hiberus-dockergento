@@ -19,8 +19,9 @@ install \
 magento \ 
 mysql \ 
 mysqldump \ 
-npm \ 
-purge \ 
+n98-magerun \
+npm \
+purge \
 rebuild \ 
 restart \ 
 set-host \ 

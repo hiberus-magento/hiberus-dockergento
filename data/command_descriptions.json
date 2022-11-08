@@ -129,6 +129,10 @@
       }
     ]
   },
+  "n98-magerun": {
+    "description": "Execute n98-magerun tool",
+    "usage": "n98-magerun [options]"
+  },
   "npm": {
     "description": "Execute npm commands into node container"
   },
