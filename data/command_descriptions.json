@@ -9,6 +9,16 @@
       }
     ]
   },
+  "cloud": {
+    "description": "Magento Cloud Cli",
+    "usage": "cloud [options]",
+    "args": []
+  },
+  "cloud-login": {
+    "description": "Magento Cloud Login",
+    "usage": "cloud-login",
+    "args": []
+  },
   "compatibility": {
     "usage": "compatibility",
     "description": "Check Magento version compatibility",
