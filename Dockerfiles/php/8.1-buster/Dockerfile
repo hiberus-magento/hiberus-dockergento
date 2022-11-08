@@ -76,6 +76,11 @@ RUN mv /root/.magento-cloud /var/www/.magento-cloud
 RUN ln -s /var/www/.magento-cloud/bin/magento-cloud /usr/bin/magento-cloud
 RUN chmod -R 777 /var/www/.magento-cloud/bin/magento-cloud /usr/bin/magento-cloud
 
+# Install N98-Magerun
+RUN wget https://files.magerun.net/n98-magerun2.phar
+RUN mv ./n98-magerun2.phar /usr/local/bin/n98-magerun
+RUN chmod 777 /usr/local/bin/n98-magerun
+
 RUN groupadd -g 1000 app && useradd -g 1000 -u 1000 -d /var/www -s /bin/bash app
 
 COPY conf/www.conf /usr/local/etc/php-fpm.d/
