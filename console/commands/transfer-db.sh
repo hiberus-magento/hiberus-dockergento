@@ -131,7 +131,7 @@ fi
 # Clear Magento cache
 read -p "Do you want to clear Magento cache? [Y/n]: " clearMagento
 if [ -z "$clearMagento" ] || [ "$clearMagento" == 'Y' ] || [ "$clearMagento" == 'y' ]; then
-    docker-compose exec phpfpm bin/magento c:f
+    docker-compose exec phpfpm bin/magento cache:flush
 fi
 
 print_info " All done!\n"
