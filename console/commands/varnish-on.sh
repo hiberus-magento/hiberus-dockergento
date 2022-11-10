@@ -19,6 +19,6 @@ docker-compose exec -uroot varnish sed -i 's/^[^#]\+return(pass); #skip-varnish/
 docker-compose restart varnish
 
 # Enable full page cache
-docker-compose exec phpfpm bin/magento c:e full_page
+docker-compose exec phpfpm bin/magento cache:enable full_page
 
 print_info "Varnish cache enabled!\n"

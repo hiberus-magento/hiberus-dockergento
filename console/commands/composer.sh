@@ -52,7 +52,7 @@ fi
 if [[ "$#" != 0 && ("$1" == "install" || "$1" == "update" || "$1" == "require" || "$1" == "remove") ]]; then
     # Composer validation
     print_info "Validating composer before doing anything\n"
-    validation_output=$("$COMMANDS_DIR"/exec.sh composer validate) ||
+    validation_output=$("$COMMANDS_DIR"/exec.sh composer validate)
     if [ $? == 1 ]; then
         print_default "$validation_output"
         exit 1
