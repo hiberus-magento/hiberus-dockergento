@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
 print_info "Starting containers in detached mode\n\n"
@@ -15,9 +14,9 @@ fi
 "$TASKS_DIR"/validate_bind_mounts.sh
 
 if [[ "$MACHINE" == "linux" ]]; then
-    print_procesing "Waiting for everything to spin up..."
+    print_processing "Waiting for everything to spin up..."
     sleep 5
-    print_procesing "Fixing permissions"
+    print_processing "Fixing permissions"
     "$TASKS_DIR"/fix_linux_permissions.sh
-    print_procesing "Permissions fix finished"
+    print_processing "Permissions fix finished"
 fi

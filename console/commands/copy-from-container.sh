@@ -24,7 +24,7 @@ clear_dest_dir() {
         print_default "rm -rf $dest_path/*\n"
         rm -rf "${dest_path:?}"/*
     else
-        print_procesing "Deletion skipped"
+        print_processing "Deletion skipped"
     fi
 }
 
@@ -57,7 +57,7 @@ for path_to_mirror in "$@"; do
     clear_dest_dir "$dest_path"
     mkdir -p "$dest_path"
 
-    print_procesing "Copying phpfpm:$path_to_mirror -> $path_to_mirror'"
+    print_processing "Copying phpfpm:$path_to_mirror -> $path_to_mirror'"
     docker cp "$container_id:$WORKDIR_PHP/$src_path" "$dest_path"
 done
 

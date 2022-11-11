@@ -228,10 +228,10 @@ set_settings() {
         if [[ "$git_files" != "" ]]; then
             add_git_bind_paths_in_file "$git_files" "$DOCKER_COMPOSE_FILE_MAC" ":delegated"
         else
-            print_procesing "Skipped. There are no files added in this repository"
+            print_processing "Skipped. There are no files added in this repository"
         fi
     else
-        print_procesing "Skipped. This is not a git repository"
+        print_processing "Skipped. This is not a git repository"
     fi
 }
 

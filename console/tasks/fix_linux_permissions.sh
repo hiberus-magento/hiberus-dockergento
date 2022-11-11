@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=/dev/null
 source "$COMPONENTS_DIR"/print_message.sh
 
 docker_root_command="${COMMANDS_DIR}/docker-compose.sh exec -T -u root"
@@ -12,7 +11,7 @@ prepare_container_to_change_user_ids() {
         ! $docker_root_command "$service" sh -c "type groupmod >/dev/null 2>&1"; then
 
         if $docker_root_command "$service" sh -c "type apk /dev/null 2>&1"; then
-            print_procesing "Warning: installing shadow, this should be included in your image"
+            print_processing "Warning: installing shadow, this should be included in your image"
             $docker_root_command "$service" sh -c "apk add --no-cache shadow"
         else
             print_error "Error: Commands usermod and groupmod are required.\n"
@@ -32,7 +31,7 @@ match_user_id_between_host_and_container() {
     fi
 
     if [ "$container_uid" != "$host_uid" ]; then
-        print_procesing "Changing UID of $USER_PHP from $container_uid to $host_uid in $service service"
+        print_processing "Changing UID of $USER_PHP from $container_uid to $host_uid in $service service"
         prepare_container_to_change_user_ids "$service"
         $docker_root_command "$service" sh -c "usermod -u $host_uid -o $USER_PHP"
         $docker_root_command "$service" sh -c "find / -xdev -user '$container_uid' -exec chown -h '$USER_PHP' {} \;"
@@ -49,7 +48,7 @@ match_group_id_between_host_and_container() {
     fi
 
     if [ "$container_gid" != "$host_gid" ]; then
-        print_procesing "Changing GID of $USER_PHP from $container_gid to $host_gid in $service service"
+        print_processing "Changing GID of $USER_PHP from $container_gid to $host_gid in $service service"
         prepare_container_to_change_user_ids "$service"
         $docker_root_command "$service" sh -c "groupmod -g $host_gid -o $GROUP_PHP"
         $docker_root_command "$service" sh -c "find / -xdev -user '$container_gid' -exec chgrp -h '$USER_PHP' {} \;"

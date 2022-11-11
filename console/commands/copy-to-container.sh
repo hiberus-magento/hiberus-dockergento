@@ -52,9 +52,9 @@ for path_to_mirror in "$@"; do
     $COMMAND_BIN_NAME exec sh -c "mkdir -p $dest_dir"
 
     if [[ $src_is_dir == *true* && $(find "$src_path" -maxdepth 0 -empty) ]]; then
-        print_procesing "Skipping copy. Source dir is empty: '$src_path'"
+        print_processing "Skipping copy. Source dir is empty: '$src_path'"
     else
-        print_procesing "Copying $src_path -> phpfpm:$dest_path'"
+        print_processing "Copying $src_path -> phpfpm:$dest_path'"
         docker cp "$src_path" "$container_id:$WORKDIR_PHP/$dest_path"
     fi
 
