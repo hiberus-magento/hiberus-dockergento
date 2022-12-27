@@ -43,34 +43,28 @@ sync_all_from_container_to_host() {
 # Exit when user tries composer create-project
 if [[ "$#" != 0 && "$1" == "create-project" ]]; then
     print_error "create-project is not compatible with $COMMAND_BIN_NAME. Please use:\n"
-    print_error "\n  $COMMAND_BIN_NAME create-project\n\n"
+    print_code "\n  $COMMAND_BIN_NAME create-project\n\n"
     exit 1
 fi
 
 # Manage composer commands
-if [[ "$#" != 0 && ("$1" == "install" || "$1" == "update" || "$1" == "require" || "$1" == "remove") ]]; then
-    # Composer validation
-    print_info "Validating composer before doing anything\n"
-    validation_output=$("$COMMANDS_DIR"/exec.sh composer validate)
-    if [ $? == 1 ]; then
-        print_default "$validation_output"
-        exit 1
-    fi
+if [[ "$#" != 0 && 
+    ("$1" == "install" || 
+    "$1" == "update" || 
+    "$1" == "require" || 
+    "$1" == "remove") ]]; then
 
     # Check magento2-base
-    module_path="$MAGENTO_DIR/vendor/magento/magento2-base"
-    exits_in_container=$("$COMMANDS_DIR"/exec.sh sh -c "[ -f $module_path/composer.json ] && echo true || echo false")
-    exits_in_host=$([ -f "$module_path"/composer.json ] && echo true || echo false)
+    module_path="$MAGENTO_DIR/vendor/magento/magento2-base/composer.json"
+    "$COMMANDS_DIR"/exec.sh [ -f $module_path ] && not_exits_in_container=false || not_exits_in_container=true
+    [ -f $module_path ] && exits_in_host=true || exits_in_host=false
 
-    if [[ $exits_in_host == true && $exits_in_container == *false* ]]; then
-        print_error "Magento is not set up yet in container. Please remove 'magento2-base' and try again.\n"
-        print_default "\n   rm -rf $module_path\n"
-        exit 1
+    if $exits_in_host && $exits_in_host; then
+        rm -rf $module_path
     fi
-
+    
     # Execute install con mirror wrapper
-    if [[ "$#" != 0 &&
-        ("$MACHINE" == "mac") ]]; then
+    if [[ "$#" != 0 && ("$MACHINE" == "mac") ]]; then
         mirror_vendor_host_into_container
         "$COMMAND_BIN_NAME" exec composer "$@"
         sync_all_from_container_to_host
@@ -80,3 +74,4 @@ if [[ "$#" != 0 && ("$1" == "install" || "$1" == "update" || "$1" == "require" |
 else
     "$COMMAND_BIN_NAME" exec composer "$@"
 fi
+
