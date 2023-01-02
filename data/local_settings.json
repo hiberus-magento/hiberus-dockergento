@@ -1,0 +1,38 @@
+{
+    "config_set": [
+        {
+            "path": "web/unsecure/base_url",
+            "value": "URL",
+            "is_variable": true
+        }, {
+            "path": "web/secure/base_url",
+            "value": "URL",
+            "is_variable": true
+        },  {
+            "path": "web/cookie/cookie_domain",
+            "value": "DOMAIN",
+            "is_variable": true
+        }, {
+            "path": "catalog/search/elasticsearch7_server_hostname",
+            "value": "search"
+        }, {
+            "path": "catalog/search/elasticsearch7_server_port",
+            "value": "9200"
+        }, {
+            "path": "web/secure/offloader_header",
+            "value": "X-Forwarded-Proto"
+        }, {
+            "path": "admin/security/admin_account_sharing",
+            "value": "1"
+        }, {
+            "path": "admin/security/session_lifetime",
+            "value": "31536000"
+        }, {
+            "path": "admin/security/password_lifetime",
+            "value": "null"
+        }, {
+            "path": "admin/security/password_is_forced",
+            "value": "0"
+        }
+    ]
+}
