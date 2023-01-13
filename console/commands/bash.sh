@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$#" != 0 ] && [ "$1" == "--root" ]; then
-    $COMMAND_BIN_NAME exec --root bash
+if [ "$#" != 0 ] && [ "$1" == "-r" ]; then
+    "$COMMANDS_DIR"/exec.sh -r bash
 else
-    $COMMAND_BIN_NAME exec bash
+   "$COMMANDS_DIR"/exec.sh bash
 fi

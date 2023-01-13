@@ -67,15 +67,15 @@ print_all_commands_help_info() {
 #
 print_opts() {
     local LENGTH
-    LENGTH=$(echo "$FILE" | jq -r '."'"$1"'".opts | length')
+    LENGTH=$(echo "$FILE" | jq -r '.'$1'.opts | length')
 
     if [[ $LENGTH -gt 0 ]]; then
         print_info "Options:\n"
     fi
 
     for ((i = 0; i < LENGTH; i++)); do
-        name=$(echo "$FILE" | jq -r '."'"$1"'".opts['"$i"'].name')
-        description=$(echo "$FILE" | jq -r '."'"$1"'".opts['"$i"'].description')
+        name=$(echo "$FILE" | jq -r '.'$1'.opts['$i'].name | "-" + .short + "|--" + .long')
+        description=$(echo "$FILE" | jq -r '.'$1'.opts['$i'].description')
         printf "   $BROWN%-16s$COLOR_RESET%s\n" "$name" "$description"
     done
 }
@@ -85,15 +85,15 @@ print_opts() {
 #
 print_args() {
     local LENGTH
-    LENGTH=$(echo "$FILE" | jq -r '."'"$1"'".args | length')
+    LENGTH=$(echo "$FILE" | jq -r '.'$1'.args | length')
 
     if [[ $LENGTH -gt 0 ]]; then
         print_info "Arguments:\n"
     fi
 
     for ((i = 0; i < LENGTH; i++)); do
-        name=$(echo "$FILE" | jq -r '."'"$1"'".args['"$i"'].name')
-        description=$(echo "$FILE" | jq -r '."'"$1"'".args['"$i"'].description')
+        name=$(echo "$FILE" | jq -r '.'$1'.args['$i'].name')
+        description=$(echo "$FILE" | jq -r '.'$1'.args['$i'].description')
         printf "   $WHITE%-13s$COLOR_RESET%s\n" "$name" "$description"
     done
 }
@@ -108,13 +108,13 @@ usage() {
         local params
         local command_name=$1
 
-        params=$(echo "$FILE" | jq -r '."'"$command_name"'" | if length > 0 then keys[] else false end')
+        params=$(echo "$FILE" | jq -r '.'$command_name' | if length > 0 then keys[] else false end')
 
         if [[ $params ]]; then
             # Print usage section
             if [[ "$params" == *"usage"* ]]; then
                 local usage
-                usage=$(echo "$FILE" | jq -r '."'"$command_name"'".usage')
+                usage=$(echo "$FILE" | jq -r '.'$command_name'.usage')
                 print_info "Usage: "
                 print_code "$COMMAND_BIN_NAME $usage\n"
             fi
@@ -122,7 +122,7 @@ usage() {
             # Print example section
             if [[ "$params" == *"example"* ]]; then
                 local example
-                example=$(echo "$FILE" | jq -r '."'"$command_name"'".example')
+                example=$(echo "$FILE" | jq -r '.'$command_name'.example')
                 print_info "Example: "
                 print_code "$COMMAND_BIN_NAME $example\n"
             fi
@@ -130,7 +130,7 @@ usage() {
             # Print description section
             if [[ "$params" == *"description"* ]]; then
                 local description
-                description=$(echo "$FILE" | jq -r '."'"$command_name"'".description')
+                description=$(echo "$FILE" | jq -r '.'$command_name'.description')
                 print_info "Description:"
                 printf "%1s$description\n"
             fi
