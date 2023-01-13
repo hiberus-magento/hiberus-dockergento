@@ -42,6 +42,7 @@ init_dirs
 
 source "$TASKS_DIR"/load_properties.sh
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/map_arguments.sh
 source "$HELPERS_DIR"/process_help.sh
 
 # Show help information when there is an argument --help or -h
@@ -78,6 +79,7 @@ if [[ "$1" != "setup" &&
     "$1" != "update" ]]; then
     "$TASKS_DIR/validate_docker_compose.sh"
 fi
-
+# Map arguments to sort kind argument
+arguments=$(parseToShortArguments "$@")
 shift
-"${COMMANDS_DIR}/${COMMAND_NAME}" "$@"
+"${COMMANDS_DIR}/${COMMAND_NAME}" "$arguments"
