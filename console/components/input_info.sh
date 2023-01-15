@@ -84,15 +84,14 @@ get_magento_edition() {
 # Get base url
 #
 get_project_name() {
-    local PROJECT_NAME
-    PROJECT_NAME=$(basename "$PWD")
+    local project_name=$([[ $# > 0 ]] && echo $1 || basename "$PWD")
 
     if [ $# == 0 ]; then
-        print_question "Define project name " "$(echo $PROJECT_NAME | awk '{print tolower($0)}')"
+        print_question "Define project name " "$(echo $project_name | awk '{print tolower($0)}')"
         read -r COMPOSE_PROJECT_NAME
 
         if [[ $COMPOSE_PROJECT_NAME == '' ]]; then
-            COMPOSE_PROJECT_NAME=$PROJECT_NAME
+            COMPOSE_PROJECT_NAME=$project_name
         fi
     else
         COMPOSE_PROJECT_NAME=$(echo $1 | awk '{print tolower($0)}')
@@ -106,19 +105,19 @@ get_project_name() {
 #
 get_domain() {
     DEFAULT_DOMAIN="magento-$COMMAND_BIN_NAME.local/"
-    local PROJECT_NAME
-    PROJECT_NAME=$(basename "$PWD")
+    local project_name
+    project_name=$([[ $# > 0 ]] && echo $1 || basename "$PWD")
 
     if [ -n $COMPOSE_PROJECT_NAME ]; then
-        PROJECT_NAME=$COMPOSE_PROJECT_NAME
+        project_name=$COMPOSE_PROJECT_NAME
     fi
 
     if [ $# == 0 ]; then
-        print_question "Define domain " "$(echo $PROJECT_NAME | awk '{print tolower($0)}').local"
+        print_question "Define domain " "$(echo $project_name | awk '{print tolower($0)}').local"
         read -r DOMAIN
 
         if [[ $DOMAIN == '' ]]; then
-            DOMAIN="$PROJECT_NAME.local"
+            DOMAIN="$project_name.local"
         fi
     elif [[ $1 == '--yyy' ]]; then
         DOMAIN=$DEFAULT_DOMAIN
@@ -164,7 +163,8 @@ process_magento_root_directory() {
 # Ask magento directory
 #
 get_magento_root_directory() {
-    if [[ $# -gt 0 && -d $1 ]]; then
+
+    if [[ $# gt 0 && -d $1 ]]; then
         MAGENTO_DIR=$(process_magento_root_directory "$1")
     else
         print_question "Magento root dir " "$MAGENTO_DIR"

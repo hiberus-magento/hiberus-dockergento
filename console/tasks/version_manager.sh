@@ -26,7 +26,7 @@ copy() {
 #
 edit_version() {
     service_name=$1
-    opts="$(cat < "$DATA_DIR/requirements.json" | jq -r '[.[] | .'"$service_name"'] | unique  | join(" ")')"
+    opts=$(jq -r '[.[] | .'["'$service_name'"]'] | unique  | join(" ")' < "$DATA_DIR/requirements.json")
 
     print_question "$service_name version:\n"
     select select_result in $opts; do
@@ -41,7 +41,7 @@ edit_version() {
         print_warning "invalid option '${REPLY}'\n"
     done
 
-    REQUIREMENTS=$(echo "$REQUIREMENTS" | jq -r '.'"$service_name"'="'"$select_result"'"')
+    REQUIREMENTS=$(echo "$REQUIREMENTS" | jq -r '.["'$service_name'"]='$select_result'')
 }
 
 #
@@ -78,7 +78,7 @@ print_requirements() {
     print_table "          REQUIREMENTS"
     print_table "\n-------------------------------\n"
     for index in $services; do
-        value=$(echo "$REQUIREMENTS" | jq -r '.'"$index"'')
+        value=$(echo "$REQUIREMENTS" | jq -r '.["'$index'"]')
         print_table "   $index: "
         print_default "$value\n"
     done
@@ -112,7 +112,7 @@ change_requirements() {
 # Get equivalent version from configuration
 #
 get_equivalent_version_if_exit() {
-    equivalent_version=$("$TASKS_DIR/get_equivalent_version.sh" "$1")
+    equivalent_version=$("$HELPERS_DIR/get_equivalent_version.sh" "$1")
 
     if [[ "$equivalent_version" = "null" ]]; then
         print_warning "\nWe don´t have support for the version $1\n"
@@ -138,17 +138,17 @@ get_requirements() {
     fi
 
     if [ "$#" -gt 0 ]; then
-        REQUIREMENTS=$(cat < "$DATA_DIR/requirements.json" | jq -r '.['\""$1"\"']')
+        REQUIREMENTS=$(jq -r '.["'$1'"]' < "$DATA_DIR/requirements.json" )
         change_requirements
         export REQUIREMENTS=$REQUIREMENTS
     else
         if [ -f "$MAGENTO_DIR/composer.lock" ]; then
-            MAGENTO_VERSION=$(cat < "$MAGENTO_DIR/composer.lock" |
-                jq -r '.packages | map(select(.name == "magento/product-community-edition"))[].version')
+            MAGENTO_VERSION=$(jq -r '.packages |
+                map(select(.name == "magento/product-community-edition"))[].version' < "$MAGENTO_DIR/composer.lock")
             print_warning "\nVersion detected: $MAGENTO_VERSION\n"
         else
             print_error "\n------------------------------------------------------\n"
-            print_error "\n       We need a magento project in $MAGENTO_DIR/ path\n"
+            print_error "\n      Not found composer.lock in $MAGENTO_DIR/ directory\n"
             print_default "\n You can clone a project and after execute "
             print_code "$COMMAND_BIN_NAME setup"
             print_default "\n or create a new magento project with "
@@ -192,7 +192,7 @@ add_git_bind_paths_in_file() {
 
         new_path="$MAGENTO_DIR/$filename_in_git:/var/www/html/$filename_in_git"
         bind_path_exits=$(grep -q -e "$new_path" "$file_to_edit" && echo true || echo false)
-        default_file_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r '.["'"$filename_in_git"'"]')
+        default_file_magento=$(jq -r '.["'$filename_in_git'"]' < "$DATA_DIR/default_files_magento.json")
 
         if [[ "$bind_path_exits" == true ]] || [[ $default_file_magento == true ]]; then
             continue

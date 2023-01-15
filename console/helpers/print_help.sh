@@ -5,6 +5,7 @@ command_info=""
 
 source "$COMPONENTS_DIR"/print_message.sh
 source "$TASKS_DIR"/copyright.sh
+source "$HELPERS_DIR"/print_usage.sh
 
 #
 # Print al all commands info (native and custom)
@@ -22,8 +23,8 @@ print_commands_info() {
         underline="-------------------\n"
         command_color="$PURPLE"
 
-        if [ -f "$CUSTOM_COMMANDS_DIR/command_descriptions.json" ]; then
-            file_content=$(cat "$CUSTOM_COMMANDS_DIR/command_descriptions.json")
+        if [ -f "$command_path/command_descriptions.json" ]; then
+            file_content=$(cat "$command_path/command_descriptions.json")
         fi
     fi
 
@@ -75,7 +76,7 @@ print_opts() {
 
         name=$(echo "$command_opts" | jq -r '.['$i'].name | "-" + .short + "|--" + .long')
         description=$(echo "$command_opts" | jq -r '.['$i'].description')
-        printf "   $BROWN%-16s$COLOR_RESET%s\n" "$name" "$description"
+        printf "   $BROWN%-16s$COLOR_RESET%s\n" "[$name]" "$description"
     done
 }
 
@@ -93,7 +94,7 @@ print_args() {
     for ((i = 0; i < length; i++)); do
         name=$(echo "$command_args" | jq -r '.['$i'].name')
         description=$(echo "$command_args" | jq -r '.['$i'].description')
-        printf "   $WHITE%-13s$COLOR_RESET%s\n" "$name" "$description"
+        printf "   $BROWN%-16s$COLOR_RESET%s\n" "<$name>" "$description"
     done
 }
 
@@ -112,12 +113,7 @@ usage() {
 
         if [[ $params ]]; then
             # Print usage section
-            if [[ "$params" == *"usage"* ]]; then
-                local usage
-                usage=$(echo "$command_info" | jq -r '.usage')
-                print_info "Usage: "
-                print_code "$COMMAND_BIN_NAME $usage\n"
-            fi
+            get_usage "$command_name"
 
             # Print example section
             if [[ "$params" == *"example"* ]]; then
