@@ -1,7 +1,6 @@
     {
         "bash": {
             "description": "Connect into container using bash [Default container: php]",
-            "usage": "bash [options]",
             "opts": [
                 {
                     "name": {
@@ -14,21 +13,17 @@
         },
         "cloud": {
             "description": "Magento Cloud Cli",
-            "usage": "cloud [options]",
-            "args": []
+            "usage": "cloud [options]"
         },
         "cloud-login": {
             "description": "Magento Cloud Login",
-            "usage": "cloud-login",
             "args": []
         },
         "compatibility": {
-            "usage": "compatibility",
             "description": "Check Magento version compatibility",
             "args": []
         },
         "composer": {
-            "usage": "composer [arguments]",
             "description": "Execute composer inside php container",
             "args": [
                 {
@@ -38,11 +33,10 @@
             ]
         },
         "copy-from-container": {
-            "usage": "copy-from-container [options] [path1] ... [pathN]",
             "description": "(Mac only) Copy and overwrite container content into host",
-            "opts": [
+            "args": [
                 {
-                    "name": "[path]",
+                    "name": "path",
                     "description": "Do not ask confirmation to remove host destination"
                 }
             ],
@@ -50,31 +44,27 @@
             "mac": true
         },
         "copy-to-container": {
-            "usage": "copy-to-container [path1] ... [pathN]",
             "description": "(Mac only) Copy and overwrite host content into container",
             "args": [
                 {
-                    "name": "[path]",
-                    "description": "Folder to copy"
+                    "name": "path",
+                    "description": "Folder to copy",
+                    "multiple": true
                 }
             ],
             "example": "copy-to-container vendor",
             "mac": true
         },
         "create-project": {
-            "description": "Create new magento project inside current directory",
-            "usage": "create-project"
+            "description": "Create new magento project inside current directory"
         },
         "debug-off": {
-            "usage": "debug-off",
             "description": "Disable xDebug"
         },
         "debug-on": {
-            "usage": "debug-on",
             "description": "Enable xDebug"
         },
         "docker-compose": {
-            "usage": "docker-compose [arguments]",
             "description": "Execute docker-compose using configuration for your machine",
             "args": [
                 {
@@ -84,15 +74,12 @@
             ]
         },
         "docker-stop-all": {
-            "usage": "docker-stop-all",
             "description": "Stop all running containers"
         },
         "down": {
-            "usage": "down",
             "description": "Stop and remove containers, networks, images, and volumes"
         },
         "exec": {
-            "usage": "exec [option] [arguments]",
             "description": "Execute a command in a running container [Default container: php]",
             "opts": [
                 {
@@ -106,7 +93,6 @@
             "example": "exec ls -lah"
         },
         "install": {
-            "usage": "install [domain]",
             "description": "Execute setup:install magento command with custom config",
             "args": [
                 {
@@ -116,16 +102,13 @@
             ]
         },
         "magento": {
-            "usage": "magento [arguments]",
             "description": "Execute magento console commands"
         },
         "mysql": {
-            "usage": "mysql [arguments]",
             "example": "mysql < local-path/my-dump.sql",
             "description": "Execute mysql command into container"
         },
         "mysqldump": {
-            "usage": "mysqldump [path]",
             "example": "mysqldump local-path/my-dump.sql",
             "description": "Execute mysqldump command into container",
             "args": [
@@ -152,7 +135,6 @@
             "description": "Restart docker services"
         },
         "set-host": {
-            "usage": "set-host [domain]",
             "example": "set-host my-project.local",
             "description": "Set host name in /etc/hosts and core_config_data",
             "args": [
@@ -163,9 +145,35 @@
             ]
         },
         "setup": {
-            "usage": "setup [version]",
             "description": "Dockerize magento project",
             "example": "setup 2.4.3-p2",
+            "opts": [
+                 {
+                    "name": {
+                        "short": "d",
+                        "long": "dump"
+                    },
+                    "description": "Dump for importing"
+                }, {
+                    "name": {
+                        "short": "f",
+                        "long": "force"
+                    },
+                    "description": "Override docker-compose configurations"
+                }, {
+                    "name": {
+                        "short": "p",
+                        "long": "projectName"
+                    },
+                    "description": "Name of project"
+                }, {
+                    "name": {
+                        "short": "r",
+                        "long": "root-directory"
+                    },
+                    "description": "Project relative path"
+                }
+            ],
             "args": [
                 {
                     "name": "version",
@@ -195,9 +203,14 @@
             "description": "Tranfer multimedia recurses form external source to this project"
         },
         "urn-generate": {
-            "usage": "urn-generate <path>",
             "description": "Generates the catalog of URNs to *.xsd mappings for the IDE to highlight xml",
-            "example": "urn-generate .idea/misc.xml"
+            "example": "urn-generate .idea/misc.xml",
+            "args": [
+                {
+                    "name": "path",
+                    "description": "Path to xml"
+                }
+            ]
         },
         "update": {
             "description": "Update hiberus docker tool"
@@ -209,14 +222,28 @@
             "description": "Turn on varnish service"
         },
         "watch": {
-            "usage": "watch [path1] ... [pathN]",
-            "description": "(Mac only) Synchronise changes for paths that are not a bind mount (i.e: vendor)",
+            "description": "(Mac only) Synchronize changes for paths that are not a bind mount (i.e: vendor)",
             "example": "watch vendor/namespace/<module-to-watch>",
-            "mac": true
+            "mac": true,
+            "args": [
+                {
+                    "name": "path",
+                    "description": "Folder path to be synchronized",
+                    "multiple": true
+                }
+            ]
         },
         "grunt": {
-            "usage": "grunt <Vendor/theme> <locale_LOCALE>",
             "description": "Prepare grunt configuration and compile theme styles using grunt",
-            "example": "grunt Hiberus/luma es_ES"
+            "example": "grunt Hiberus/luma es_ES",
+            "args": [
+                {
+                    "name": "Vendor/theme",
+                    "description": "Theme vendor reference"
+                }, {
+                    "name": "locale_LOCALE",
+                    "description": "Locale code"
+                }
+            ]
         }
     }

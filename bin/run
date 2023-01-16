@@ -5,10 +5,6 @@ COMMAND_BIN_NAME="hm"
 export COMMAND_BIN_NAME="$COMMAND_BIN_NAME"
 export COMMAND_TOOLNAME="Hiberus Dockergento"
 
-if [ "$#" -eq "0" ]; then
-    set -- -h
-fi
-
 #
 # Resolve absolute path directories
 #
@@ -82,4 +78,4 @@ fi
 # Map arguments to sort kind argument
 arguments=$(parseToShortArguments "$@")
 shift
-"${COMMANDS_DIR}/${COMMAND_NAME}" "$arguments"
+"${COMMANDS_DIR}/${COMMAND_NAME}" $arguments
