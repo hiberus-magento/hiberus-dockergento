@@ -6,6 +6,9 @@ source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
 
 dump=""
+domain=""
+project_name=""
+magento_root_directory=""
 force_setup=false
 
 #
@@ -60,21 +63,49 @@ create_docker_compose() {
     fi
 }
 
-while getopts ":f" options; do
-    case "${options}" in
+while getopts ":D:p:r:f" options; do
+    case "$options" in
         f)
+            # Force
             force_setup=true
         ;;
-        *);;
+        D)
+            # Dump
+            if [[ -f ${OPTARG} ]]; then
+                dump="${OPTARG}"
+            else
+                print_warning "No such file: ${OPTARG}\n"
+                ask_dump
+            fi
+        ;;
+        p)
+            # Project name
+            project_name="${OPTARG}"
+            domain="$project_name.local"
+            echo "project_name " $project_name
+        ;;
+        r)
+            # Magento root 
+            magento_root_directory=${OPTARG}
+        ;;
+        ?)
+            print_error "The command is not correct\n\n"
+            print_info "Use this format\n"
+            source "$HELPERS_DIR"/print_usage.sh
+            get_usage "setup"
+            exit 1
+        ;;
     esac
 done
 
 # Prepare environment
-get_project_name
-get_domain
-get_magento_root_directory
-choice_database_mode_creation
-create_docker_compose
+get_project_name $project_name
+get_domain $domain
+get_magento_root_directory $magento_root_directory
+if [[ -n $dump ]]; then
+    choice_database_mode_creation
+fi
+create_docker_compose 
 
  # Start services
 "$TASKS_DIR"/start_service_if_not_running.sh "$SERVICE_APP"

@@ -5,14 +5,17 @@ set -euo pipefail
 
 : "${exec_options:=""}"
 
-if [[ "$1" == "--root" ]]; then
+docker_compose_exec="$DOCKER_COMPOSE exec"
+# Set root option
+if [[ "$1" == "-r" ]]; then
     shift
     exec_options="$exec_options -u root"
 fi
 
-docker_compose_exec="$DOCKER_COMPOSE exec"
-
+# Save exec option for final command
 if [ "$exec_options" != "" ]; then
     docker_compose_exec="$docker_compose_exec $exec_options"
 fi
+
+# Execute docker-compose exec command
 $docker_compose_exec phpfpm "$@"

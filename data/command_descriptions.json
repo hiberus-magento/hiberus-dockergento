@@ -1,216 +1,249 @@
-{
-  "bash": {
-    "description": "Connect into container using bash [Default container: php]",
-    "usage": "bash [options]",
-    "opts": [
-      {
-        "name": "--root",
-        "description": "Use bash as root user"
-      }
-    ]
-  },
-  "cloud": {
-    "description": "Magento Cloud Cli",
-    "usage": "cloud [options]",
-    "args": []
-  },
-  "cloud-login": {
-    "description": "Magento Cloud Login",
-    "usage": "cloud-login",
-    "args": []
-  },
-  "compatibility": {
-    "usage": "compatibility",
-    "description": "Check Magento version compatibility",
-    "args": []
-  },
-  "composer": {
-    "usage": "composer [arguments]",
-    "description": "Execute composer inside php container",
-    "args": [
-      {
-        "name": "[args]",
-        "description": "composer commands (install, update, ...)"
-      }
-    ]
-  },
-  "copy-from-container": {
-    "usage": "copy-from-container [options] [path1] ... [pathN]",
-    "description": "(Mac only) Copy and overwrite container content into host",
-    "opts": [
-      {
-        "name": "[path]",
-        "description": "Do not ask confirmation to remove host destination"
-      }
-    ],
-    "example": "copy-from-container generated",
-    "mac": true
-  },
-  "copy-to-container": {
-    "usage": "copy-to-container [path1] ... [pathN]",
-    "description": "(Mac only) Copy and overwrite host content into container",
-    "args": [
-      {
-        "name": "[path]",
-        "description": "Folder to copy"
-      }
-    ],
-    "example": "copy-to-container vendor",
-    "mac": true
-  },
-  "create-project": {
-    "description": "Create new magento project inside current directory",
-    "usage": "create-project"
-  },
-  "debug-off": {
-    "usage": "debug-off",
-    "description": "Disable xDebug"
-  },
-  "debug-on": {
-    "usage": "debug-on",
-    "description": "Enable xDebug"
-  },
-  "docker-compose": {
-    "usage": "docker-compose [arguments]",
-    "description": "Execute docker-compose using configuration for your machine",
-    "args": [
-      {
-        "name": "[docker-opts]",
-        "description": "docker-compose commands (exec, up, down, ...)"
-      }
-    ]
-  },
-  "docker-stop-all": {
-    "usage": "docker-stop-all",
-    "description": "Stop all running containers"
-  },
-  "down": {
-    "usage": "down",
-    "description": "Stop and remove containers, networks, images, and volumes"
-  },
-  "exec": {
-    "usage": "exec [option] [arguments]",
-    "description": "Execute a command in a running container [Default container: php]",
-    "args": [
-      {
-        "name": "--root",
-        "description": "Run command as root user"
-      }
-    ],
-    "example": "exec ls -lah"
-  },
-  "install": {
-    "usage": "install [domain]",
-    "description": "Execute setup:install magento command with custom config",
-    "args": [
-      {
-        "name": "domain",
-        "description": "Run command with this domain"
-      }
-    ]
-  },
-  "magento": {
-    "usage": "magento [arguments]",
-    "description": "Execute magento console commands"
-  },
-  "mysql": {
-    "usage": "mysql [arguments]",
-    "example": "mysql < local-path/my-dump.sql",
-    "description": "Execute mysql command into container"
-  },
-  "mysqldump": {
-    "usage": "mysqldump [path]",
-    "example": "mysqldump local-path/my-dump.sql",
-    "description": "Execute mysqldump command into container",
-    "args": [
-      {
-        "name": "path",
-        "description": "Sql file path when you want save dump"
-      }
-    ]
-  },
-  "n98-magerun": {
-    "description": "Execute n98-magerun tool",
-    "usage": "n98-magerun [options]"
-  },
-  "npm": {
-    "description": "Execute npm commands into node container"
-  },
-  "purge": {
-    "description": "Remove all magento generated code (caches, generated, static, view_preprocessed)"
-  },
-  "rebuild": {
-    "description": "Rebuild docker services with current configuration"
-  },
-  "restart": {
-    "description": "Restart docker services"
-  },
-  "set-host": {
-    "usage": "set-host [domain]",
-    "example": "set-host my-project.local",
-    "description": "Set host name in /etc/hosts and core_config_data",
-    "args": [
-      {
-        "name": "domain",
-        "description": "Domain is desired to set"
-      }
-    ]
-  },
-  "setup": {
-    "usage": "setup [version]",
-    "description": "Dockerize magento project",
-    "example": "setup 2.4.3-p2",
-    "args": [
-      {
-        "name": "version",
-        "description": "Magento version you wish dockerize"
-      }
-    ]
-  },
-  "ssl": {
-    "description": "Install SSL certificates for docker environment"
-  },
-  "start": {
-    "description": "Start docker services"
-  },
-  "stop": {
-    "description": "Stop docker services"
-  },
-  "test-integration": {
-    "description": "Execute your magento integration tests"
-  },
-  "test-unit": {
-    "description": "Execute your magento unit test"
-  },
-  "transfer-db": {
-    "description": "Tranfer database form external source to this project"
-  },
-  "transfer-media": {
-    "description": "Tranfer multimedia recurses form external source to this project"
-  },
-  "urn-generate": {
-    "usage": "urn-generate <path>",
-    "description": "Generates the catalog of URNs to *.xsd mappings for the IDE to highlight xml",
-    "example": "urn-generate .idea/misc.xml"
-  },
-  "update": {
-    "description": "Update hiberus docker tool"
-  },
-  "varnish-off": {
-    "description": "Turn off varnish service"
-  },
-  "varnish-on": {
-    "description": "Turn on varnish service"
-  },
-  "watch": {
-    "usage": "watch [path1] ... [pathN]",
-    "description": "(Mac only) Synchronise changes for paths that are not a bind mount (i.e: vendor)",
-    "example": "watch vendor/namespace/<module-to-watch>",
-    "mac": true
-  },
-  "grunt": {
-    "usage": "grunt <Vendor/theme> <locale_LOCALE>",
-    "description": "Prepare grunt configuration and compile theme styles using grunt",
-    "example": "grunt Hiberus/luma es_ES"
-  }
-}
+    {
+        "bash": {
+            "description": "Connect into container using bash [Default container: php]",
+            "opts": [
+                {
+                    "name": {
+                        "short": "r",
+                        "long": "root"
+                    },
+                    "description": "Use bash as root user"
+                }
+            ]
+        },
+        "cloud": {
+            "description": "Magento Cloud Cli",
+            "usage": "cloud [options]"
+        },
+        "cloud-login": {
+            "description": "Magento Cloud Login",
+            "args": []
+        },
+        "compatibility": {
+            "description": "Check Magento version compatibility",
+            "args": []
+        },
+        "composer": {
+            "description": "Execute composer inside php container",
+            "args": [
+                {
+                    "name": "[args]",
+                    "description": "composer commands (install, update, ...)"
+                }
+            ]
+        },
+        "copy-from-container": {
+            "description": "(Mac only) Copy and overwrite container content into host",
+            "args": [
+                {
+                    "name": "path",
+                    "description": "Do not ask confirmation to remove host destination"
+                }
+            ],
+            "example": "copy-from-container generated",
+            "mac": true
+        },
+        "copy-to-container": {
+            "description": "(Mac only) Copy and overwrite host content into container",
+            "args": [
+                {
+                    "name": "path",
+                    "description": "Folder to copy",
+                    "multiple": true
+                }
+            ],
+            "example": "copy-to-container vendor",
+            "mac": true
+        },
+        "create-project": {
+            "description": "Create new magento project inside current directory"
+        },
+        "debug-off": {
+            "description": "Disable xDebug"
+        },
+        "debug-on": {
+            "description": "Enable xDebug"
+        },
+        "docker-compose": {
+            "description": "Execute docker-compose using configuration for your machine",
+            "args": [
+                {
+                    "name": "[docker-opts]",
+                    "description": "docker-compose commands (exec, up, down, ...)"
+                }
+            ]
+        },
+        "docker-stop-all": {
+            "description": "Stop all running containers"
+        },
+        "down": {
+            "description": "Stop and remove containers, networks, images, and volumes"
+        },
+        "exec": {
+            "description": "Execute a command in a running container [Default container: php]",
+            "opts": [
+                {
+                    "name": {
+                        "short": "r",
+                        "long": "root"
+                    },
+                    "description": "Run command as root user"
+                }
+            ],
+            "example": "exec ls -lah"
+        },
+        "install": {
+            "description": "Execute setup:install magento command with custom config",
+            "args": [
+                {
+                    "name": "domain",
+                    "description": "Run command with this domain"
+                }
+            ]
+        },
+        "magento": {
+            "description": "Execute magento console commands"
+        },
+        "mysql": {
+            "example": "mysql < local-path/my-dump.sql",
+            "description": "Execute mysql command into container"
+        },
+        "mysqldump": {
+            "example": "mysqldump local-path/my-dump.sql",
+            "description": "Execute mysqldump command into container",
+            "args": [
+                {
+                    "name": "path",
+                    "description": "Sql file path when you want save dump"
+                }
+            ]
+        },
+        "n98-magerun": {
+            "description": "Execute n98-magerun tool",
+            "usage": "n98-magerun [options]"
+        },
+        "npm": {
+            "description": "Execute npm commands into node container"
+        },
+        "purge": {
+            "description": "Remove all magento generated code (caches, generated, static, view_preprocessed)"
+        },
+        "rebuild": {
+            "description": "Rebuild docker services with current configuration"
+        },
+        "restart": {
+            "description": "Restart docker services"
+        },
+        "set-host": {
+            "example": "set-host my-project.local",
+            "description": "Set host name in /etc/hosts and core_config_data",
+            "args": [
+                {
+                    "name": "domain",
+                    "description": "Domain is desired to set"
+                }
+            ]
+        },
+        "setup": {
+            "description": "Dockerize magento project",
+            "example": "setup 2.4.3-p2",
+            "opts": [
+                 {
+                    "name": {
+                        "short": "d",
+                        "long": "dump"
+                    },
+                    "description": "Dump for importing"
+                }, {
+                    "name": {
+                        "short": "f",
+                        "long": "force"
+                    },
+                    "description": "Override docker-compose configurations"
+                }, {
+                    "name": {
+                        "short": "p",
+                        "long": "projectName"
+                    },
+                    "description": "Name of project"
+                }, {
+                    "name": {
+                        "short": "r",
+                        "long": "root-directory"
+                    },
+                    "description": "Project relative path"
+                }
+            ],
+            "args": [
+                {
+                    "name": "version",
+                    "description": "Magento version you wish dockerize"
+                }
+            ]
+        },
+        "ssl": {
+            "description": "Install SSL certificates for docker environment"
+        },
+        "start": {
+            "description": "Start docker services"
+        },
+        "stop": {
+            "description": "Stop docker services"
+        },
+        "test-integration": {
+            "description": "Execute your magento integration tests"
+        },
+        "test-unit": {
+            "description": "Execute your magento unit test"
+        },
+        "transfer-db": {
+            "description": "Tranfer database form external source to this project"
+        },
+        "transfer-media": {
+            "description": "Tranfer multimedia recurses form external source to this project"
+        },
+        "urn-generate": {
+            "description": "Generates the catalog of URNs to *.xsd mappings for the IDE to highlight xml",
+            "example": "urn-generate .idea/misc.xml",
+            "args": [
+                {
+                    "name": "path",
+                    "description": "Path to xml"
+                }
+            ]
+        },
+        "update": {
+            "description": "Update hiberus docker tool"
+        },
+        "varnish-off": {
+            "description": "Turn off varnish service"
+        },
+        "varnish-on": {
+            "description": "Turn on varnish service"
+        },
+        "watch": {
+            "description": "(Mac only) Synchronize changes for paths that are not a bind mount (i.e: vendor)",
+            "example": "watch vendor/namespace/<module-to-watch>",
+            "mac": true,
+            "args": [
+                {
+                    "name": "path",
+                    "description": "Folder path to be synchronized",
+                    "multiple": true
+                }
+            ]
+        },
+        "grunt": {
+            "description": "Prepare grunt configuration and compile theme styles using grunt",
+            "example": "grunt Hiberus/luma es_ES",
+            "args": [
+                {
+                    "name": "Vendor/theme",
+                    "description": "Theme vendor reference"
+                }, {
+                    "name": "locale_LOCALE",
+                    "description": "Locale code"
+                }
+            ]
+        }
+    }

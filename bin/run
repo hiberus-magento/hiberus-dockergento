@@ -5,10 +5,6 @@ COMMAND_BIN_NAME="hm"
 export COMMAND_BIN_NAME="$COMMAND_BIN_NAME"
 export COMMAND_TOOLNAME="Hiberus Dockergento"
 
-if [ "$#" -eq "0" ]; then
-    set -- -h
-fi
-
 #
 # Resolve absolute path directories
 #
@@ -33,6 +29,7 @@ init_dirs() {
     export DATA_DIR="${ABSOLUTE_PATH}/data"
     export CUSTOM_COMMANDS_DIR="${PWD}/config/$COMMAND_BIN_NAME/commands"
     export TASKS_DIR="${ABSOLUTE_PATH}/console/tasks"
+    export HELPERS_DIR="${ABSOLUTE_PATH}/console/helpers"
     export PROPERTIES_DIR="${ABSOLUTE_PATH}/console/properties"
     export COMPONENTS_DIR="${ABSOLUTE_PATH}/console/components"
 }
@@ -41,20 +38,11 @@ init_dirs
 
 source "$TASKS_DIR"/load_properties.sh
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/map_arguments.sh
+source "$HELPERS_DIR"/process_help.sh
 
-# If there are arguments and the first argument is --help
-if [ "$#" -gt 0 ]; then
-    # List of commands
-    if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-        "$TASKS_DIR/print_help.sh"
-        exit 0
-    # Description specific command
-    elif [ "$#" -gt 1 ] &&
-        { [ "$2" = "--help" ] || [ "$2" = "-h" ]; }; then
-        "$TASKS_DIR/print_help.sh" "$1"
-        exit 0
-    fi
-fi
+# Show help information when there is an argument --help or -h
+execute_process_help "$@"
 
 # Set composer project name
 COMMAND_NAME="$1.sh"
@@ -87,6 +75,7 @@ if [[ "$1" != "setup" &&
     "$1" != "update" ]]; then
     "$TASKS_DIR/validate_docker_compose.sh"
 fi
-
+# Map arguments to sort kind argument
+arguments=$(parseToShortArguments "$@")
 shift
-"${COMMANDS_DIR}/${COMMAND_NAME}" "$@"
+"${COMMANDS_DIR}/${COMMAND_NAME}" $arguments
