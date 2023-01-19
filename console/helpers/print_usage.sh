@@ -9,13 +9,13 @@ source "$COMPONENTS_DIR"/print_message.sh
 get_usage() {
     local command_name=$1
     local command_info=$(jq -r '.["'$command_name'"]' < "$DATA_DIR/command_descriptions.json")
-    local usage_propierty=$(echo "$command_info" | jq -r '.usage')
+    local usage_property=$(echo "$command_info" | jq -r '.usage')
     local params=$(echo "$command_info" | jq -r '. | if length > 0 then keys[] else false end')
 
 
-    if [[ $usage_propierty != null ]]; then
+    if [[ $usage_property != null ]]; then
         print_info "Usage: "
-        print_code "$COMMAND_BIN_NAME $usage_propierty\n"
+        print_code "$COMMAND_BIN_NAME $usage_property\n"
     else
         if [[ "$params" == *"args"* || "$params" == *"opts"* ]]; then
             # Compose options concatenation string

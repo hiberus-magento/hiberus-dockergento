@@ -82,7 +82,6 @@ while getopts ":D:p:r:f" options; do
             # Project name
             project_name="${OPTARG}"
             domain="$project_name.local"
-            echo "project_name " $project_name
         ;;
         r)
             # Magento root 

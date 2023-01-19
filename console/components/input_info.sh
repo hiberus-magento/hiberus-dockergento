@@ -2,6 +2,10 @@
 
 source "$COMPONENTS_DIR"/print_message.sh
 
+get_last_version() {
+    echo $(jq -r 'keys | last' "$DATA_DIR"/equivalent_versions.json)
+}
+
 #
 # Sanitize path
 #
@@ -16,7 +20,7 @@ sanitize_path() {
 # Get equivalent version for docker settings
 #
 get_equivalent_version_if_exit() {
-    equivalent_version=$("${TASKS_DIR}/get_equivalent_version.sh" "$1")
+    equivalent_version=$("$HELPERS_DIR"/get_equivalent_version.sh "$1")
     if [[ "$equivalent_version" = "null" ]]; then
         print_warning "\nWe don't have support for the version $1 "
         print_info "\nPlease, write any version between all versions supported or press Ctrl - C to exit"
@@ -32,7 +36,7 @@ get_equivalent_version_if_exit() {
 # Get magento version
 #
 get_magento_version() {
-    DEFAULT_MAGENTO_VERSION="2.4.4"
+    DEFAULT_MAGENTO_VERSION="$(get_last_version)"
 
     if [ $# == 0 ]; then
         print_question "Magento version: " "$DEFAULT_MAGENTO_VERSION"
@@ -41,10 +45,8 @@ get_magento_version() {
         if [[ $MAGENTO_VERSION == '' ]]; then
             MAGENTO_VERSION=$DEFAULT_MAGENTO_VERSION
         fi
-    elif [[ $1 == '--yyy' ]]; then
-        MAGENTO_VERSION=$DEFAULT_MAGENTO_VERSION
     else
-        MAGENTO_EDITION=$1
+        MAGENTO_VERSION=$1
     fi
 
     get_equivalent_version_if_exit "$MAGENTO_VERSION"
@@ -56,7 +58,6 @@ get_magento_version() {
 #
 get_magento_edition() {
     AVAILABLE_MAGENTO_EDITIONS="community enterprise"
-    DEFAULT_MAGENTO_EDITION="community"
 
     if [ $# == 0 ]; then
         print_question "Magento edition:\n"
@@ -71,8 +72,6 @@ get_magento_edition() {
             fi
             echo "invalid option '$REPLY'"
         done
-    elif [[ $1 == '--yyy' ]]; then
-        MAGENTO_EDITION=$DEFAULT_MAGENTO_EDITION
     else
         MAGENTO_EDITION=$1
     fi
@@ -105,15 +104,14 @@ get_project_name() {
 #
 get_domain() {
     DEFAULT_DOMAIN="magento-$COMMAND_BIN_NAME.local/"
-    local project_name
     project_name=$([[ $# > 0 ]] && echo $1 || basename "$PWD")
-
-    if [ -n $COMPOSE_PROJECT_NAME ]; then
+   
+    if [[ -n $COMPOSE_PROJECT_NAME ]]; then
         project_name=$COMPOSE_PROJECT_NAME
     fi
 
     if [ $# == 0 ]; then
-        print_question "Define domain " "$(echo $project_name | awk '{print tolower($0)}').local"
+        print_question "Define domain " "$(echo "$project_name" | awk '{print tolower($0)}').local"
         read -r DOMAIN
 
         if [[ $DOMAIN == '' ]]; then
@@ -164,7 +162,7 @@ process_magento_root_directory() {
 #
 get_magento_root_directory() {
 
-    if [[ $# gt 0 && -d $1 ]]; then
+    if [[ $# -gt 0 && -d $1 ]]; then
         MAGENTO_DIR=$(process_magento_root_directory "$1")
     else
         print_question "Magento root dir " "$MAGENTO_DIR"

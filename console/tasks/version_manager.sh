@@ -112,7 +112,7 @@ change_requirements() {
 # Get equivalent version from configuration
 #
 get_equivalent_version_if_exit() {
-    equivalent_version=$("$HELPERS_DIR/get_equivalent_version.sh" "$1")
+    equivalent_version=$("$HELPERS_DIR"/get_equivalent_version.sh "$1")
 
     if [[ "$equivalent_version" = "null" ]]; then
         print_warning "\nWe don´t have support for the version $1\n"
@@ -130,16 +130,11 @@ get_equivalent_version_if_exit() {
 # If there are arguments
 #
 get_requirements() {
-    # Check if command "jq" exists
-    if ! command -v jq &>/dev/null; then
-        print_error "Required 'jq' not found"
-        print_link "https://stedolan.github.io/jq/download/\n"
-        exit
-    fi
-
     if [ "$#" -gt 0 ]; then
         REQUIREMENTS=$(jq -r '.["'$1'"]' < "$DATA_DIR/requirements.json" )
-        change_requirements
+        if ! $DEFAULT_SETTINGS; then
+            change_requirements
+        fi
         export REQUIREMENTS=$REQUIREMENTS
     else
         if [ -f "$MAGENTO_DIR/composer.lock" ]; then
@@ -166,12 +161,26 @@ get_requirements() {
 #
 save_properties() {
     print_info "Saving custom properties file: '$DOCKER_CONFIG_DIR/properties'\n"
-    cat <<EOF >./$DOCKER_CONFIG_DIR/properties
-  MAGENTO_DIR="$MAGENTO_DIR"
-  BIN_DIR="$BIN_DIR"
-  COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
-  DOMAIN="$DOMAIN"
-EOF
+
+    # Create directory if not extis
+    mkdir -p $CUSTOM_PROPERTIES_DIR
+
+    # Create file if not exits
+    if [[ ! -f "$CUSTOM_PROPERTIES_DIR"/properties.json ]];then
+        echo "{}" > "$CUSTOM_PROPERTIES_DIR"/properties.json
+    fi
+    
+    if [ -z ${DOMAIN+x} ]; then
+        get_domain
+    fi
+    
+    # Create custom properties for current project
+    cat "$CUSTOM_PROPERTIES_DIR"/properties.json | jq -n \
+        --arg MAGENTO_DIR "$MAGENTO_DIR" \
+        --arg BIN_DIR "$BIN_DIR" \
+        --arg COMPOSE_PROJECT_NAME "$COMPOSE_PROJECT_NAME" \
+        --arg DOMAIN "$DOMAIN" \
+    '$ARGS.named' > "$CUSTOM_PROPERTIES_DIR"/properties.json
 }
 
 #
@@ -216,8 +225,7 @@ add_git_bind_paths_in_file() {
 # Update git setting in docker-compose
 #
 set_settings() {
-    print_info "Setting up docker config files\n"
-    copy "$COMMAND_BIN_DIR/$DOCKER_CONFIG_DIR/" "$DOCKER_CONFIG_DIR"
+    print_info "Setting up docker config files PENDDING\n"
 
     print_info "Setting bind configuration for files in git repository\n"
 

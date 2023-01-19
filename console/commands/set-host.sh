@@ -20,7 +20,7 @@ set_local_host() {
     if [[ "$#" -eq 1 ]] || [[ "$#" -gt 1  &&  "$2" != "--no-database" ]]; then
         print_info "Set "
         print_link "https://$DOMAIN/"
-        print_info " to web/secure/base_url and web/secure/base_url."
+        print_info " to web/secure/base_url and web/secure/base_url.\n"
 
         # Add domain in core_config_data table
         "$COMMANDS_DIR"/magento.sh config:set web/secure/base_url https://"$DOMAIN"/
