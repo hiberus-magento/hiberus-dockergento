@@ -2,16 +2,13 @@
     "config_set": [
         {
             "path": "web/unsecure/base_url",
-            "value": "URL",
-            "is_variable": true
+            "value": "https://magento.local/"
         }, {
             "path": "web/secure/base_url",
-            "value": "URL",
-            "is_variable": true
+            "value": "https://magento.local/"
         },  {
             "path": "web/cookie/cookie_domain",
-            "value": "DOMAIN",
-            "is_variable": true
+            "value": "magento.local"
         }, {
             "path": "catalog/search/elasticsearch7_server_hostname",
             "value": "search"
