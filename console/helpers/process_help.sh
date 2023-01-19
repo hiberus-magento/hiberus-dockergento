@@ -2,7 +2,7 @@
 set -euo pipefail
 
 
-function execute_process_help() {
+execute_process_help() {
     if [ "$#" -eq "0" ]; then
         set -- -h
     fi

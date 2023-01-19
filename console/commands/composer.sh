@@ -13,8 +13,7 @@ mirror_vendor_host_into_container() {
         print_processing "Creating '$MAGENTO_DIR/vendor' in host"
         mkdir -p "$MAGENTO_DIR/vendor"
     fi
-
-    "$COMMAND_BIN_NAME" copy-to-container vendor
+    "$COMMANDS_DIR"/copy-to-container.sh vendor
 }
 
 #
@@ -24,9 +23,8 @@ sync_all_from_container_to_host() {
     # Copy all default files magento into container
     default_files_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r 'keys | join(" ")')
 
-    "$COMMAND_BIN_NAME" copy-to-container $default_files_magento
-
-    "$COMMAND_BIN_NAME" stop
+    "$COMMANDS_DIR"/copy-to-container.sh $default_files_magento
+    "$COMMANDS_DIR"/stop.sh
 
     print_info "Copying all files from container to host\n"
     print_processing "Removing vendor in host: '$MAGENTO_DIR/vendor/*'"
@@ -55,7 +53,7 @@ if [[ "$#" != 0 &&
     "$1" == "remove") ]]; then
 
     # Check magento2-base
-    module_path="$MAGENTO_DIR/vendor/magento/magento2-base/composer.json"
+    module_path="$MAGENTO_DIR/vendor/magento/magento2-base/composer.json",0
     "$COMMANDS_DIR"/exec.sh [ -f $module_path ] && not_exits_in_container=false || not_exits_in_container=true
     [ -f $module_path ] && exits_in_host=true || exits_in_host=false
 
@@ -66,12 +64,12 @@ if [[ "$#" != 0 &&
     # Execute install con mirror wrapper
     if [[ "$#" != 0 && ("$MACHINE" == "mac") ]]; then
         mirror_vendor_host_into_container
-        "$COMMAND_BIN_NAME" exec composer "$@"
+        "$COMMANDS_DIR"/exec.sh composer "$@"
         sync_all_from_container_to_host
     else
-        "$COMMAND_BIN_NAME" exec composer "$@"
+        "$COMMANDS_DIR"/exec.sh composer "$@"
     fi
 else
-    "$COMMAND_BIN_NAME" exec composer "$@"
+    "$COMMANDS_DIR"/exec.sh composer "$@"
 fi
 

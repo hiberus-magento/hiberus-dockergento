@@ -18,48 +18,55 @@ validate_mirror_host_path() {
     fi
 }
 
-if [[ "$MACHINE" != "mac" ]]; then
-    print_error " This command is only for mac system.\n"
-    exit 1
-fi
-
-print_info "Start mirror copy of host into container\n"
-print_info "----------------------------------------\n"
-
-container_id=$($DOCKER_COMPOSE ps -q phpfpm)
-
-for path_to_mirror in "$@"; do
-    dest_path=$path_to_mirror
-
-    path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
-    validate_mirror_host_path "$path_to_mirror"
-
-    # If not exist jump to the next one
-    if [[ ! -f $path_to_mirror && ! -d $path_to_mirror ]] ; then
-        continue
+#
+#
+#
+copy_to_container_exceute() {
+    if [[ "$MACHINE" != "mac" ]]; then
+        print_error " This command is only for mac system.\n"
+        exit 1
     fi
 
-    src_path=$path_to_mirror
-    dest_dir=$(dirname "$dest_path")
-    src_is_dir=$([ -d "$src_path" ] && echo true || echo false)
+    print_info "Start mirror copy of host into container\n"
+    print_info "----------------------------------------\n"
 
-    if [[ $src_is_dir == *true* ]]; then
-        $COMMAND_BIN_NAME exec sh -c "rm -rf $dest_path/*"
-        src_path="$src_path/."
-        dest_dir="$dest_path"
-    fi
+    container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
-    $COMMAND_BIN_NAME exec sh -c "mkdir -p $dest_dir"
+    for path_to_mirror in "$@"; do
+        dest_path=$path_to_mirror
 
-    if [[ $src_is_dir == *true* && $(find "$src_path" -maxdepth 0 -empty) ]]; then
-        print_processing "Skipping copy. Source dir is empty: '$src_path'"
-    else
-        print_processing "Copying $src_path -> phpfpm:$dest_path'"
-        docker cp "$src_path" "$container_id:$WORKDIR_PHP/$dest_path"
-    fi
+        path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
+        validate_mirror_host_path "$path_to_mirror"
 
-    ownership_command="chown -R $USER_PHP:$GROUP_PHP $WORKDIR_PHP/$dest_path"
-    $COMMAND_BIN_NAME exec --root sh -c "$ownership_command"
-done
+        # If not exist jump to the next one
+        if [[ ! -f $path_to_mirror && ! -d $path_to_mirror ]] ; then
+            continue
+        fi
 
-print_info "----------------------------------------\n\n"
+        src_path=$path_to_mirror
+        dest_dir=$(dirname "$dest_path")
+        src_is_dir=$([ -d "$src_path" ] && echo true || echo false)
+
+        if [[ $src_is_dir == *true* ]]; then
+            echo "$COMMANDS_DIR"/exec.sh sh -c "rm -rf $dest_path/*"
+            src_path="$src_path/."
+            dest_dir="$dest_path"
+        fi
+
+        "$COMMANDS_DIR"/exec.sh sh -c "mkdir -p $dest_dir"
+
+        if [[ $src_is_dir == *true* && $(find "$src_path" -maxdepth 0 -empty) ]]; then
+            print_processing "Skipping copy. Source dir is empty: '$src_path'"
+        else
+            print_processing "Copying $src_path -> phpfpm:$dest_path'"
+            docker cp "$src_path" "$container_id:$WORKDIR_PHP/$dest_path"
+        fi
+        
+        ownership_command="chown -R $USER_PHP:$GROUP_PHP $WORKDIR_PHP/$dest_path"
+        "$COMMANDS_DIR"/exec.sh -r sh -c "$ownership_command"
+    done
+
+    print_info "----------------------------------------\n\n"
+}
+
+copy_to_container_exceute "$@"

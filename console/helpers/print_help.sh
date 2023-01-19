@@ -76,7 +76,7 @@ print_opts() {
 
         name=$(echo "$command_opts" | jq -r '.['$i'].name | "-" + .short + "|--" + .long')
         description=$(echo "$command_opts" | jq -r '.['$i'].description')
-        printf "   $BROWN%-16s$COLOR_RESET%s\n" "[$name]" "$description"
+        printf "   $BROWN%-16s$COLOR_RESET%s\n" "[$name]" " $description"
     done
 }
 

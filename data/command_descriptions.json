@@ -56,7 +56,40 @@
             "mac": true
         },
         "create-project": {
-            "description": "Create new magento project inside current directory"
+            "description": "Create new magento project inside current directory",
+            "opts": [
+                {
+                    "name": {
+                        "short": "p",
+                        "long": "project-name"
+                    },
+                    "description": "Project name. Domain is compose with <project_name>.local"
+                }, {
+                    "name": {
+                        "short": "e",
+                        "long": "edition"
+                    },
+                    "description": "Magento edition (community | enterprise) "
+                }, {
+                    "name": {
+                        "short": "v",
+                        "long": "version"
+                    },
+                    "description": "Magento version (you can see all available version with hm compatibility command)"
+                }, {
+                    "name": {
+                        "short": "r",
+                        "long": "root-directory"
+                    },
+                    "description": "Project relative path"
+                }, {
+                    "name": {
+                        "short": "d",
+                        "long": "default"
+                    },
+                    "description": "Use default settings: \n\t\t\t- edition = community \n\t\t\t- version = <last-version> \n\t\t\t- project-name = <basename> \n\t\t\t- root-directory = '.' \n\t\t\t- basic-settings = <default-local-settings>)"
+                }
+            ]
         },
         "debug-off": {
             "description": "Disable xDebug"
@@ -163,9 +196,9 @@
                 }, {
                     "name": {
                         "short": "p",
-                        "long": "projectName"
+                        "long": "project-name"
                     },
-                    "description": "Name of project"
+                    "description": "Project name. Domain is compose with <project_name>.local"
                 }, {
                     "name": {
                         "short": "r",

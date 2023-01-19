@@ -83,13 +83,15 @@ get_base_url() {
 # Get arguments for setup-install command
 #
 get_argument_command() {
-    argument=$(cat < "$DATA_DIR/config.json" | jq -r '."'"$1"'"')
+    argument=$(jq -r '.["'$1'"]' "$DATA_DIR/config.json")
 
-    print_question "Define $1 " "$argument"
-    read -r response
+    if ! $DEFAULT_SETTINGS ; then
+        print_question "Define $1 " "$argument"
+        read -r response
 
-    if [[ $response != '' ]]; then
-        argument=$response
+        if [[ $response != '' ]]; then
+            argument=$response
+        fi
     fi
 
     RESULT=$(cat < "$DATA_DIR/config.json" | jq --arg ARGUMENT "$argument" '. | ."'"$1"'"=$ARGUMENT')
