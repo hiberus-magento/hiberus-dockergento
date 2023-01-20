@@ -22,8 +22,9 @@ create_database "$@"
 "$COMMANDS_DIR"/magento.sh setup:upgrade
 "$COMMANDS_DIR"/magento.sh deploy:mode:set developer
 
+# Consolidate environment 
+"$COMMANDS_DIR"/restart.sh
+
 # Domain and certificate
 "$COMMANDS_DIR"/ssl.sh "$DOMAIN"
 "$COMMANDS_DIR"/set-host.sh "$DOMAIN" --no-database
-
-"$COMMANDS_DIR"/restart.sh
