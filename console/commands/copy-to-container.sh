@@ -9,8 +9,8 @@ source "$TASKS_DIR"/mirror_path.sh
 #
 validate_mirror_host_path() {
     path_to_mirror=$1
-
     bind_mount_path=$("$TASKS_DIR"/get_bind_mount_path.sh "$WORKDIR_PHP/$path_to_mirror")
+    
     if [[ $bind_mount_path != false ]]; then
         print_error "\nPath cannot be mirrored. Following path is a bind mount inside container:\n\n"
         print_default "  - ./<host_path>:$bind_mount_path\n"
@@ -21,52 +21,44 @@ validate_mirror_host_path() {
 #
 #
 #
-copy_to_container_exceute() {
-    if [[ "$MACHINE" != "mac" ]]; then
-        print_error " This command is only for mac system.\n"
-        exit 1
-    fi
+copy_some_to_container() {
+    # Copy each file and folder into container
+    container_id=$($DOCKER_COMPOSE ps -q phpfpm | awk '{print $1}')
 
-    print_info "Start mirror copy of host into container\n"
+    for path_to_mirror in "$@"; do
+        # Check if file/directory not exists
+        if [[ ! -f $path_to_mirror && ! -d $path_to_mirror ]] ; then
+            continue
+        fi
+    
+        if [ -f "$MAGENTO_DIR/$path_to_mirror" ]; then
+            print_processing "Copying $path_to_mirror -> phpfpm:$path_to_mirror'"
+            docker cp "$MAGENTO_DIR/$path_to_mirror" "$container_id":/var/www/html/"$path_to_mirror"
+        else
+            dest_path=$(dirname "$path_to_mirror")
+            print_processing "Copying $path_to_mirror -> phpfpm:$dest_path"
+            docker cp "$MAGENTO_DIR/$path_to_mirror" "$container_id":/var/www/html/"$dest_path"
+        fi
+        "$COMMANDS_DIR"/exec.sh -r sh -c "chown -R $USER_PHP:$GROUP_PHP $WORKDIR_PHP/$path_to_mirror"
+    done
+}
+
+#
+#
+#
+copy_to_container_exceute() {
+    print_info "Start copy of host into container\n"
     print_info "----------------------------------------\n"
 
     container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
-    for path_to_mirror in "$@"; do
-        dest_path=$path_to_mirror
-
-        path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
-        validate_mirror_host_path "$path_to_mirror"
-
-        # If not exist jump to the next one
-        if [[ ! -f $path_to_mirror && ! -d $path_to_mirror ]] ; then
-            continue
-        fi
-
-        src_path=$path_to_mirror
-        dest_dir=$(dirname "$dest_path")
-        src_is_dir=$([ -d "$src_path" ] && echo true || echo false)
-
-        if [[ $src_is_dir == *true* ]]; then
-            echo "$COMMANDS_DIR"/exec.sh sh -c "rm -rf $dest_path/*"
-            src_path="$src_path/."
-            dest_dir="$dest_path"
-        fi
-
-        "$COMMANDS_DIR"/exec.sh sh -c "mkdir -p $dest_dir"
-
-        if [[ $src_is_dir == *true* && $(find "$src_path" -maxdepth 0 -empty) ]]; then
-            print_processing "Skipping copy. Source dir is empty: '$src_path'"
-        else
-            print_processing "Copying $src_path -> phpfpm:$dest_path'"
-            docker cp "$src_path" "$container_id:$WORKDIR_PHP/$dest_path"
-        fi
-        
-        ownership_command="chown -R $USER_PHP:$GROUP_PHP $WORKDIR_PHP/$dest_path"
-        "$COMMANDS_DIR"/exec.sh -r sh -c "$ownership_command"
-    done
-
-    print_info "----------------------------------------\n\n"
+    if [ "$1" == "--all" ]; then
+        docker cp "$MAGENTO_DIR/./" "$container_id":/var/www/html/
+        echo "Completed copying all files from host to container"
+        "$COMMANDS_DIR"/exec.sh -r sh -c "chown -R $USER_PHP:$GROUP_PHP $WORKDIR_PHP/./"
+    else
+        copy_some_to_container "$@"
+    fi
 }
 
 copy_to_container_exceute "$@"

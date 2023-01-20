@@ -66,7 +66,7 @@ create_project_execute() {
     echo "{}" > "$MAGENTO_DIR"/composer.lock
     
     # Run docker-compose specified files of OS
-    "$COMMANDS_DIR"/restart.sh
+    "$COMMANDS_DIR"/restart.sh "phpfpm"
 
     # Magento installation
     "$TASKS_DIR"/magento_installation.sh

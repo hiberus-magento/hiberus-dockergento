@@ -7,11 +7,10 @@ print_info "Starting containers in detached mode\n\n"
 
 if [ "$#" == 0 ]; then
     $DOCKER_COMPOSE up -d
+    "$TASKS_DIR"/validate_bind_mounts.sh
 else
     $DOCKER_COMPOSE up -d "$@"
 fi
-
-"$TASKS_DIR"/validate_bind_mounts.sh
 
 if [[ "$MACHINE" == "linux" ]]; then
     print_processing "Waiting for everything to spin up..."
