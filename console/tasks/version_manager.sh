@@ -3,10 +3,9 @@ set -euo pipefail
 
 export REQUIREMENTS=""
 
-DOCKER_CONFIG_DIR="config/docker"
-
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
+source "$HELPERS_DIR"/properties.sh
 
 #
 # Copy File
@@ -14,9 +13,8 @@ source "$COMPONENTS_DIR"/input_info.sh
 copy() {
     local source_path=$1
     local target_path=$2
-    local target_dir
-    
-    target_dir=$(dirname "$target_path")
+    local target_dir=$(dirname "$target_path")
+
     mkdir -p "$target_dir"
     cp -Rf "$source_path" "$target_path"
 }
@@ -34,11 +32,11 @@ edit_version() {
             break
         fi
 
-        if $($TASKS_DIR/in_list.sh "${REPLY}" "$opts"); then
-            select_result=${REPLY}
+        if $($TASKS_DIR/in_list.sh "$REPLY" "$opts"); then
+            select_result=$REPLY
             break
         fi
-        print_warning "invalid option '${REPLY}'\n"
+        print_warning "invalid option '$REPLY'\n"
     done
 
     REQUIREMENTS=$(echo "$REQUIREMENTS" | jq -r '.["'$service_name'"]='$select_result'')
@@ -157,33 +155,6 @@ get_requirements() {
 }
 
 #
-# Set properties in <root_project>/<docker_config>/properties
-#
-save_properties() {
-    print_info "Saving custom properties file: '$DOCKER_CONFIG_DIR/properties'\n"
-
-    # Create directory if not extis
-    mkdir -p $CUSTOM_PROPERTIES_DIR
-
-    # Create file if not exits
-    if [[ ! -f "$CUSTOM_PROPERTIES_DIR"/properties.json ]];then
-        echo "{}" > "$CUSTOM_PROPERTIES_DIR"/properties.json
-    fi
-    
-    if [ -z ${DOMAIN+x} ]; then
-        get_domain
-    fi
-    
-    # Create custom properties for current project
-    cat "$CUSTOM_PROPERTIES_DIR"/properties.json | jq -n \
-        --arg MAGENTO_DIR "$MAGENTO_DIR" \
-        --arg BIN_DIR "$BIN_DIR" \
-        --arg COMPOSE_PROJECT_NAME "$COMPOSE_PROJECT_NAME" \
-        --arg DOMAIN "$DOMAIN" \
-    '$ARGS.named' > "$CUSTOM_PROPERTIES_DIR"/properties.json
-}
-
-#
 # Add git bind paths in file
 #
 add_git_bind_paths_in_file() {
@@ -200,7 +171,7 @@ add_git_bind_paths_in_file() {
             continue
         fi
 
-        new_path="$MAGENTO_DIR/$filename_in_git:/var/www/html/$filename_in_git"
+        new_path="$MAGENTO_DIR/${filename_in_git}:/var/www/html/$filename_in_git"
         bind_path_exits=$(grep -q -e "$new_path" "$file_to_edit" && echo true || echo false)
         default_file_magento=$(jq -r '.["'$filename_in_git'"]' < "$DATA_DIR/default_files_magento.json")
 
@@ -226,7 +197,6 @@ add_git_bind_paths_in_file() {
 #
 set_settings() {
     print_info "Setting up docker config files PENDDING\n"
-
     print_info "Setting bind configuration for files in git repository\n"
 
     sed_in_file "s|{MAGENTO_DIR}|$MAGENTO_DIR|w /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"

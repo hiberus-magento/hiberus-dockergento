@@ -7,7 +7,7 @@ print_info "Rebuilding and starting containers in detached mode\n"
 
 if [ "$#" == 0 ]; then
     $COMMAND_BIN_NAME stop
-    $DOCKER_COMPOSE up --build -d "${SERVICE_APP}"
+    $DOCKER_COMPOSE up --build -d nginx
 else
     $COMMAND_BIN_NAME stop "$@"
     $DOCKER_COMPOSE up --build -d "$@"

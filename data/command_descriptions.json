@@ -183,16 +183,10 @@
             "opts": [
                  {
                     "name": {
-                        "short": "d",
+                        "short": "D",
                         "long": "dump"
                     },
                     "description": "Dump for importing"
-                }, {
-                    "name": {
-                        "short": "f",
-                        "long": "force"
-                    },
-                    "description": "Override docker-compose configurations"
                 }, {
                     "name": {
                         "short": "p",
@@ -201,10 +195,22 @@
                     "description": "Project name. Domain is compose with <project_name>.local"
                 }, {
                     "name": {
+                        "short": "d",
+                        "long": "domain"
+                    },
+                    "description": "Domain of local host"
+                }, {
+                    "name": {
                         "short": "r",
                         "long": "root-directory"
                     },
                     "description": "Project relative path"
+                }, {
+                    "name": {
+                        "short": "f",
+                        "long": "force"
+                    },
+                    "description": "Override docker-compose configurations"
                 }
             ],
             "args": [
