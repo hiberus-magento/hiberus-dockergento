@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
-docker_config_dir="config/docker"
-MYSQL_CONTAINER=$(docker ps -qf "name=db")
-MYSQL_QUERY=${*:1}
+
+mysql_container=$(docker ps -qf "name=db")
+mysql_query=${*:1}
 
 #
 # Execute query in mysql container
 #
-function query() {
-    echo -e "$1" | docker exec -i $MYSQL_CONTAINER bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
+query() {
+    echo -e "$1" | docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
 }
 
 #
 # Set Domain in properties project file if DOMAIN variable is not setted
 #
-function setCurrentDomain() {
+set_current_domain() {
     # Check if magento database is initialized
     exist_magento_db=$(query "SHOW TABLES LIKE 'core_config_data';")
 
@@ -26,14 +26,14 @@ function setCurrentDomain() {
         DOMAIN=$(awk -F/ '{print $3}' <<< $url)
 
          # Add domain in properties project file
-        echo "  DOMAIN=\"$DOMAIN\"" >> $docker_config_dir/properties
+        echo "  DOMAIN=\"$DOMAIN\"" >> $DOCKER_CONFIG_DIR/properties
     fi
 }
 
 #
 # Execute all neccesary commands to prepare local environment 
 #
-function setSettingsForDovelop() {
+set_settings_for_develop() {
     source "$COMPONENTS_DIR"/print_message.sh
 
     # Get domain if not exists
@@ -60,22 +60,22 @@ function setSettingsForDovelop() {
     done
 }
 
-if [ -z "$MYSQL_CONTAINER" ]; then
+if [ -z "$mysql_container" ]; then
     print_error "Error: DB container is not running\n"
     exit 1
 fi
 
 if [ ! -t 0 ]; then
-    setCurrentDomain
-    MYSQL_QUERY=$(cat)
-    MYSQL_QUERY=$(echo "$MYSQL_QUERY" | sed 's/DEFINER=[^*]*\*/\*/g')
+    set_current_domain
+    mysql_query=$(cat)
+    mysql_query=$(echo "$mysql_query" | sed 's/DEFINER=[^*]*\*/\*/g')
 fi
 
-if [ ! -z "$MYSQL_QUERY" ]; then
-    query "$MYSQL_QUERY"
+if [ ! -z "$mysql_query" ]; then
+    query "$mysql_query"
     if [ ! -t 0 ]; then
-        setSettingsForDovelop
+        set_settings_for_develop
     fi
 else
-    docker exec -it $MYSQL_CONTAINER bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
+    docker exec -it $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
 fi

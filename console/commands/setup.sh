@@ -6,9 +6,6 @@ source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
 
 dump=""
-domain=""
-project_name=""
-magento_root_directory=""
 force_setup=false
 
 #
@@ -36,7 +33,7 @@ ask_dump() {
 choice_database_mode_creation() {
     flow_database_opt="SQL-Dump Magento-Installation"
 
-    print_info "\nIf your project has many custom modules it´s possible that install command can fail.\n"
+    print_info "\nIf your project has many custom modules it's possible that install command can fail.\n"
     print_question "Choose an option:\n"
 
     select REPLY in $flow_database_opt; do
@@ -57,35 +54,72 @@ create_docker_compose() {
     if [[ -f "docker-compose.yml" ]]; then
         if $force_setup || [[ -z "$(cat "docker-compose.yml" | grep "hiberus-magento")" ]]; then
           "$TASKS_DIR"/version_manager.sh
+        else
+            source "$HELPERS_DIR"/properties.sh
+            save_properties
         fi
     else
       "$TASKS_DIR"/version_manager.sh
     fi
 }
 
-while getopts ":D:p:r:f" options; do
+#
+# Execute setup command
+#
+setup_execute() {
+    # Prepare environment
+    if [[ -f $CUSTOM_PROPERTIES_DIR/properties.json ]]; then
+        DOMAIN=${DOMAIN:=""}
+        project_name=${project_name:-$COMPOSE_PROJECT_NAME}
+        domain=${domain:-$DOMAIN}
+        magento_root_directory=${magento_root_directory:-$MAGENTO_DIR}
+    fi
+    
+    get_project_name ${project_name:=""}
+    get_domain ${domain:=""}
+    get_magento_root_directory ${magento_root_directory:=""}
+    echo "DUMP IS: ${#dump}"
+    if [[ -z $dump ]]; then
+        choice_database_mode_creation
+    fi
+    create_docker_compose 
+
+    # Start services
+    "$TASKS_DIR"/start_service_if_not_running.sh "nginx"
+    # Magento installation
+    "$TASKS_DIR"/magento_installation.sh "$dump"
+
+    print_info "\nSetup completed!\n"
+    print_info "Open "
+    print_link "https://$DOMAIN/\n"
+}
+
+while getopts ":D:p:d:r:f" options; do
     case "$options" in
-        f)
-            # Force
-            force_setup=true
-        ;;
         D)
             # Dump
-            if [[ -f ${OPTARG} ]]; then
-                dump="${OPTARG}"
+            if [[ -f $OPTARG ]]; then
+                dump="$OPTARG"
             else
-                print_warning "No such file: ${OPTARG}\n"
-                ask_dump
+                print_warning "No such file: $OPTARG\n"
             fi
         ;;
         p)
             # Project name
-            project_name="${OPTARG}"
-            domain="$project_name.local"
+            project_name="$OPTARG"
+            domain=${domain:="$project_name.local"}
+        ;;
+        d)
+            # domain
+            domain="$OPTARG"
         ;;
         r)
             # Magento root 
-            magento_root_directory=${OPTARG}
+            magento_root_directory="$OPTARG"
+        ;;
+        f)
+            # Force
+            force_setup=true
         ;;
         ?)
             print_error "The command is not correct\n\n"
@@ -97,22 +131,4 @@ while getopts ":D:p:r:f" options; do
     esac
 done
 
-# Prepare environment
-get_project_name $project_name
-get_domain $domain
-get_magento_root_directory $magento_root_directory
-if [[ -n $dump ]]; then
-    choice_database_mode_creation
-fi
-create_docker_compose 
-
- # Start services
-"$TASKS_DIR"/start_service_if_not_running.sh "$SERVICE_APP"
-
-# Magento installation
-"$TASKS_DIR"/magento_installation.sh "$dump"
-
-print_info "\nSetup completed!\n"
-
-print_info "Open "
-print_link "https://$DOMAIN/\n"
+setup_execute "$@"

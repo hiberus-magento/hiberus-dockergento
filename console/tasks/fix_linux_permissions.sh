@@ -55,7 +55,7 @@ match_group_id_between_host_and_container() {
     fi
 }
 
-for service in ${SERVICES_WITH_LINUX_PERMISSIONS_ISSUES}; do
+for service in nginx phpfpm ; do
     match_user_id_between_host_and_container "$service"
     match_group_id_between_host_and_container "$service"
 done

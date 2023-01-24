@@ -16,7 +16,7 @@ set_current_domain() {
         DOMAIN=$(awk -F/ '{print $3}' <<< $url)
 
          # Add domain in properties project file
-        echo "  DOMAIN=\"$DOMAIN\"" >> $docker_config_dir/properties
+        echo "  DOMAIN=\"$DOMAIN\"" >> $DOCKER_CONFIG_DIR/properties
     fi
 }
 

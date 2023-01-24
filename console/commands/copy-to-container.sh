@@ -27,7 +27,7 @@ copy_some_to_container() {
 
     for path_to_mirror in "$@"; do
         # Check if file/directory not exists
-        if [[ ! -f $path_to_mirror && ! -d $path_to_mirror ]] ; then
+        if [[ ! -e $path_to_mirror ]] ; then
             continue
         fi
     

@@ -161,7 +161,7 @@ process_magento_root_directory() {
 # Ask magento directory
 #
 get_magento_root_directory() {
-
+    
     if [[ $# -gt 0 && -d $1 ]]; then
         MAGENTO_DIR=$(process_magento_root_directory "$1")
     else
