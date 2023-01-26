@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$COMPONENTS_DIR"/print_message.sh
+
 mysql_container=$(docker ps -qf "name=db")
-mysql_query=${*:1}
+delete_definers=false
 
 #
 # Execute query in mysql container
@@ -60,22 +62,62 @@ set_settings_for_develop() {
     done
 }
 
+#
+#
+#
+mysql_execute() {
+    if [[ -n ${import_database:=""} ]]; then
+        set_current_domain
+        # Check if there is to delete DEFINER and import database
+        if $delete_definers ; then
+            cleaned=${import_database/".sql"/"-cleaned.sql"}
+            cat $import_database | sed 's/DEFINER=[^*]*\*/\*/g' > $cleaned
+            docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\"" < $cleaned
+        else
+            # Only import database  
+            docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\"" < $import_database
+        fi
+        set_settings_for_develop
+        exit
+    fi
+    docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
+}
+
 if [ -z "$mysql_container" ]; then
     print_error "Error: DB container is not running\n"
     exit 1
 fi
 
 if [ ! -t 0 ]; then
-    set_current_domain
-    mysql_query=$(cat)
-    mysql_query=$(echo "$mysql_query" | sed 's/DEFINER=[^*]*\*/\*/g')
-fi
-
-if [ ! -z "$mysql_query" ]; then
-    query "$mysql_query"
-    if [ ! -t 0 ]; then
-        set_settings_for_develop
-    fi
+    docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
 else
-    docker exec -it $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
+    while getopts ":i:q:bd" options; do
+        case "$options" in
+            i)
+                import_database=${OPTARG/"~"/$HOME}
+                # Import database
+                if [[ ! -f $import_database ]]; then
+                    print_warning "No such file: $OPTARG\n"
+                    exit 0
+                fi
+            ;;
+            q)
+                # Query
+                query "$OPTARG"
+                exit
+            ;;
+            d)
+                # Delete DEFINER
+                delete_definers=true
+            ;;
+            ?)
+                print_error "The command is not correct\n\n"
+                print_info "Use this format\n"
+                source "$HELPERS_DIR"/print_usage.sh
+                get_usage "mysql"
+                exit 1
+            ;;
+        esac
+    done
+    mysql_execute
 fi

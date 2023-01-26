@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-
 execute_process_help() {
     if [ "$#" -eq "0" ]; then
         set -- -h
