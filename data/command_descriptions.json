@@ -138,8 +138,29 @@
             "description": "Execute magento console commands"
         },
         "mysql": {
-            "example": "mysql < local-path/my-dump.sql",
-            "description": "Execute mysql command into container"
+            "example": "mysql < local-path/my-dump.sql\n\t hm mysql -d -i=my-dump.sql",
+            "description": "Execute mysql command into container",
+            "opts": [
+                 {
+                    "name": {
+                        "short": "i",
+                        "long": "import"
+                    },
+                    "description": "Import SQL dump and configurate minimal settings for local environment"
+                }, {
+                    "name": {
+                        "short": "q",
+                        "long": "query"
+                    },
+                    "description": "Execute query"
+                }, {
+                    "name": {
+                        "short": "d",
+                        "long": "definers"
+                    },
+                    "description": "Process database before import (with -i option), removing all DEFINER root"
+                }
+            ]
         },
         "mysqldump": {
             "example": "mysqldump local-path/my-dump.sql",
@@ -179,14 +200,32 @@
         },
         "setup": {
             "description": "Dockerize magento project",
-            "example": "setup 2.4.3-p2",
+            "example": "setup -u -i -p=magento --domain=magento.local",
             "opts": [
-                 {
+                {
+                    "name": {
+                        "short": "d",
+                        "long": "domain"
+                    },
+                    "description": "Domain of local host"
+                }, {
                     "name": {
                         "short": "D",
                         "long": "dump"
                     },
                     "description": "Dump for importing"
+                }, {
+                    "name": {
+                        "short": "f",
+                        "long": "force"
+                    },
+                    "description": "Override docker-compose configurations"
+                }, {
+                    "name": {
+                        "short": "i",
+                        "long": "install"
+                    },
+                    "description": "Chose magento installation option"
                 }, {
                     "name": {
                         "short": "p",
@@ -195,28 +234,16 @@
                     "description": "Project name. Domain is compose with <project_name>.local"
                 }, {
                     "name": {
-                        "short": "d",
-                        "long": "domain"
-                    },
-                    "description": "Domain of local host"
-                }, {
-                    "name": {
                         "short": "r",
                         "long": "root-directory"
                     },
                     "description": "Project relative path"
                 }, {
                     "name": {
-                        "short": "f",
-                        "long": "force"
+                        "short": "u",
+                        "long": "use-default"
                     },
-                    "description": "Override docker-compose configurations"
-                }
-            ],
-            "args": [
-                {
-                    "name": "version",
-                    "description": "Magento version you wish dockerize"
+                    "description": "Use defult settigs of user for language, currency, ..."
                 }
             ]
         },

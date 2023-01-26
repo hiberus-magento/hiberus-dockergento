@@ -83,10 +83,18 @@ get_magento_edition() {
 # Get base url
 #
 get_project_name() {
-    local project_name=$([[ $# > 0 ]] && echo $1 || basename "$PWD")
+    local project_name=""
 
-    if [ $# == 0 ]; then
-        print_question "Define project name " "$(echo $project_name | awk '{print tolower($0)}')"
+    if [[ $# > 0 ]]; then
+        if [[ -n $1 ]]; then
+            project_name=$(basename "$PWD" | awk '{print tolower($0)}')
+        fi
+    else
+        project_name="$1"
+    fi
+
+    if [[ -z $project_name ]]; then
+        print_question "Define project name " "$(basename "$PWD" | awk '{print tolower($0)}')"
         read -r COMPOSE_PROJECT_NAME
 
         if [[ $COMPOSE_PROJECT_NAME == '' ]]; then
@@ -103,30 +111,28 @@ get_project_name() {
 # Get base url
 #
 get_domain() {
-    DEFAULT_DOMAIN="magento-$COMMAND_BIN_NAME.local/"
-    project_name=$([[ $# > 0 ]] && echo $1 || basename "$PWD")
-   
-    if [[ -n $COMPOSE_PROJECT_NAME ]]; then
-        project_name=$COMPOSE_PROJECT_NAME
+    local project_name=""
+
+    if [[ $# > 0 ]] && [[ -n $1 ]]; then
+        project_name=$(basename "$PWD" | awk '{print tolower($0)}')
     fi
 
-    if [ $# == 0 ]; then
-        print_question "Define domain " "$(echo "$project_name" | awk '{print tolower($0)}').local"
-        read -r DOMAIN
+    if [[ -z $project_name ]]; then
+        calculated_name=$(basename "$PWD" | awk '{print tolower($0)}')
+        suggested_name=${COMPOSE_PROJECT_NAME:-$calculated_name}.local
+        print_question "Define domain " "$suggested_name"
+        read -r domain
 
-        if [[ $DOMAIN == '' ]]; then
-            DOMAIN="$project_name.local"
+        if [[ -z $domain ]]; then
+            domain="$suggested_name"
         fi
-    elif [[ $1 == '--yyy' ]]; then
-        DOMAIN=$DEFAULT_DOMAIN
     else
-        DOMAIN=$1
+        domain=$1
     fi
 
     # Transform domain name to lowercase
-    DOMAIN=$(echo $DOMAIN | awk '{print tolower($0)}')
-
-    export DOMAIN=$DOMAIN
+    domain=$(echo $domain | awk '{print tolower($0)}')
+    export DOMAIN=$domain
 }
 
 #

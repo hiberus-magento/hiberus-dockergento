@@ -9,9 +9,8 @@ domain=""
 version=""
 edition=""
 root_directory=""
-default=false
 
-export DEFAULT_SETTINGS=$default
+export USE_DEAFULT_SETTINGS=false
 
 #
 # Overwrite file consent
@@ -96,13 +95,12 @@ while getopts ":p:e:v:r:d" options; do
         ;;
         d)
             # default settings
-            default=true
             project_name=$(basename "$PWD")
             domain="$project_name.local"
             edition="community"
             version="$(get_last_version)"
             root_directory="."
-            export DEFAULT_SETTINGS=$default
+            export USE_DEAFULT_SETTINGS=true
         ;;
         ?)
             source "$HELPERS_DIR"/print_usage.sh

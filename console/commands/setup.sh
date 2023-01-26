@@ -5,6 +5,7 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
 
+export USE_DEAFULT_SETTINGS=false
 dump=""
 force_setup=false
 
@@ -33,6 +34,7 @@ ask_dump() {
 choice_database_mode_creation() {
     flow_database_opt="SQL-Dump Magento-Installation"
 
+    # install and use default
     print_info "\nIf your project has many custom modules it's possible that install command can fail.\n"
     print_question "Choose an option:\n"
 
@@ -53,7 +55,7 @@ choice_database_mode_creation() {
 create_docker_compose() {
     if [[ -f "docker-compose.yml" ]]; then
         if $force_setup || [[ -z "$(cat "docker-compose.yml" | grep "hiberus-magento")" ]]; then
-          "$TASKS_DIR"/version_manager.sh
+            "$TASKS_DIR"/version_manager.sh
         else
             source "$HELPERS_DIR"/properties.sh
             save_properties
@@ -64,24 +66,33 @@ create_docker_compose() {
 }
 
 #
+# Prepare final summary
+#
+summary_process() {
+    print_info "\nSetup completed!!!\n\n"
+    print_info "Open "
+    print_link "https://$DOMAIN/\n\n"
+}
+
+#
 # Execute setup command
 #
 setup_execute() {
     # Prepare environment
-    if [[ -f $CUSTOM_PROPERTIES_DIR/properties.json ]]; then
+    if [[ -f "$CUSTOM_PROPERTIES_DIR"/properties.json ]]; then
         DOMAIN=${DOMAIN:=""}
         project_name=${project_name:-$COMPOSE_PROJECT_NAME}
         domain=${domain:-$DOMAIN}
         magento_root_directory=${magento_root_directory:-$MAGENTO_DIR}
     fi
-    
     get_project_name ${project_name:=""}
     get_domain ${domain:=""}
     get_magento_root_directory ${magento_root_directory:=""}
-    echo "DUMP IS: ${#dump}"
-    if [[ -z $dump ]]; then
+    
+    if [[ -z $dump ]] && ! $install_option; then
         choice_database_mode_creation
     fi
+
     create_docker_compose 
 
     # Start services
@@ -89,12 +100,11 @@ setup_execute() {
     # Magento installation
     "$TASKS_DIR"/magento_installation.sh "$dump"
 
-    print_info "\nSetup completed!\n"
-    print_info "Open "
-    print_link "https://$DOMAIN/\n"
+    summary_process
 }
 
-while getopts ":D:p:d:r:f" options; do
+# Process options
+while getopts ":D:p:d:r:fui" options; do
     case "$options" in
         D)
             # Dump
@@ -107,15 +117,22 @@ while getopts ":D:p:d:r:f" options; do
         p)
             # Project name
             project_name="$OPTARG"
-            domain=${domain:="$project_name.local"}
         ;;
         d)
-            # domain
+            # Domain
             domain="$OPTARG"
         ;;
         r)
             # Magento root 
             magento_root_directory="$OPTARG"
+        ;;
+        i)
+            # Choise magento install option
+            install_option=true
+        ;;
+        u)
+            # Use saved user settings
+            export USE_DEAFULT_SETTINGS=true
         ;;
         f)
             # Force
@@ -131,4 +148,4 @@ while getopts ":D:p:d:r:f" options; do
     esac
 done
 
-setup_execute "$@"
+setup_execute

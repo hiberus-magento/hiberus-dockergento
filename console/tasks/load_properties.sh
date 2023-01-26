@@ -46,13 +46,13 @@ load_colors() {
 #
 load_properties() {
     # If exist project properties, use it in 
-    files=""
+    local files=""
     if [[ -f "$CUSTOM_PROPERTIES_DIR"/properties.json ]]; then
         files="$CUSTOM_PROPERTIES_DIR/properties.json"
     fi
 
     # Prepare string in sh format for executing 
-    properties=$(jq -r '
+    local properties=$(jq -r '
         to_entries[]
         | .key + "=\"" + .value + "\""
     ' "$DATA_DIR"/properties.json $files)
