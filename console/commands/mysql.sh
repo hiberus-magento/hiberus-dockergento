@@ -4,7 +4,7 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 
 mysql_container=$(docker ps -qf "name=db")
-delete_definers=false
+clean_definers=false
 
 #
 # Execute query in mysql container
@@ -63,13 +63,14 @@ set_settings_for_develop() {
 }
 
 #
-#
+# Mysql execute
 #
 mysql_execute() {
+    # Import option
     if [[ -n ${import_database:=""} ]]; then
         set_current_domain
         # Check if there is to delete DEFINER and import database
-        if $delete_definers ; then
+        if $clean_definers ; then
             cleaned=${import_database/".sql"/"-cleaned.sql"}
             cat $import_database | sed 's/DEFINER=[^*]*\*/\*/g' > $cleaned
             docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\"" < $cleaned
@@ -80,6 +81,7 @@ mysql_execute() {
         set_settings_for_develop
         exit
     fi
+    # Go into mysql container
     docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
 }
 
@@ -88,14 +90,15 @@ if [ -z "$mysql_container" ]; then
     exit 1
 fi
 
+# If stdin has content
 if [ ! -t 0 ]; then
     docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
 else
-    while getopts ":i:q:bd" options; do
+    while getopts ":i:q:d" options; do
         case "$options" in
             i)
-                import_database=${OPTARG/"~"/$HOME}
                 # Import database
+                import_database=${OPTARG/"~"/$HOME}
                 if [[ ! -f $import_database ]]; then
                     print_warning "No such file: $OPTARG\n"
                     exit 0
@@ -107,8 +110,8 @@ else
                 exit
             ;;
             d)
-                # Delete DEFINER
-                delete_definers=true
+                # Clean DEFINER
+                clean_definers=true
             ;;
             ?)
                 print_error "The command is not correct\n\n"

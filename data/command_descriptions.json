@@ -141,7 +141,13 @@
             "example": "mysql < local-path/my-dump.sql\n\t hm mysql -d -i=my-dump.sql",
             "description": "Execute mysql command into container",
             "opts": [
-                 {
+                {
+                    "name": {
+                        "short": "d",
+                        "long": "definers"
+                    },
+                    "description": "Process database before import (with -i option), removing all DEFINER root"
+                }, {
                     "name": {
                         "short": "i",
                         "long": "import"
@@ -153,12 +159,6 @@
                         "long": "query"
                     },
                     "description": "Execute query"
-                }, {
-                    "name": {
-                        "short": "d",
-                        "long": "definers"
-                    },
-                    "description": "Process database before import (with -i option), removing all DEFINER root"
                 }
             ]
         },
