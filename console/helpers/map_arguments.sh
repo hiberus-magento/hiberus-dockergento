@@ -17,7 +17,7 @@ parseToShortArguments() {
         long_name=$(echo "$file" | jq -r '.["'$command_name'"].opts['$i'].name.long')
 
         # Replace long by short
-        arguments=$(echo $arguments |\
+        arguments=$(echo "$arguments" |\
             sed s/--$long_name/-$short_name/ |\
             sed 's/-'$short_name'=/-'$short_name' /')
     done

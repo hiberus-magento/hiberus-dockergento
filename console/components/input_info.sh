@@ -38,7 +38,7 @@ get_equivalent_version_if_exit() {
 get_magento_version() {
     DEFAULT_MAGENTO_VERSION="$(get_last_version)"
 
-    if [ $# == 0 ]; then
+    if [[ $# -eq 0 || -z "$1" ]]; then
         print_question "Magento version: " "$DEFAULT_MAGENTO_VERSION"
         read -r MAGENTO_VERSION
 
@@ -50,7 +50,7 @@ get_magento_version() {
     fi
 
     get_equivalent_version_if_exit "$MAGENTO_VERSION"
-    export MAGENTO_VERSION=$MAGENTO_VERSION   
+    export MAGENTO_VERSION=$EQUIVALENT_VERSION   
 }
 
 #
@@ -59,7 +59,7 @@ get_magento_version() {
 get_magento_edition() {
     AVAILABLE_MAGENTO_EDITIONS="community enterprise"
 
-    if [ $# == 0 ]; then
+    if [[ $# -eq 0 || -z "$1" ]]; then
         print_question "Magento edition:\n"
         select MAGENTO_EDITION in ${AVAILABLE_MAGENTO_EDITIONS}; do
             if $("$TASKS_DIR/in_list.sh" "$MAGENTO_EDITION" "$AVAILABLE_MAGENTO_EDITIONS"); then
@@ -73,7 +73,12 @@ get_magento_edition() {
             echo "invalid option '$REPLY'"
         done
     else
-        MAGENTO_EDITION=$1
+        if [[ $1 == "community" || $1 == "enterprise" ]]; then
+            MAGENTO_EDITION=$1
+        else
+            print_warning "Edition '$1' is not available.\n"
+            get_magento_edition
+        fi
     fi
 
     export MAGENTO_EDITION=$MAGENTO_EDITION

@@ -88,7 +88,7 @@
                         "long": "version"
                     },
                     "description": "Magento version (you can see all available version with hm compatibility command)"
-                } 
+                }
             ]
         },
         "debug-off": {
