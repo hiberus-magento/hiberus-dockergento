@@ -35,7 +35,6 @@ overwrite_file_consent() {
 # Initialize command script
 #
 create_project_execute() {
-
     # Get magento version information
     get_magento_edition "$edition"
     get_magento_version "$version"
@@ -95,11 +94,13 @@ while getopts ":p:e:v:r:d" options; do
         ;;
         d)
             # default settings
-            project_name=$(basename "$PWD")
+            suggested_name=$(basename "$PWD")
+            last_version="$(get_last_version)"
+            project_name=${project_name:-$suggested_name}
             domain="$project_name.local"
-            edition="community"
-            version="$(get_last_version)"
-            root_directory="."
+            edition=${edition:="community"}
+            version=${version:-$last_version}
+            root_directory=${root_directory:="."}
             export USE_DEAFULT_SETTINGS=true
         ;;
         ?)

@@ -60,10 +60,10 @@
             "opts": [
                 {
                     "name": {
-                        "short": "p",
-                        "long": "project-name"
+                        "short": "d",
+                        "long": "default"
                     },
-                    "description": "Project name. Domain is compose with <project_name>.local"
+                    "description": "Use default settings: \n\t\t\t- edition = community \n\t\t\t- version = <last-version> \n\t\t\t- project-name = <basename> \n\t\t\t- root-directory = '.' \n\t\t\t- basic-settings = <default-local-settings>)"
                 }, {
                     "name": {
                         "short": "e",
@@ -72,10 +72,10 @@
                     "description": "Magento edition (community | enterprise) "
                 }, {
                     "name": {
-                        "short": "v",
-                        "long": "version"
+                        "short": "p",
+                        "long": "project-name"
                     },
-                    "description": "Magento version (you can see all available version with hm compatibility command)"
+                    "description": "Project name. Domain is compose with <project_name>.local"
                 }, {
                     "name": {
                         "short": "r",
@@ -84,10 +84,10 @@
                     "description": "Project relative path"
                 }, {
                     "name": {
-                        "short": "d",
-                        "long": "default"
+                        "short": "v",
+                        "long": "version"
                     },
-                    "description": "Use default settings: \n\t\t\t- edition = community \n\t\t\t- version = <last-version> \n\t\t\t- project-name = <basename> \n\t\t\t- root-directory = '.' \n\t\t\t- basic-settings = <default-local-settings>)"
+                    "description": "Magento version (you can see all available version with hm compatibility command)"
                 }
             ]
         },
