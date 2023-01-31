@@ -7,10 +7,12 @@ pushd ${COMMANDS_DIR} >/dev/null 2>&1
 
 # If it's a GIT installation, pull last changes
 if git rev-parse --git-dir >/dev/null 2>&1; then
-
-    git pull origin $(git rev-parse --abbrev-ref HEAD) >/dev/null 2>&1 &&
-        print_info "${COMMAND_TOOLNAME} updated!\n" ||
+    if git pull origin $(git rev-parse --abbrev-ref HEAD) >/dev/null 2>&1 ; then
+        print_info "${COMMAND_TOOLNAME} updated!\n"
+        "$ABSOLUTE_PATH"/generate_completion.sh
+    else
         print_error "Error during update.\n"
+    fi
 
 # If it isn't a GIT installation, throw error
 else

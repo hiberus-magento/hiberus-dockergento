@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 complete -W "bash \ 
-cloud \
-cloud-login \
-compatibility \
-composer \
+cloud-login \ 
+cloud \ 
+compatibility \ 
+composer \ 
 copy-from-container \ 
 copy-to-container \ 
 create-project \ 
@@ -19,9 +19,9 @@ install \
 magento \ 
 mysql \ 
 mysqldump \ 
-n98-magerun \
-npm \
-purge \
+n98-magerun \ 
+npm \ 
+purge \ 
 rebuild \ 
 restart \ 
 set-host \ 

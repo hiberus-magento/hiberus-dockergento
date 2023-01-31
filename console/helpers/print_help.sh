@@ -12,7 +12,7 @@ source "$HELPERS_DIR"/print_usage.sh
 #
 print_commands_info() {
     local command_path="$COMMANDS_DIR"
-    local file_content="{}"
+    local file_content="$(cat "$DATA_DIR"/command_descriptions.json)"
     local command_color="$GREEN"
     local title="Command list"
     local underline="------------\n"
@@ -35,14 +35,18 @@ print_commands_info() {
     local files=$(find "$command_path" -name '*.sh' | wc -l)
 
     if [ "$files" -gt 0 ]; then
-        echo -e "${command_color}\n${title}\n${underline}${COLOR_RESET}"
+        echo -e "$command_color\n$title\n$underline$COLOR_RESET"
 
         for script in "$command_path"/*.sh; do
             command_basename=$(basename "$script")
             command_name=${command_basename%.sh}
             command_information=$(echo "$file_content" | jq -r '.["'$command_name'"]')
             command_desc_property=$(echo "$command_information" | jq -r 'if .description then .description else "" end')
-            printf "   $command_color%-20s$COLOR_RESET %s\n" "$command_name" "$command_desc_property"
+            mac=$(echo "$command_information" | jq -r '.mac')
+            
+            if [[ "$MACHINE" == "mac" || $mac != true ]]; then
+                printf "   $command_color%-20s$COLOR_RESET %s\n" "$command_name" "$command_desc_property"
+            fi
         done
 
         printf "\n\n"
