@@ -9,7 +9,7 @@ source "$COMPONENTS_DIR"/input_info.sh
 create_database() {
     if [[ $# -gt 0 && -n $1 ]]; then
         "$COMMANDS_DIR"/mysql.sh < "$1"
-        "$COMMANDS_DIR"/mysql.sh "DELETE FROM admin_user;"
+        "$COMMANDS_DIR"/mysql.sh -q "DELETE FROM admin_user;"
     fi
     "$COMMANDS_DIR"/install.sh "$DOMAIN"
 }
