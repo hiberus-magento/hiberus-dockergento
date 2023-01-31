@@ -21,7 +21,7 @@ Docker environment for Magento 2 projects. Please visit our [Dockerhub repositor
 
 ## Magento compatible versions
 
-- **Magento 2.4**: `2.4.0`, `2.4.1`, `2.4.2`, `2.4.3`, `2.4.4`.
+- **Magento 2.4**: `2.4.0`, `2.4.1`, `2.4.2`, `2.4.3`, `2.4.4`. `2.4.5`
 - **Magento 2.3**: `2.3.0`, `2.3.1`, `2.3.2`, `2.3.3`, `2.3.4`, `2.3.5`, `2.3.6`, `2.3.7`.
 
 _(All patched versions are also compatible)_
@@ -38,7 +38,7 @@ curl https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/
 
 ## Create environment
 ### Existing project
-* You can launch following command for creating a Docker environment for an **existing project** (from the project directory):
+* You can execute following command for creating a Docker environment for an **existing project** (from the project directory):
 ```bash
 cd <your_project>
 hm setup
@@ -57,13 +57,14 @@ This will be the result
  ./wrapper_folder
     |__ config/
     |__ docker-compose.yml
-    |__ docker-composedev.linux.yml
-    |__ docker-composedev.mac.yml
+    |__ docker-compose.dev.linux.yml
+    |__ docker-compose.dev.mac.yml
     |__ <your_project>/
         |__ app/
         |__ ...
 ```
-[setup doc](docs/setup.md)
+[setup command documentation](docs/setup.md)
+
 ---
 ### New project
 You can launch following command for creating a Docker environment for a **new project** (from a new empty directory):
@@ -72,19 +73,26 @@ hm create-project
 ```
 <br>
 
+[create-project command documentation](docs/create-project.md)
 
+---
 ## Available commands
 
 You can see all available commands by launching following command:
 ```bash
 hm --help
 ```
+or specific command
+```bash
+hm setup --help
+```
 
 <br>
 
 ## Thanks to
 
-This project is based on [Dockergento](https://github.com/ModestCoders/magento2-dockergento). Special thanks to **ModestCoders** for their work.
+* This project is based on [Dockergento](https://github.com/ModestCoders/magento2-dockergento). Special thanks to **ModestCoders** for their work.
+* Several improves have been inspired on [Docker-magento](https://github.com/markshust/docker-magento).
 
 <br>
 
@@ -94,6 +102,6 @@ This project is based on [Dockergento](https://github.com/ModestCoders/magento2-
 
 <br/>
 
-## Licence
+## License
 
 [GNU General Public License, version 3 (GPLv3)](https://opensource.org/licenses/gpl-3.0)
