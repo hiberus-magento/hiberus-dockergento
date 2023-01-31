@@ -46,7 +46,7 @@ edit_version() {
 # Select editable services and changes her value
 #
 edit_versions() {
-    opts=$(echo "$REQUIREMENTS " | jq -r 'keys | join(" ")')
+    opts=$(echo "$REQUIREMENTS" | jq -r 'keys | join(" ")')
 
     print_question "Choose service:\n"
     select select_result in $opts; do
@@ -129,7 +129,7 @@ get_equivalent_version_if_exit() {
 #
 get_requirements() {
     if [ "$#" -gt 0 ]; then
-        REQUIREMENTS=$(jq -r '.["'$1'"]' < "$DATA_DIR/requirements.json" )
+        REQUIREMENTS=$(jq -r '.["'$1'"]' "$DATA_DIR/requirements.json")
         if ! $USE_DEAFULT_SETTINGS; then
             change_requirements
         fi

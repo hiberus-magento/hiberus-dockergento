@@ -7,8 +7,7 @@ regex=""
 # Compose regex with requirements
 #
 compose_regex() {
-    local services
-    services=$(echo "$REQUIREMENTS" | jq -r 'keys|join(" ")')
+    local services=$(echo "$REQUIREMENTS" | jq -r 'keys|join(" ")')
 
     for index in $services; do
         value=$(echo "$REQUIREMENTS" | jq -r '.'"$index"'')

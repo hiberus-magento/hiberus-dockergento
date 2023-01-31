@@ -28,6 +28,7 @@ clear_dest_dir() {
     fi
 }
 
+# Command only available in Mac OS
 if [[ "$MACHINE" != "mac" ]]; then
     print_error " This command is only for mac system.\n"
     exit 1

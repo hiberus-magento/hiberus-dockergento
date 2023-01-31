@@ -107,7 +107,7 @@ while getopts ":p:e:v:r:d" options; do
             source "$HELPERS_DIR"/print_usage.sh
             print_error "The command is not correct\n"
             print_info "Use this format\n"
-            get_usage "create-project"
+            get_usage "$(basename ${0%.sh})"
             exit 1
         ;;
     esac

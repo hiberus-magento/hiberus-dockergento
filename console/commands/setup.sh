@@ -142,7 +142,7 @@ while getopts ":D:p:d:r:fui" options; do
             print_error "The command is not correct\n\n"
             print_info "Use this format\n"
             source "$HELPERS_DIR"/print_usage.sh
-            get_usage "setup"
+            get_usage "$(basename ${0%.sh})"
             exit 1
         ;;
     esac

@@ -117,7 +117,7 @@ else
                 print_error "The command is not correct\n\n"
                 print_info "Use this format\n"
                 source "$HELPERS_DIR"/print_usage.sh
-                get_usage "mysql"
+                get_usage "$(basename ${0%.sh})"
                 exit 1
             ;;
         esac
