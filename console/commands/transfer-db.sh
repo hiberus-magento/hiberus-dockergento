@@ -14,7 +14,7 @@ sqlPassword=""
 print_info "Database transfer assistant: \n"
 
 # Check php container
-if [ -z "$(docker ps | grep php)" ]; then
+if [ -z "$(docker ps | grep phpfpm)" ]; then
     print_error "Error: PHP container is not running!\n"
     exit 1
 fi
