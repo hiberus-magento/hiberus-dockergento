@@ -28,7 +28,7 @@ You can use it to:
 Project without a docker or with a docker different to `Hiberus Dockergento`.
 
 #### Steps
-* From root Magento directory or parent directory of Magento project
+* From root Magento directory or parent directory of Magento project.
 
 ```bash
 hm setup [ OPTIONS ]

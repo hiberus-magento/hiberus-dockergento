@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
+#
+# Check if exist in array
+#
 in_array() {
-    set -x
     local match="$1"
     local array="$2"
     shift
@@ -11,5 +13,4 @@ in_array() {
     done
     
     return 1
-    set +x
 }

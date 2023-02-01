@@ -22,4 +22,4 @@ hm bash -r
 
 | Name                    | Description                                 | Example             |
 | ----------------------- | ------------------------------------------- | ------------------- |
-| `-r`, `--root`          | Execute with root user                      | `hm bash -r`        |
+| `-r`, `--root`          | Execute with root user.                     | `hm bash -r`        |
