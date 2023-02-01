@@ -27,7 +27,7 @@
             "description": "Execute composer inside php container",
             "args": [
                 {
-                    "name": "[args]",
+                    "name": "composer subcommands",
                     "description": "composer commands (install, update, ...)"
                 }
             ]
