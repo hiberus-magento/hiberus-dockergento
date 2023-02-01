@@ -2,7 +2,7 @@
 
 dir=$(dirname -- "$(readlink -f -- "$0")")
 executable="source $dir/console/hm-completion.bash"
-exclude_commands="copy-from-container copy-to-container watch"
+exclude_commands="copy-from-container copy-to-container"
 
 [[ "$(uname -s)" == "Darwin" ]] && mac_machine=true || mac_machine=false
 
