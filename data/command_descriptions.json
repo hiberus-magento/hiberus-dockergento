@@ -251,7 +251,16 @@
             "description": "Install SSL certificates for docker environment"
         },
         "start": {
-            "description": "Start docker services"
+            "description": "Start docker services",
+            "opts": [
+                {
+                    "name": {
+                        "short": "s",
+                        "long": "switch"
+                    },
+                    "description": "Stop all docker container before execute start"
+                }
+            ]
         },
         "stop": {
             "description": "Stop docker services"
