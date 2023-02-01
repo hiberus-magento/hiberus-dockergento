@@ -36,6 +36,5 @@ transfer-media \
 update \ 
 urn-generate \ 
 varnish-off \ 
-varnish-on \ 
-watch \ 
+varnish-on \
 " hm
