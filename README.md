@@ -38,17 +38,17 @@ curl https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/
 
 ## Create environment
 ### Existing project
-* You can execute following command for creating a Docker environment for an **existing project** (from the project directory):
+* You can execute the following command to create a Docker environment for an **existing project** (from the project directory).
 ```bash
 cd <your_project>
 hm setup
 ```
-* If you want the files are outside your project to doesn't be tracked by git.
+* If you want the docker config files to be outside your project not to be tracked by git.
 ```bash
 cd wrapper_folder
 hm setup
 ``` 
-Answer this question with the relative path of your project
+Answer this question with the relative path of your project.
 <br>
 <span style="color: steelblue;" >Magento root dir:  </span> <span style="color: #c0c0c0" ><your_project></span>
 
@@ -67,7 +67,7 @@ This will be the result
 
 ---
 ### New project
-You can launch following command for creating a Docker environment for a **new project** (from a new empty directory):
+You can launch following command to create a Docker environment for a **new project** (from a new empty directory).
 ```bash
 hm create-project
 ```
@@ -75,10 +75,23 @@ hm create-project
 
 [create-project command documentation](docs/create-project.md)
 
+
 ---
+
+### Import database
+You can launch the following command to import database and to save configs after import process.
+```bash
+hm mysql -i /path/.../dump.sql
+```
+<br>
+
+[mysql command documentation](docs/mysql.md)
+
+---
+
 ## Available commands
 
-You can see all available commands by launching following command:
+You can see all available commands by launching the following command.
 ```bash
 hm --help
 ```
@@ -92,16 +105,16 @@ hm setup --help
 ## Thanks to
 
 * This project is based on [Dockergento](https://github.com/ModestCoders/magento2-dockergento). Special thanks to **ModestCoders** for their work.
-* Several improves have been inspired on [Docker-magento](https://github.com/markshust/docker-magento).
+* Several improvements have been inspired on [Docker-magento](https://github.com/markshust/docker-magento).
 
 <br>
 
 ## Copyright
 
-[(c) Hiberus Tecnología](https://hiberus.com)
+[(c) Hiberus Tecnología](https://hiberus.com).
 
 <br/>
 
 ## License
 
-[GNU General Public License, version 3 (GPLv3)](https://opensource.org/licenses/gpl-3.0)
+[GNU General Public License, version 3 (GPLv3)](https://opensource.org/licenses/gpl-3.0).
