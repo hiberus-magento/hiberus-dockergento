@@ -1,6 +1,6 @@
 # hm magento
 
-Execute magento command in container.
+Execute `magento` native command in container.
 
 ## Usage
 
@@ -10,7 +10,7 @@ hm magento [ARGUMENTS]
 
 ## Description
 
-The `magento` command is used to launch a magento command on container.
+The `magento` command is used to launch a `magento` native command on container.
 
 ```bash
 hm magento [ clean:cache | setup:upgrade | ... ]

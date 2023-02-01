@@ -22,4 +22,4 @@ hm exec -r
 
 | Name                    | Description                                 | Example             |
 | ----------------------- | ------------------------------------------- | ------------------- |
-| `-r`, `--root`          | Execute with root user                      | `hm exec -r`        |
+| `-r`, `--root`          | Execute with root user.                     | `hm exec -r`        |

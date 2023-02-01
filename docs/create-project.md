@@ -46,10 +46,10 @@ hm create-project -e community -v 2.4.5 -p project-name
 > You can combine it with -d option
 ## Options
 
-| Name                     | Description                                             | Example                                         |
-| ------------------------ | ------------------------------------------------------- | ----------------------------------------------- |
-| `-d`, `--default`        | Use default settings.                                   | `hm create-project -d`                          |
-| `-e`, `--edition`        | Define Magento edition (community \| enterprise).       | `hm create-project -e community`                |
-| `-p`, `--project-name`   | Project path. Use relative path.                        | `hm create-project -p ./my_project`             |
-| `-r`, `--root-directory` | Path to root directory where Magento project is,        | `hm create-project -r "./project"`              |
-| `-v`, `--version`        | Define Magento version,                                 | `hm create-project -v 2.4.5-p1`                 |
+| Name                     | Description                                             | Example                            |
+| ------------------------ | ------------------------------------------------------- | ---------------------------------- |
+| `-d`, `--default`        | Use default settings.                                   | `hm create-project -d`             |
+| `-e`, `--edition`        | Define Magento edition (community \| enterprise).       | `hm create-project -e community`   |
+| `-p`, `--project-name`   | Project path. Use relative path.                        | `hm create-project -p ./my_project`|
+| `-r`, `--root-directory` | Path to root directory where Magento project is.        | `hm create-project -r "./project"` |
+| `-v`, `--version`        | Define Magento version,                                 | `hm create-project -v 2.4.5-p1`    |

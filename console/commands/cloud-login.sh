@@ -8,7 +8,7 @@ if [ -z "$(docker ps | grep phpfpm)" ]; then
     exit
 fi
 
-print_default "Access to following link and generate a new API Token for Magento Cloud Cli:\n"
+print_default "Access to following link and generate a new API Token for Magento Cloud CLI:\n"
 print_link "https://accounts.magento.cloud/user/api-tokens\n\n"
 
 docker-compose exec phpfpm bash -c "magento-cloud auth:api-token-login"

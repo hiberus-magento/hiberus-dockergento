@@ -25,7 +25,6 @@ hm start [ phpfpm | mginx | ... ]
 
 ## Options
 
-| Name                     | Description                                             | Example                     |
-| ------------------------ | ------------------------------------------------------- | --------------------------- |
-| `-s` , `--switch`        | Stop all docker containers before starting.             | `hm start -s`               |
-
+| Name               | Description                                  | Example        |
+| ------------------ | -------------------------------------------- | -------------- |
+| `-s` , `--switch`  | Stop all docker containers before starting.  | `hm start -s`  |
