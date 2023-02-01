@@ -11,13 +11,13 @@
                 }
             ]
         },
-        "cloud": {
-            "description": "Magento Cloud Cli",
-            "usage": "cloud [options]"
-        },
         "cloud-login": {
             "description": "Magento Cloud Login",
             "args": []
+        },
+        "cloud": {
+            "description": "Magento Cloud Cli",
+            "usage": "cloud [options]"
         },
         "compatibility": {
             "description": "Check Magento version compatibility",
@@ -124,6 +124,19 @@
                 }
             ],
             "example": "exec ls -lah"
+        }, 
+        "grunt": {
+            "description": "Prepare grunt configuration and compile theme styles using grunt",
+            "example": "grunt Hiberus/luma es_ES",
+            "args": [
+                {
+                    "name": "Vendor/theme",
+                    "description": "Theme vendor reference"
+                }, {
+                    "name": "locale_LOCALE",
+                    "description": "Locale code"
+                }
+            ]
         },
         "install": {
             "description": "Execute setup:install magento command with custom config",
@@ -277,6 +290,9 @@
         "transfer-media": {
             "description": "Tranfer multimedia recurses form external source to this project"
         },
+        "update": {
+            "description": "Update hiberus docker tool"
+        },
         "urn-generate": {
             "description": "Generates the catalog of URNs to *.xsd mappings for the IDE to highlight xml",
             "example": "urn-generate .idea/misc.xml",
@@ -287,38 +303,10 @@
                 }
             ]
         },
-        "update": {
-            "description": "Update hiberus docker tool"
-        },
         "varnish-off": {
             "description": "Turn off varnish service"
         },
         "varnish-on": {
             "description": "Turn on varnish service"
-        },
-        "watch": {
-            "description": "(Mac only) Synchronize changes for paths that are not a bind mount (i.e: vendor)",
-            "example": "watch vendor/namespace/<module-to-watch>",
-            "mac": true,
-            "args": [
-                {
-                    "name": "path",
-                    "description": "Folder path to be synchronized",
-                    "multiple": true
-                }
-            ]
-        },
-        "grunt": {
-            "description": "Prepare grunt configuration and compile theme styles using grunt",
-            "example": "grunt Hiberus/luma es_ES",
-            "args": [
-                {
-                    "name": "Vendor/theme",
-                    "description": "Theme vendor reference"
-                }, {
-                    "name": "locale_LOCALE",
-                    "description": "Locale code"
-                }
-            ]
         }
     }
