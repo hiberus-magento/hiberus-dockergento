@@ -89,7 +89,7 @@ setup_execute() {
     get_domain ${domain:=""}
     get_magento_root_directory ${magento_root_directory:=""}
     
-    if [[ -z $dump ]] && ! $install_option; then
+    if [[ -z $dump ]] && ! ${install_option:=false}; then
         choice_database_mode_creation
     fi
 

@@ -165,7 +165,7 @@
                         "short": "i",
                         "long": "import"
                     },
-                    "description": "Import SQL dump and configurate minimal settings for local environment"
+                    "description": "Import SQL dump and config minimal settings for local environment"
                 }, {
                     "name": {
                         "short": "q",
@@ -256,7 +256,7 @@
                         "short": "u",
                         "long": "use-default"
                     },
-                    "description": "Use defult settigs of user for language, currency, ..."
+                    "description": "Use default settings of user for language, currency, ..."
                 }
             ]
         },
@@ -285,10 +285,10 @@
             "description": "Execute your magento unit test"
         },
         "transfer-db": {
-            "description": "Tranfer database form external source to this project"
+            "description": "Transfer database form external source to this project"
         },
         "transfer-media": {
-            "description": "Tranfer multimedia recurses form external source to this project"
+            "description": "Transfer multimedia recurses form external source to this project"
         },
         "update": {
             "description": "Update hiberus docker tool"

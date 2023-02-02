@@ -94,21 +94,20 @@ get_project_name() {
         if [[ -n $1 ]]; then
             project_name=$(basename "$PWD" | awk '{print tolower($0)}')
         fi
-    else
-        project_name="$1"
     fi
 
     if [[ -z $project_name ]]; then
-        print_question "Define project name " "$(basename "$PWD" | awk '{print tolower($0)}')"
+        suggested_name="$(basename "$PWD" | awk '{print tolower($0)}')"
+        print_question "Define project name " "$suggested_name"
         read -r COMPOSE_PROJECT_NAME
 
         if [[ $COMPOSE_PROJECT_NAME == '' ]]; then
-            COMPOSE_PROJECT_NAME=$project_name
+            COMPOSE_PROJECT_NAME=$suggested_name
         fi
     else
         COMPOSE_PROJECT_NAME=$(echo $1 | awk '{print tolower($0)}')
     fi
-
+    
     export COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME
 }
 
