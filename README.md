@@ -100,6 +100,45 @@ or specific command
 hm setup --help
 ```
 
+## Custom CLI Commands
+
+- [bash](docs/bash.md)
+- [cloud-login](docs/cloud-login.md)
+- [cloud](docs/cloud.md)
+- [compatibility](docs/compatibility.md)
+- [composer](docs/composer.md)
+- [copy-from-container](docs/copy-from-container.md)
+- [copy-to-container](docs/copy-to-container.md)
+- [create-project](docs/create-project.md)
+- [debug-off](docs/debug-off.md)
+- [debug-on](docs/debug-on.md)
+- [docker-compose](docs/docker-compose.md)
+- [docker-stop-all](docs/docker-stop-all.md)
+- [down](docs/down.md)
+- [exec](docs/exec.md)
+- [grunt](docs/grunt.md)
+- [install](docs/install.md)
+- [magento](docs/magento.md)
+- [mysql](docs/mysql.md)
+- [mysqldump](docs/mysqldump.md)
+- [n98-magerun](docs/n98-magerun.md)
+- [npm](docs/npm.md)
+- [purge](docs/purge.md)
+- [rebuild](docs/rebuild.md)
+- [restart](docs/restart.md)
+- [set-host](docs/set-host.md)
+- [setup](docs/setup.md)
+- [ssl](docs/ssl.md)
+- [start](docs/start.md)
+- [stop](docs/stop.md)
+- [test-integration](docs/test-integration.md)
+- [test-unit](docs/test-unit.md)
+- [transfer-db](docs/transfer-db.md)
+- [transfer-media](docs/transfer-media.md)
+- [update](docs/update.md)
+- [varnish-off](docs/varnish-off.md)
+- [varnish-on](docs/varnish-on.md)
+
 <br>
 
 ## Thanks to
