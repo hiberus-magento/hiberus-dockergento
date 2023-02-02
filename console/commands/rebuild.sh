@@ -6,10 +6,10 @@ source "$COMPONENTS_DIR"/print_message.sh
 print_info "Rebuilding and starting containers in detached mode\n"
 
 if [ "$#" == 0 ]; then
-    $COMMAND_BIN_NAME stop
+    "$COMMANDS_DIR"/stop.sh
     $DOCKER_COMPOSE up --build -d nginx
 else
-    $COMMAND_BIN_NAME stop "$@"
+    "$COMMANDS_DIR"/stop.sh "$@"
     $DOCKER_COMPOSE up --build -d "$@"
 fi
 
