@@ -293,16 +293,6 @@
         "update": {
             "description": "Update hiberus docker tool"
         },
-        "urn-generate": {
-            "description": "Generates the catalog of URNs to *.xsd mappings for the IDE to highlight xml",
-            "example": "urn-generate .idea/misc.xml",
-            "args": [
-                {
-                    "name": "path",
-                    "description": "Path to xml"
-                }
-            ]
-        },
         "varnish-off": {
             "description": "Turn off varnish service"
         },
