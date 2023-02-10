@@ -32,7 +32,11 @@ set_settings_for_develop() {
         get_domain
     fi
 
-    option_keys=$(jq -r 'keys[]' < "$DATA_DIR"/local_settings.json)
+    if [[ ! -f "$DOCKER_CONFIG_DIR"/local_settings.json ]]; then
+        cp "$DATA_DIR"/local_settings.json "$DOCKER_CONFIG_DIR"/local_settings.json
+    fi
+
+    option_keys=$(jq -r 'keys[]' < "$DOCKER_CONFIG_DIR"/local_settings.json)
 
     for key in $option_keys; do
         # Replace '_' to ':' to get magento format command
@@ -42,7 +46,7 @@ set_settings_for_develop() {
         command_data=$(jq -r '."'$key'"[] | 
             select(.value == "URL").value = "https://'$DOMAIN'/" |
             select(.value == "DOMAIN").value = "'$DOMAIN'" |
-            "'$magento_command'=" + .path + "=" + .value' "$DATA_DIR"/local_settings.json)
+            "'$magento_command'=" + .path + "=" + .value' "$DOCKER_CONFIG_DIR"/local_settings.json)
 
         # Replace '=' to ' ' and execute each command
         for data in $command_data; do
@@ -52,5 +56,3 @@ set_settings_for_develop() {
         done
     done
 }
-
-set_settings_for_develop
