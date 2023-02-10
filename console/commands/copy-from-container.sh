@@ -40,8 +40,6 @@ if [[ "$1" == "--force" || "$1" == "-f" ]]; then
     shift
 fi
 
-"$COMMANDS_DIR"/stop.sh "phpfpm"
-
 source "$TASKS_DIR"/mirror_path.sh
 
 print_info "Start mirror copy of container into host\n"
@@ -63,6 +61,3 @@ for path_to_mirror in "$@"; do
 done
 
 print_info "----------------------------------------\n\n"
-
-# Start containers again because we needed to stop them before mirroring
-"$COMMANDS_DIR"/start.sh "phpfpm"
