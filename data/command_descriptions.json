@@ -32,6 +32,10 @@
                 }
             ]
         },
+        "config-env": {
+            "description": "Launch config set of project for local environment",
+            "usage": "config-env"
+        },
         "copy-from-container": {
             "description": "(Mac only) Copy and overwrite container content into host",
             "args": [
