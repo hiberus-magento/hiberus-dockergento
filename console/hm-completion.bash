@@ -5,6 +5,7 @@ cloud-login \
 cloud \ 
 compatibility \ 
 composer \ 
+config-env \ 
 copy-from-container \ 
 copy-to-container \ 
 create-project \ 
@@ -35,5 +36,5 @@ transfer-db \
 transfer-media \ 
 update \ 
 varnish-off \ 
-varnish-on \
+varnish-on \ 
 " hm
