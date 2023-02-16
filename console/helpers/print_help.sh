@@ -1,17 +1,18 @@
 #!/bin/bash
 set -euo pipefail
 
-FILE="$(cat "$DATA_DIR/command_descriptions.json")"
+command_info=""
 
 source "$COMPONENTS_DIR"/print_message.sh
 source "$TASKS_DIR"/copyright.sh
+source "$HELPERS_DIR"/print_usage.sh
 
 #
 # Print al all commands info (native and custom)
 #
 print_commands_info() {
     local command_path="$COMMANDS_DIR"
-    local file_content="$FILE"
+    local file_content="$(cat "$DATA_DIR"/command_descriptions.json)"
     local command_color="$GREEN"
     local title="Command list"
     local underline="------------\n"
@@ -22,10 +23,8 @@ print_commands_info() {
         underline="-------------------\n"
         command_color="$PURPLE"
 
-        if [ -f "$CUSTOM_COMMANDS_DIR/command_descriptions.json" ]; then
-            file_content=$(cat "$CUSTOM_COMMANDS_DIR/command_descriptions.json")
-        else
-            file_content="{}"
+        if [ -f "$command_path/command_descriptions.json" ]; then
+            file_content=$(cat "$command_path/command_descriptions.json")
         fi
     fi
 
@@ -33,17 +32,21 @@ print_commands_info() {
         exit 0
     fi
 
-    local FILES
-    FILES=$(find "$command_path" -name '*.sh' | wc -l)
+    local files=$(find "$command_path" -name '*.sh' | wc -l)
 
-    if [ "$FILES" -gt 0 ]; then
-        echo -e "${command_color}\n${title}\n${underline}${COLOR_RESET}"
+    if [ "$files" -gt 0 ]; then
+        echo -e "$command_color\n$title\n$underline$COLOR_RESET"
 
         for script in "$command_path"/*.sh; do
-            COMMAND_BASENAME=$(basename "$script")
-            COMMAND_NAME=${COMMAND_BASENAME%.sh}
-            COMMAND_DESC_PROPERTY=$(echo "$file_content" | jq -r 'if ."'"$COMMAND_NAME"'".description then ."'"$COMMAND_NAME"'".description else "" end')
-            printf "   $command_color%-20s$COLOR_RESET %s\n" "$COMMAND_NAME" "$COMMAND_DESC_PROPERTY"
+            command_basename=$(basename "$script")
+            command_name=${command_basename%.sh}
+            command_information=$(echo "$file_content" | jq -r '.["'$command_name'"]')
+            command_desc_property=$(echo "$command_information" | jq -r 'if .description then .description else "" end')
+            mac=$(echo "$command_information" | jq -r '.mac')
+            
+            if [[ "$MACHINE" == "mac" || $mac != true ]]; then
+                printf "   $command_color%-20s$COLOR_RESET %s\n" "$command_name" "$command_desc_property"
+            fi
         done
 
         printf "\n\n"
@@ -66,17 +69,18 @@ print_all_commands_help_info() {
 # Print options data array
 #
 print_opts() {
-    local LENGTH
-    LENGTH=$(echo "$FILE" | jq -r '."'"$1"'".opts | length')
+    local command_opts=$(echo "$command_info" | jq -r '.opts')
+    local length=$(echo "$command_opts" | jq -r 'length')
 
-    if [[ $LENGTH -gt 0 ]]; then
+    if [[ $length -gt 0 ]]; then
         print_info "Options:\n"
     fi
 
-    for ((i = 0; i < LENGTH; i++)); do
-        name=$(echo "$FILE" | jq -r '."'"$1"'".opts['"$i"'].name')
-        description=$(echo "$FILE" | jq -r '."'"$1"'".opts['"$i"'].description')
-        printf "   $BROWN%-16s$COLOR_RESET%s\n" "$name" "$description"
+    for ((i = 0; i < length; i++)); do
+
+        name=$(echo "$command_opts" | jq -r '.['$i'].name | "-" + .short + "|--" + .long')
+        description=$(echo "$command_opts" | jq -r '.['$i'].description')
+        printf "   $BROWN%-16s$COLOR_RESET%s\n" "[$name]" " $description"
     done
 }
 
@@ -84,17 +88,17 @@ print_opts() {
 # Print arguments data array
 #
 print_args() {
-    local LENGTH
-    LENGTH=$(echo "$FILE" | jq -r '."'"$1"'".args | length')
+    local command_args=$(echo "$command_info" | jq -r '.args')
+    local length=$(echo "$command_args" | jq -r 'length')
 
-    if [[ $LENGTH -gt 0 ]]; then
+    if [[ $length -gt 0 ]]; then
         print_info "Arguments:\n"
     fi
 
-    for ((i = 0; i < LENGTH; i++)); do
-        name=$(echo "$FILE" | jq -r '."'"$1"'".args['"$i"'].name')
-        description=$(echo "$FILE" | jq -r '."'"$1"'".args['"$i"'].description')
-        printf "   $WHITE%-13s$COLOR_RESET%s\n" "$name" "$description"
+    for ((i = 0; i < length; i++)); do
+        name=$(echo "$command_args" | jq -r '.['$i'].name')
+        description=$(echo "$command_args" | jq -r '.['$i'].description')
+        printf "   $BROWN%-16s$COLOR_RESET%s\n" "<$name>" "$description"
     done
 }
 
@@ -108,21 +112,17 @@ usage() {
         local params
         local command_name=$1
 
-        params=$(echo "$FILE" | jq -r '."'"$command_name"'" | if length > 0 then keys[] else false end')
+        command_info=$(jq -r '.["'$command_name'"]' < "$DATA_DIR/command_descriptions.json")
+        params=$(echo "$command_info" | jq -r '. | if length > 0 then keys[] else false end')
 
         if [[ $params ]]; then
             # Print usage section
-            if [[ "$params" == *"usage"* ]]; then
-                local usage
-                usage=$(echo "$FILE" | jq -r '."'"$command_name"'".usage')
-                print_info "Usage: "
-                print_code "$COMMAND_BIN_NAME $usage\n"
-            fi
+            get_usage "$command_name"
 
             # Print example section
             if [[ "$params" == *"example"* ]]; then
                 local example
-                example=$(echo "$FILE" | jq -r '."'"$command_name"'".example')
+                example=$(echo "$command_info" | jq -r '.example')
                 print_info "Example: "
                 print_code "$COMMAND_BIN_NAME $example\n"
             fi
@@ -130,7 +130,7 @@ usage() {
             # Print description section
             if [[ "$params" == *"description"* ]]; then
                 local description
-                description=$(echo "$FILE" | jq -r '."'"$command_name"'".description')
+                description=$(echo "$command_info" | jq -r '.description')
                 print_info "Description:"
                 printf "%1s$description\n"
             fi

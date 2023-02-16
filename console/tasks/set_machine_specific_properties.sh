@@ -5,16 +5,16 @@ source "$COMPONENTS_DIR"/print_message.sh
 
 unameout="$(uname -s)"
 case "$unameout" in
-Linux*)
-    MACHINE="linux"
-    DOCKER_COMPOSE_FILE_MACHINE="${DOCKER_COMPOSE_FILE_LINUX}"
+    Linux*)
+        MACHINE="linux"
+        DOCKER_COMPOSE_FILE_MACHINE="${DOCKER_COMPOSE_FILE_LINUX}"
     ;;
-Darwin*)
-    MACHINE="mac"
-    DOCKER_COMPOSE_FILE_MACHINE="${DOCKER_COMPOSE_FILE_MAC}"
+    Darwin*)
+        MACHINE="mac"
+        DOCKER_COMPOSE_FILE_MACHINE="${DOCKER_COMPOSE_FILE_MAC}"
     ;;
-*)
-    MACHINE="UNKNOWN"
+    *)
+        MACHINE="UNKNOWN"
     ;;
 esac
 
@@ -28,4 +28,4 @@ if [[ "$MACHINE" == "UNKNOWN" ]]; then
 fi
 
 export MACHINE="$MACHINE"
-export DOCKER_COMPOSE_FILE_MACHINE="${DOCKER_COMPOSE_FILE_MACHINE}"
+export DOCKER_COMPOSE_FILE_MACHINE="$DOCKER_COMPOSE_FILE_MACHINE"

@@ -28,6 +28,7 @@ clear_dest_dir() {
     fi
 }
 
+# Command only available in Mac OS
 if [[ "$MACHINE" != "mac" ]]; then
     print_error " This command is only for mac system.\n"
     exit 1
@@ -38,8 +39,6 @@ if [[ "$1" == "--force" || "$1" == "-f" ]]; then
     answer_remove_dest='y'
     shift
 fi
-
-$COMMAND_BIN_NAME stop
 
 source "$TASKS_DIR"/mirror_path.sh
 
@@ -62,6 +61,3 @@ for path_to_mirror in "$@"; do
 done
 
 print_info "----------------------------------------\n\n"
-
-# Start containers again because we needed to stop them before mirroring
-$COMMAND_BIN_NAME start

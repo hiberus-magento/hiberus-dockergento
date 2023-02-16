@@ -181,6 +181,11 @@ sub vcl_backend_response {
 }
 
 sub vcl_deliver {
+
+    set resp.http.Access-Control-Allow-Origin = "*";
+    set resp.http.Access-Control-Allow-Methods = "GET, OPTIONS";
+    set resp.http.Access-Control-Allow-Headers = "Origin, Accept, Content-Type, X-Requested-With, X-CSRF-Token";
+
     # Add debug headers
     if (resp.http.X-Magento-Debug) {
         if (obj.uncacheable) {
