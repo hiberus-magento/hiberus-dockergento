@@ -8,22 +8,22 @@ sanitize_path() {
     echo "$sanitized_path"
 }
 
-PATH_TO_CHECK="$1"
-BIND_PATH_NEEDLE="bind:${PATH_TO_CHECK}"
+bind_path_needle="bind:$1"
+container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
-CONTAINER_ID=$($DOCKER_COMPOSE ps -q phpfpm)
-if [[ ${CONTAINER_ID} != "" ]]; then
-    MOUNTS=$(docker container inspect -f '{{ range .Mounts }}{{ .Type }}:{{ .Destination }} {{ end }}' "${CONTAINER_ID}")
+if [[ $container_id != "" ]]; then
+    mounts=$(docker container inspect -f '{{ range .Mounts }}{{ .Type }}:{{ .Destination }} {{ end }}' "$container_id")
 
-    for MOUNT in ${MOUNTS}; do
-        BIND_PATH_NEEDLE=$(sanitize_path "${BIND_PATH_NEEDLE}")
-        MOUNT=$(sanitize_path "${MOUNT}")
-        if [[ "${BIND_PATH_NEEDLE}" == "${MOUNT}" ]] ||
+    for mount in $mounts; do
+        bind_path_needle=$(sanitize_path "$bind_path_needle")
+        mount=$(sanitize_path "$mount")
+        
+        if [[ "$bind_path_needle" == "$mount" ]] ||
             # needle path inside bind path
-            [[ "${BIND_PATH_NEEDLE}" == "${MOUNT}/"* ]] ||
+            [[ "$bind_path_needle" == "$mount/"* ]] ||
             # needle path contains a bind path
-            [[ "${MOUNT}" == "${BIND_PATH_NEEDLE}/"* ]]; then
-            echo "${MOUNT#bind:}"
+            [[ "$mount" == "$bind_path_needle/"* ]]; then
+            echo "${mount#bind:}"
             exit 0
         fi
     done

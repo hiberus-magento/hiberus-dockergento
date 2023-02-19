@@ -3,10 +3,9 @@ set -euo pipefail
 
 export REQUIREMENTS=""
 
-DOCKER_CONFIG_DIR="config/docker"
-
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
+source "$HELPERS_DIR"/properties.sh
 
 #
 # Copy File
@@ -14,9 +13,8 @@ source "$COMPONENTS_DIR"/input_info.sh
 copy() {
     local source_path=$1
     local target_path=$2
-    local target_dir
-    
-    target_dir=$(dirname "$target_path")
+    local target_dir=$(dirname "$target_path")
+
     mkdir -p "$target_dir"
     cp -Rf "$source_path" "$target_path"
 }
@@ -26,7 +24,7 @@ copy() {
 #
 edit_version() {
     service_name=$1
-    opts="$(cat < "$DATA_DIR/requirements.json" | jq -r '[.[] | .'"$service_name"'] | unique  | join(" ")')"
+    opts=$(jq -r '[.[] | .'["'$service_name'"]'] | unique  | join(" ")' < "$DATA_DIR/requirements.json")
 
     print_question "$service_name version:\n"
     select select_result in $opts; do
@@ -34,21 +32,21 @@ edit_version() {
             break
         fi
 
-        if $($TASKS_DIR/in_list.sh "${REPLY}" "$opts"); then
-            select_result=${REPLY}
+        if $($TASKS_DIR/in_list.sh "$REPLY" "$opts"); then
+            select_result=$REPLY
             break
         fi
-        print_warning "invalid option '${REPLY}'\n"
+        print_warning "invalid option '$REPLY'\n"
     done
 
-    REQUIREMENTS=$(echo "$REQUIREMENTS" | jq -r '.'"$service_name"'="'"$select_result"'"')
+    REQUIREMENTS=$(echo "$REQUIREMENTS" | jq -r '.["'$service_name'"]='$select_result'')
 }
 
 #
 # Select editable services and changes her value
 #
 edit_versions() {
-    opts=$(echo "$REQUIREMENTS " | jq -r 'keys | join(" ")')
+    opts=$(echo "$REQUIREMENTS" | jq -r 'keys | join(" ")')
 
     print_question "Choose service:\n"
     select select_result in $opts; do
@@ -78,7 +76,7 @@ print_requirements() {
     print_table "          REQUIREMENTS"
     print_table "\n-------------------------------\n"
     for index in $services; do
-        value=$(echo "$REQUIREMENTS" | jq -r '.'"$index"'')
+        value=$(echo "$REQUIREMENTS" | jq -r '.["'$index'"]')
         print_table "   $index: "
         print_default "$value\n"
     done
@@ -112,7 +110,7 @@ change_requirements() {
 # Get equivalent version from configuration
 #
 get_equivalent_version_if_exit() {
-    equivalent_version=$("$TASKS_DIR/get_equivalent_version.sh" "$1")
+    equivalent_version=$("$HELPERS_DIR"/get_equivalent_version.sh "$1")
 
     if [[ "$equivalent_version" = "null" ]]; then
         print_warning "\nWe don´t have support for the version $1\n"
@@ -130,25 +128,20 @@ get_equivalent_version_if_exit() {
 # If there are arguments
 #
 get_requirements() {
-    # Check if command "jq" exists
-    if ! command -v jq &>/dev/null; then
-        print_error "Required 'jq' not found"
-        print_link "https://stedolan.github.io/jq/download/\n"
-        exit
-    fi
-
     if [ "$#" -gt 0 ]; then
-        REQUIREMENTS=$(cat < "$DATA_DIR/requirements.json" | jq -r '.['\""$1"\"']')
-        change_requirements
+        REQUIREMENTS=$(jq -r '.["'$1'"]' "$DATA_DIR/requirements.json")
+        if ! $USE_DEAFULT_SETTINGS; then
+            change_requirements
+        fi
         export REQUIREMENTS=$REQUIREMENTS
     else
         if [ -f "$MAGENTO_DIR/composer.lock" ]; then
-            MAGENTO_VERSION=$(cat < "$MAGENTO_DIR/composer.lock" |
-                jq -r '.packages | map(select(.name == "magento/product-community-edition"))[].version')
+            MAGENTO_VERSION=$(jq -r '.packages |
+                map(select(.name == "magento/product-community-edition"))[].version' < "$MAGENTO_DIR/composer.lock")
             print_warning "\nVersion detected: $MAGENTO_VERSION\n"
         else
             print_error "\n------------------------------------------------------\n"
-            print_error "\n       We need a magento project in $MAGENTO_DIR/ path\n"
+            print_error "\n      Not found composer.lock in $MAGENTO_DIR/ directory\n"
             print_default "\n You can clone a project and after execute "
             print_code "$COMMAND_BIN_NAME setup"
             print_default "\n or create a new magento project with "
@@ -159,18 +152,6 @@ get_requirements() {
 
         get_equivalent_version_if_exit "$MAGENTO_VERSION"
     fi
-}
-
-#
-# Set properties in <root_project>/<docker_config>/properties
-#
-save_properties() {
-    print_info "Saving custom properties file: '$DOCKER_CONFIG_DIR/properties'\n"
-    cat <<EOF >./$DOCKER_CONFIG_DIR/properties
-  MAGENTO_DIR="$MAGENTO_DIR"
-  BIN_DIR="$BIN_DIR"
-  COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
-EOF
 }
 
 #
@@ -190,9 +171,9 @@ add_git_bind_paths_in_file() {
             continue
         fi
 
-        new_path="$MAGENTO_DIR/$filename_in_git:/var/www/html/$filename_in_git"
+        new_path="$MAGENTO_DIR/${filename_in_git}:/var/www/html/$filename_in_git"
         bind_path_exits=$(grep -q -e "$new_path" "$file_to_edit" && echo true || echo false)
-        default_file_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r '.["'"$filename_in_git"'"]')
+        default_file_magento=$(jq -r '.["'$filename_in_git'"]' < "$DATA_DIR/default_files_magento.json")
 
         if [[ "$bind_path_exits" == true ]] || [[ $default_file_magento == true ]]; then
             continue
@@ -215,9 +196,7 @@ add_git_bind_paths_in_file() {
 # Update git setting in docker-compose
 #
 set_settings() {
-    print_info "Setting up docker config files\n"
-    copy "$COMMAND_BIN_DIR/$DOCKER_CONFIG_DIR/" "$DOCKER_CONFIG_DIR"
-
+    print_info "Setting up docker config files PENDDING\n"
     print_info "Setting bind configuration for files in git repository\n"
 
     sed_in_file "s|{MAGENTO_DIR}|$MAGENTO_DIR|w /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
