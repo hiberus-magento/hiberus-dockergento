@@ -11,20 +11,20 @@ if [[ "$MACHINE" == 'linux' && "${XDEBUG_HOST:-}" == "" ]]; then
 fi
 
 if [[ "${XDEBUG_HOST:-}" != "" ]]; then
-    $COMMAND_BIN_NAME exec sed -i "s/xdebug\.remote_host\=.*/xdebug\.remote_host\=$XDEBUG_HOST/g" /usr/local/etc/php/conf.d/xdebug.ini
-    $COMMAND_BIN_NAME exec sed -i "s/xdebug\.client_host\=.*/xdebug\.client_host\=$XDEBUG_HOST/g" /usr/local/etc/php/conf.d/xdebug.ini
+    "$COMMANDS_DIR"/exec.sh sed -i "s/xdebug\.remote_host\=.*/xdebug\.remote_host\=$XDEBUG_HOST/g" /usr/local/etc/php/conf.d/xdebug.ini
+    "$COMMANDS_DIR"/exec.sh sed -i "s/xdebug\.client_host\=.*/xdebug\.client_host\=$XDEBUG_HOST/g" /usr/local/etc/php/conf.d/xdebug.ini
 fi
 
-$COMMAND_BIN_NAME exec sed -i -e 's/^\;zend_extension/zend_extension/g' /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+"$COMMANDS_DIR"/exec.sh sed -i -e 's/^\;zend_extension/zend_extension/g' /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
 if [[ "$MACHINE" == "mac" ]]; then
     print_warning "Copying generated code into host \n"
-    $COMMAND_BIN_NAME copy-from-container -f generated
-else
-    $DOCKER_COMPOSE restart phpfpm
+    "$COMMANDS_DIR"/copy-from-container.sh -f generated
 fi
+
+"$COMMANDS_DIR"/restart.sh phpfpm
 
 print_warning "xdebug configuration:\n"
 print_warning "------------------------------------------------\n"
-$COMMAND_BIN_NAME exec php -i | grep -e "xdebug.idekey" -e "xdebug.client_host" -e "xdebug.client_port" | cut -d= -f1-2
+"$COMMANDS_DIR"/exec.sh php -i | grep -e "xdebug.idekey" -e "xdebug.client_host" -e "xdebug.client_port" | cut -d= -f1-2
 print_warning "------------------------------------------------\n"
