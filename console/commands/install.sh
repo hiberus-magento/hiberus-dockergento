@@ -75,7 +75,7 @@ run_install_magento_command() {
 #
 get_base_url() {
     source "$COMPONENTS_DIR"/input_info.sh
-    get_domain "$@"
+    get_domain "${DOMAIN:=""}"
     command_arguments="$command_arguments --base-url=https://$DOMAIN/ --base-url-secure=https://$DOMAIN/"
 }
 
@@ -117,9 +117,9 @@ get_config() {
 # Initialize script
 #
 init() {
-    get_base_url "$@"
+    get_base_url
     get_config
-    run_install_magento_command
+    run_install_magento_command "$@"
 }
 
 init "$@"

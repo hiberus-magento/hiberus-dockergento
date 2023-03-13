@@ -4,7 +4,7 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 
 if [ "$#" -eq "0" ]; then
-    DOMAIN="localhost"
+    DOMAIN="${DOMAIN:="localhost"}"
 else
     DOMAIN=$1
 fi

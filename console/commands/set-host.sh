@@ -2,13 +2,19 @@
 set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
-
+modify_database=true
 #
 # Set base url in local etc/hosts en magento database
 #
 set_local_host() {
     if [ "$#" -gt 0 ]; then
         DOMAIN=$1
+        shift
+    fi
+
+    if [[ "$#" -gt 0 && $1 != "--no-database" ]]; then
+        modify_database=false
+        shift
     fi
 
     # Add domain in /etc/hosts
@@ -17,8 +23,8 @@ set_local_host() {
         echo "0.0.0.0 ::1 $DOMAIN" | sudo tee -a /etc/hosts
     fi
 
-    if [[ "$#" -eq 1 ]] || [[ "$#" -gt 1  &&  "$2" != "--no-database" ]]; then
-        print_info "Set "
+    if [[ -n "$DOMAIN" ]] && $modify_database; then
+        print_info "Set "ºº
         print_link "https://$DOMAIN/"
         print_info " to web/secure/base_url and web/secure/base_url.\n"
 
