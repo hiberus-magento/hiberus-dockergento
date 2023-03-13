@@ -64,12 +64,6 @@
             "opts": [
                 {
                     "name": {
-                        "short": "d",
-                        "long": "default"
-                    },
-                    "description": "Use default settings: \n\t\t\t- edition = community \n\t\t\t- version = <last-version> \n\t\t\t- project-name = <basename> \n\t\t\t- root-directory = '.' \n\t\t\t- basic-settings = <default-local-settings>)"
-                }, {
-                    "name": {
                         "short": "e",
                         "long": "edition"
                     },
@@ -86,6 +80,12 @@
                         "long": "root-directory"
                     },
                     "description": "Project relative path"
+                }, {
+                    "name": {
+                        "short": "u",
+                        "long": "use-default"
+                    },
+                    "description": "Use default settings: \n\t\t\t- edition = community \n\t\t\t- version = <last-version> \n\t\t\t- project-name = <basename> \n\t\t\t- root-directory = '.' \n\t\t\t- basic-settings = <default-local-settings>)"
                 }, {
                     "name": {
                         "short": "v",
