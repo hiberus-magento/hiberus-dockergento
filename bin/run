@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-command_name="$1.sh"
+command_name="${1:-""}.sh"
 export COMMAND_BIN_NAME="hm"
 export COMMAND_TOOLNAME="Hiberus Dockergento"
 
@@ -39,7 +39,6 @@ init_dirs() {
     export CUSTOM_PROPERTIES_DIR="$PWD/$DOCKER_CONFIG_DIR"
     export TASKS_DIR="$ABSOLUTE_PATH/console/tasks"
     export HELPERS_DIR="$ABSOLUTE_PATH/console/helpers"
-    export PROPERTIES_DIR="$ABSOLUTE_PATH/console/properties"
     export COMPONENTS_DIR="$ABSOLUTE_PATH/console/components"
 }
 

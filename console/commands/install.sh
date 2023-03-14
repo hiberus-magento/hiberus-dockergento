@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 
 # Get Magento version
-if [ -z "$MAGENTO_VERSION" ]; then
+if [ -z "${MAGENTO_VERSION:-""}" ]; then
     if [ -f "$MAGENTO_DIR/composer.lock" ]; then
         MAGENTO_VERSION=$(cat <"$MAGENTO_DIR/composer.lock" |
         jq -r '.packages | map(select(.name == "magento/product-community-edition"))[].version')
@@ -85,7 +87,7 @@ get_base_url() {
 get_argument_command() {
     argument=$(jq -r '.["'$1'"]' "$DATA_DIR/config.json")
     
-    if ! $USE_DEAFULT_SETTINGS; then
+    if ! ${USE_DEAFULT_SETTINGS:-false}; then
         print_question "Define $1 " "$argument"
         read -r response
 
