@@ -19,12 +19,19 @@ fi
 
 if [[ "$MACHINE" == "mac" ]]; then
     print_warning "Copying generated code into host \n"
-    "$COMMANDS_DIR"/copy-from-container.sh -f generated
+    "$COMMANDS_DIR"/copy-from-container.sh generated
 fi
 
 "$COMMANDS_DIR"/restart.sh phpfpm
+xdebug_version=$("$COMMANDS_DIR"/exec.sh php -v | grep "Xdebug v")
 
 print_warning "xdebug configuration:\n"
 print_warning "------------------------------------------------\n"
-"$COMMANDS_DIR"/exec.sh php -i | grep -e "xdebug.idekey" -e "xdebug.client_host" -e "xdebug.client_port" | cut -d= -f1-2
+if [[ $xdebug_version == *"v2."* ]]; then
+    "$COMMANDS_DIR"/exec.sh php -i | grep -e "xdebug.idekey" -e "xdebug.remote_host" -e "xdebug.remote_port" | cut -d= -f1-2
+elif [[ $xdebug_version == *"v3."* ]]; then
+    "$COMMANDS_DIR"/exec.sh php -i | grep -e "xdebug.idekey" -e "xdebug.client_host" -e "xdebug.client_port" | cut -d= -f1-2
+else
+    echo "Xdebug is not installed or the version is not recognized."
+fi
 print_warning "------------------------------------------------\n"
