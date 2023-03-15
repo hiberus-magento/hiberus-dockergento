@@ -21,7 +21,7 @@ Docker environment for Magento 2 projects. Please visit our [Dockerhub repositor
 
 ## Magento compatible versions
 
-- **Magento 2.4**: `2.4.0`, `2.4.1`, `2.4.2`, `2.4.3`, `2.4.4`. `2.4.5`
+- **Magento 2.4**: `2.4.0`, `2.4.1`, `2.4.2`, `2.4.3`, `2.4.4`, `2.4.5`, `2.4.6`
 - **Magento 2.3**: `2.3.0`, `2.3.1`, `2.3.2`, `2.3.3`, `2.3.4`, `2.3.5`, `2.3.6`, `2.3.7`.
 
 _(All patched versions are also compatible)_
