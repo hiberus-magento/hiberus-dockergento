@@ -24,6 +24,8 @@ start_execute() {
         print_processing "Fixing permissions"
         "$TASKS_DIR"/fix_linux_permissions.sh
         print_processing "Permissions fix finished"
+        print_processing "Configuring self-routing domains..."
+        "$TASKS_DIR"/set_etc_hosts.sh
     fi
 }
 
