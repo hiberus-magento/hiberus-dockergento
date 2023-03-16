@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gzip
 
 RUN docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/ --with-webp-dir=/usr/include/
-RUN docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu/
+RUN docker-php-ext-configure ldap
 
 RUN docker-php-ext-install \
     bcmath \
