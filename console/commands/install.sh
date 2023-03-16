@@ -40,11 +40,18 @@ command_arguments="--db-host=db \
 --amqp-password=password"
 
 if  [[ $MAGENTO_VERSION != 2.3.* ]]; then
-    command_arguments="$command_arguments \
-    --elasticsearch-host=search \
-    --elasticsearch-port=9200 \
-    --elasticsearch-username=admin \
-    --elasticsearch-password=admin"
+        command_arguments="$command_arguments \
+        --elasticsearch-host=search \
+        --elasticsearch-port=9200 \
+        --elasticsearch-username=admin \
+        --elasticsearch-password=admin"
+    if  [[ $MAGENTO_VERSION == 2.4.6* ]]; then
+        command_arguments="$command_arguments \
+        --opensearch-host=search \
+        --opensearch-port=9200 \
+        --opensearch-username=admin \
+        --opensearch-password=admin"
+    fi
 fi
 
 #
