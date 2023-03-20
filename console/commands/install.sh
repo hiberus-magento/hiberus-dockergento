@@ -47,6 +47,7 @@ if  [[ $MAGENTO_VERSION != 2.3.* ]]; then
         --elasticsearch-password=admin"
     if  [[ $MAGENTO_VERSION == 2.4.6* ]]; then
         command_arguments="$command_arguments \
+        --search-engine=opensearch \
         --opensearch-host=search \
         --opensearch-port=9200 \
         --opensearch-username=admin \
