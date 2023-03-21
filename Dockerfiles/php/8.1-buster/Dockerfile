@@ -42,6 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
+RUN docker-php-ext-configure ldap
 
 RUN docker-php-ext-install \
     bcmath \
@@ -54,7 +55,8 @@ RUN docker-php-ext-install \
     soap \
     xsl \
     zip \
-    sockets
+    sockets \
+    ldap
 
 RUN pecl channel-update pecl.php.net \
     && pecl install xdebug-3.1.5 \
