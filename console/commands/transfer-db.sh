@@ -50,10 +50,10 @@ for i in "$@"; do
 done
 
 # Request SSH credentials
-read -r -p "Do you need to use SSH tunneling? [Y/n]: " sshTunnel
+read -rp "$(print_question "Do you need to use SSH tunneling? [Y/n]: ")" sshTunnel
 if [ -z "$sshTunnel" ] || [ "$sshTunnel" == "Y" ] || [ "$sshTunnel" == "y" ]; then
-    read -p "SSH Host [Default: '${sshHost}']: " inputSshHost
-    read -p "SSH User [Default: '${sshUser}']: " inputSshUser
+    read -p "$(print_question "SSH Host" "$sshHost")" inputSshHost
+    read -p "$(print_question "SSH User" "$sshUser")" inputSshUser
     sshHost=${inputSshHost:-${sshHost}}
     sshUser=${inputSshUser:-${sshUser}}
 else
@@ -62,20 +62,20 @@ else
 fi
 
 # Request Database credentials
-read -p "Database Host [Default: '${sqlHost}']: " inputSqlHost
-read -p "Database User [Default: '${sqlUser}']: " inputSqlUser
-read -p "Database DB Name [Default: '${sqlDb}']: " inputSqlDb
-read -p "Database Password [Default: '${sqlPassword}']: " inputSqlPassword
+read -p "$(print_question "Database Host" "$sqlHost")" inputSqlHost
+read -p "$(print_question "Database User" "$sqlUser")" inputSqlUser
+read -p "$(print_question "Database DB Name" "{sqlDb")" inputSqlDb
+read -p "$(print_question "Database Password" "$sqlPassword")" inputSqlPassword
 sqlHost=${inputSqlHost:-${sqlHost}}
 sqlUser=${inputSqlUser:-${sqlUser}}
 sqlDb=${inputSqlDb:-${sqlDb}}
-sqlPassword=${inputSqlPassword:-${sqlPassword}}
+sqlPassword=${inputSqlPassword:-${sqlPassword}}hm 
 
 # Prepare password
 [ -z "$sqlPassword" ] && sqlPassword="" || sqlPassword="-p'$sqlPassword'"
 
 # Request SSH credentials
-read -r -p "Do you want to exclude 'core_config_data' table? [Y/n]: " sqlExclude
+read -rp "$(print_question "Do you want to exclude 'core_config_data' table? [Y/n]: ")" sqlExclude
 if [ -z "$sqlExclude" ] || [ "$sqlExclude" == "Y" ] || [ "$sqlExclude" == "y" ]; then
     sqlExclude=1
 else
@@ -83,8 +83,7 @@ else
 fi
 
 print_info "You are going to transfer database from [${sshHost}:${sqlHost}] to [LOCALHOST].\n"
-print_default "Press any key continue..."
-read -r
+read -rp "$(print_default "Press any key continue...")"
 
 # Check required data
 if [ -z "$sqlHost" ] || [ -z "$sqlUser" ] || [ -z "$sqlDb" ]; then
@@ -122,13 +121,13 @@ docker-compose exec db bash -c "zcat /tmp/db.sql.gz | mysql -f -u\$MYSQL_USER -p
 [ $sqlExclude -eq 1 ] && docker-compose exec db bash -c "[ -f /tmp/ccd.sql ] && mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE < /tmp/ccd.sql"
 
 # Reindex Magento
-read -p "Do you want to reindex Magento? [Y/n]: " reindexMagento
+read -p "$(print_question "Do you want to reindex Magento? [Y/n]: ")" reindexMagento
 if [ -z "$reindexMagento" ] || [ "$reindexMagento" == 'Y' ] || [ "$reindexMagento" == 'y' ]; then
     docker-compose exec phpfpm bin/magento indexer:reindex
 fi
 
 # Clear Magento cache
-read -p "Do you want to clear Magento cache? [Y/n]: " clearMagento
+read -p "$(print_question "Do you want to clear Magento cache? [Y/n]: ")" clearMagento
 if [ -z "$clearMagento" ] || [ "$clearMagento" == 'Y' ] || [ "$clearMagento" == 'y' ]; then
     docker-compose exec phpfpm bin/magento cache:flush
 fi
