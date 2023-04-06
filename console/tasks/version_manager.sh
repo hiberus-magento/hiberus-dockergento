@@ -26,18 +26,8 @@ edit_version() {
     service_name=$1
     opts=$(jq -r '[.[] | .'["'$service_name'"]'] | unique  | join(" ")' < "$DATA_DIR/requirements.json")
 
-    print_question "$service_name version:\n"
-    select select_result in $opts; do
-        if $($TASKS_DIR/in_list.sh "$select_result" "$opts"); then
-            break
-        fi
-
-        if $($TASKS_DIR/in_list.sh "$REPLY" "$opts"); then
-            select_result=$REPLY
-            break
-        fi
-        print_warning "invalid option '$REPLY'\n"
-    done
+    custom_select "$service_name version:\n" ${opts[@]}
+    select_result=$REPLY
 
     REQUIREMENTS=$(echo "$REQUIREMENTS" | jq -r '.["'$service_name'"]='$select_result'')
 }
@@ -46,24 +36,17 @@ edit_version() {
 # Select editable services and changes her value
 #
 edit_versions() {
-    opts=$(echo "$REQUIREMENTS" | jq -r 'keys | join(" ")')
+    opts=($(echo "$REQUIREMENTS" | jq -r 'keys[]'))
+    options=("composer" "php" "search" "mariadb" "redis" "varnish")
 
-    print_question "Choose service:\n"
-    select select_result in $opts; do
-        if $($TASKS_DIR/in_list.sh "$select_result" "$opts"); then
-            break
-        fi
+    echo $opts
+    
+    custom_select "Choose service:" "${options[@]}"
 
-        if $($TASKS_DIR/in_list.sh "$REPLY" "$opts"); then
-            select_result=$REPLY
-            break
-        fi
-
-        print_warning "Invalid option '$REPLY'\n"
-    done
-
-    edit_version "$select_result"
+    edit_version "$REPLY"
     change_requirements
+    
+exit 2
 }
 
 #
@@ -90,8 +73,8 @@ change_requirements() {
     print_requirements
     state="continue"
     while [[ $state == "continue" ]]; do
-        print_question "Are you satisfied with these versions? [Y/n] "
-        read -r yn
+        
+        read -rp "$(print_question "Are you satisfied with these versions? [Y/n] ")" yn
         if [ -z "$yn" ]; then
             yn="y"
         fi
