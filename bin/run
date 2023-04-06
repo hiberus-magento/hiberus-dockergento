@@ -31,7 +31,6 @@ resolve_absolute_dir() {
 #
 init_dirs() {
     resolve_absolute_dir
-    export ABSOLUTE_PATH="$ABSOLUTE_PATH"
     export COMMAND_BIN_DIR="$ABSOLUTE_PATH"
     export COMMANDS_DIR="$ABSOLUTE_PATH/console/commands"
     export DATA_DIR="$ABSOLUTE_PATH/data"
