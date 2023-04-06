@@ -86,6 +86,7 @@ docker_env_variables() {
 # Validate command that need docker
 #
 validate_command() {
+    # TODO: Change to in_array
     if [[ 
         "$1" != "setup" && 
         "$1" != "create-project" &&
@@ -94,6 +95,8 @@ validate_command() {
         "$1" != "compatibility" &&
         "$1" != "update" 
     ]]; then
+        source "$HELPERS_DIR"/docker.sh
+        is_docker_service_running
         "$TASKS_DIR"/validate_docker_compose.sh
     fi
 }
@@ -115,10 +118,13 @@ execute() {
     # Validation docker compose
     validate_command "$1"
     # Map arguments to sort kind argument
-    arguments=$(parseToShortArguments "$@")
-    shift
-
-    "$COMMANDS_DIR/$command_name" $arguments
+    parseToShortArguments "$@"
+    if ! $ARGS_PROCESSED ;then
+        "$COMMANDS_DIR/$command_name"
+    else
+        "$COMMANDS_DIR/$command_name" "$ARGS_PROCESSED"
+    fi
 }
+
 
 execute "$@"

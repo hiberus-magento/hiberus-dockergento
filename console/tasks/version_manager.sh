@@ -73,8 +73,8 @@ change_requirements() {
     print_requirements
     state="continue"
     while [[ $state == "continue" ]]; do
-        print_question "Are you satisfied with these versions? [Y/n] "
-        read -r yn
+        
+        read -rp "$(print_question "Are you satisfied with these versions? [Y/n] ")" yn
         if [ -z "$yn" ]; then
             yn="y"
         fi
