@@ -11,7 +11,7 @@ clean_definers=false
 # Execute query in mysql container
 #
 query() {
-    echo -e "$1" | docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
+    echo -e "$@" | docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
 }
 
 #
