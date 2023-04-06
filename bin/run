@@ -94,6 +94,7 @@ validate_command() {
         "$1" != "compatibility" &&
         "$1" != "update" 
     ]]; then
+        source "$HELPERS_DIR"/docker.sh
         "$TASKS_DIR"/validate_docker_compose.sh
     fi
 }
@@ -115,10 +116,14 @@ execute() {
     # Validation docker compose
     validate_command "$1"
     # Map arguments to sort kind argument
-    arguments=$(parseToShortArguments "$@")
-    shift
-
-    "$COMMANDS_DIR/$command_name" $arguments
+    parseToShortArguments "$@"
+    
+    if ! $MAPPED ;then
+        shift
+        "$COMMANDS_DIR/$command_name" "$@"
+    else
+        "$COMMANDS_DIR/$command_name" "$ARGS_PROCESSED"
+    fi
 }
 
 execute "$@"
