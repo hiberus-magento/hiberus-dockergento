@@ -31,7 +31,7 @@ _(All patched versions are also compatible)_
 ## Install Hiberus CLI
 
 ```bash
-curl https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/setup.sh | bash
+curl https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/installer.sh | bash
 ```
 
 <br>
