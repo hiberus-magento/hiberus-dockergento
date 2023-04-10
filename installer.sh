@@ -52,8 +52,7 @@ check_dependencies() {
 #
 clone_project() {
     if [ ! -e ~/hm ]; then
-        echo "clone_project" 
-        git clone --branch 206-improve-instalation-in-mac-native-shell https://github.com/hiberus-magento/hiberus-dockergento.git ~/hm
+        git clone https://github.com/hiberus-magento/hiberus-dockergento.git ~/hm
     fi
 }
 
