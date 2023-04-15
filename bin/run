@@ -50,7 +50,7 @@ import_dependencies() {
     source "$TASKS_DIR"/load_properties.sh
     source "$COMPONENTS_DIR"/print_message.sh
     source "$HELPERS_DIR"/map_arguments.sh
-    source "$HELPERS_DIR"/process_help.sh
+    source "$HELPERS_DIR"/process_hm_options.sh
     source "$TASKS_DIR"/set_machine_specific_properties.sh
 }
 
@@ -107,7 +107,7 @@ execute() {
     # Import neecessary dependencies
     import_dependencies
     # Show help information when there is an argument --help or -h
-    execute_process_help "$@"
+    execute_process_hm_options "$@"
     # Check if exit command
     check_command_dir "$1"
     # Set composer project name
