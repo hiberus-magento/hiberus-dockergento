@@ -20,7 +20,7 @@ docker-compose restart varnish
 # Disable full page cache
 docker-compose exec phpfpm bin/magento cache:disable full_page
 
-$COMMAND_BIN_NAME purge
-$COMMAND_BIN_NAME magento cache:clean
+"$COMMANDS_DIR"/purge.sh
+"$COMMANDS_DIR"/magento.sh cache:clean
 
 print_info "Varnish cache disabled!\n"
