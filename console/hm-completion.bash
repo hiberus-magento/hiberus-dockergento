@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+if [[ $SHELL == "/bin/sh" ]]; then
+    exit
+fi
+
 complete -W "bash \ 
 cloud-login \ 
 cloud \ 

@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-dir=$(dirname -- "$(readlink -f -- "$0")")
+source="${BASH_SOURCE[0]}"
+
+while [ -h "$source" ]; do
+    DIR=$(cd -P "$(dirname "$source")" && pwd)
+    source="$(readlink "$source")"
+    [[ $source != /* ]] && source="$DIR/$source"
+done
+
+dir="$(cd -P "$(dirname "$source")" && pwd)"
+
 executable="source $dir/console/hm-completion.bash"
 exclude_commands="copy-from-container copy-to-container"
 
