@@ -32,21 +32,12 @@ ask_dump() {
 # Ask to user if prefers to import database or to execute magento install command
 #
 choice_database_mode_creation() {
-    flow_database_opt="SQL-Dump Magento-Installation"
+    flow_database_opt=("Import sql Dump" "Magento installation")
+    custom_select "How do you want create database?" "${flow_database_opt[@]}"
 
-    # install and use default
-    print_info "\nIf your project has many custom modules it's possible that install command can fail.\n"
-    print_question "Choose an option:\n"
-
-    select REPLY in $flow_database_opt; do
-        if [[ " $flow_database_opt " == *" $REPLY "* ]]; then
-            if [[ $REPLY == SQL* ]]; then
-                ask_dump
-            fi
-            break
-        fi
-        echo "Invalid option '$REPLY'"
-    done
+    if [[ $REPLY == "Import sql Dump" ]]; then
+        ask_dump
+    fi
 }
 
 #

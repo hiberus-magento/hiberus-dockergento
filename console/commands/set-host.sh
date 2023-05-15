@@ -24,7 +24,7 @@ set_local_host() {
     fi
 
     if [[ -n "$DOMAIN" ]] && $modify_database; then
-        print_info "Set "ºº
+        print_info "Set "
         print_link "https://$DOMAIN/"
         print_info " to web/secure/base_url and web/secure/base_url.\n"
 

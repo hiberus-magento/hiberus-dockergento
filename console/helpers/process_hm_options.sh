@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-execute_process_help() {
+#
+# Process help option
+#
+process_help() {
     if [ "$#" -eq "0" ]; then
         set -- -h
     fi
@@ -19,4 +22,28 @@ execute_process_help() {
             exit 0
         fi
     fi
+}
+
+#
+# Return hm version
+#
+process_version() {
+    if [ "$#" -eq "0" ]; then
+        set -- -v
+    fi
+
+    if [ "$#" -gt 0 ]; then
+        # List of commands
+        if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then
+            IFS=$'\n'
+            version=($(git tag -l | grep -v dockerhub | sort -nr | head -n1))
+            echo "$COMMAND_BIN_NAME v$version"
+            exit 0
+        fi
+    fi
+}
+
+execute_process_hm_options() {
+    process_help "$@"
+    process_version "$@"
 }
