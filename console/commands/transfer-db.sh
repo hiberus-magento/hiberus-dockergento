@@ -3,6 +3,12 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/docker.sh
+
+# Check php container
+is_run_service "phpfpm"
+# Check mysql container
+is_run_service "db"
 
 sshHost="ssh.eu-3.magento.cloud"
 sshUser=""
@@ -12,18 +18,6 @@ sqlDb="main"
 sqlPassword=""
 
 print_info "Database transfer assistant: \n"
-
-# Check php container
-if [ -z "$(docker ps | grep phpfpm)" ]; then
-    print_error "Error: PHP container is not running!\n"
-    exit 1
-fi
-
-# Check mysql container
-if [ -z "$(docker ps | grep db)" ]; then
-    print_error "Error: Database container is not running!\n"
-    exit 1
-fi
 
 for i in "$@"; do
     case $i in

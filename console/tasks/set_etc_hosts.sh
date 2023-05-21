@@ -3,16 +3,10 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/docker.sh
 
-if [ -z "$(docker ps | grep phpfpm)" ]; then
-    print_error "Set etc/hosts: Error: PHP is not running!\n"
-    exit
-fi
-
-if [ -z "$(docker ps | grep hitch)" ]; then
-    print_error "Set etc/hosts: Error: Hitch is not running!\n"
-    exit
-fi
+is_run_service "phpfpm"
+is_run_service "hitch"
 
 # Get IP Address of hitch container
 DOCKER_IP=`docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -qf "name=hitch")`
