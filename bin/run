@@ -50,7 +50,7 @@ import_dependencies() {
     source "$TASKS_DIR"/load_properties.sh
     source "$COMPONENTS_DIR"/print_message.sh
     source "$HELPERS_DIR"/map_arguments.sh
-    source "$HELPERS_DIR"/process_help.sh
+    source "$HELPERS_DIR"/process_hm_options.sh
     source "$TASKS_DIR"/set_machine_specific_properties.sh
 }
 
@@ -86,6 +86,7 @@ docker_env_variables() {
 # Validate command that need docker
 #
 validate_command() {
+    # TODO: Change to in_array
     if [[ 
         "$1" != "setup" && 
         "$1" != "create-project" &&
@@ -94,6 +95,8 @@ validate_command() {
         "$1" != "compatibility" &&
         "$1" != "update" 
     ]]; then
+        source "$HELPERS_DIR"/docker.sh
+        is_docker_service_running
         "$TASKS_DIR"/validate_docker_compose.sh
     fi
 }
@@ -107,7 +110,7 @@ execute() {
     # Import neecessary dependencies
     import_dependencies
     # Show help information when there is an argument --help or -h
-    execute_process_help "$@"
+    execute_process_hm_options "$@"
     # Check if exit command
     check_command_dir "$1"
     # Set composer project name
@@ -120,5 +123,6 @@ execute() {
 
     "$COMMANDS_DIR/$command_name" $arguments
 }
+
 
 execute "$@"

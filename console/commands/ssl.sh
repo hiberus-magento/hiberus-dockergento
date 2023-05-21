@@ -11,7 +11,9 @@ else
     DOMAIN=$1
 fi
 
-print_info "$(printf "Generating SSL certificates for domain '%s'..." "${DOMAIN}")\n"
+print_info "Generating SSL certificates for domain "
+print_default "$DOMAIN"
+print_info "...\n"
 
 # Check if command "mkcert" exists
 if ! command -v mkcert &>/dev/null; then
@@ -33,7 +35,7 @@ if ! command -v mkcert &>/dev/null; then
         chmod +x mkcert-v*-linux-amd64
         sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
         mkcert -install
-
+        
     fi
 fi
 
@@ -44,7 +46,7 @@ fi
 
 # Generate mkcert certificate
 print_info "Installing SSL certificate into docker environment...\n"
-mkcert -cert-file ssl.crt -key-file ssl.key ${DOMAIN} localhost 127.0.0.1 0.0.0.0 ::1
+mkcert -cert-file ssl.crt -key-file ssl.key $DOMAIN localhost 127.0.0.1 0.0.0.0 ::1
 cat ssl.crt ssl.key >ssl.pem && rm ssl.crt ssl.key
 docker cp ./ssl.pem "$(docker-compose ps -q hitch | awk '{print $1}')":/etc/hitch/testcert.pem
 docker-compose exec -T -u root hitch chown hitch /etc/hitch/testcert.pem
