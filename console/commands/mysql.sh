@@ -4,6 +4,7 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 source "$TASKS_DIR"/set_magento_configs.sh
 source "$HELPERS_DIR"/docker.sh
+mysql_container=$(docker ps -qf "name=db")
 
 # Check if db service is running
 is_run_service "db"
