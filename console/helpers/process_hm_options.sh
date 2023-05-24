@@ -35,8 +35,9 @@ process_version() {
     if [ "$#" -gt 0 ]; then
         # List of commands
         if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then
+            pushd ${COMMANDS_DIR} >/dev/null 2>&1
             IFS=$'\n'
-            version=($(git tag -l | grep -v dockerhub | sort -nr | head -n1))
+            version=($(git describe --tags --abbrev=0))
             echo "$COMMAND_BIN_NAME v$version"
             exit 0
         fi
