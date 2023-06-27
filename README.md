@@ -31,9 +31,9 @@ _(All patched versions are also compatible)_
 ## Install Hiberus CLI
 Hiberus CLI requires the next dependencies.
 - [Homebrew](https://docs.brew.sh/Installation) (only Mac)
-- [git]()
+- [git](https://git-scm.com/downloads)
 - [jq](https://stedolan.github.io/jq/download/)
-- [oh-my-zsh]() (recommended for Mac)
+- [oh-my-zsh](https://ohmyz.sh/) (recommended for Mac)
 
 After installing these dependencies, launch the next command
 
