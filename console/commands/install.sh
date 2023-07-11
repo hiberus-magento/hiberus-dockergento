@@ -85,7 +85,7 @@ get_base_url() {
 get_argument_command() {
     argument=$(jq -r '.["'$1'"]' "$DATA_DIR/config.json")
     
-    if ! $USE_DEAFULT_SETTINGS; then
+    if ! $USE_DEFAULT_SETTINGS; then
         print_question "Define $1 " "$argument"
         read -r response
 

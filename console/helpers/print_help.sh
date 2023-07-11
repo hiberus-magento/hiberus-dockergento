@@ -45,7 +45,9 @@ print_commands_info() {
             mac=$(echo "$command_information" | jq -r '.mac')
             
             if [[ "$MACHINE" == "mac" || $mac != true ]]; then
-                printf "   $command_color%-20s$COLOR_RESET %s\n" "$command_name" "$command_desc_property"
+            
+
+                printf "\t$command_color%-20s$COLOR_RESET %s\n" "$command_name" "$command_desc_property"
             fi
         done
 

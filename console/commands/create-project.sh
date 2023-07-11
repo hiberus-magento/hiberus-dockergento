@@ -10,7 +10,7 @@ version=""
 edition=""
 root_directory=""
 
-export USE_DEAFULT_SETTINGS=false
+export USE_DEFAULT_SETTINGS=false
 
 #
 # Overwrite file consent
@@ -101,7 +101,7 @@ while getopts ":p:e:v:r:d" options; do
             edition=${edition:="community"}
             version=${version:-$last_version}
             root_directory=${root_directory:="."}
-            export USE_DEAFULT_SETTINGS=true
+            export USE_DEFAULT_SETTINGS=true
         ;;
         ?)
             source "$HELPERS_DIR"/print_usage.sh

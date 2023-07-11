@@ -3,10 +3,12 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
+source "$COMPONENTS_DIR"/masquerade.sh
 
 sshHost="ssh.eu-3.magento.cloud"
 sshUser=""
 sqlHost="database.internal"
+sqlPort="3306"
 sqlUser="mysql"
 sqlDb="main"
 sqlPassword=""
@@ -36,6 +38,9 @@ for i in "$@"; do
     --sql-host=*)
         sqlHost="${i#*=}" && shift
         ;;
+    --sql-port=*)
+        sqlPort="${i#*=}" && shift
+        ;;
     --sql-user=*)
         sqlUser="${i#*=}" && shift
         ;;
@@ -63,10 +68,12 @@ fi
 
 # Request Database credentials
 read -p "Database Host [Default: '${sqlHost}']: " inputSqlHost
+read -p "Database Port [Default: '${sqlPort}']: " inputSqlPort
 read -p "Database User [Default: '${sqlUser}']: " inputSqlUser
 read -p "Database DB Name [Default: '${sqlDb}']: " inputSqlDb
 read -p "Database Password [Default: '${sqlPassword}']: " inputSqlPassword
 sqlHost=${inputSqlHost:-${sqlHost}}
+sqlPort=${inputSqlPort:-${sqlPort}}
 sqlUser=${inputSqlUser:-${sqlUser}}
 sqlDb=${inputSqlDb:-${sqlDb}}
 sqlPassword=${inputSqlPassword:-${sqlPassword}}
@@ -82,12 +89,12 @@ else
     sqlExclude=0
 fi
 
-print_info "You are going to transfer database from [${sshHost}:${sqlHost}] to [LOCALHOST].\n"
+print_info "You are going to transfer database from [${sshHost}:[${sqlHost}:${sqlPort}]] to [LOCALHOST].\n"
 print_default "Press any key continue..."
 read -r
 
 # Check required data
-if [ -z "$sqlHost" ] || [ -z "$sqlUser" ] || [ -z "$sqlDb" ]; then
+if [ -z "$sqlHost" ] || [ -z "$sqlPort" ] || [ -z "$sqlUser" ] || [ -z "$sqlDb" ]; then
     print_error "Error: Please enter all required data\n"
     exit 1
 fi
@@ -98,13 +105,13 @@ print_info "Creating database dump from origin server...\n"
 if [ -z "$sshHost" ]; then
 
     # Create dump into mysql container
-    docker-compose exec db bash -c "mysqldump -h'$sqlHost' -u'$sqlUser' $sqlPassword $sqlDb | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
+    docker-compose exec db bash -c "mysqldump -h'$sqlHost' -u'$sqlUser' -P $sqlPort $sqlPassword $sqlDb | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
 
 # Create database dump from origin server (WITH SSH TUNNEL)
 else
 
     # Create dump
-    ssh ${sshUser}@${sshHost} "mysqldump -h'$sqlHost' -u'$sqlUser' $sqlPassword $sqlDb | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
+    ssh ${sshUser}@${sshHost} "mysqldump -h'$sqlHost' -u'$sqlUser' -P $sqlPort $sqlPassword $sqlDb | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
 
     # Download dump
     scp ${sshUser}@${sshHost}:/tmp/db.sql.gz .
@@ -120,6 +127,10 @@ print_info "Restoring database dump into localhost...\n"
 [ $sqlExclude -eq 1 ] && docker-compose exec db bash -c "mysqldump -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE core_config_data > /tmp/ccd.sql 2> /dev/null"
 docker-compose exec db bash -c "zcat /tmp/db.sql.gz | mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE"
 [ $sqlExclude -eq 1 ] && docker-compose exec db bash -c "[ -f /tmp/ccd.sql ] && mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE < /tmp/ccd.sql"
+
+# Anonymise database
+print_info "Anonymising database in localhost...\n"
+masquerade_run
 
 # Reindex Magento
 read -p "Do you want to reindex Magento? [Y/n]: " reindexMagento
