@@ -18,7 +18,7 @@ compose_regex() {
 #
 # Adapt docker-compose template with requirements
 #
-wirte_docker_compose() {
+write_docker_compose() {
     compose_regex
     local composer_dir_name
 
@@ -29,4 +29,4 @@ wirte_docker_compose() {
     cp "$COMMAND_BIN_DIR/docker-compose/docker-compose.dev.mac.template.yml" "$DOCKER_COMPOSE_FILE_MAC"
 }
 
-wirte_docker_compose
+write_docker_compose
