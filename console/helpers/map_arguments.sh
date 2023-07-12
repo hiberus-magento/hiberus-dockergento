@@ -22,5 +22,5 @@ parseToShortArguments() {
             sed 's/-'$short_name'=/-'$short_name' /')
     done
 
-   echo "$arguments"
+    echo "$arguments"
 }

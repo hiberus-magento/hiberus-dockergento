@@ -24,7 +24,7 @@ get_equivalent_version_if_exit() {
     if [[ "$equivalent_version" = "null" ]]; then
         print_warning "\nWe don't have support for the version $1 "
         print_info "\nPlease, write any version between all versions supported or press Ctrl - C to exit"
-        ${COMMAND_BIN_NAME} compatibility
+        "$COMMANDS_DIR"/compatibility.sh
         read -r MAGENTO_VERSION
         get_equivalent_version_if_exit "$MAGENTO_VERSION"
     fi
@@ -39,8 +39,7 @@ get_magento_version() {
     DEFAULT_MAGENTO_VERSION="$(get_last_version)"
 
     if [[ $# -eq 0 || -z "$1" ]]; then
-        print_question "Magento version: " "$DEFAULT_MAGENTO_VERSION"
-        read -r MAGENTO_VERSION
+        read -rp "$(print_question "Magento version: " "$DEFAULT_MAGENTO_VERSION")" MAGENTO_VERSION
 
         if [[ $MAGENTO_VERSION == '' ]]; then
             MAGENTO_VERSION=$DEFAULT_MAGENTO_VERSION
@@ -57,31 +56,22 @@ get_magento_version() {
 # Get magento edition
 #
 get_magento_edition() {
-    AVAILABLE_MAGENTO_EDITIONS="community enterprise"
+    available_magento_editions=("community" "enterprise")
 
     if [[ $# -eq 0 || -z "$1" ]]; then
-        print_question "Magento edition:\n"
-        select MAGENTO_EDITION in ${AVAILABLE_MAGENTO_EDITIONS}; do
-            if $("$TASKS_DIR/in_list.sh" "$MAGENTO_EDITION" "$AVAILABLE_MAGENTO_EDITIONS"); then
-                break
-            fi
+        label="Magento edition:"
+        custom_select "$label" "${available_magento_editions[@]}"
 
-            if $("$TASKS_DIR/in_list.sh" "$REPLY" "$AVAILABLE_MAGENTO_EDITIONS"); then
-                MAGENTO_EDITION=$REPLY
-                break
-            fi
-            echo "invalid option '$REPLY'"
-        done
+        magento_edition=$REPLY
     else
         if [[ $1 == "community" || $1 == "enterprise" ]]; then
-            MAGENTO_EDITION=$1
+            magento_edition=$1
         else
             print_warning "Edition '$1' is not available.\n"
             get_magento_edition
         fi
     fi
-
-    export MAGENTO_EDITION=$MAGENTO_EDITION
+    export MAGENTO_EDITION=$magento_edition
 }
 
 #
@@ -98,8 +88,7 @@ get_project_name() {
 
     if [[ -z $project_name ]]; then
         suggested_name="$(basename "$PWD" | awk '{print tolower($0)}')"
-        print_question "Define project name " "$suggested_name"
-        read -r COMPOSE_PROJECT_NAME
+        read -rp "$(print_question "Define project name " "$suggested_name")" COMPOSE_PROJECT_NAME
 
         if [[ $COMPOSE_PROJECT_NAME == '' ]]; then
             COMPOSE_PROJECT_NAME=$suggested_name
@@ -124,8 +113,7 @@ get_domain() {
     if [[ -z $project_name ]]; then
         calculated_name=$(basename "$PWD" | awk '{print tolower($0)}')
         suggested_name=${COMPOSE_PROJECT_NAME:-$calculated_name}.local
-        print_question "Define domain " "$suggested_name"
-        read -r domain
+        read -rp "$(print_question "Define domain " "$suggested_name")" domain
 
         if [[ -z $domain ]]; then
             domain="$suggested_name"
@@ -175,8 +163,7 @@ get_magento_root_directory() {
     if [[ $# -gt 0 && -d $1 ]]; then
         MAGENTO_DIR=$(process_magento_root_directory "$1")
     else
-        print_question "Magento root dir " "$MAGENTO_DIR"
-        read -re answer_magento_dir
+        read -rep "$(print_question "Magento root dir " "$MAGENTO_DIR")" answer_magento_dir
         MAGENTO_DIR=$(process_magento_root_directory "$answer_magento_dir")
     fi
 
@@ -195,4 +182,50 @@ sed_in_file() {
     else
         sed -i "$sed_regex" "$target_path"
     fi
+}
+
+prepare_options() {
+    local opts=("$@")
+
+    for i in "${!opts[@]}"; do
+        opts[$i]=$(print_info "${opts[$i]}")
+    done
+    echo "length "${#opts[@]}
+    echo "${opts[@]}"
+}
+
+#
+# Select component
+# Example:
+#    options=("Import sql Dump" "Magento installation")
+#    label="How do you want create database?"
+#
+#    custom_select "$label" "${options[@]}"
+#    
+#    if [[ $REPLY == SOME_REPONSE* ]]; then
+#        echo "RESPONSE"
+#        any_action
+#    fi
+#
+custom_select() {
+    local question="$1"
+    shift
+    local opts=("$@")
+
+    for i in "${!opts[@]}"; do
+        opts[$i]=$(print_table "${opts[$i]}")
+    done
+    COLUMNS=1
+    PS3="$(print_default "Option: ")"
+    print_question "\n✅ $question\n"
+    select REPLY in "${opts[@]}"; do
+        if [[ " ${opts[@]} " ==  *" $REPLY "* ]]; then
+            # Remove color codes from selected option
+            response=$(echo -e "$REPLY" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g")
+            export REPLY=$response
+            break
+        fi
+        print_warning "\nInvalid option, choose an option\n"
+        print_question "\n✅ $question\n"
+    done
 }

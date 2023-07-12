@@ -3,8 +3,12 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
 source "$TASKS_DIR"/set_magento_configs.sh
-
+source "$HELPERS_DIR"/docker.sh
 mysql_container=$(docker ps -qf "name=db")
+
+# Check if db service is running
+is_run_service "db"
+
 clean_definers=false
 
 #
@@ -36,11 +40,6 @@ mysql_execute() {
     # Go into mysql container
     $DOCKER_COMPOSE exec db bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
 }
-
-if [ -z "$mysql_container" ]; then
-    print_error "Error: DB container is not running\n"
-    exit 1
-fi
 
 # If stdin has content
 if [ ! -t 0 ]; then

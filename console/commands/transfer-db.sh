@@ -4,6 +4,12 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/masquerade.sh
+source "$HELPERS_DIR"/docker.sh
+
+# Check php container
+is_run_service "phpfpm"
+# Check mysql container
+is_run_service "db"
 
 sshHost="ssh.eu-3.magento.cloud"
 sshUser=""
@@ -14,18 +20,6 @@ sqlDb="main"
 sqlPassword=""
 
 print_info "Database transfer assistant: \n"
-
-# Check php container
-if [ -z "$(docker ps | grep phpfpm)" ]; then
-    print_error "Error: PHP container is not running!\n"
-    exit 1
-fi
-
-# Check mysql container
-if [ -z "$(docker ps | grep db)" ]; then
-    print_error "Error: Database container is not running!\n"
-    exit 1
-fi
 
 for i in "$@"; do
     case $i in
@@ -55,10 +49,10 @@ for i in "$@"; do
 done
 
 # Request SSH credentials
-read -r -p "Do you need to use SSH tunneling? [Y/n]: " sshTunnel
+read -rp "$(print_question "Do you need to use SSH tunneling? [Y/n]: ")" sshTunnel
 if [ -z "$sshTunnel" ] || [ "$sshTunnel" == "Y" ] || [ "$sshTunnel" == "y" ]; then
-    read -p "SSH Host [Default: '${sshHost}']: " inputSshHost
-    read -p "SSH User [Default: '${sshUser}']: " inputSshUser
+    read -p "$(print_question "SSH Host" "$sshHost")" inputSshHost
+    read -p "$(print_question "SSH User" "$sshUser")" inputSshUser
     sshHost=${inputSshHost:-${sshHost}}
     sshUser=${inputSshUser:-${sshUser}}
 else
@@ -67,22 +61,22 @@ else
 fi
 
 # Request Database credentials
-read -p "Database Host [Default: '${sqlHost}']: " inputSqlHost
-read -p "Database Port [Default: '${sqlPort}']: " inputSqlPort
-read -p "Database User [Default: '${sqlUser}']: " inputSqlUser
-read -p "Database DB Name [Default: '${sqlDb}']: " inputSqlDb
-read -p "Database Password [Default: '${sqlPassword}']: " inputSqlPassword
+read -p "$(print_question "Database Host" "$sqlHost")" inputSqlHost
+read -p "$(print_question "Database Port" "$sqlPort")" inputSqlPort
+read -p "$(print_question "Database User" "$sqlUser")" inputSqlUser
+read -p "$(print_question "Database DB Name" "$sqlDb")" inputSqlDb
+read -p "$(print_question "Database Password" "$sqlPassword")" inputSqlPassword
 sqlHost=${inputSqlHost:-${sqlHost}}
 sqlPort=${inputSqlPort:-${sqlPort}}
 sqlUser=${inputSqlUser:-${sqlUser}}
 sqlDb=${inputSqlDb:-${sqlDb}}
-sqlPassword=${inputSqlPassword:-${sqlPassword}}
+sqlPassword=${inputSqlPassword:-${sqlPassword}}hm 
 
 # Prepare password
 [ -z "$sqlPassword" ] && sqlPassword="" || sqlPassword="-p'$sqlPassword'"
 
 # Request SSH credentials
-read -r -p "Do you want to exclude 'core_config_data' table? [Y/n]: " sqlExclude
+read -rp "$(print_question "Do you want to exclude 'core_config_data' table? [Y/n]: ")" sqlExclude
 if [ -z "$sqlExclude" ] || [ "$sqlExclude" == "Y" ] || [ "$sqlExclude" == "y" ]; then
     sqlExclude=1
 else
@@ -90,8 +84,7 @@ else
 fi
 
 print_info "You are going to transfer database from [${sshHost}:[${sqlHost}:${sqlPort}]] to [LOCALHOST].\n"
-print_default "Press any key continue..."
-read -r
+read -rp "$(print_default "Press any key continue...")"
 
 # Check required data
 if [ -z "$sqlHost" ] || [ -z "$sqlPort" ] || [ -z "$sqlUser" ] || [ -z "$sqlDb" ]; then
@@ -133,13 +126,13 @@ print_info "Anonymising database in localhost...\n"
 masquerade_run
 
 # Reindex Magento
-read -p "Do you want to reindex Magento? [Y/n]: " reindexMagento
+read -p "$(print_question "Do you want to reindex Magento? [Y/n]: ")" reindexMagento
 if [ -z "$reindexMagento" ] || [ "$reindexMagento" == 'Y' ] || [ "$reindexMagento" == 'y' ]; then
     docker-compose exec phpfpm bin/magento indexer:reindex
 fi
 
 # Clear Magento cache
-read -p "Do you want to clear Magento cache? [Y/n]: " clearMagento
+read -p "$(print_question "Do you want to clear Magento cache? [Y/n]: ")" clearMagento
 if [ -z "$clearMagento" ] || [ "$clearMagento" == 'Y' ] || [ "$clearMagento" == 'y' ]; then
     docker-compose exec phpfpm bin/magento cache:flush
 fi

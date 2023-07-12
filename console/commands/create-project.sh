@@ -19,8 +19,8 @@ overwrite_file_consent() {
     local target_file=$1
 
     if [[ -f "$target_file" ]]; then
-        print_question "Overwrite $target_file? [Y/n]? "
-        read -r answer_overwrite_target
+        
+        read -rp "$(print_question "Overwrite $target_file? [Y/n]? ")" answer_overwrite_target
         if [ -z "$answer_overwrite_target" ]; then
             answer_overwrite_target="y"
         fi

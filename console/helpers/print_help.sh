@@ -115,6 +115,9 @@ usage() {
         local command_name=$1
 
         command_info=$(jq -r '.["'$command_name'"]' < "$DATA_DIR/command_descriptions.json")
+        if [[ $command_info == null && -f "$CUSTOM_COMMANDS_DIR/command_descriptions.json" ]]; then
+            command_info=$(jq -r '.["'$command_name'"]' "$CUSTOM_COMMANDS_DIR/command_descriptions.json")
+        fi
         params=$(echo "$command_info" | jq -r '. | if length > 0 then keys[] else false end')
 
         if [[ $params ]]; then
