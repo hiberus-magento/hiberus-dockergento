@@ -26,10 +26,10 @@ sync_all_from_container_to_host() {
     "$COMMANDS_DIR"/stop.sh "phpfpm"
 
     print_info "Copying all files from container to host\n"
-    print_processing "Removing vendor in host: '$MAGENTO_DIR/vendor/*'"
+    print_processing "Removing vendor in host: $MAGENTO_DIR/vendor/*"
     rm -rf "$MAGENTO_DIR"/vendor/*
 
-    print_processing "Copying 'phpfpm:${WORKDIR_PHP}/.' into '$MAGENTO_DIR"
+    print_processing "Copying phpfpm:${WORKDIR_PHP}/. into $MAGENTO_DIR"
     
     docker cp "$container_id":"$WORKDIR_PHP"/. "$MAGENTO_DIR"
 

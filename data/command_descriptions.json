@@ -12,22 +12,20 @@
             ]
         },
         "cloud-login": {
-            "description": "Magento Cloud Login",
-            "args": []
+            "description": "Magento Cloud Login"
         },
         "cloud": {
             "description": "Magento Cloud Cli",
             "usage": "cloud [options]"
         },
         "compatibility": {
-            "description": "Check Magento version compatibility",
-            "args": []
+            "description": "Check Magento version compatibility"
         },
         "composer": {
             "description": "Execute composer inside php container",
             "args": [
                 {
-                    "name": "composer subcommands",
+                    "name": "composer-subcommands",
                     "description": "composer commands (install, update, ...)"
                 }
             ]
@@ -61,14 +59,9 @@
         },
         "create-project": {
             "description": "Create new magento project inside current directory",
+            "example": "create-project -u -e=community -p=\"my-project\" -r=\".\"  -v=2.4.5-p1",
             "opts": [
                 {
-                    "name": {
-                        "short": "d",
-                        "long": "default"
-                    },
-                    "description": "Use default settings: \n\t\t\t- edition = community \n\t\t\t- version = <last-version> \n\t\t\t- project-name = <basename> \n\t\t\t- root-directory = '.' \n\t\t\t- basic-settings = <default-local-settings>)"
-                }, {
                     "name": {
                         "short": "e",
                         "long": "edition"
@@ -86,6 +79,12 @@
                         "long": "root-directory"
                     },
                     "description": "Project relative path"
+                }, {
+                    "name": {
+                        "short": "u",
+                        "long": "use-default"
+                    },
+                    "description": "Use default settings: \n\t\t\t- edition = community \n\t\t\t- version = <last-version> \n\t\t\t- project-name = <basename> \n\t\t\t- root-directory = '.' \n\t\t\t- basic-settings = <default-local-settings>)"
                 }, {
                     "name": {
                         "short": "v",
@@ -114,7 +113,8 @@
             "description": "Stop all running containers"
         },
         "down": {
-            "description": "Stop and remove containers, networks, images, and volumes"
+            "description": "Stop and remove containers, networks, images, and volumes",
+            "example": "down -v"
         },
         "exec": {
             "description": "Execute a command in a running container [Default container: php]",
@@ -143,16 +143,23 @@
             ]
         },
         "install": {
-            "description": "Execute setup:install magento command with custom config",
+            "description": "Execute setup:install Magento command with custom config",
             "args": [
                 {
                     "name": "domain",
-                    "description": "Run command with this domain"
+                    "description": "Run command with this domain. If don't specified domain, it is used DOMAIN of properties.json"
                 }
             ]
         },
         "magento": {
-            "description": "Execute magento console commands"
+            "description": "Execute Magento console commands",
+            "args": [
+                {
+                    "name": "magento-subcommand",
+                    "description": "Execute Magento subcommand."
+                }
+            ],
+            "example": "magento cache:clean"
         },
         "masquerade": {
             "example": "masquerade\n\n\t >>> To add proyect config files create the following folder: config/docker/masquerade/magento2 and include de yaml files (.yaml) inside the newly created folder (magento2).",
@@ -198,7 +205,13 @@
             "usage": "n98-magerun [options]"
         },
         "npm": {
-            "description": "Execute npm commands into node container"
+            "description": "Execute npm commands into node container",
+            "args": [
+                {
+                    "name": "npm-subcommand",
+                    "description": "Execute npm subcommand."
+                }
+            ]
         },
         "purge": {
             "description": "Remove all magento generated code (caches, generated, static, view_preprocessed)"
@@ -207,7 +220,14 @@
             "description": "Rebuild docker services with current configuration"
         },
         "restart": {
-            "description": "Restart docker services"
+            "description": "Restart docker services",
+            "args": [
+                {
+                    "name": "service-name",
+                    "description": "Restart specific container of the service-name."
+                }
+            ],
+            "example": "restart phpfpm"
         },
         "set-host": {
             "example": "set-host my-project.local",
@@ -269,7 +289,14 @@
             ]
         },
         "ssl": {
-            "description": "Install SSL certificates for docker environment"
+            "description": "Install SSL certificates for docker environment",
+            "args": [
+                {
+                    "name": "domain",
+                    "description": "Create certificate for specific domain."
+                }
+            ],
+            "example": "ssl domain.local"
         },
         "start": {
             "description": "Start docker services",
@@ -281,10 +308,24 @@
                     },
                     "description": "Stop all docker container before execute start"
                 }
-            ]
+            ],
+            "args": [
+                {
+                    "name": "service-name",
+                    "description": "Start specific container of the service-name."
+                }
+            ],
+            "example": "start phpfpm"
         },
         "stop": {
-            "description": "Stop docker services"
+            "description": "Stop docker services",
+            "args": [
+                {
+                    "name": "service-name",
+                    "description": "Stop specific container of the service-name."
+                }
+            ],
+            "example": "stop phpfpm"
         },
         "test-integration": {
             "description": "Execute your magento integration tests"

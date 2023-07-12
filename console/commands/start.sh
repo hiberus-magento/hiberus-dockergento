@@ -24,6 +24,8 @@ start_execute() {
         print_processing "Fixing permissions"
         "$TASKS_DIR"/fix_linux_permissions.sh
         print_processing "Permissions fix finished"
+        print_processing "Configuring self-routing domains..."
+        "$TASKS_DIR"/set_etc_hosts.sh
     fi
 }
 
@@ -34,7 +36,7 @@ while getopts ":s" options; do
             shift
         ;;
         ?)
-            source "HELPERS_DIR"/print_usage.sh
+            source "$HELPERS_DIR"/print_usage.sh
             print_error "The command is not correct\n"
             print_info "Use this format\n"
             get_usage "$(basename ${0%.sh})"

@@ -34,7 +34,7 @@ mysql_execute() {
         exit
     fi
     # Go into mysql container
-    docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
+    $DOCKER_COMPOSE exec db bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
 }
 
 if [ -z "$mysql_container" ]; then

@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 
 # Get Magento version
-if [ -z "$MAGENTO_VERSION" ]; then
+if [ -z "${MAGENTO_VERSION:-""}" ]; then
     if [ -f "$MAGENTO_DIR/composer.lock" ]; then
         MAGENTO_VERSION=$(cat <"$MAGENTO_DIR/composer.lock" |
         jq -r '.packages | map(select(.name == "magento/product-community-edition"))[].version')
@@ -38,11 +40,19 @@ command_arguments="--db-host=db \
 --amqp-password=password"
 
 if  [[ $MAGENTO_VERSION != 2.3.* ]]; then
-    command_arguments="$command_arguments \
-    --elasticsearch-host=search \
-    --elasticsearch-port=9200 \
-    --elasticsearch-username=admin \
-    --elasticsearch-password=admin"
+        command_arguments="$command_arguments \
+        --elasticsearch-host=search \
+        --elasticsearch-port=9200 \
+        --elasticsearch-username=admin \
+        --elasticsearch-password=admin"
+    if  [[ $MAGENTO_VERSION == 2.4.6* ]]; then
+        command_arguments="$command_arguments \
+        --search-engine=opensearch \
+        --opensearch-host=search \
+        --opensearch-port=9200 \
+        --opensearch-username=admin \
+        --opensearch-password=admin"
+    fi
 fi
 
 #
@@ -75,7 +85,7 @@ run_install_magento_command() {
 #
 get_base_url() {
     source "$COMPONENTS_DIR"/input_info.sh
-    get_domain "$@"
+    get_domain "${DOMAIN:=""}"
     command_arguments="$command_arguments --base-url=https://$DOMAIN/ --base-url-secure=https://$DOMAIN/"
 }
 
@@ -117,9 +127,9 @@ get_config() {
 # Initialize script
 #
 init() {
-    get_base_url "$@"
+    get_base_url
     get_config
-    run_install_magento_command
+    run_install_magento_command "$@"
 }
 
 init "$@"

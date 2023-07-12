@@ -1,4 +1,4 @@
-FROM php:7.4-fpm-buster
+FROM php:8.2-fpm-buster
 MAINTAINER "Hiberus Tecnologia <dabad@hiberus.com>"
 
 # Install dependencies
@@ -57,9 +57,9 @@ RUN docker-php-ext-install \
     zip \
     sockets \
     ldap
-    
+
 RUN pecl channel-update pecl.php.net \
-    && pecl install xdebug-2.9.8 \
+    && pecl install xdebug-3.2.0 \
     && docker-php-ext-enable xdebug \
     && sed -i -e 's/^zend_extension/\;zend_extension/g' /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 

@@ -73,7 +73,7 @@ create_project_execute() {
     print_link "https://$DOMAIN/\n"
 }
 
-while getopts ":p:e:v:r:d" options; do
+while getopts ":p:e:v:r:u" options; do
     case "$options" in
         p)
             # Project name
@@ -92,8 +92,8 @@ while getopts ":p:e:v:r:d" options; do
             # Magento root 
             root_directory=$OPTARG
         ;;
-        d)
-            # default settings
+        u)
+            # use default settings
             suggested_name=$(basename "$PWD")
             last_version="$(get_last_version)"
             project_name=${project_name:-$suggested_name}
