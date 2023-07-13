@@ -30,9 +30,11 @@ mysql_execute() {
         if $clean_definers ; then
             cleaned=${import_database/".sql"/"-cleaned.sql"}
             cat $import_database | sed 's/DEFINER=[^*]*\*/\*/g' > $cleaned
+            print_info "Importing database from file with cleaned up definers ...\n"
             docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\"" < $cleaned
         else
             # Only import database  
+            print_info "Importing database from file ...\n"
             docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\"" < $import_database
         fi
         set_settings_for_develop
@@ -53,6 +55,7 @@ anonymise() {
 
 # If stdin has content
 if [ ! -t 0 ]; then
+    print_info "Importing database from stdin ...\n"
     docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
     anonymise
 else

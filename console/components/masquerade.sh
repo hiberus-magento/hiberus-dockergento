@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 platform="magento2"
-database=$(docker-compose exec db bash -c "echo -n \$MYSQL_database")
+database=$(docker-compose exec db bash -c "echo -n \$MYSQL_DATABASE")
 username=$(docker-compose exec db bash -c "echo -n \$MYSQL_USER")
-password=$(docker-compose exec db bash -c "echo -n \$MYSQL_password")
+password=$(docker-compose exec db bash -c "echo -n \$MYSQL_PASSWORD")
 port="3306"
 driver="mysql"
 locale="es_ES"
