@@ -1,34 +1,34 @@
 #!/usr/bin/env bash
 
-PLATFORM="magento2"
-DATABASE=$(docker-compose exec db bash -c "echo -n \$MYSQL_DATABASE")
-USERNAME=$(docker-compose exec db bash -c "echo -n \$MYSQL_USER")
-PASSWORD=$(docker-compose exec db bash -c "echo -n \$MYSQL_PASSWORD")
-PORT="3306"
-DRIVER="mysql"
-LOCALE="es_ES"
-MASQUERADE_PROJECT_CONFIG_FOLDER="./config/docker/masquerade"
-MASQUERADE_CONFIG_FOLDER="/app/masquerade"
-VOLUME_CONFIG=""
-CONFIG=""
+platform="magento2"
+database=$(docker-compose exec db bash -c "echo -n \$MYSQL_database")
+username=$(docker-compose exec db bash -c "echo -n \$MYSQL_USER")
+password=$(docker-compose exec db bash -c "echo -n \$MYSQL_password")
+port="3306"
+driver="mysql"
+locale="es_ES"
+masquerade_project_config_folder="./config/docker/masquerade"
+masquerade_config_folder="/app/masquerade"
+volume_config=""
+config=""
 
 # Prepare volume config
-[ -d ${MASQUERADE_PROJECT_CONFIG_FOLDER} ] && VOLUME_CONFIG="--volume ${MASQUERADE_PROJECT_CONFIG_FOLDER}:${MASQUERADE_CONFIG_FOLDER}"
+[ -d ${masquerade_project_config_folder} ] && volume_config="--volume ${masquerade_project_config_folder}:${masquerade_config_folder}"
 
 # Prepare config argument
-[ -d ${MASQUERADE_PROJECT_CONFIG_FOLDER} ] && CONFIG="--config=${MASQUERADE_CONFIG_FOLDER}"
+[ -d ${masquerade_project_config_folder} ] && config="--config=${masquerade_config_folder}"
 
 masquerade_run() {    
     docker run \
-    --network=$(docker ps --filter id="$(docker-compose ps -q db)" --format '{{ json .Networks }}' | tr -d '"') $VOLUME_CONFIG \
+    --network=$(docker ps --filter id="$(docker-compose ps -q db)" --format '{{ json .Networks }}' | tr -d '"') $volume_config \
     -t -i --rm hiberusmagento/masquerade\
     masquerade run \
-    --platform=${PLATFORM} \
-    --database=${DATABASE} \
-    --username=${USERNAME} \
-    --password=${PASSWORD} \
+    --platform=${platform} \
+    --database=${database} \
+    --username=${username} \
+    --password=${password} \
     --host=db \
-    --port=${PORT} \
-    --driver=${DRIVER} \
-    --locale=${LOCALE} $CONFIG
+    --port=${port} \
+    --driver=${driver} \
+    --locale=${locale} $config
 }
