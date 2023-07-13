@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
+source "$COMPONENTS_DIR"/masquerade.sh
 source "$TASKS_DIR"/set_magento_configs.sh
 source "$HELPERS_DIR"/docker.sh
 mysql_container=$(docker ps -qf "name=db")
@@ -25,7 +26,7 @@ mysql_execute() {
     # Import option
     if [[ -n ${import_database:=""} ]]; then
         set_current_domain
-        # Check if there is to delete DEFINER and import database
+        # Check if DEFINER has to be deleted and import database
         if $clean_definers ; then
             cleaned=${import_database/".sql"/"-cleaned.sql"}
             cat $import_database | sed 's/DEFINER=[^*]*\*/\*/g' > $cleaned
@@ -35,15 +36,25 @@ mysql_execute() {
             docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\"" < $import_database
         fi
         set_settings_for_develop
+        anonymise
         exit
     fi
     # Go into mysql container
     $DOCKER_COMPOSE exec db bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
 }
 
+#
+# Anonymise database
+#
+anonymise() {
+    print_info "Anonymising database in localhost...\n"
+    masquerade_run
+}
+
 # If stdin has content
 if [ ! -t 0 ]; then
     docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
+    anonymise
 else
     while getopts ":i:q:d" options; do
         case "$options" in
