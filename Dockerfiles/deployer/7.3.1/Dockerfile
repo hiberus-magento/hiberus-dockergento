@@ -43,7 +43,7 @@ ENV COMPOSER_PROCESS_TIMEOUT=0
 RUN curl -sS https://getcomposer.org/installer | \
   php -- --install-dir=/usr/local/bin --filename=composer
 
-RUN curl -L -o /usr/local/bin/dep https://github.com/deployphp/deployer/releases/latest/download/deployer.phar
+RUN curl -L -o /usr/local/bin/dep https://github.com/deployphp/deployer/releases/download/v7.3.1/deployer.phar
 RUN chmod +x /usr/local/bin/dep
 
 RUN mkdir /app
