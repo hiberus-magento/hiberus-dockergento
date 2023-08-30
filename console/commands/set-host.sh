@@ -2,13 +2,17 @@
 set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/properties.sh
+
 modify_database=true
+
 #
 # Set base url in local etc/hosts en magento database
 #
 set_local_host() {
     if [ "$#" -gt 0 ]; then
         DOMAIN=$1
+        save_properties
         shift
     fi
 
