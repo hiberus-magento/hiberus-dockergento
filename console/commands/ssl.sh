@@ -2,12 +2,15 @@
 set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/docker.sh
+is_run_service "hitch"
 
 if [ "$#" -eq "0" ]; then
     DOMAIN="${DOMAIN:="localhost"}"
 else
     DOMAIN=$1
 fi
+
 
 if [ -z "$(docker ps | grep hitch)" ]; then
     print_error "Error: Hitch is not running!\n"

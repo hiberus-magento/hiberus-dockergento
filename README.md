@@ -114,6 +114,7 @@ hm setup --help
 - [cloud](docs/cloud.md)
 - [compatibility](docs/compatibility.md)
 - [composer](docs/composer.md)
+- [config-env](docs/config-env.md)
 - [copy-from-container](docs/copy-from-container.md)
 - [copy-to-container](docs/copy-to-container.md)
 - [create-project](docs/create-project.md)

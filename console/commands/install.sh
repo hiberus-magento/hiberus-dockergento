@@ -69,7 +69,8 @@ run_install_magento_command() {
         mv "$MAGENTO_DIR/app/etc/config.php" "$MAGENTO_DIR/app/etc/_config.php"
     fi
 
-    config=$(cat <"$DATA_DIR/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")')
+    config=$(cat "$DATA_DIR/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")')
+    
     "$COMMANDS_DIR"/magento.sh setup:install $command_arguments $config
     "$COMMANDS_DIR"/magento.sh config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
 
@@ -93,6 +94,22 @@ get_base_url() {
 # Get arguments for setup-install command
 #
 get_argument_command() {
+    if [[ ! -f "$DATA_DIR/config.json" ]]; then
+        echo "{}" > "$DATA_DIR/config.json"
+
+         conf=$(cat "$DATA_DIR"/config.json | jq '{
+            "language": "es_ES",
+            "currency": "EUR",
+            "timezone": "Europe/Madrid",
+            "admin-firstname": "hiberus",
+            "admin-lastname": "hiberus",
+            "admin-email": "noreply@hiberus.com",
+            "admin-user": "hiberus",
+            "admin-password": "Hiberus123"
+        }')
+        echo $conf | jq '.' > "$DATA_DIR"/config.json
+    fi
+
     argument=$(jq -r '.["'$1'"]' "$DATA_DIR/config.json")
     
     if ! ${USE_DEAFULT_SETTINGS:-false}; then

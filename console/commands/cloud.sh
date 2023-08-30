@@ -2,10 +2,8 @@
 set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/docker.sh
 
-if [ -z "$(docker ps | grep phpfpm)" ]; then
-    print_error "Error: PHP is not running!\n"
-    exit
-fi
+is_run_service "phpfpm"
 
 docker-compose exec phpfpm bash -c "magento-cloud $@"
