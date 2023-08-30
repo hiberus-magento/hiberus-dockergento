@@ -69,8 +69,8 @@ run_install_magento_command() {
         mv "$MAGENTO_DIR/app/etc/config.php" "$MAGENTO_DIR/app/etc/_config.php"
     fi
 
-
     config=$(cat "$DATA_DIR/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")')
+    
     "$COMMANDS_DIR"/magento.sh setup:install $command_arguments $config
     "$COMMANDS_DIR"/magento.sh config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
 
@@ -113,8 +113,7 @@ get_argument_command() {
     argument=$(jq -r '.["'$1'"]' "$DATA_DIR/config.json")
     
     if ! ${USE_DEAFULT_SETTINGS:-false}; then
-        print_question "Define $1 " "$argument"
-        read -r response
+        read -rp "$(print_question "Define $1 " "$argument")" response
 
         if [[ $response != '' ]]; then
             argument=$response

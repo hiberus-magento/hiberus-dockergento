@@ -24,3 +24,10 @@ is_docker_service_running() {
         exit 1
     fi
 }
+
+is_docker_service_running() {
+    if [[ ! $(docker info >/dev/null 2>&1; echo $?) -eq 0 ]]; then
+        print_warning "Docker is not eunning!\n"
+        exit 1
+    fi
+}

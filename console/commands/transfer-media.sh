@@ -26,9 +26,9 @@ for i in "$@"; do
 done
 
 # Request data
-read -p "SSH Host [Default: '$sshHost']: " inputSshHost
-read -p "SSH User [Default: '$sshUser']: " inputSshUser
-read -p "SSH pub/media path [Default: '$sshPath']: " inputSshPath
+read -p "$(print_question "SSH Host [Default: '$sshHost']: ")" inputSshHost
+read -p "$(print_question "SSH User [Default: '$sshUser']: ")" inputSshUser
+read -p "$(print_question "SSH pub/media path [Default: '$sshPath']: ")" inputSshPath
 sshHost=${inputSshHost:-${sshHost}}
 sshUser=${inputSshUser:-${sshUser}}
 sshPath=${inputSshPath:-${sshPath}}

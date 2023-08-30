@@ -29,6 +29,13 @@ _(All patched versions are also compatible)_
 <br>
 
 ## Install Hiberus CLI
+Hiberus CLI requires the next dependencies.
+- [Homebrew](https://docs.brew.sh/Installation) (only Mac)
+- [git](https://git-scm.com/downloads)
+- [jq](https://stedolan.github.io/jq/download/)
+- [oh-my-zsh](https://ohmyz.sh/) (recommended for Mac)
+
+After installing these dependencies, launch the next command
 
 ```bash
 curl https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/setup.sh | bash
