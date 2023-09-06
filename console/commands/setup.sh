@@ -5,7 +5,7 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
 
-export USE_DEAFULT_SETTINGS=false
+export USE_DEFAULT_SETTINGS=false
 dump=""
 force_setup=false
 
@@ -123,7 +123,7 @@ while getopts ":D:p:d:r:fui" options; do
         ;;
         u)
             # Use saved user settings
-            export USE_DEAFULT_SETTINGS=true
+            export USE_DEFAULT_SETTINGS=true
         ;;
         f)
             # Force

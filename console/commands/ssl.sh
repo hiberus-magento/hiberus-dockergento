@@ -11,7 +11,6 @@ else
     DOMAIN=$1
 fi
 
-
 if [ -z "$(docker ps | grep hitch)" ]; then
     print_error "Error: Hitch is not running!\n"
     exit

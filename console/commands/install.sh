@@ -112,7 +112,7 @@ get_argument_command() {
 
     argument=$(jq -r '.["'$1'"]' "$DATA_DIR/config.json")
     
-    if ! ${USE_DEAFULT_SETTINGS:-false}; then
+    if ! ${USE_DEFAULT_SETTINGS:-false}; then
         read -rp "$(print_question "Define $1 " "$argument")" response
 
         if [[ $response != '' ]]; then

@@ -113,7 +113,7 @@ get_equivalent_version_if_exit() {
 get_requirements() {
     if [ "$#" -gt 0 ]; then
         REQUIREMENTS=$(jq -r '.["'$1'"]' "$DATA_DIR/requirements.json")
-        if ! $USE_DEAFULT_SETTINGS; then
+        if ! $USE_DEFAULT_SETTINGS; then
             change_requirements
         fi
         export REQUIREMENTS=$REQUIREMENTS
