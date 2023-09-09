@@ -24,12 +24,12 @@ copy() {
 #
 edit_version() {
     service_name=$1
-    opts=$(jq -r '[.[] | .'["'$service_name'"]'] | unique  | join(" ")' < "$DATA_DIR/requirements.json")
+    opts=$(jq -r '[.[] | .["'$service_name'"]] | unique  | join(" ")' < "$DATA_DIR/requirements.json")
 
     custom_select "$service_name version:\n" ${opts[@]}
     select_result=$REPLY
 
-    REQUIREMENTS=$(echo "$REQUIREMENTS" | jq -r '.["'$service_name'"]='$select_result'')
+    REQUIREMENTS=$(echo "$REQUIREMENTS" | jq -r '.["'$service_name'"]='\"$select_result\"'')
 }
 
 #
