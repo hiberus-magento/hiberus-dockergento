@@ -41,6 +41,10 @@ create_project_execute() {
     get_project_name "$project_name"
     get_domain "$domain"
 
+    if ! [ -d "$root_directory" ]; then
+        mkdir -p "$root_directory"
+    fi
+    
     # Create docker environment
     get_magento_root_directory "$root_directory"
     "$TASKS_DIR"/version_manager.sh "$MAGENTO_VERSION"
@@ -90,7 +94,7 @@ while getopts ":p:e:v:r:u" options; do
         ;;
         r)
             # Magento root 
-            root_directory=$OPTARG
+            root_directory="$OPTARG"
         ;;
         u)
             # use default settings
