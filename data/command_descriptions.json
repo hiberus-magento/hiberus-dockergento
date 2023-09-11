@@ -161,6 +161,10 @@
             ],
             "example": "magento cache:clean"
         },
+        "masquerade": {
+            "example": "masquerade\n\n\t >>> To add proyect config files create the following folder: config/docker/masquerade/magento2 and include de yaml files (.yaml) inside the newly created folder (magento2).",
+            "description": "Execute masquerade tool. 'hm masquerade --help' to view more info. "
+        },
         "mysql": {
             "example": "mysql < local-path/my-dump.sql\n\t hm mysql -d -i=my-dump.sql",
             "description": "Execute mysql command into container",

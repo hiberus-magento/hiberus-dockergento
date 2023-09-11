@@ -38,7 +38,7 @@ Hiberus CLI requires the next dependencies.
 After installing these dependencies, launch the next command
 
 ```bash
-curl https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/setup.sh | bash
+curl https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/installer.sh | bash
 ```
 
 <br>
@@ -127,6 +127,7 @@ hm setup --help
 - [grunt](docs/grunt.md)
 - [install](docs/install.md)
 - [magento](docs/magento.md)
+- [masquerade](docs/masquerade.md)
 - [mysql](docs/mysql.md)
 - [mysqldump](docs/mysqldump.md)
 - [n98-magerun](docs/n98-magerun.md)
