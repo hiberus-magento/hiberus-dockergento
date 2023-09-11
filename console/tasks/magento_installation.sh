@@ -11,7 +11,9 @@ create_database() {
         "$COMMANDS_DIR"/mysql.sh < "$1"
         "$COMMANDS_DIR"/mysql.sh -q "DELETE FROM admin_user;"
     fi
-    "$COMMANDS_DIR"/install.sh "$DOMAIN"
+    
+    "$COMMANDS_DIR"/install.sh ${USE_DEFAULT_SETTINGS:+-u}
+
 }
 
 # Magento installation and database
