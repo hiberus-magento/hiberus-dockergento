@@ -46,11 +46,10 @@ set_settings_for_develop() {
         command_data=$(jq -r '."'$key'"[] | 
             select(.value == "URL").value = "https://'$DOMAIN'/" |
             select(.value == "DOMAIN").value = "'$DOMAIN'" |
-            "'$magento_command'=" + .path + "=" + .value' "$DOCKER_CONFIG_DIR"/local_settings.json)
-
+            if .scope then "'$magento_command'%" + "--scope=" + .scope + "%--scope-code=" + .["scope-code"] + "%" + .path + "%" + .value else "'$magento_command'%" + .path + "%" + .value end' "$DOCKER_CONFIG_DIR"/local_settings.json)
         # Replace '=' to ' ' and execute each command
         for data in $command_data; do
-            final_command=$(echo "$data" | sed 's/=/ /g')
+            final_command=$(echo "$data" | sed 's/%/ /g')
             print_processing "bin/magento $final_command"
             "$COMMANDS_DIR"/magento.sh $final_command
         done

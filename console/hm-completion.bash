@@ -18,6 +18,7 @@ exec \
 grunt \ 
 install \ 
 magento \ 
+masquerade \
 mysql \ 
 mysqldump \ 
 n98-magerun \ 

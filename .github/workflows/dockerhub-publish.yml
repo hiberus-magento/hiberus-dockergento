@@ -98,3 +98,15 @@ jobs:
           - docker_file: ./Dockerfiles/hitch/1.7/
             docker_name: hitch
             docker_version: 1.7
+          - docker_file: ./Dockerfiles/deployer/latest/
+            docker_name: deployer
+            docker_version: latest
+          - docker_file: ./Dockerfiles/deployer/7.3.1/
+            docker_name: deployer
+            docker_version: 7.3.1
+          - docker_file: ./Dockerfiles/masquerade/latest/
+            docker_name: masquerade
+            docker_version: latest
+          - docker_file: ./Dockerfiles/masquerade/1.2.2/
+            docker_name: masquerade
+            docker_version: 1.2.2

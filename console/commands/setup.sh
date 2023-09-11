@@ -5,7 +5,7 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
 
-export USE_DEAFULT_SETTINGS=false
+export USE_DEFAULT_SETTINGS=false
 dump=""
 force_setup=false
 
@@ -32,21 +32,12 @@ ask_dump() {
 # Ask to user if prefers to import database or to execute magento install command
 #
 choice_database_mode_creation() {
-    flow_database_opt="SQL-Dump Magento-Installation"
+    flow_database_opt=("Import sql Dump" "Magento installation")
+    custom_select "How do you want create database?" "${flow_database_opt[@]}"
 
-    # install and use default
-    print_info "\nIf your project has many custom modules it's possible that install command can fail.\n"
-    print_question "Choose an option:\n"
-
-    select REPLY in $flow_database_opt; do
-        if [[ " $flow_database_opt " == *" $REPLY "* ]]; then
-            if [[ $REPLY == SQL* ]]; then
-                ask_dump
-            fi
-            break
-        fi
-        echo "Invalid option '$REPLY'"
-    done
+    if [[ $REPLY == "Import sql Dump" ]]; then
+        ask_dump
+    fi
 }
 
 #
@@ -132,7 +123,7 @@ while getopts ":D:p:d:r:fui" options; do
         ;;
         u)
             # Use saved user settings
-            export USE_DEAFULT_SETTINGS=true
+            export USE_DEFAULT_SETTINGS=true
         ;;
         f)
             # Force

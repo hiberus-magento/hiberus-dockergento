@@ -2,9 +2,14 @@
 set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
+source "$COMPONENTS_DIR"/masquerade.sh
 source "$TASKS_DIR"/set_magento_configs.sh
-
+source "$HELPERS_DIR"/docker.sh
 mysql_container=$(docker ps -qf "name=db")
+
+# Check if db service is running
+is_run_service "db"
+
 clean_definers=false
 
 #
@@ -21,30 +26,38 @@ mysql_execute() {
     # Import option
     if [[ -n ${import_database:=""} ]]; then
         set_current_domain
-        # Check if there is to delete DEFINER and import database
+        # Check if DEFINER has to be deleted and import database
         if $clean_definers ; then
             cleaned=${import_database/".sql"/"-cleaned.sql"}
             cat $import_database | sed 's/DEFINER=[^*]*\*/\*/g' > $cleaned
+            print_info "Importing database from file with cleaned up definers ...\n"
             docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\"" < $cleaned
         else
             # Only import database  
+            print_info "Importing database from file ...\n"
             docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\"" < $import_database
         fi
         set_settings_for_develop
+        anonymise
         exit
     fi
     # Go into mysql container
     $DOCKER_COMPOSE exec db bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
 }
 
-if [ -z "$mysql_container" ]; then
-    print_error "Error: DB container is not running\n"
-    exit 1
-fi
+#
+# Anonymise database
+#
+anonymise() {
+    print_info "Anonymising database in localhost...\n"
+    masquerade_run
+}
 
 # If stdin has content
 if [ ! -t 0 ]; then
+    print_info "Importing database from stdin ...\n"
     docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
+    anonymise
 else
     while getopts ":i:q:d" options; do
         case "$options" in

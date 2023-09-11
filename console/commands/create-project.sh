@@ -10,7 +10,7 @@ version=""
 edition=""
 root_directory=""
 
-export USE_DEAFULT_SETTINGS=false
+export USE_DEFAULT_SETTINGS=false
 
 #
 # Overwrite file consent
@@ -19,8 +19,8 @@ overwrite_file_consent() {
     local target_file=$1
 
     if [[ -f "$target_file" ]]; then
-        print_question "Overwrite $target_file? [Y/n]? "
-        read -r answer_overwrite_target
+        
+        read -rp "$(print_question "Overwrite $target_file? [Y/n]? ")" answer_overwrite_target
         if [ -z "$answer_overwrite_target" ]; then
             answer_overwrite_target="y"
         fi
@@ -105,7 +105,7 @@ while getopts ":p:e:v:r:u" options; do
             edition=${edition:="community"}
             version=${version:-$last_version}
             root_directory=${root_directory:="."}
-            export USE_DEAFULT_SETTINGS=true
+            export USE_DEFAULT_SETTINGS=true
         ;;
         ?)
             source "$HELPERS_DIR"/print_usage.sh
