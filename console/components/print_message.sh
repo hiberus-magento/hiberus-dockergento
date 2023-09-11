@@ -8,7 +8,7 @@ print_question() {
 
     printf "$BLUE%b$COLOR_RESET" "$question"
 
-    if [ $# -gt 1 ] && [ $2 != null ]; then
+    if [ $# -gt 1 ] && ([ "$2" != null ] && [ -n "$2" ]); then
         default_value=$2
         printf "$BLUE["
         print_default $default_value
