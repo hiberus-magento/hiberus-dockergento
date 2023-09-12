@@ -55,6 +55,7 @@ mkcert -cert-file ssl.crt -key-file ssl.key $DOMAIN localhost 127.0.0.1 0.0.0.0 
 cat ssl.crt ssl.key >ssl.pem && rm ssl.crt ssl.key
 docker cp ./ssl.pem "$(docker-compose ps -q hitch | awk '{print $1}')":/etc/hitch/testcert.pem
 docker-compose exec -T -u root hitch chown hitch /etc/hitch/testcert.pem
-docker-compose restart hitch
 
+docker-compose restart hitch
+set -e
 print_info "SSL certificate installed. Remember to restart your browser\n"

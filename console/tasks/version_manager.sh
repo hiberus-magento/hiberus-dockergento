@@ -23,30 +23,27 @@ copy() {
 # Changes specific service value
 #
 edit_version() {
+    local opts service_name
     service_name=$1
-    opts=$(jq -r '[.[] | .'["'$service_name'"]'] | unique  | join(" ")' < "$DATA_DIR/requirements.json")
+    opts=$(jq -r '[.[] | .["'$service_name'"]] | unique  | join(" ")' < "$DATA_DIR/requirements.json")
 
-    custom_select "$service_name version:\n" ${opts[@]}
+    custom_select "$service_name version:\n" "${opts[@]}"
     select_result=$REPLY
 
-    REQUIREMENTS=$(echo "$REQUIREMENTS" | jq -r '.["'$service_name'"]='$select_result'')
+    REQUIREMENTS=$(echo "$REQUIREMENTS" | jq -r '.["'$service_name'"]='\"$select_result\"'')
 }
 
 #
 # Select editable services and changes her value
 #
 edit_versions() {
+    local opts
     opts=($(echo "$REQUIREMENTS" | jq -r 'keys[]'))
-    options=("composer" "php" "search" "mariadb" "redis" "varnish")
 
-    echo $opts
-    
-    custom_select "Choose service:" "${options[@]}"
+    custom_select "Choose service:\n" "${opts[@]}"
 
     edit_version "$REPLY"
     change_requirements
-    
-exit 2
 }
 
 #
@@ -54,8 +51,8 @@ exit 2
 #
 print_requirements() {
     services=$(echo "$REQUIREMENTS" | jq -r 'keys|join(" ")')
-
-    print_table "\n\n-------------------------------\n"
+    clear
+    print_table "-------------------------------\n"
     print_table "          REQUIREMENTS"
     print_table "\n-------------------------------\n"
     for index in $services; do
@@ -73,18 +70,17 @@ change_requirements() {
     print_requirements
     state="continue"
     while [[ $state == "continue" ]]; do
-        
-        read -rp "$(print_question "Are you satisfied with these versions? [Y/n] ")" yn
-        if [ -z "$yn" ]; then
-            yn="y"
+        confirm "Are you satisfied with these versions? [Y/n]"
+        if [ -z "$REPLY" ]; then
+            REPLY="y"
         fi
-        case $yn in
-        [Yy]*) state="exit" ;;
-        [Nn]*)
-            edit_versions
-            break
-            ;;
-        *) print_warning "Please answer yes or no.\n" ;;
+        case $REPLY in
+            [Yy]*) state="exit" ;;
+            [Nn]*)
+                edit_versions
+                break
+                ;;
+            *) print_warning "Please answer yes or no.\n" ;;
         esac
     done
 }
@@ -111,18 +107,14 @@ get_equivalent_version_if_exit() {
 # If there are arguments
 #
 get_requirements() {
-    if [ "$#" -gt 0 ]; then
+    if [ $# -gt 0 ]; then
         REQUIREMENTS=$(jq -r '.["'$1'"]' "$DATA_DIR/requirements.json")
-        if ! $USE_DEFAULT_SETTINGS; then
+        if ! ${USE_DEFAULT_SETTINGS:+true}; then
             change_requirements
         fi
         export REQUIREMENTS=$REQUIREMENTS
     else
-        if [ -f "$MAGENTO_DIR/composer.lock" ]; then
-            MAGENTO_VERSION=$(jq -r '.packages |
-                map(select(.name == "magento/product-community-edition"))[].version' < "$MAGENTO_DIR/composer.lock")
-            print_warning "\nVersion detected: $MAGENTO_VERSION\n"
-        else
+        if [ ! -f "$MAGENTO_DIR/composer.lock" ]; then
             print_error "\n------------------------------------------------------\n"
             print_error "\n      Not found composer.lock in $MAGENTO_DIR/ directory\n"
             print_default "\n You can clone a project and after execute "
@@ -133,6 +125,11 @@ get_requirements() {
             exit 1
         fi
 
+        MAGENTO_VERSION=$(jq -r '.packages |
+                map(select(.name == "magento/product-community-edition"))[].version' < "$MAGENTO_DIR/composer.lock")
+        clear
+        print_warning "Magento version detected: $MAGENTO_VERSION\n"
+        sleep 1.5
         get_equivalent_version_if_exit "$MAGENTO_VERSION"
     fi
 }
