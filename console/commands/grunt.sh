@@ -3,6 +3,10 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/docker.sh
+
+# Check if PHP container is running
+is_run_service "phpfpm"
 
 # Check command usage
 if [ "$#" -ne 2 ] || [[ "$1" != */* ]]; then
@@ -14,12 +18,6 @@ fi
 
 grunt_theme=$1
 grunt_locale=$2
-
-# Check if PHP container is running
-if [ -z "$(docker ps | grep phpfpm)" ]; then
-    print_error "Error: PHP container is not running!\n"
-    exit
-fi
 
 # Rename files
 print_processing "Preparing config files...\n"

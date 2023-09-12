@@ -10,8 +10,9 @@ while [ -h "$source" ]; do
 done
 
 dir="$(cd -P "$(dirname "$source")" && pwd)"
+completion_dir="$HOME/hm_resources)"
 
-executable="source $dir/console/hm-completion.bash"
+executable="source $completion_dir/console/hm-completion.bash"
 exclude_commands="copy-from-container copy-to-container"
 
 [[ "$(uname -s)" == "Darwin" ]] && mac_machine=true || mac_machine=false
@@ -41,8 +42,12 @@ for script in "$dir/console/commands/"*.sh; do
     fi
 done
 
+if ! [ -d "$completion_dir" ]; then
+    mkdir -p "$completion_dir"
+fi
+
 # Write autocomplete file
-echo -e "#!/usr/bin/env bash\n\ncomplete -W \"$commands\" hm" > "$dir"/console/hm-completion.bash
+echo -e "#!/usr/bin/env bash\n\ncomplete -W \"$commands\" hm" > "$completion_dir"/hm-completion.bash
 
 # Write source sentence in .zshrc
 if ! grep -q "$executable" "$sourceFile"; then

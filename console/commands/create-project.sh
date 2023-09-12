@@ -10,27 +10,6 @@ version=""
 edition=""
 root_directory=""
 
-export USE_DEAFULT_SETTINGS=false
-
-#
-# Overwrite file consent
-#
-overwrite_file_consent() {
-    local target_file=$1
-
-    if [[ -f "$target_file" ]]; then
-        print_question "Overwrite $target_file? [Y/n]? "
-        read -r answer_overwrite_target
-        if [ -z "$answer_overwrite_target" ]; then
-            answer_overwrite_target="y"
-        fi
-        if [ "$answer_overwrite_target" != "y" ]; then
-            print_error "Setup interrupted. This commands needs to overwrite this file."
-            exit 1
-        fi
-    fi
-}
-
 #
 # Initialize command script
 #
@@ -41,6 +20,10 @@ create_project_execute() {
     get_project_name "$project_name"
     get_domain "$domain"
 
+    if ! [ -d "$root_directory" ]; then
+        mkdir -p "$root_directory"
+    fi
+    
     # Create docker environment
     get_magento_root_directory "$root_directory"
     "$TASKS_DIR"/version_manager.sh "$MAGENTO_VERSION"
@@ -90,7 +73,7 @@ while getopts ":p:e:v:r:u" options; do
         ;;
         r)
             # Magento root 
-            root_directory=$OPTARG
+            root_directory="$OPTARG"
         ;;
         u)
             # use default settings
@@ -101,7 +84,7 @@ while getopts ":p:e:v:r:u" options; do
             edition=${edition:="community"}
             version=${version:-$last_version}
             root_directory=${root_directory:="."}
-            export USE_DEAFULT_SETTINGS=true
+            export USE_DEFAULT_SETTINGS=true
         ;;
         ?)
             source "$HELPERS_DIR"/print_usage.sh

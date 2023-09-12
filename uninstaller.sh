@@ -34,7 +34,7 @@ remove_completion() {
 # Remove hm project
 #
 remove_project() {
-    if [ -d "$HOME/hm" ]; then
+    if ! [ -d "$HOME/hm" ]; then
         rm -r "$HOME/hm"
     fi
 }
@@ -43,7 +43,7 @@ remove_project() {
 # Remove links to hm run project
 #
 remove_link_to_command() {
-     if [ -d "/usr/local/bin/hm" ]; then
+     if ! [ -d "/usr/local/bin/hm" ]; then
         rm -rf "/usr/local/bin/hm"
     fi
 }
