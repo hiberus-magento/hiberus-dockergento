@@ -69,8 +69,9 @@ check_dependencies() {
 #
 clone_project() {
     if [ ! -e ~/hm ]; then
-        git clone https://github.com/hiberus-magento/hiberus-dockergento.git ~/hm
+        git clone https://github.com/hiberus-magento/hiberus-dockergento.git "$HOME"/hm
     fi
+    mkdir -p "$HOME/.hm_resources"
 }
 
 #

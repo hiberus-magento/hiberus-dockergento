@@ -10,7 +10,7 @@ while [ -h "$source" ]; do
 done
 
 dir="$(cd -P "$(dirname "$source")" && pwd)"
-completion_dir="$HOME/hm_resources)"
+completion_dir="$HOME/.hm_resources)"
 
 executable="source $completion_dir/console/hm-completion.bash"
 exclude_commands="copy-from-container copy-to-container"
