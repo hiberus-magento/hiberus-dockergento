@@ -3,11 +3,8 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/docker.sh
 
-project_name=""
-domain=""
-version=""
-edition=""
 root_directory=""
 
 #
@@ -15,25 +12,25 @@ root_directory=""
 #
 create_project_execute() {
     # Get magento version information
-    get_magento_edition "$edition"
-    get_magento_version "$version"
-    get_project_name "$project_name"
-    get_domain "$domain"
+    get_magento_edition "${edition:-}"
+    get_magento_version "${version:-}"
+    get_project_name "${project_name:-}"
+    get_domain "${domain:-}"
 
-    if ! [ -d "$root_directory" ]; then
-        mkdir -p "$root_directory"
-    fi
-    
     # Create docker environment
     get_magento_root_directory "$root_directory"
+    if ! [ -d "$MAGENTO_DIR" ]; then
+        mkdir -p "$MAGENTO_DIR"
+    fi
+
     "$TASKS_DIR"/version_manager.sh "$MAGENTO_VERSION"
     docker-compose -f docker-compose.yml up -d
-    container_id=$($DOCKER_COMPOSE ps -q phpfpm)
+    container_id=$(get_container_id phpfpm)
 
     # Also make sure alternate auth.json is setup (Magento uses this internally)
     "$COMMANDS_DIR"/exec.sh [ -d "./var/composer_home" ] && \
     "$COMMANDS_DIR"/exec.sh cp /var/www/.composer/auth.json ./var/composer_home/auth.json
-    
+
     # Execute composer create-project and copy composer.json
     "$COMMANDS_DIR"/exec.sh composer create-project \
         --no-install \
@@ -41,11 +38,11 @@ create_project_execute() {
         magento/project-"$MAGENTO_EDITION"-edition="$MAGENTO_VERSION" "."
 
     # Copy all to host
-    docker cp "$container_id":"$WORKDIR_PHP"/composer.json "$MAGENTO_DIR"
+    docker cp "$container_id":"$WORKDIR_PHP"/composer.json "$MAGENTO_DIR" &> /dev/null
 
     # Create empty composer.lock
     echo "{}" > "$MAGENTO_DIR"/composer.lock
-    
+
     # Run docker-compose specified files of OS
     "$COMMANDS_DIR"/restart.sh "phpfpm"
 

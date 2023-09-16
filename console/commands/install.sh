@@ -6,7 +6,7 @@ source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 source "$HELPERS_DIR"/docker.sh
 
-config_file="$HOME/hm_resources"
+config_file="$HOME/.hm_resources"
 
 command_arguments="--db-host=db \
     --backend-frontname=admin \
@@ -69,26 +69,16 @@ prepare_basic_config() {
 # Run magento setup:install command
 #
 run_install_magento_command() {
+    print_info "Starting magento setup:install...\n"
     # Remove existing env.php file
     if [ -f "$MAGENTO_DIR/app/etc/env.php" ]; then
         rm -rf "$MAGENTO_DIR/app/etc/env.php"
     fi
 
-    # If config.php file exists, create a backup and remote it
-    if [ -f "$MAGENTO_DIR/app/etc/config.php" ]; then
-        mv "$MAGENTO_DIR/app/etc/config.php" "$MAGENTO_DIR/app/etc/_config.php"
-    fi
-
-    config=$(cat "$DATA_DIR/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")')
+    config=$(jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")' "$config_file/config.json")
     
-    "$COMMANDS_DIR"/magento.sh setup:install $command_arguments $config
+    "$COMMANDS_DIR"/magento.sh setup:install --dry-run $command_arguments $config
     "$COMMANDS_DIR"/magento.sh config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
-
-    # If config.php backup file exists, restore it
-    if [ -f "$MAGENTO_DIR/app/etc/_config.php" ]; then
-        rm "$MAGENTO_DIR/app/etc/config.php"
-        mv "$MAGENTO_DIR/app/etc/_config.php" "$MAGENTO_DIR/app/etc/config.php"
-    fi
 }
 
 #
@@ -121,9 +111,11 @@ get_argument_command() {
 #
 get_config() {
     if [[ ! -f "$config_file/config.json" ]]; then
+        [[ ! -d "$config_file" ]] && mkdir -p "$config_file"
+        
         echo "{}" > "$config_file/config.json"
 
-         conf=$(cat "$config_file"/config.json | jq '{
+        conf=$(cat "$config_file"/config.json | jq '{
             "language": "es_ES",
             "currency": "EUR",
             "timezone": "Europe/Madrid",

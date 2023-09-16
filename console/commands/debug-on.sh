@@ -22,7 +22,7 @@ if [[ "$MACHINE" == "mac" ]]; then
     "$COMMANDS_DIR"/copy-from-container.sh generated
 fi
 
-"$COMMANDS_DIR"/restart.sh phpfpm
+"$COMMANDS_DIR"/restart.sh phpfpm 
 xdebug_version=$("$COMMANDS_DIR"/exec.sh php -v | grep "Xdebug v")
 
 print_warning "xdebug configuration:\n"

@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+get_container_id() {
+    local container_id service
+    service="${1:-phpfpm}"
+    container_id=$(docker ps -qf "name=$COMPOSE_PROJECT_NAME-$service")
+
+    echo "$container_id"
+}
+
 #
 # Check if docker is running
 #
@@ -17,7 +25,7 @@ is_run_service() {
     is_docker_service_running
     local container_id service
     service="${1:-phpfpm}"
-    container_id=$(docker ps -qf "name=$COMPOSE_PROJECT_NAME-$service")
+    container_id=$(get_container_id "$service")
     
     if [ -z "$container_id" ]; then
         print_warning "Error: $service service is not running!\n"

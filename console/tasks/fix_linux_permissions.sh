@@ -3,8 +3,11 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
 
-docker_root_command="${COMMANDS_DIR}/docker-compose.sh exec -T -u root"
+docker_root_command="$COMMANDS_DIR/docker-compose.sh exec -T -u root"
 
+#
+# prepare container to change user ids
+#
 prepare_container_to_change_user_ids() {
     service=$1
     if ! $docker_root_command "$service" sh -c "type usermod >/dev/null 2>&1" ||
@@ -20,6 +23,9 @@ prepare_container_to_change_user_ids() {
     fi
 }
 
+#
+# Match user id between host and container
+#
 match_user_id_between_host_and_container() {
     service=$1
     container_uid=$($docker_root_command "$service" sh -c "getent passwd $USER_PHP | cut -f3 -d:")
@@ -38,6 +44,9 @@ match_user_id_between_host_and_container() {
     fi
 }
 
+#
+# Match group id between host and container
+#
 match_group_id_between_host_and_container() {
     service=$1
     container_gid=$($docker_root_command "$service" sh -c "getent group $GROUP_PHP | cut -f3 -d:")

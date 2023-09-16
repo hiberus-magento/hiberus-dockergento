@@ -3,22 +3,21 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/docker.sh
 
 #
 # Excute copy_from_container command
 #
 copy_from_container_exceute() {
-    source "$TASKS_DIR"/mirror_path.sh
-
     print_info "Start mirror copy of container into host\n"
     print_info "----------------------------------------\n"
-    container_id=$($DOCKER_COMPOSE ps -q phpfpm)
+    container_id=$(get_container_id phpfpm)
 
 
     for path_to_mirror in "$@"; do
         src_path=$([[ -d $path_to_mirror ]] && echo "$path_to_mirror/." || echo  "$path_to_mirror")
 
-        path_to_mirror=$(sanitize_mirror_path "$path_to_mirror")
+        path_to_mirror=${path_to_mirror%/}
         dest_path="$path_to_mirror"
 
         print_processing "Copying phpfpm:$path_to_mirror -> $path_to_mirror'"

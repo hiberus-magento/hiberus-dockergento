@@ -21,7 +21,7 @@ config=""
 masquerade_run() {    
     docker run \
     --network=$(docker ps --filter id="$(docker-compose ps -q db)" --format '{{ json .Networks }}' | tr -d '"') $volume_config \
-    -t -i --rm hiberusmagento/masquerade\
+    -t -i --rm hiberusmagento/masquerade \
     masquerade run \
     --platform=${platform} \
     --database=${database} \

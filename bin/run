@@ -12,13 +12,9 @@ resolve_absolute_dir() {
     source="${BASH_SOURCE[0]}"
 
     while [ -h "$source" ]; do
-
-        # resolve $source until the file is no longer a symlink
         DIR=$(cd -P "$(dirname "$source")" && pwd)
         source="$(readlink "$source")"
 
-        # if $source was a relative symlink, 
-        # we need to resolve it relative to the path where the symlink file was located
         [[ $source != /* ]] && source="$DIR/$source"
     done
 
@@ -50,6 +46,7 @@ import_dependencies() {
     source "$COMPONENTS_DIR"/print_message.sh
     source "$HELPERS_DIR"/map_arguments.sh
     source "$HELPERS_DIR"/process_hm_options.sh
+    source "$HELPERS_DIR"/array_manager.sh
     source "$TASKS_DIR"/set_machine_specific_properties.sh
 }
 
@@ -86,14 +83,9 @@ docker_env_variables() {
 #
 validate_command() {
     # TODO: Change to in_array
-    if [[ 
-        "$1" != "setup" && 
-        "$1" != "create-project" &&
-        "$1" != "docker-stop-all" &&
-        "$1" != "docker-remove-all" &&
-        "$1" != "compatibility" &&
-        "$1" != "update" 
-    ]]; then
+    not_need_project="setup create-project docker-stop-all docker-remove-all compatibility update"
+    
+    if ! in_array "$1" "$not_need_project"; then
         source "$HELPERS_DIR"/docker.sh
         is_docker_service_running
         "$TASKS_DIR"/validate_docker_compose.sh
@@ -122,6 +114,5 @@ execute() {
 
     "$COMMANDS_DIR/$command_name" $arguments
 }
-
 
 execute "$@"

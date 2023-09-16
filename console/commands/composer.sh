@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/array_manager.sh
 
 #
 # Copy vendor and magento defaults files into container
@@ -54,21 +55,12 @@ check_create_project() {
 composer_excute() {
     check_create_project "$@"
 
-    if [[ "$#" != 0 && 
-        ("$1" == "install" || 
-        "$1" == "update" || 
-        "$1" == "require" || 
-        "$1" == "remove") ]]; then
-        
-        # Execute install con mirror wrapper
-        if [[ "$#" != 0 && ("$MACHINE" == "mac") ]]; then
-            "$COMMANDS_DIR"/restart.sh "phpfpm"
-            copy_vendor_to_container
-            "$COMMANDS_DIR"/exec.sh composer "$@"
-            sync_all_from_container_to_host
-        else
-            "$COMMANDS_DIR"/exec.sh composer "$@"
-        fi
+    need_sync_container="install update require remove"
+    if [[ "$MACHINE" == "mac" && "$#" != 0 ]] && in_array "$1" "$need_sync_container"; then  
+        "$COMMANDS_DIR"/restart.sh "phpfpm"
+        copy_vendor_to_container
+        "$COMMANDS_DIR"/exec.sh composer "$@"
+        sync_all_from_container_to_host
     else
         "$COMMANDS_DIR"/exec.sh composer "$@"
     fi

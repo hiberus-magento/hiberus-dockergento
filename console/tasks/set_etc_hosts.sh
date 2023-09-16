@@ -12,18 +12,17 @@ is_run_service "hitch"
 DOCKER_IP=`docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -qf "name=hitch")`
 
 # Read domains from database and include them into /etc/hosts file of php container
-for DOMAIN in `"$COMMANDS_DIR"/mysql.sh -q "SELECT DISTINCT value FROM core_config_data WHERE path like 'web/%/base_url'" 2> /dev/null`
-do
-  if [[ "$DOMAIN" == *"://"* ]]; then
-    DOMAIN=$(echo "$DOMAIN" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
-    docker-compose exec -uroot phpfpm bash -c "echo \"$DOCKER_IP $DOMAIN\" >> /etc/hosts"
-  fi
+for DOMAIN in `"$COMMANDS_DIR"/mysql.sh -q "SELECT DISTINCT value FROM core_config_data WHERE path like 'web/%/base_url'" 2> /dev/null`; do
+    if [[ "$DOMAIN" == *"://"* ]]; then
+        DOMAIN=$(echo "$DOMAIN" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
+        $DOCKER_COMPOSE exec -uroot phpfpm bash -c "echo \"$DOCKER_IP $DOMAIN\" >> /etc/hosts"
+    fi
 done
-docker-compose exec -uroot phpfpm bash -c "echo \"$DOCKER_IP localhost\" >> /etc/hosts"
+
+$DOCKER_COMPOSE exec -uroot phpfpm bash -c "echo \"$DOCKER_IP localhost\" >> /etc/hosts"
 
 # Copy local certificates to php container
-if [ -d "/usr/local/share/ca-certificates" ];
-then
-  docker cp /usr/local/share/ca-certificates $(docker ps -qf "name=phpfpm"):/usr/local/share/
-  docker-compose exec -uroot phpfpm update-ca-certificates > /dev/null 2> /dev/null
+if [ -d "/usr/local/share/ca-certificates" ]; then
+    docker cp /usr/local/share/ca-certificates $(docker ps -qf "name=phpfpm"):/usr/local/share/
+    $DOCKER_COMPOSE exec -uroot phpfpm update-ca-certificates > /dev/null 2> /dev/null
 fi

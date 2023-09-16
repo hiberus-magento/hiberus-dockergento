@@ -7,11 +7,10 @@ CONFIG_IS_VALID=$($DOCKER_COMPOSE config -q && echo true || echo false)
 
 if ! $CONFIG_IS_VALID ; then
     if [[ $MACHINE == "mac" ]]; then
-        print_error "\nDocker is not properly configured or docker is not running. Please execute:\n"
-    else
-        print_error "\nDocker is not properly configured. Please execute:\n\n\n"
+        mac_cause=" or docker is not running"
     fi
-
+    
+    print_error "\nDocker is not properly configured${mac_cause:-}. Please execute:\n\n\n"
     print_default "  $COMMAND_BIN_NAME setup\n"
     exit 1
 fi

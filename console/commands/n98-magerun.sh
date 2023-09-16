@@ -7,4 +7,4 @@ source "$HELPERS_DIR"/docker.sh
 
 is_run_service "phpfpm"
 
-docker-compose exec phpfpm bash -c "n98-magerun $@"
+"$COMMANDS_DIR"/bash.sh -c "n98-magerun $*"

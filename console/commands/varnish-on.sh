@@ -9,10 +9,10 @@ is_run_service "varnish"
 is_run_service "phpfpm"
 
 # Modify Varnish configuration
-docker-compose exec -uroot varnish sed -i 's/^[^#]\+return(pass); #skip-varnish/#return(pass); #skip-varnish/g' /etc/varnish/default.vcl
-docker-compose restart varnish
+$DOCKER_COMPOSE exec -uroot varnish sed -i 's/^[^#]\+return(pass); #skip-varnish/#return(pass); #skip-varnish/g' /etc/varnish/default.vcl
+"$COMMAMDS_DIR"/restart.sh varnish
 
 # Enable full page cache
-docker-compose exec phpfpm bin/magento cache:enable full_page
+"$COMMAMDS_DIR"/magento.sh cache:enable full_page
 
 print_info "Varnish cache enabled!\n"

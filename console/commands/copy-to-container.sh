@@ -2,7 +2,9 @@
 set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
-source "$TASKS_DIR"/mirror_path.sh
+source "$HELPERS_DIR"/docker.sh
+
+container_id=$(get_container_id phpfpm)
 
 #
 # Validate mirror host path
@@ -19,12 +21,10 @@ validate_mirror_host_path() {
 }
 
 #
-#
+# Copy 
 #
 copy_some_to_container() {
     # Copy each file and folder into container
-    container_id=$($DOCKER_COMPOSE ps -q phpfpm | awk '{print $1}')
-
     for path_to_mirror in "$@"; do
         # Check if file/directory not exists
         if [[ ! -e $path_to_mirror ]] ; then
@@ -44,13 +44,11 @@ copy_some_to_container() {
 }
 
 #
-#
+# Execute copy file to container
 #
 copy_to_container_exceute() {
     print_info "Start copy of host into container\n"
     print_info "----------------------------------------\n"
-
-    container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
     if [ "$1" == "--all" ]; then
         docker cp "$MAGENTO_DIR/./" "$container_id":/var/www/html/

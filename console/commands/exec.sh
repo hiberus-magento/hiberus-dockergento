@@ -1,21 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# add check if all containers is up
-
-: "${exec_options:=""}"
-
-docker_compose_exec="$DOCKER_COMPOSE exec"
 # Set root option
 if [[ "$1" == "-r" ]]; then
     shift
-    exec_options="$exec_options -u root"
-fi
-
-# Save exec option for final command
-if [ "$exec_options" != "" ]; then
-    docker_compose_exec="$docker_compose_exec $exec_options"
+    "$COMMANDS_DIR"/docker-compose.sh exec -u root phpfpm "$@"
+    exit
 fi
 
 # Execute docker-compose exec command
-$docker_compose_exec phpfpm "$@"
+"$COMMANDS_DIR"/docker-compose.sh exec phpfpm "$@"

@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-stop_all=false
 source "$COMPONENTS_DIR"/print_message.sh
+stop_all=false
 
+#
+# Start container/s
+#
 start_execute() {
     if $stop_all ; then
         "$COMMANDS_DIR"/docker-stop-all.sh
