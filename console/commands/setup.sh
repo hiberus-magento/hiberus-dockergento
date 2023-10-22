@@ -5,7 +5,6 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
 
-export USE_DEAFULT_SETTINGS=false
 dump=""
 force_setup=false
 
@@ -13,9 +12,10 @@ force_setup=false
 # Ask sql file and launch mysql import process
 #
 ask_dump() {
-    read -rep "$(print_question "Path of database dump file (sql): ")" path
+    custom_question "Path of database dump file (sql):"
+    local path=$REPLY
 
-    # Fix error with home relative path
+    # Fix error with home relative REPLY
     if [[ $path = "~/"* ]]; then
         path=${path/"~"/$HOME}
     fi
@@ -32,21 +32,12 @@ ask_dump() {
 # Ask to user if prefers to import database or to execute magento install command
 #
 choice_database_mode_creation() {
-    flow_database_opt="SQL-Dump Magento-Installation"
+    local flow_database_opt=("Import sql Dump" "Magento installation")
+    custom_select "How do you want create database?" "${flow_database_opt[@]}"
 
-    # install and use default
-    print_info "\nIf your project has many custom modules it's possible that install command can fail.\n"
-    print_question "Choose an option:\n"
-
-    select REPLY in $flow_database_opt; do
-        if [[ " $flow_database_opt " == *" $REPLY "* ]]; then
-            if [[ $REPLY == SQL* ]]; then
-                ask_dump
-            fi
-            break
-        fi
-        echo "Invalid option '$REPLY'"
-    done
+    if [[ $REPLY == "Import sql Dump" ]]; then
+        ask_dump
+    fi
 }
 
 #
@@ -80,16 +71,17 @@ summary_process() {
 setup_execute() {
     # Prepare environment
     if [[ -f "$CUSTOM_PROPERTIES_DIR"/properties.json ]]; then
-        DOMAIN=${DOMAIN:=""}
+        DOMAIN=${DOMAIN:-}
         project_name=${project_name:-$COMPOSE_PROJECT_NAME}
         domain=${domain:-$DOMAIN}
         magento_root_directory=${magento_root_directory:-$MAGENTO_DIR}
     fi
-    get_project_name ${project_name:=""}
-    get_domain ${domain:=""}
-    get_magento_root_directory ${magento_root_directory:=""}
     
-    if [[ -z $dump ]] && ! ${install_option:=false}; then
+    get_project_name "${project_name:-}"
+    get_domain "${domain:-}"
+    get_magento_root_directory "${magento_root_directory:-}"
+    
+    if [[ -z $dump ]] && ! ${install_option:-false}; then
         choice_database_mode_creation
     fi
 
@@ -132,7 +124,7 @@ while getopts ":D:p:d:r:fui" options; do
         ;;
         u)
             # Use saved user settings
-            export USE_DEAFULT_SETTINGS=true
+            export USE_DEFAULT_SETTINGS=true
         ;;
         f)
             # Force

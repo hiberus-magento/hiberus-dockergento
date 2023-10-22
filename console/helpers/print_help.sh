@@ -45,7 +45,9 @@ print_commands_info() {
             mac=$(echo "$command_information" | jq -r '.mac')
             
             if [[ "$MACHINE" == "mac" || $mac != true ]]; then
-                printf "   $command_color%-20s$COLOR_RESET %s\n" "$command_name" "$command_desc_property"
+            
+
+                printf "\t$command_color%-20s$COLOR_RESET %s\n" "$command_name" "$command_desc_property"
             fi
         done
 
@@ -113,6 +115,9 @@ usage() {
         local command_name=$1
 
         command_info=$(jq -r '.["'$command_name'"]' < "$DATA_DIR/command_descriptions.json")
+        if [[ $command_info == null && -f "$CUSTOM_COMMANDS_DIR/command_descriptions.json" ]]; then
+            command_info=$(jq -r '.["'$command_name'"]' "$CUSTOM_COMMANDS_DIR/command_descriptions.json")
+        fi
         params=$(echo "$command_info" | jq -r '. | if length > 0 then keys[] else false end')
 
         if [[ $params ]]; then

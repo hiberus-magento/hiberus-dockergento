@@ -9,7 +9,7 @@ pushd ${COMMANDS_DIR} >/dev/null 2>&1
 if git rev-parse --git-dir >/dev/null 2>&1; then
     if git pull origin $(git rev-parse --abbrev-ref HEAD) >/dev/null 2>&1 ; then
         print_info "${COMMAND_TOOLNAME} updated!\n"
-        "$ABSOLUTE_PATH"/generate_completion.sh
+        "$COMMAND_BIN_DIR"/generate_completion.sh
     else
         print_error "Error during update.\n"
     fi
