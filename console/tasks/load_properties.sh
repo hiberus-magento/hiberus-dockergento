@@ -55,7 +55,7 @@ load_properties() {
     local properties=$(jq -r '
         to_entries[]
         | .key + "=\"" + .value + "\""
-    ' "$DATA_DIR"/properties.json $files)
+    ' "$DATA_DIR"/properties.json "$files")
 
     # Set properties
     eval $properties
