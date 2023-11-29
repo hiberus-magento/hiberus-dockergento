@@ -17,7 +17,7 @@ is_run_service() {
     is_docker_service_running
     local container_id service
     service="${1:-phpfpm}"
-    container_id=$(docker ps -qf "name=$COMPOSE_PROJECT_NAME-$service")
+    container_id=$(docker ps -qf "name=$COMPOSE_PROJECT_NAME-$service" -qf "name=$COMPOSE_PROJECT_NAME_$service")
     
     if [ -z "$container_id" ]; then
         print_warning "Error: $service service is not running!\n"
