@@ -49,13 +49,19 @@ load_properties() {
     local files=""
     if [[ -f "$CUSTOM_PROPERTIES_DIR"/properties.json ]]; then
         files="$CUSTOM_PROPERTIES_DIR/properties.json"
-    fi
-
-    # Prepare string in sh format for executing 
-    local properties=$(jq -r '
+        # Prepare string in sh format for executing 
+        local properties=$(jq -r '
         to_entries[]
         | .key + "=\"" + .value + "\""
-    ' "$DATA_DIR"/properties.json $files)
+    ' "$DATA_DIR"/properties.json "$files")
+    else
+        # Prepare string in sh format for executing 
+    	local properties=$(jq -r '
+        to_entries[]
+        | .key + "=\"" + .value + "\""
+    ' "$DATA_DIR"/properties.json)
+    fi
+    
 
     # Set properties
     eval $properties
