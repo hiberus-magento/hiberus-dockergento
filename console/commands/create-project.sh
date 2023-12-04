@@ -20,7 +20,7 @@ create_project_execute() {
     get_project_name "$project_name"
     get_domain "$domain"
 
-    if ! [ -d "$root_directory" ]; then
+    if [ ${#root_directory} -gt 0 ] && ! [ -d "$root_directory" ]; then
         mkdir -p "$root_directory"
     fi
     
