@@ -70,7 +70,7 @@ sql_host=${input_sql_host:-${sql_host}}
 sql_port=${input_sql_port:-${sql_port}}
 sql_user=${input_sql_user:-${sql_user}}
 sql_db=${input_sql_db:-${sql_db}}
-sql_password=${input_sql_password:-${sql_password}}hm 
+sql_password=${input_sql_password:-${sql_password}} 
 
 # Prepare password
 [ -z "$sql_password" ] && sql_password="" || sql_password="-p'$sql_password'"
