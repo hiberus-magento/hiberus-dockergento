@@ -70,5 +70,13 @@
         "redis": "7",
         "varnish": "7.1",
         "composer": "2.2"
+    },
+    "2.4.7": {
+        "php": "8.2-buster",
+        "mariadb": "10.6",
+        "search": "2.5-opensearch",
+        "redis": "7",
+        "varnish": "7.1",
+        "composer": "2.7"
     }
 }

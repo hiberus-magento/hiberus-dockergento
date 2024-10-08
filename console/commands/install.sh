@@ -53,7 +53,10 @@ prepare_basic_config() {
             --elasticsearch-password=admin"
     fi
 
-    if  [[ $MAGENTO_VERSION == 2.4.6* ]]; then
+    IFS='.' read -r MG_MAJOR MG_MINOR MG_PATCH <<< "${MAGENTO_VERSION}"
+    if [[ $MG_MAJOR -gt 2 ]] || 
+       [[ $MG_MAJOR -eq 2 && $MG_MINOR -gt 4 ]] || 
+       [[ $MG_MAJOR -eq 2 && $MG_MINOR -eq 4 && $MG_PATCH -ge 6 ]]; then
         command_arguments="$command_arguments \
             --search-engine=opensearch \
             --opensearch-host=search \

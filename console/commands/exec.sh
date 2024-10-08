@@ -7,7 +7,7 @@ set -euo pipefail
 
 docker_compose_exec="$DOCKER_COMPOSE exec"
 # Set root option
-if [[ "$1" == "-r" ]]; then
+if [[ -n "$1" && "$1" == "-r" ]]; then
     shift
     exec_options="$exec_options -u root"
 fi
