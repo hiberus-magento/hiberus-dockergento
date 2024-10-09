@@ -1,5 +1,4 @@
-version: "3.7"
-x-toolname: "hiberus-magento"
+{YML_VERSION}x-toolname: "hiberus-magento"
 services:
   phpfpm:
     image: hiberusmagento/php:<php_version>
