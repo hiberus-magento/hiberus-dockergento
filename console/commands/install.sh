@@ -53,7 +53,7 @@ prepare_basic_config() {
             --elasticsearch-password=admin"
     fi
 
-    IFS='.' read -r mg_major mg_minor mg_path <<< "${MAGENTO_VERSION}"
+    IFS='.' read -r mg_major mg_minor mg_path <<< "${EQUIVALENT_VERSION}"
     if [[ $mg_major -gt 2 ]] || 
        [[ $mg_major -eq 2 && $mg_minor -gt 4 ]] || 
        [[ $mg_major -eq 2 && $mg_minor -eq 4 && $mg_path -ge 6 ]]; then
