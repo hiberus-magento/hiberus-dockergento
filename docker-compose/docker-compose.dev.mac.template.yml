@@ -1,6 +1,4 @@
-version: "3.7"
-
-services:
+{YML_VERSION}services:
   phpfpm:
     volumes: &appvolumes-mac
       - workspace:/var/www/html

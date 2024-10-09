@@ -52,6 +52,7 @@ create_project_execute() {
     # Magento installation
     "$TASKS_DIR"/magento_installation.sh
 
+    "$COMMANDS_DIR"/restart.sh
     print_info "Open "
     print_link "https://$DOMAIN/\n"
 }
