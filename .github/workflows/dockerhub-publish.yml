@@ -29,6 +29,9 @@ jobs:
     strategy:
       matrix:
         include:
+          - docker_file: ./Dockerfiles/php/8.4-bookworm/
+            docker_name: php
+            docker_version: 8.4-bookworm
           - docker_file: ./Dockerfiles/php/8.3-bookworm/
             docker_name: php
             docker_version: 8.3-bookworm
