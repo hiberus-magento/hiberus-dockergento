@@ -60,7 +60,7 @@ RUN docker-php-ext-install \
     ldap
 
 RUN pecl channel-update pecl.php.net \
-    && pecl install xdebug-3.3.0 \
+    && pecl install xdebug-3.4.2 \
     && docker-php-ext-enable xdebug \
     && sed -i -e 's/^zend_extension/\;zend_extension/g' /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
@@ -69,7 +69,7 @@ RUN curl -sS https://getcomposer.org/installer | \
   php -- --install-dir=/usr/local/bin --filename=composer
 
 # Install NodeJS
-RUN curl -sL https://deb.nodesource.com/setup_16.x | bash -
+RUN curl -sL https://deb.nodesource.com/setup_22.x | bash -
 RUN apt-get update && apt-get install -y nodejs bzip2 && rm -rf /var/lib/apt/lists/*
 RUN npm i -g grunt-cli
 
