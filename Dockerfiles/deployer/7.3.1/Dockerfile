@@ -1,7 +1,8 @@
 FROM php:8.2-fpm-buster
 LABEL maintainer="Hiberus Magento <ddelgado@hiberus.com>"
 
-RUN curl -o- https://deb.nodesource.com/setup_14.x | bash
+RUN curl -o- https://deb.nodesource.com/setup_18.x | bash
+RUN apt-get install -y nodejs
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
 	bash \
