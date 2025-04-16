@@ -79,6 +79,7 @@ docker_env_variables() {
     fi
 
     export DOCKER_COMPOSE="docker-compose -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_MACHINE"
+    export DOCKER_COMPOSE_VERSION=$(docker-compose version --short)
 }
 
 #

@@ -176,9 +176,18 @@ add_git_bind_paths_in_file() {
 # Update git setting in docker-compose
 #
 set_settings() {
-    print_info "Setting up docker config files PENDDING\n"
+    print_info "Setting up docker config files PENDING\n"
     print_info "Setting bind configuration for files in git repository\n"
 
+    YML_VERSION="version: \"3.7\"\n"
+    IFS='.' read -r dc_major dc_minor dc_path <<< "${DOCKER_COMPOSE_VERSION}"
+    # Version docker compose > 2.25 (not sure of the version but from 2.25 the warning message is displayed)
+    if [[ $dc_major -gt 2 ]] || [[ $dc_major -eq 2 && $dc_minor -gt 25 ]] ; then
+        YML_VERSION=""
+    fi
+    sed_in_file "s|{YML_VERSION}|$YML_VERSION|w /dev/null" "$DOCKER_COMPOSE_FILE"
+    sed_in_file "s|{YML_VERSION}|$YML_VERSION|w /dev/null" "$DOCKER_COMPOSE_FILE_MAC"
+    sed_in_file "s|{YML_VERSION}|$YML_VERSION|w /dev/null" "$DOCKER_COMPOSE_FILE_LINUX"
     sed_in_file "s|{MAGENTO_DIR}|$MAGENTO_DIR|w /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
     sed_in_file "s|{MAGENTO_DIR}|$MAGENTO_DIR|w /dev/stdout" "$DOCKER_COMPOSE_FILE_LINUX"
 

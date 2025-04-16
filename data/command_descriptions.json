@@ -113,7 +113,7 @@
         "description": "Stop all running containers"
     },
     "down": {
-        "description": "Stop and remove containers, networks, images, and volumes",
+        "description": "Stop and remove containers, networks, images, and volumes (-v)",
         "example": "down -v"
     },
     "exec": {
