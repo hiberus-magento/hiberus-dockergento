@@ -30,7 +30,10 @@ get_equivalent_version_if_exit() {
         get_equivalent_version_if_exit "$MAGENTO_VERSION"
     fi
 
-    export EQUIVALENT_VERSION=$equivalent_version
+    if [[ "$equivalent_version" != "null" ]]; then
+        export EQUIVALENT_VERSION=$equivalent_version
+        export MAGENTO_VERSION=$1
+    fi
 }
 
 #
@@ -48,7 +51,6 @@ get_magento_version() {
     fi
 
     get_equivalent_version_if_exit "$magento_version"
-    export MAGENTO_VERSION=$EQUIVALENT_VERSION   
 }
 
 #
