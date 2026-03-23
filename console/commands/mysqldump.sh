@@ -8,4 +8,4 @@ if [ -z "$@" ]; then
   exit
 fi
 
-docker-compose exec db bash -c 'mysqldump --skip-triggers -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' > "$@"
+$DOCKER_COMPOSE exec db bash -c 'mysqldump --skip-triggers -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' > "$@"

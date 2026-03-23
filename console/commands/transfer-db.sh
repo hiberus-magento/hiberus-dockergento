@@ -98,7 +98,7 @@ print_info "Creating database dump from origin server...\n"
 if [ -z "$ssh_host" ]; then
 
     # Create dump into mysql container
-    docker-compose exec db bash -c "mysqldump -h'$sql_host' -u'$sql_user' -P $sql_port $sql_password $sql_db | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
+    $DOCKER_COMPOSE exec db bash -c "mysqldump -h'$sql_host' -u'$sql_user' -P $sql_port $sql_password $sql_db | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
 
 # Create database dump from origin server (WITH SSH TUNNEL)
 else
@@ -110,16 +110,16 @@ else
     scp ${ssh_user}@${ssh_host}:/tmp/db.sql.gz .
 
     # Copy dump into mysql container
-    docker cp db.sql.gz "$(docker-compose ps -q db | awk '{print $1}')":/tmp/db.sql.gz
+    docker cp db.sql.gz "$($DOCKER_COMPOSE ps -q db | awk '{print $1}')":/tmp/db.sql.gz
 
 fi
 
 print_info "Restoring database dump into localhost...\n"
 
 # Restore dump
-[ $sql_exclude -eq 1 ] && docker-compose exec db bash -c "mysqldump -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE core_config_data > /tmp/ccd.sql 2> /dev/null"
-docker-compose exec db bash -c "zcat /tmp/db.sql.gz | mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE"
-[ $sql_exclude -eq 1 ] && docker-compose exec db bash -c "[ -f /tmp/ccd.sql ] && mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE < /tmp/ccd.sql"
+[ $sql_exclude -eq 1 ] && $DOCKER_COMPOSE exec db bash -c "mysqldump -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE core_config_data > /tmp/ccd.sql 2> /dev/null"
+$DOCKER_COMPOSE exec db bash -c "zcat /tmp/db.sql.gz | mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE"
+[ $sql_exclude -eq 1 ] && $DOCKER_COMPOSE exec db bash -c "[ -f /tmp/ccd.sql ] && mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE < /tmp/ccd.sql"
 
 # Anonymise database
 print_info "Anonymising database in localhost...\n"
@@ -128,13 +128,13 @@ masquerade_run
 # Reindex Magento
 read -p "$(print_question "Do you want to reindex Magento? [Y/n]: ")" reindex_magento
 if [ -z "$reindex_magento" ] || [ "$reindex_magento" == 'Y' ] || [ "$reindex_magento" == 'y' ]; then
-    docker-compose exec phpfpm bin/magento indexer:reindex
+    $DOCKER_COMPOSE exec phpfpm bin/magento indexer:reindex
 fi
 
 # Clear Magento cache
 read -p "$(print_question "Do you want to clear Magento cache? [Y/n]: ")" clear_magento
 if [ -z "$clear_magento" ] || [ "$clear_magento" == 'Y' ] || [ "$clear_magento" == 'y' ]; then
-    docker-compose exec phpfpm bin/magento cache:flush
+    $DOCKER_COMPOSE exec phpfpm bin/magento cache:flush
 fi
 
 print_info " All done!\n"

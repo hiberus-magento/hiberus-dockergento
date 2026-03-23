@@ -101,11 +101,11 @@
         "description": "Enable xDebug"
     },
     "docker-compose": {
-        "description": "Execute docker-compose using configuration for your machine",
+        "description": "Execute docker compose using configuration for your machine",
         "args": [
             {
                 "name": "[docker-opts]",
-                "description": "docker-compose commands (exec, up, down, ...)"
+                "description": "docker compose commands (exec, up, down, ...)"
             }
         ]
     },

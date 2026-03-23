@@ -78,7 +78,7 @@ docker_env_variables() {
         export COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
     fi
 
-    export DOCKER_COMPOSE="docker-compose -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_MACHINE"
+    export DOCKER_COMPOSE="docker compose -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_MACHINE"
 }
 
 #

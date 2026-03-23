@@ -17,5 +17,5 @@ if [ "$exec_options" != "" ]; then
     docker_compose_exec="$docker_compose_exec $exec_options"
 fi
 
-# Execute docker-compose exec command
+# Execute docker compose exec command
 $docker_compose_exec phpfpm "$@"
