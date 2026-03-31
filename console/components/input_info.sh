@@ -48,7 +48,14 @@ get_magento_version() {
     fi
 
     get_equivalent_version_if_exit "$magento_version"
-    export MAGENTO_VERSION=$EQUIVALENT_VERSION   
+
+    if [[ "$EQUIVALENT_VERSION" != "null" && -n "$EQUIVALENT_VERSION" ]]; then
+        export MAGENTO_VERSION=$EQUIVALENT_VERSION
+    else
+        print_error "Unsupported Magento version: $magento_version\n"
+        print_info "Run 'hm compatibility' to see supported versions\n"
+        exit 1
+    fi
 }
 
 #

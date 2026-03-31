@@ -80,6 +80,9 @@ jobs:
           - docker_file: ./Dockerfiles/search/2.5-opensearch/
             docker_name: search
             docker_version: 2.5-opensearch
+          - docker_file: ./Dockerfiles/search/2.12-opensearch/
+            docker_name: search
+            docker_version: 2.12-opensearch
           - docker_file: ./Dockerfiles/rabbitmq/3.9/
             docker_name: rabbitmq
             docker_version: 3.9
@@ -101,6 +104,9 @@ jobs:
           - docker_file: ./Dockerfiles/redis/7.0/
             docker_name: redis
             docker_version: 7.0
+          - docker_file: ./Dockerfiles/redis/7.2/
+            docker_name: redis
+            docker_version: 7.2
           - docker_file: ./Dockerfiles/hitch/1.7/
             docker_name: hitch
             docker_version: 1.7
