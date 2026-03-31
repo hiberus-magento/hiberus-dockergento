@@ -116,11 +116,10 @@ execute() {
     docker_env_variables
     # Validation docker compose
     validate_command "$1"
-    # Map arguments to sort kind argument
-    arguments=$(parseToShortArguments "$@")
+    # Remove command name and pass remaining arguments directly
     shift
 
-    "$COMMANDS_DIR/$command_name" $arguments
+    "$COMMANDS_DIR/$command_name" "$@"
 }
 
 

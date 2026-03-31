@@ -18,6 +18,7 @@ sql_port="3306"
 sql_user="mysql"
 sql_db="main"
 sql_password=""
+anonymise="prompt"
 
 print_info "Database transfer assistant: \n"
 
@@ -43,6 +44,9 @@ for i in "$@"; do
         ;;
     --sql-password=*)
         sql_password="${i#*=}" && shift
+        ;;
+    --anonymise=*)
+        anonymise="${i#*=}" && shift
         ;;
     -* | --* | *) ;;
     esac
@@ -103,11 +107,11 @@ if [ -z "$ssh_host" ]; then
 # Create database dump from origin server (WITH SSH TUNNEL)
 else
 
-    # Create dump
-    ssh ${ssh_user}@${ssh_host} "mysqldump -h'$sql_host' -u'$sql_user' -P $sql_port $sql_password $sql_db | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
-
-    # Download dump
-    scp ${ssh_user}@${ssh_host}:/tmp/db.sql.gz .
+    ssh ${ssh_user}@${ssh_host} \
+        "mysqldump --skip-comments -h'$sql_host' -u'$sql_user' -P $sql_port $sql_password $sql_db \
+        | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' \
+        | gzip -9" \
+        > db.sql.gz
 
     # Copy dump into mysql container
     docker cp db.sql.gz "$(docker-compose ps -q db | awk '{print $1}')":/tmp/db.sql.gz
@@ -117,13 +121,25 @@ fi
 print_info "Restoring database dump into localhost...\n"
 
 # Restore dump
-[ $sql_exclude -eq 1 ] && docker-compose exec db bash -c "mysqldump -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE core_config_data > /tmp/ccd.sql 2> /dev/null"
-docker-compose exec db bash -c "zcat /tmp/db.sql.gz | mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE"
+[ $sql_exclude -eq 1 ] && docker-compose exec db bash -c "mysqldump -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE core_config_data admin_user tfa_user_config > /tmp/ccd.sql 2> /dev/null"
+docker-compose exec db bash -c "zcat /tmp/db.sql.gz | sed '/sandbox mode/d' | mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE"
 [ $sql_exclude -eq 1 ] && docker-compose exec db bash -c "[ -f /tmp/ccd.sql ] && mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE < /tmp/ccd.sql"
 
 # Anonymise database
-print_info "Anonymising database in localhost...\n"
-masquerade_run
+if [ "$anonymise" = "true" ]; then
+    print_info "Anonymising database in localhost...\n"
+    masquerade_run
+elif [ "$anonymise" = "false" ]; then
+    print_info "Skipping database anonymisation...\n"
+else
+    read -p "$(print_question "Do you want to anonymise the database? [Y/n]: ")" anonymise_prompt
+    if [ -z "$anonymise_prompt" ] || [ "$anonymise_prompt" == "Y" ] || [ "$anonymise_prompt" == "y" ]; then
+        print_info "Anonymising database in localhost...\n"
+        masquerade_run
+    else
+        print_info "Skipping database anonymisation...\n"
+    fi
+fi
 
 # Reindex Magento
 read -p "$(print_question "Do you want to reindex Magento? [Y/n]: ")" reindex_magento
