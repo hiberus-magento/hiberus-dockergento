@@ -25,3 +25,4 @@ The `transfer-db` command is used to transfer database from external source.
 | `--sql-user`      | Database user      | `hm transfer-db --sql-user <user>`          |
 | `--sql-db`        | Database name      | `hm transfer-db --sql-db <db-name>`         |
 | `--sql-password`  | Database password  | `hm transfer-db --sql-password <password>`  |
+| `--anonymise`     | Anonymise database. Values: `true`, `false`. If omitted, prompts user | `hm transfer-db --anonymise=true` or `hm transfer-db --anonymise=false` |

@@ -54,7 +54,9 @@ if [ ! -d "./pub/media" ]; then
     exit 1
 fi
 
+print_info "Transfering media files from [${sshHost}] to [LOCALHOST]...\n"
+
 # Transfer pub/media files
-rsync -az --ignore-existing --exclude '**/cache' --max-size=10m ${sshUser}@${sshHost}:${sshPath} ./pub
+rsync -az --ignore-existing --exclude '**/cache' ${sshUser}@${sshHost}:${sshPath} ./pub
 
 print_info "All media content transferred! \n"
