@@ -6,6 +6,7 @@ export REQUIREMENTS=""
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
 source "$HELPERS_DIR"/properties.sh
+source "$HELPERS_DIR"/version.sh
 
 #
 # Copy File
@@ -176,9 +177,19 @@ add_git_bind_paths_in_file() {
 # Update git setting in docker-compose
 #
 set_settings() {
-    print_info "Setting up docker config files PENDDING\n"
+    print_info "Setting up docker config files PENDING\n"
     print_info "Setting bind configuration for files in git repository\n"
 
+    # Determine if we should include version in docker-compose files
+    # Docker Compose >= 2.25 shows warning if version is present
+    YML_VERSION="version: \"3.7\"\n"
+    if [[ -n "${DOCKER_COMPOSE_VERSION:-}" ]] && version_gte "${DOCKER_COMPOSE_VERSION}" "2.25.0"; then
+        YML_VERSION=""
+    fi
+
+    sed_in_file "s|{YML_VERSION}|$YML_VERSION|w /dev/null" "$DOCKER_COMPOSE_FILE"
+    sed_in_file "s|{YML_VERSION}|$YML_VERSION|w /dev/null" "$DOCKER_COMPOSE_FILE_MAC"
+    sed_in_file "s|{YML_VERSION}|$YML_VERSION|w /dev/null" "$DOCKER_COMPOSE_FILE_LINUX"
     sed_in_file "s|{MAGENTO_DIR}|$MAGENTO_DIR|w /dev/stdout" "$DOCKER_COMPOSE_FILE_MAC"
     sed_in_file "s|{MAGENTO_DIR}|$MAGENTO_DIR|w /dev/stdout" "$DOCKER_COMPOSE_FILE_LINUX"
 
