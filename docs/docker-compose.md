@@ -1,6 +1,6 @@
 # hm docker-compose
 
-Execute `docker-compose` with the related yml files.
+Execute `docker compose` with the related yml files.
 
 ## Usage
 

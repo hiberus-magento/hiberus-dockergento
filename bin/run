@@ -74,12 +74,17 @@ check_command_dir() {
 # Set DOCKER_COMOPSE and COMPOSE_PROJECT_NAME variables
 #
 docker_env_variables() {
+    # Load version helper for Docker Compose detection
+    source "$HELPERS_DIR"/version.sh
+
     if [[ -n "${COMPOSE_PROJECT_NAME+}" ]]; then
         export COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
     fi
 
-    export DOCKER_COMPOSE="docker-compose -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_MACHINE"
-    export DOCKER_COMPOSE_VERSION=$(docker-compose version --short 2>/dev/null || echo "2.0.0")
+    # Auto-detect Docker Compose command (v1 or v2)
+    local compose_cmd=$(get_docker_compose_cmd)
+    export DOCKER_COMPOSE="$compose_cmd -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_MACHINE"
+    export DOCKER_COMPOSE_VERSION=$(get_docker_compose_version)
 }
 
 #

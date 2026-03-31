@@ -6,4 +6,4 @@ source "$HELPERS_DIR"/docker.sh
 
 is_run_service "phpfpm"
 
-docker-compose exec phpfpm bash -c "magento-cloud $@"
+$DOCKER_COMPOSE exec phpfpm bash -c "magento-cloud $@"

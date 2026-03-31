@@ -17,4 +17,4 @@ hm down [ -v | -t | ... ]
 ```
 
 ## Options
-- You can use `docker-compose down` option.
+- You can use `docker compose down` option.
