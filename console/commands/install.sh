@@ -52,6 +52,10 @@ prepare_basic_config() {
         fi
     fi
 
+    if [ -z "${EQUIVALENT_VERSION:-""}" ]; then
+        export EQUIVALENT_VERSION=${MAGENTO_VERSION%-*}
+    fi
+
     # Default configuration
     
     if  [[ $MAGENTO_VERSION != 2.3.* ]]; then
