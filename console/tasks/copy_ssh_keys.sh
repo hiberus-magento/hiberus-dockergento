@@ -10,11 +10,11 @@ is_run_service "phpfpm"
 if [[ -f ~/.ssh/id_rsa && -f ~/.ssh/id_rsa.pub ]]; then
 
   # Copy SSH Keys
-  docker cp ~/.ssh "$(docker-compose ps -q phpfpm | awk '{print $1}')":/var/www/.ssh
+  docker cp ~/.ssh "$($DOCKER_COMPOSE ps -q phpfpm | awk '{print $1}')":/var/www/.ssh
 
   # Apply permission fixes
-  docker-compose exec -uroot phpfpm bash -c "chown app: /var/www/.ssh"
-  docker-compose exec -uroot phpfpm bash -c "chmod -R 600 /var/www/.ssh"
+  $DOCKER_COMPOSE exec -uroot phpfpm bash -c "chown app: /var/www/.ssh"
+  $DOCKER_COMPOSE exec -uroot phpfpm bash -c "chmod -R 600 /var/www/.ssh"
 
   print_processing "SSH keys copied!"
 

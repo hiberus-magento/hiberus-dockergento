@@ -27,7 +27,7 @@ create_project_execute() {
     # Create docker environment
     get_magento_root_directory "$root_directory"
     "$TASKS_DIR"/version_manager.sh "$EQUIVALENT_VERSION"
-    docker-compose -f docker-compose.yml up -d
+    $DOCKER_COMPOSE up -d
     container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
     # Also make sure alternate auth.json is setup (Magento uses this internally)

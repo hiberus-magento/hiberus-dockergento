@@ -16,14 +16,14 @@ for DOMAIN in `"$COMMANDS_DIR"/mysql.sh -q "SELECT DISTINCT value FROM core_conf
 do
   if [[ "$DOMAIN" == *"://"* ]]; then
     DOMAIN=$(echo "$DOMAIN" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
-    docker-compose exec -uroot phpfpm bash -c "echo \"$DOCKER_IP $DOMAIN\" >> /etc/hosts"
+    $DOCKER_COMPOSE exec -uroot phpfpm bash -c "echo \"$DOCKER_IP $DOMAIN\" >> /etc/hosts"
   fi
 done
-docker-compose exec -uroot phpfpm bash -c "echo \"$DOCKER_IP localhost\" >> /etc/hosts"
+$DOCKER_COMPOSE exec -uroot phpfpm bash -c "echo \"$DOCKER_IP localhost\" >> /etc/hosts"
 
 # Copy local certificates to php container
 if [ -d "/usr/local/share/ca-certificates" ];
 then
   docker cp /usr/local/share/ca-certificates $(docker ps -qf "name=phpfpm"):/usr/local/share/
-  docker-compose exec -uroot phpfpm update-ca-certificates > /dev/null 2> /dev/null
+  $DOCKER_COMPOSE exec -uroot phpfpm update-ca-certificates > /dev/null 2> /dev/null
 fi

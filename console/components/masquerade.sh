@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 platform="magento2"
-database=$(docker-compose exec db bash -c "echo -n \$MYSQL_DATABASE")
-username=$(docker-compose exec db bash -c "echo -n \$MYSQL_USER")
-password=$(docker-compose exec db bash -c "echo -n \$MYSQL_PASSWORD")
+database=$($DOCKER_COMPOSE exec db bash -c "echo -n \$MYSQL_DATABASE")
+username=$($DOCKER_COMPOSE exec db bash -c "echo -n \$MYSQL_USER")
+password=$($DOCKER_COMPOSE exec db bash -c "echo -n \$MYSQL_PASSWORD")
 port="3306"
 driver="mysql"
 locale="es_ES"
@@ -20,7 +20,7 @@ config=""
 
 masquerade_run() {    
     docker run \
-    --network=$(docker ps --filter id="$(docker-compose ps -q db)" --format '{{ json .Networks }}' | tr -d '"') $volume_config \
+    --network=$(docker ps --filter id="$($DOCKER_COMPOSE ps -q db)" --format '{{ json .Networks }}' | tr -d '"') $volume_config \
     -t -i --rm hiberusmagento/masquerade\
     masquerade run \
     --platform=${platform} \

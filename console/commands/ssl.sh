@@ -53,9 +53,18 @@ fi
 print_info "Installing SSL certificate into docker environment...\n"
 mkcert -cert-file ssl.crt -key-file ssl.key $DOMAIN localhost 127.0.0.1 0.0.0.0 ::1
 cat ssl.crt ssl.key >ssl.pem && rm ssl.crt ssl.key
-docker cp ./ssl.pem "$(docker-compose ps -q hitch | awk '{print $1}')":/etc/hitch/testcert.pem
-docker-compose exec -T -u root hitch chown hitch /etc/hitch/testcert.pem
 
-docker-compose restart hitch
+# Get hitch container ID with validation
+hitch_id=$($DOCKER_COMPOSE ps -q hitch | awk '{print $1}')
+if [ -z "$hitch_id" ]; then
+    print_error "Hitch container is not running\n"
+    exit 1
+fi
+
+docker cp ./ssl.pem "$hitch_id":/etc/hitch/testcert.pem
+$DOCKER_COMPOSE exec -T -u root hitch chown hitch /etc/hitch/testcert.pem
+
+$DOCKER_COMPOSE restart hitch
 set -e
 print_info "SSL certificate installed. Remember to restart your browser\n"
+
