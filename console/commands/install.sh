@@ -5,15 +5,7 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 source "$HELPERS_DIR"/docker.sh
-
-#
-# Check if version is greater than or equal to target (semver comparison)
-#
-version_gte() {
-    local version="$1"
-    local target="$2"
-    [ "$(printf '%s\n' "$target" "$version" | sort -V | head -n1)" == "$target" ]
-}
+source "$HELPERS_DIR"/version.sh
 
 command_arguments="--db-host=db \
     --backend-frontname=admin \
