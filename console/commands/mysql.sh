@@ -13,7 +13,7 @@ is_run_service "db"
 # Execute query in mysql container
 #
 query() {
-    echo -e "$1" | docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
+    docker exec -e QUERY="$1" $mysql_container bash -c 'mysql -u"root" -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "$QUERY"'
 }
 
 #
