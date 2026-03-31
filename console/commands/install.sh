@@ -6,6 +6,15 @@ source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 source "$HELPERS_DIR"/docker.sh
 
+#
+# Check if version is greater than or equal to target (semver comparison)
+#
+version_gte() {
+    local version="$1"
+    local target="$2"
+    [ "$(printf '%s\n' "$target" "$version" | sort -V | head -n1)" == "$target" ]
+}
+
 command_arguments="--db-host=db \
     --backend-frontname=admin \
     --use-rewrites=1 \
@@ -53,10 +62,8 @@ prepare_basic_config() {
             --elasticsearch-password=admin"
     fi
 
-    IFS='.' read -r mg_major mg_minor mg_path <<< "${EQUIVALENT_VERSION}"
-    if [[ $mg_major -gt 2 ]] || 
-       [[ $mg_major -eq 2 && $mg_minor -gt 4 ]] || 
-       [[ $mg_major -eq 2 && $mg_minor -eq 4 && $mg_path -ge 6 ]]; then
+    # OpenSearch is required for Magento >= 2.4.6
+    if version_gte "${EQUIVALENT_VERSION}" "2.4.6"; then
         command_arguments="$command_arguments \
             --search-engine=opensearch \
             --opensearch-host=search \
