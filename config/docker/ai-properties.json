@@ -1,0 +1,13 @@
+{
+  "resources": [
+    "skills"
+  ],
+  "platforms": [
+    "claude"
+  ],
+  "types": [
+    "hyva"
+  ],
+  "custom_repositories": [],
+  "configured_at": "2026-04-01 13:04:09"
+}
