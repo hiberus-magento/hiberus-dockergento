@@ -1,0 +1,18 @@
+{
+  "repositories": [
+    {
+      "name": "hiberus-magento-ai-tools",
+      "url": "https://github.com/hiberus-magento/ai-tools",
+      "branch": "main",
+      "types": ["magento", "php"],
+      "description": "Hiberus Magento AI tools repository"
+    },
+    {
+      "name": "hyva-ai-tools",
+      "url": "https://github.com/hyva-themes/hyva-ai-tools",
+      "branch": "main",
+      "types": ["hyva"],
+      "description": "Hyvä Themes AI tools repository"
+    }
+  ]
+}

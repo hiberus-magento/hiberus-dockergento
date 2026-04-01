@@ -92,13 +92,16 @@ docker_env_variables() {
 #
 validate_command() {
     # TODO: Change to in_array
-    if [[ 
-        "$1" != "setup" && 
+    if [[
+        "$1" != "setup" &&
         "$1" != "create-project" &&
         "$1" != "docker-stop-all" &&
         "$1" != "docker-remove-all" &&
         "$1" != "compatibility" &&
-        "$1" != "update" 
+        "$1" != "update" &&
+        "$1" != "ai-init" &&
+        "$1" != "ai-pull" &&
+        "$1" != "ai-reset"
     ]]; then
         source "$HELPERS_DIR"/docker.sh
         is_docker_service_running
