@@ -1,0 +1,24 @@
+{
+  "skill_types": {
+    "hyva": {
+      "name": "Hyvä Themes",
+      "description": "Hyvä Themes development",
+      "tags": ["frontend", "theme", "hyva"]
+    },
+    "acs": {
+      "name": "Adobe Commerce Storefront",
+      "description": "Adobe Commerce Storefront (PWA)",
+      "tags": ["pwa", "frontend", "storefront"]
+    },
+    "magento": {
+      "name": "Magento 2",
+      "description": "General Magento 2 development",
+      "tags": ["magento", "ecommerce", "backend"]
+    },
+    "php": {
+      "name": "PHP",
+      "description": "PHP general development",
+      "tags": ["php", "backend"]
+    }
+  }
+}

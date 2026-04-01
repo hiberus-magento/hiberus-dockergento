@@ -1,0 +1,40 @@
+{
+  "platforms": {
+    "claude": {
+      "name": "Claude Code",
+      "description": "Claude Code (CLI, Desktop, Web)",
+      "skills_dir": ".claude/skills",
+      "agents_dir": ".claude/agents"
+    },
+    "cursor": {
+      "name": "Cursor AI Editor",
+      "description": "Cursor AI Editor",
+      "skills_dir": ".cursor/skills",
+      "agents_dir": ".cursor/agents"
+    },
+    "codex": {
+      "name": "GitHub Codex",
+      "description": "GitHub Codex",
+      "skills_dir": ".codex/skills",
+      "agents_dir": ".codex/agents"
+    },
+    "copilot": {
+      "name": "GitHub Copilot",
+      "description": "GitHub Copilot",
+      "skills_dir": ".github/skills",
+      "agents_dir": ".github/agents"
+    },
+    "gemini": {
+      "name": "Google Gemini",
+      "description": "Google Gemini",
+      "skills_dir": ".gemini/skills",
+      "agents_dir": ".gemini/agents"
+    },
+    "opencode": {
+      "name": "OpenCode AI",
+      "description": "OpenCode AI",
+      "skills_dir": ".opencode/skills",
+      "agents_dir": ".opencode/agents"
+    }
+  }
+}

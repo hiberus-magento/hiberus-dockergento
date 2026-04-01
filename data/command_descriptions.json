@@ -350,5 +350,65 @@
     },
     "varnish-on": {
         "description": "Turn on varnish service"
+    },
+    "ai-init": {
+        "description": "Initialize AI tools configuration (skills/agents) via interactive wizard",
+        "example": "ai-init\n\t hm ai-init --platforms=claude,cursor --types=hyva,magento --resources=skills,agents",
+        "opts": [
+            {
+                "name": {
+                    "long": "platforms"
+                },
+                "description": "Comma-separated list of AI platforms (claude, cursor, codex, copilot, gemini, opencode)"
+            },
+            {
+                "name": {
+                    "long": "types"
+                },
+                "description": "Comma-separated list of skill types (hyva, acs, magento, php)"
+            },
+            {
+                "name": {
+                    "long": "resources"
+                },
+                "description": "Resource types to download (skills, agents, or both)"
+            },
+            {
+                "name": {
+                    "long": "repository"
+                },
+                "description": "Custom repository URL to include"
+            },
+            {
+                "name": {
+                    "long": "branch"
+                },
+                "description": "Branch name for custom repository (default: main)"
+            }
+        ]
+    },
+    "ai-pull": {
+        "description": "Download/update AI tools (skills/agents) from configured repositories",
+        "example": "ai-pull\n\t hm ai-pull --force",
+        "opts": [
+            {
+                "name": {
+                    "long": "force"
+                },
+                "description": "Force re-download and overwrite existing skills/agents"
+            }
+        ]
+    },
+    "ai-reset": {
+        "description": "Remove downloaded AI tools while preserving custom skills/agents",
+        "example": "ai-reset\n\t hm ai-reset --confirm",
+        "opts": [
+            {
+                "name": {
+                    "long": "confirm"
+                },
+                "description": "Skip confirmation prompt (for automation)"
+            }
+        ]
     }
-}   
+}
