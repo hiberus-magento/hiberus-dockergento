@@ -1,7 +1,7 @@
 {YML_VERSION}x-toolname: "hiberus-magento"
 services:
   phpfpm:
-    image: hiberusmagento/php:<php_version>
+    image: <php_version>
     volumes: &appvolumes
       - sockdata:/sock
       - ~/.composer:/var/www/.composer:cached
@@ -17,13 +17,13 @@ services:
       - rabbitmq
       
   nginx:
-    image: hiberusmagento/nginx:1.18
+    image: <nginx_version>
     volumes: *appvolumes
     depends_on:
       - phpfpm
 
   db:
-    image: hiberusmagento/mariadb:<mariadb_version>
+    image: <mariadb_version>
     ports:
       - 3306:3306
     environment:
@@ -36,7 +36,7 @@ services:
       - dbdata:/var/lib/mysql
 
   search:
-    image: hiberusmagento/search:<search_version>
+    image: <search_version>
     environment:
       - discovery.type=single-node
     volumes:
@@ -50,7 +50,7 @@ services:
         hard: -1
 
   varnish:
-    image: hiberusmagento/varnish:<varnish_version>
+    image: <varnish_version>
     tty: true
     ports:
       - 80:6081
@@ -58,17 +58,17 @@ services:
       - nginx
 
   redis:
-    image: hiberusmagento/redis:<redis_version>
+    image: <redis_version>
     volumes:
       - redisdata:/data:delegated
 
   mailhog:
-    image: hiberusmagento/mailhog:1
+    image: <mailhog_version>
     ports:
       - 8025:8025
 
   rabbitmq:
-    image: hiberusmagento/rabbitmq:3.9
+    image: <rabbitmq_version>
     ports:
       - 5672:5672
       - 15672:15672
@@ -79,7 +79,7 @@ services:
       - rabbitmqdata:/var/lib/rabbitmq
 
   hitch:
-    image: hiberusmagento/hitch:1.7
+    image: <hitch_version>
     ports:
       - 443:443
     depends_on:
