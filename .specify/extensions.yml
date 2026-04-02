@@ -1,0 +1,13 @@
+installed: []
+settings:
+  auto_execute_hooks: true
+hooks:
+  after_implement:
+  - extension: retrospective
+    command: speckit.retrospective.analyze
+    enabled: true
+    optional: true
+    prompt: Run retrospective analysis now? (spec changes require explicit confirmation)
+    description: Offer a retrospective after implementation without modifying spec
+      unless approved.
+    condition: null
