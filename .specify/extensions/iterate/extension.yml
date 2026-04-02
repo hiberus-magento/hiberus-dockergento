@@ -1,0 +1,31 @@
+schema_version: "1.0"
+
+extension:
+  id: "iterate"
+  name: "Iterate"
+  version: "2.0.0"
+  description: "Iterate on spec documents with a two-phase define-and-apply workflow — refine specs mid-implementation and go straight back to building"
+  author: "Vianca Martinez"
+  repository: "https://github.com/imviancagrace/spec-kit-iterate"
+  license: "MIT"
+
+requires:
+  speckit_version: ">=0.1.0"
+  commands:
+    - "speckit.analyze"
+    - "speckit.implement"
+
+provides:
+  commands:
+    - name: "speckit.iterate.define"
+      file: "commands/define.md"
+      description: "Define an iteration — analyze the change request against current spec state and implementation progress, then write a reviewable iteration plan"
+
+    - name: "speckit.iterate.apply"
+      file: "commands/apply.md"
+      description: "Apply a pending iteration to all spec documents so you can go straight to speckit.implement"
+
+tags:
+  - "iteration"
+  - "change-management"
+  - "spec-maintenance"

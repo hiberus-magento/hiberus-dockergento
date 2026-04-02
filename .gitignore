@@ -6,10 +6,3 @@ console/hm-completion.bash
 .vscode
 .vscode/**
 .env
-.claude/**
-.copilot/**
-.gemini/**
-.codex/**
-.opencode/**
-.cursor/**
-config/docker/ai-registration.json

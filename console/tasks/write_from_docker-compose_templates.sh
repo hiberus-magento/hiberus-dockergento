@@ -7,11 +7,17 @@ regex=""
 # Compose regex with requirements
 #
 compose_regex() {
-    local services=$(echo "$REQUIREMENTS" | jq -r 'keys|join(" ")')
+    local services
+    services=$(echo "$REQUIREMENTS" | jq -r 'keys | join(" ")')
 
     for index in $services; do
-        value=$(echo "$REQUIREMENTS" | jq -r '.'"$index"'')
-        regex+="s/<${index}_version>/${value}/g; "
+        value=$(echo "$REQUIREMENTS" | jq -r '.["'"$index"'"]')
+        if [[ "$value" == *":"* ]]; then
+            image="$value"
+        else
+            image="hiberusmagento/${index}:${value}"
+        fi
+        regex+="s|<${index}_version>|${image}|g; "
     done
 }
 

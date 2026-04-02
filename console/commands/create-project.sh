@@ -27,6 +27,15 @@ create_project_execute() {
     # Create docker environment
     get_magento_root_directory "$root_directory"
     "$TASKS_DIR"/version_manager.sh "$EQUIVALENT_VERSION"
+
+    # Pre-create placeholder files on the host before docker compose up.
+    # On macOS, Docker Desktop creates missing bind-mount source paths as empty
+    # directories inside the container (EBUSY — cannot be removed from inside).
+    # Pre-creating real files ensures Docker mounts them as files, not ghost dirs.
+    # This is a no-op when the files already exist (e.g. existing project).
+    echo "{}" > "$MAGENTO_DIR/composer.json"
+    echo "{}" > "$MAGENTO_DIR/composer.lock"
+
     $DOCKER_COMPOSE up -d
     container_id=$($DOCKER_COMPOSE ps -q phpfpm)
 
@@ -34,13 +43,23 @@ create_project_execute() {
     "$COMMANDS_DIR"/exec.sh [ -d "./var/composer_home" ] && \
     "$COMMANDS_DIR"/exec.sh cp /var/www/.composer/auth.json ./var/composer_home/auth.json
     
-    # Execute composer create-project and copy composer.json
+    # Execute composer create-project into a temp dir to avoid "directory not empty" error.
+    # /var/www/html already contains docker-compose config files from the setup step,
+    # so we create the project in /tmp/magento-new and copy results into WORKDIR_PHP.
     "$COMMANDS_DIR"/exec.sh composer create-project \
         --no-install \
         --repository=https://repo.magento.com/ \
-        magento/project-"$MAGENTO_EDITION"-edition="$MAGENTO_VERSION" "."
+        magento/project-"$MAGENTO_EDITION"-edition="$MAGENTO_VERSION" /tmp/magento-new
 
-    # Copy all to host
+    # Move project files from temp dir into the working directory.
+    # composer.json and composer.lock are now real files (pre-created above),
+    # so cp -R can overwrite them normally on both macOS and Linux.
+    "$COMMANDS_DIR"/exec.sh sh -c "cp -R /tmp/magento-new/. $WORKDIR_PHP/"
+
+    # Clean up temp dir
+    "$COMMANDS_DIR"/exec.sh rm -rf /tmp/magento-new
+
+    # Copy composer.json to host
     docker cp "$container_id":"$WORKDIR_PHP"/composer.json "$MAGENTO_DIR"
 
     # Create empty composer.lock

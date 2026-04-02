@@ -5,7 +5,11 @@
         "search": "5.6-elasticsearch",
         "redis": "5",
         "varnish": "6",
-        "composer": "1"
+        "composer": "1",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
     },
     "2.3.3": {
         "php": "7.3-buster",
@@ -13,7 +17,11 @@
         "search": "6.5-elasticsearch",
         "redis": "5",
         "varnish": "6",
-        "composer": "1"
+        "composer": "1",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
     },
     "2.3.5": {
         "php": "7.3-buster",
@@ -21,7 +29,11 @@
         "search": "7.17-elasticsearch",
         "redis": "5",
         "varnish": "6",
-        "composer": "1"
+        "composer": "1",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
     },
     "2.3.7": {
         "php": "7.4-buster",
@@ -29,7 +41,11 @@
         "search": "7.17-elasticsearch",
         "redis": "6.2",
         "varnish": "6",
-        "composer": "1"
+        "composer": "1",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
     },
     "2.4.0": {
         "php": "7.4-buster",
@@ -37,7 +53,11 @@
         "search": "7.17-elasticsearch",
         "redis": "5",
         "varnish": "6",
-        "composer": "1"
+        "composer": "1",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
     },
     "2.4.2": {
         "php": "7.4-buster",
@@ -45,7 +65,11 @@
         "search": "7.17-elasticsearch",
         "redis": "6.2",
         "varnish": "6",
-        "composer": "2.1"
+        "composer": "2.1",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
     },
     "2.4.4": {
         "php": "8.1-buster",
@@ -53,7 +77,11 @@
         "search": "1.2-opensearch",
         "redis": "6.2",
         "varnish": "7.1",
-        "composer": "2.1"
+        "composer": "2.1",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
     },
     "2.4.5": {
         "php": "8.1-buster",
@@ -61,7 +89,11 @@
         "search": "1.2-opensearch",
         "redis": "6.2",
         "varnish": "7.1",
-        "composer": "2.2"
+        "composer": "2.2",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
     },
     "2.4.6": {
         "php": "8.2-buster",
@@ -69,14 +101,34 @@
         "search": "2.5-opensearch",
         "redis": "7",
         "varnish": "7.1",
-        "composer": "2.2"
+        "composer": "2.2",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
     },
     "2.4.7": {
         "php": "8.3-bookworm",
         "mariadb": "10.6",
-        "search": "2.12-opensearch",
-        "redis": "7.2",
+        "search": "2.5-opensearch",
+        "redis": "7",
         "varnish": "7.1",
-        "composer": "2.7"
+        "composer": "2.7",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
+    },
+    "2.4.8": {
+        "php": "8.4-bookworm",
+        "mariadb": "mariadb:11.4",
+        "search": "2.5-opensearch",
+        "redis": "7",
+        "varnish": "7.1",
+        "composer": "2.9",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
     }
 }
