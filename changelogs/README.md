@@ -16,6 +16,8 @@ Changelogs include:
 
 ## Versions
 
+- [v1.3.0](v1.3.0.md) - 2026-04-02 - Magento 2.4.8 support, security patch backfill, data-driven image config
+- [v1.2.0](v1.2.0.md) - 2026-04-01 - AI Tools Management System
 - [v1.1.0](v1.1.0.md) - 2026-03-31 - Magento 2.4.7 & Docker Compose v2 support
 
 ## Semantic Versioning
