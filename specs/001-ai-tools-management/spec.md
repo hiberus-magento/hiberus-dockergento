@@ -192,3 +192,46 @@ A developer wants to use skills from a company-internal repository in addition t
 - Users running `hm ai-init` have write permissions to project directory
 - The tool will be used primarily in development environments, not production
 - Default Hiberus repositories contain general Magento, PHP, and Hyvä skills; project-specific repositories contain custom extensions
+
+## Technical Notes
+
+### Bash 3.2 Compatibility (macOS)
+- **Issue**: macOS ships with bash 3.2.57 which doesn't support associative arrays (`declare -A`)
+- **Solution**: Implementation must use indexed arrays with parallel arrays or alternative patterns
+- **Affected**: `console/tasks/ai_wizard.sh` multi-select menu function
+
+### Required UI Components
+- **Missing**: `print_header` function not available in existing `print_message.sh`
+- **Required**: Add `print_header()` function to support wizard header display
+- **Affected**: `console/tasks/ai_wizard.sh` run_wizard function
+
+### JSON Empty Value Handling
+- **Issue**: `jq` queries may return `""` (empty string) instead of arrays for missing keys
+- **Solution**: Use `// []` or `// ""` default operators in all jq queries
+- **Affected**: Configuration loading in wizard and command files
+
+### Stdout/Stderr Separation in Functions
+- **Issue**: Functions returning values via stdout must not contaminate output with UI messages
+- **Pattern**: All UI output (print_*, echo for prompts) must redirect to stderr with `>&2`
+- **Reason**: Command substitution `result=$(function)` captures stdout only
+- **Affected**: All wizard_* functions, multi_select_menu in ai_wizard.sh
+
+### Absolute Paths for Data Files
+- **Issue**: Relative paths like `data/ai-platforms.json` fail when command runs from project directory
+- **Pattern**: Always use `${DATA_DIR}/filename.json` for tool's data files
+- **Reason**: Commands execute in project directory, not tool installation directory
+- **Affected**: wizard_select_platforms, wizard_select_skill_types, resolve_repositories functions
+
+### Bash Parameter Default with Braces
+- **Issue**: Using `${1:-{}}` when `$1` is `{}` results in `{}}` (double closing brace)
+- **Cause**: Bash interprets unescaped `{}` in parameter default causing unexpected concatenation
+- **Solution**: Use explicit check: `if [[ -z "${var}" ]]; then var="{}"; fi` instead of `${1:-{}}`
+- **Affected**: All function parameters where default value contains literal braces
+
+### Interactive UI Best Practices
+- **Numbered Options**: Always show option numbers alongside IDs for selection menus
+- **Global Instructions**: Show usage instructions once at wizard start, not repeated for each prompt
+- **Minimal Prompts**: Each selection shows only the question and `> ` prompt
+- **Message Formatting**: Always end `print_info` messages with `\n` for proper line breaks
+- **Visual Spacing**: Use `echo` for blank lines, `printf "> "` for prompts
+- **Selection State**: Use `[X]` for pre-selected items, `[ ]` for unselected

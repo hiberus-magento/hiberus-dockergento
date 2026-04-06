@@ -136,8 +136,9 @@ resolve_repositories() {
 
     # Load default repositories
     local default_repos="[]"
-    if [[ -f "data/ai-repositories.json" ]]; then
-        default_repos=$(jq -c '.repositories' data/ai-repositories.json)
+    local repos_file="${DATA_DIR}/ai-repositories.json"
+    if [[ -f "${repos_file}" ]]; then
+        default_repos=$(jq -c '.repositories' "${repos_file}")
     fi
 
     # Get custom repositories from config
@@ -160,13 +161,14 @@ create_platform_directories() {
     local resources="$2"
 
     # Load platform definitions
-    if [[ ! -f "data/ai-platforms.json" ]]; then
-        print_error "Platform definitions not found"
+    local platforms_file="${DATA_DIR}/ai-platforms.json"
+    if [[ ! -f "${platforms_file}" ]]; then
+        print_error "Platform definitions not found: ${platforms_file}"
         return 1
     fi
 
     local platforms_json
-    platforms_json=$(cat data/ai-platforms.json)
+    platforms_json=$(cat "${platforms_file}")
 
     IFS=',' read -ra platform_array <<< "${platforms}"
     IFS=',' read -ra resource_array <<< "${resources}"
@@ -203,7 +205,7 @@ download_and_install() {
 
     # Load platform definitions
     local platforms_json
-    platforms_json=$(cat data/ai-platforms.json)
+    platforms_json=$(cat "${DATA_DIR}/ai-platforms.json")
 
     local repo_count
     repo_count=$(echo "${repositories}" | jq 'length')
@@ -217,7 +219,7 @@ download_and_install() {
     local temp_base
     temp_base=$(mktemp -d "/tmp/hm-ai-tools.XXXXXX")
 
-    print_info "Downloading from ${repo_count} repositories..."
+    print_info "Downloading from ${repo_count} repositories...\n"
 
     # Iterate repositories
     for ((i=0; i<repo_count; i++)); do
@@ -227,7 +229,7 @@ download_and_install() {
         repo_url=$(echo "${repositories}" | jq -r ".[$i].url")
         repo_branch=$(echo "${repositories}" | jq -r ".[$i].branch // \"main\"")
 
-        print_info "Processing repository: ${repo_name}"
+        print_info "Processing repository: ${repo_name}\n"
 
         # Download repository
         local repo_dir="${temp_base}/${repo_name}"
@@ -257,11 +259,11 @@ download_and_install() {
                     continue
                 fi
 
-                print_info "Installing ${resource} for ${platform}..."
+                print_info "Installing ${resource} for ${platform}...\n"
 
                 # Install with type filtering
                 install_filtered "${repo_dir}" "${resource}" "${target_dir}" "${types}" "false" || {
-                    print_warning "Failed to install ${resource} for ${platform}"
+                    print_warning "Failed to install ${resource} for ${platform}\n"
                 }
             done
         done
@@ -270,7 +272,7 @@ download_and_install() {
     # Clean up temp directory
     rm -rf "${temp_base}"
 
-    print_info "Download and installation complete"
+    print_info "Download and installation complete\n"
     return 0
 }
 
@@ -297,7 +299,6 @@ main() {
     # Build or wizard configuration
     local config
     if [[ "${interactive}" == "true" ]]; then
-        print_info "Starting interactive configuration wizard..."
         config=$(run_wizard "${existing_config}") || {
             print_error "Wizard failed"
             exit 1
@@ -309,11 +310,11 @@ main() {
         }
     fi
 
-    # Validate configuration
+    # Validate configuration (handle empty arrays properly)
     local platforms types resources
-    platforms=$(echo "${config}" | jq -r '.platforms | join(",")')
-    types=$(echo "${config}" | jq -r '.types | join(",")')
-    resources=$(echo "${config}" | jq -r '.resources | join(",")')
+    platforms=$(echo "${config}" | jq -r '(.platforms // []) | join(",")')
+    types=$(echo "${config}" | jq -r '(.types // []) | join(",")')
+    resources=$(echo "${config}" | jq -r '(.resources // []) | join(",")')
 
     if [[ -z "${platforms}" ]] || [[ -z "${resources}" ]]; then
         print_error "Configuration incomplete: platforms and resources are required"
@@ -321,22 +322,22 @@ main() {
     fi
 
     # Save configuration
-    print_info "Saving configuration..."
+    print_info "Saving configuration...\n"
     if ! save_ai_properties "${config}"; then
         print_error "Failed to save configuration"
         exit 1
     fi
 
-    print_info "Configuration saved to config/docker/ai-properties.json"
+    print_info "Configuration saved to config/docker/ai-properties.json\n"
 
     # Create platform directories
-    print_info "Creating platform directories..."
+    print_info "Creating platform directories...\n"
     create_platform_directories "${platforms}" "${resources}" || {
         print_warning "Some directories could not be created"
     }
 
     # Resolve repositories
-    print_info "Resolving repositories..."
+    print_info "Resolving repositories...\n"
     local repositories
     repositories=$(resolve_repositories "${config}") || {
         print_error "Failed to resolve repositories"
@@ -344,19 +345,20 @@ main() {
     }
 
     # Download and install
-    print_info "Starting download and installation..."
+    print_info "Starting download and installation...\n"
     if ! download_and_install "${repositories}" "${platforms}" "${types}" "${resources}"; then
         print_error "Download and installation failed"
         exit 1
     fi
 
-    print_info "AI tools initialization complete!"
     echo ""
-    print_info "Configuration: config/docker/ai-properties.json"
-    print_info "Registration: config/docker/ai-registration.json"
+    print_info "AI tools initialization complete!\n"
     echo ""
-    print_info "You can now use AI tools with your configured platforms."
-    print_info "Run 'hm ai-pull' to update tools in the future."
+    print_info "Configuration: config/docker/ai-properties.json\n"
+    print_info "Registration: config/docker/ai-registration.json\n"
+    echo ""
+    print_info "You can now use AI tools with your configured platforms.\n"
+    print_info "Run 'hm ai-pull' to update tools in the future.\n"
 }
 
 main "$@"

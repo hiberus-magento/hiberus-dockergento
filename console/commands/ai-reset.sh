@@ -108,25 +108,25 @@ remove_tracked_files() {
         fi
 
         if [[ ! -e "${file_path}" ]]; then
-            print_warning "File not found (already removed?): ${file_path}"
+            print_warning_line "  File not found (already removed?): ${file_path}"
             continue
         fi
 
         # Remove file or directory
         if [[ -d "${file_path}" ]]; then
-            rm -rf "${file_path}" && {
-                print_info "Removed directory: ${file_path}"
+            if rm -rf "${file_path}"; then
+                print_info_line "  Removed directory: ${file_path}"
                 ((removed_count++))
-            } || {
-                print_error "Failed to remove directory: ${file_path}"
-            }
+            else
+                print_error_line "  Failed to remove directory: ${file_path}"
+            fi
         elif [[ -f "${file_path}" ]]; then
-            rm -f "${file_path}" && {
-                print_info "Removed file: ${file_path}"
+            if rm -f "${file_path}"; then
+                print_info_line "  Removed file: ${file_path}"
                 ((removed_count++))
-            } || {
-                print_error "Failed to remove file: ${file_path}"
-            }
+            else
+                print_error_line "  Failed to remove file: ${file_path}"
+            fi
         fi
     done <<< "${files}"
 
@@ -168,12 +168,13 @@ count_custom_items() {
 #
 show_preserved_summary() {
     # Load platform definitions
-    if [[ ! -f "data/ai-platforms.json" ]]; then
+    local platforms_file="${DATA_DIR}/ai-platforms.json"
+    if [[ ! -f "${platforms_file}" ]]; then
         return 0
     fi
 
     local platforms_json
-    platforms_json=$(cat data/ai-platforms.json)
+    platforms_json=$(cat "${platforms_file}")
 
     # Load configuration to know which platforms are configured
     local config
@@ -202,7 +203,7 @@ show_preserved_summary() {
             total_custom=$((total_custom + custom_skills))
 
             if [[ ${custom_skills} -gt 0 ]]; then
-                print_info "  ${platform} custom skills: ${custom_skills}"
+                print_info_line "  ${platform} custom skills: ${custom_skills}"
             fi
         fi
 
@@ -212,14 +213,14 @@ show_preserved_summary() {
             total_custom=$((total_custom + custom_agents))
 
             if [[ ${custom_agents} -gt 0 ]]; then
-                print_info "  ${platform} custom agents: ${custom_agents}"
+                print_info_line "  ${platform} custom agents: ${custom_agents}"
             fi
         fi
     done
 
     if [[ ${total_custom} -gt 0 ]]; then
         echo ""
-        print_info "Total custom items that will be preserved: ${total_custom}"
+        print_info_line "Total custom items that will be preserved: ${total_custom}"
     fi
 }
 
@@ -231,12 +232,12 @@ main() {
     parse_options "$@"
 
     # Load registration
-    print_info "Loading registration data..."
+    print_info_line "Loading registration data..."
     local registration
     registration=$(load_ai_registration) || {
-        print_error "Failed to load ai-registration.json"
-        print_error "Registration file may be corrupted or missing"
-        print_info "If the file is corrupted, manually delete config/docker/ai-registration.json"
+        print_error_line "Failed to load ai-registration.json"
+        print_error_line "Registration file may be corrupted or missing"
+        print_info_line "If the file is corrupted, manually delete config/docker/ai-registration.json"
         exit 1
     }
 
@@ -246,16 +247,16 @@ main() {
     agents_count=$(echo "${registration}" | jq '.agents | length')
 
     if [[ ${skills_count} -eq 0 ]] && [[ ${agents_count} -eq 0 ]]; then
-        print_info "No tracked AI tools found in registration"
-        print_info "Nothing to reset"
+        print_info_line "No tracked AI tools found in registration"
+        print_info_line "Nothing to reset"
         exit 0
     fi
 
     # Collect tracked files
-    print_info "Collecting tracked files..."
+    print_info_line "Collecting tracked files..."
     local tracked_files
     tracked_files=$(collect_tracked_files) || {
-        print_error "Failed to collect tracked files"
+        print_error_line "Failed to collect tracked files"
         exit 1
     }
 
@@ -263,58 +264,57 @@ main() {
     file_count=$(echo "${tracked_files}" | grep -c '[^[:space:]]' || echo "0")
 
     if [[ ${file_count} -eq 0 ]]; then
-        print_info "No files to remove"
+        print_info_line "No files to remove"
         exit 0
     fi
 
     # Show what will be removed
     echo ""
-    print_warning "The following ${file_count} items will be removed:"
-    echo ""
+    print_warning_line "The following ${file_count} items will be removed:"
     echo "${tracked_files}"
     echo ""
 
     # Show what will be preserved
-    print_info "Custom skills/agents will be preserved:"
+    print_info_line "Custom skills/agents will be preserved:"
     show_preserved_summary
 
     # Confirmation prompt (unless --confirm flag)
     if [[ "${OPT_CONFIRM}" != "true" ]]; then
         echo ""
-        print_warning "This action cannot be undone."
-        print_info "Continue with deletion? (y/N)"
+        print_warning_line "This action cannot be undone."
+        printf "Continue with deletion? (y/N) "
 
         local confirmation
         read -r confirmation
 
         if [[ ! "${confirmation}" =~ ^[Yy] ]]; then
-            print_info "Reset cancelled"
+            print_info_line "Reset cancelled"
             exit 0
         fi
     fi
 
     # Remove tracked files
     echo ""
-    print_info "Removing tracked files..."
+    print_info_line "Removing tracked files..."
     local removed_count
     removed_count=$(remove_tracked_files "${tracked_files}")
 
     # Clear registration
-    print_info "Clearing registration..."
+    print_info_line "Clearing registration..."
     if ! clear_registration; then
-        print_error "Failed to clear registration file"
+        print_error_line "Failed to clear registration file"
         exit 1
     fi
 
     # Success
     echo ""
-    print_info "AI tools reset complete!"
-    print_info "Removed ${removed_count} items"
+    print_info_line "AI tools reset complete!"
+    print_info_line "Removed ${removed_count} items"
     echo ""
-    print_info "Configuration file preserved: config/docker/ai-properties.json"
-    print_info "Registration file cleared: config/docker/ai-registration.json"
+    print_info_line "Configuration file preserved: config/docker/ai-properties.json"
+    print_info_line "Registration file cleared: config/docker/ai-registration.json"
     echo ""
-    print_info "To re-download AI tools, run: hm ai-pull"
+    print_info_line "To re-download AI tools, run: hm ai-pull"
 }
 
 main "$@"

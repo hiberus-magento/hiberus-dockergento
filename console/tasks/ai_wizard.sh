@@ -29,9 +29,9 @@ multi_select_menu() {
     local options_json="$2"
     local preselected="${3:-}"
 
-    echo ""
-    print_info "${prompt}"
-    echo ""
+    echo "" >&2
+    print_info "${prompt}" >&2
+    echo "" >&2
 
     # Parse options into arrays
     local -a option_ids=()
@@ -49,27 +49,23 @@ multi_select_menu() {
         option_descriptions+=("${desc}")
     done < <(echo "${options_json}" | jq -c 'to_entries[] | {id: .key, name: .value.name, description: .value.description}')
 
-    # Build preselected set
-    local -A selected=()
-    if [[ -n "${preselected}" ]]; then
-        IFS=',' read -ra presel_array <<< "${preselected}"
-        for item in "${presel_array[@]}"; do
-            selected["${item}"]=1
-        done
-    fi
+    # Build preselected list (bash 3.2 compatible - no associative arrays)
+    local preselected_list=",${preselected},"
 
-    # Display options
+    # Display options with numbers
     for i in "${!option_ids[@]}"; do
         local checkbox="[ ]"
-        if [[ -n "${selected[${option_ids[$i]}]:-}" ]]; then
+        local num=$((i + 1))
+        # Check if option_id is in preselected list
+        if [[ "${preselected_list}" == *",${option_ids[$i]},"* ]]; then
             checkbox="[X]"
         fi
 
-        printf "  %s %s - %s\n" "${checkbox}" "${option_names[$i]}" "${option_descriptions[$i]}"
+        printf "  %s %d) %s - %s\n" "${checkbox}" "${num}" "${option_names[$i]}" "${option_descriptions[$i]}" >&2
     done
 
-    echo ""
-    print_info "Enter selections (comma-separated numbers/IDs, or 'all' for all options):"
+    echo "" >&2
+    printf "> " >&2
 
     # Read user input
     local user_input
@@ -83,8 +79,9 @@ multi_select_menu() {
         return 0
     fi
 
-    # Handle empty input (keep preselected)
-    if [[ -z "${user_input}" ]] && [[ -n "${preselected}" ]]; then
+    # Handle empty input
+    if [[ -z "${user_input}" ]]; then
+        # Keep preselected or return empty if nothing selected
         echo "${preselected}"
         return 0
     fi
@@ -93,26 +90,32 @@ multi_select_menu() {
     IFS=',' read -ra selections <<< "${user_input}"
     local -a result=()
 
-    for sel in "${selections[@]}"; do
-        # Trim whitespace
-        sel=$(echo "${sel}" | xargs)
+    # Process selections only if array is not empty
+    if [[ ${#selections[@]} -gt 0 ]]; then
+        for sel in "${selections[@]}"; do
+            # Trim whitespace
+            sel=$(echo "${sel}" | xargs)
 
-        # Check if numeric index
-        if [[ "${sel}" =~ ^[0-9]+$ ]]; then
-            local idx=$((sel - 1))
-            if [[ ${idx} -ge 0 ]] && [[ ${idx} -lt ${#option_ids[@]} ]]; then
-                result+=("${option_ids[$idx]}")
-            fi
-        else
-            # Assume it's an ID
-            for opt_id in "${option_ids[@]}"; do
-                if [[ "${opt_id}" == "${sel}" ]]; then
-                    result+=("${opt_id}")
-                    break
+            # Skip empty selections
+            [[ -z "${sel}" ]] && continue
+
+            # Check if numeric index
+            if [[ "${sel}" =~ ^[0-9]+$ ]]; then
+                local idx=$((sel - 1))
+                if [[ ${idx} -ge 0 ]] && [[ ${idx} -lt ${#option_ids[@]} ]]; then
+                    result+=("${option_ids[$idx]}")
                 fi
-            done
-        fi
-    done
+            else
+                # Assume it's an ID
+                for opt_id in "${option_ids[@]}"; do
+                    if [[ "${opt_id}" == "${sel}" ]]; then
+                        result+=("${opt_id}")
+                        break
+                    fi
+                done
+            fi
+        done
+    fi
 
     # Return comma-separated result
     local output
@@ -155,13 +158,15 @@ wizard_select_platforms() {
     local preselected="${1:-}"
 
     # Load platform definitions
-    if [[ ! -f "data/ai-platforms.json" ]]; then
-        print_error "Platform definitions not found: data/ai-platforms.json"
+    local platforms_file="${DATA_DIR:-data}/ai-platforms.json"
+    if [[ ! -f "${platforms_file}" ]]; then
+        print_error "Platform definitions not found: ${platforms_file}" >&2
+        echo "" >&2
         return 1
     fi
 
     local platforms_json
-    platforms_json=$(jq '.platforms' data/ai-platforms.json)
+    platforms_json=$(jq '.platforms' "${platforms_file}")
 
     multi_select_menu "Which AI platforms do you use?" "${platforms_json}" "${preselected}"
 }
@@ -175,13 +180,15 @@ wizard_select_skill_types() {
     local preselected="${1:-}"
 
     # Load skill type definitions
-    if [[ ! -f "data/ai-skill-types.json" ]]; then
-        print_error "Skill type definitions not found: data/ai-skill-types.json"
+    local skill_types_file="${DATA_DIR:-data}/ai-skill-types.json"
+    if [[ ! -f "${skill_types_file}" ]]; then
+        print_error "Skill type definitions not found: ${skill_types_file}" >&2
+        echo "" >&2
         return 1
     fi
 
     local types_json
-    types_json=$(jq '.skill_types' data/ai-skill-types.json)
+    types_json=$(jq '.skill_types' "${skill_types_file}")
 
     multi_select_menu "Which skill types does your project need?" "${types_json}" "${preselected}"
 }
@@ -194,8 +201,9 @@ wizard_select_skill_types() {
 wizard_custom_repositories() {
     local existing_repos="${1:-[]}"
 
-    echo ""
-    print_info "Would you like to add a custom repository? (y/N)"
+    echo "" >&2
+    print_info "Would you like to add a custom repository? (y/N)" >&2
+    echo "" >&2
     local add_custom
     read -r add_custom
 
@@ -205,28 +213,32 @@ wizard_custom_repositories() {
     fi
 
     # Collect repository URL
-    echo ""
-    print_info "Enter repository URL (must be HTTPS):"
+    echo "" >&2
+    print_info "Enter repository URL (must be HTTPS):" >&2
+    echo "" >&2
     local repo_url
     read -r repo_url
 
     # Validate HTTPS
     if [[ ! "${repo_url}" =~ ^https:// ]]; then
-        print_error "Repository URL must use HTTPS protocol"
+        print_error "Repository URL must use HTTPS protocol" >&2
+        echo "" >&2
         echo "${existing_repos}"
         return 0
     fi
 
     # Collect branch name
-    echo ""
-    print_info "Enter branch name (default: main):"
+    echo "" >&2
+    print_info "Enter branch name (default: main):" >&2
+    echo "" >&2
     local branch
     read -r branch
     branch="${branch:-main}"
 
     # Collect repository name (optional)
-    echo ""
-    print_info "Enter repository name (optional, for display):"
+    echo "" >&2
+    print_info "Enter repository name (optional, for display):" >&2
+    echo "" >&2
     local repo_name
     read -r repo_name
 
@@ -252,22 +264,29 @@ wizard_custom_repositories() {
 # Returns: Complete configuration JSON via stdout
 #
 run_wizard() {
-    local existing_config="${1:-{}}"
+    local existing_config="$1"
+    if [[ -z "${existing_config}" ]]; then
+        existing_config="{}"
+    fi
 
-    print_header "AI Tools Configuration Wizard"
+    echo "" >&2
+    print_header "AI Tools Configuration Wizard" >&2
+    echo "" >&2
+    print_info "Instructions: Enter numbers (1,2), IDs (claude,cursor), 'all', or press Enter to keep current" >&2
+    echo "" >&2
 
-    # Extract existing values
+    # Extract existing values (handle empty arrays properly)
     local existing_resources
-    existing_resources=$(echo "${existing_config}" | jq -r '.resources // "" | join(",")')
+    existing_resources=$(echo "${existing_config}" | jq -r '(.resources // []) | join(",")' 2>/dev/null || echo "")
 
     local existing_platforms
-    existing_platforms=$(echo "${existing_config}" | jq -r '.platforms // "" | join(",")')
+    existing_platforms=$(echo "${existing_config}" | jq -r '(.platforms // []) | join(",")' 2>/dev/null || echo "")
 
     local existing_types
-    existing_types=$(echo "${existing_config}" | jq -r '.types // "" | join(",")')
+    existing_types=$(echo "${existing_config}" | jq -r '(.types // []) | join(",")' 2>/dev/null || echo "")
 
     local existing_custom_repos
-    existing_custom_repos=$(echo "${existing_config}" | jq -c '.custom_repositories // []')
+    existing_custom_repos=$(echo "${existing_config}" | jq -c '.custom_repositories // []' 2>/dev/null || echo "[]")
 
     # Step 1: Resource selection
     local selected_resources

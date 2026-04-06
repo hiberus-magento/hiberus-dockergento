@@ -9,9 +9,82 @@
 
 Implement three new Bash commands (`hm ai-init`, `hm ai-pull`, `hm ai-reset`) to download and manage AI coding assistant skills/agents from remote Git repositories. The system uses an interactive wizard for initial configuration, maintains team-shared configuration in `ai-properties.json`, tracks downloaded files in local `ai-registration.json`, and protects custom user-created skills/agents. Supports multiple AI platforms (claude, cursor, codex, copilot, gemini, opencode) and skill types (hyva, acs, magento, php) with extensible configuration stored in tool's `data/` directory.
 
+## Known Issues Requiring Fixes
+
+### 1. Bash 3.2 Compatibility (macOS)
+**Priority**: CRITICAL  
+**Issue**: `console/tasks/ai_wizard.sh:53` uses `local -A selected=()` which is not supported in bash 3.2.57 (macOS default)  
+**Error**: `local: -A: invalid option`  
+**Solution**: Replace associative array with indexed array + search pattern or use alternative data structure  
+**Files**: `console/tasks/ai_wizard.sh`
+
+### 2. Missing print_header Component
+**Priority**: HIGH  
+**Issue**: `console/tasks/ai_wizard.sh:257` calls `print_header` which doesn't exist in `print_message.sh`  
+**Error**: `print_header: command not found`  
+**Solution**: Add `print_header()` function to `console/components/print_message.sh`  
+**Files**: `console/components/print_message.sh`
+
+### 3. JQ Empty String Handling
+**Priority**: HIGH  
+**Issue**: `jq` queries return `""` instead of arrays for missing keys, causing parse errors  
+**Error**: `jq: error (at <stdin>:1): Cannot iterate over string ("")`, `jq: parse error: Unmatched '}'`  
+**Solution**: Use `// []` defaults in all jq array queries, `// ""` for string queries  
+**Files**: `console/tasks/ai_wizard.sh:261-267`, `console/commands/ai-init.sh`
+
+### 5. Stdout Contamination in Wizard Functions
+**Priority**: CRITICAL  
+**Issue**: `print_info`, `print_error`, and `echo` write to stdout, contaminating function return values captured with `$()`  
+**Error**: `jq: parse error: Unmatched '}'` (wizard output mixed with JSON return values)  
+**Solution**: Redirect all UI output to stderr with `>&2` in wizard functions  
+**Files**: `console/tasks/ai_wizard.sh` - all wizard_* functions and multi_select_menu
+
+### 6. Relative Path Issues in Wizard
+**Priority**: CRITICAL ✅ FIXED  
+**Issue**: Wizard functions use relative paths `data/ai-platforms.json` which fail when executed from project directory  
+**Error**: `jq: parse error: Unmatched '}'` (file not found, jq receives empty/invalid input)  
+**Solution**: Use `$DATA_DIR` environment variable for absolute paths to data files  
+**Files**: `console/tasks/ai_wizard.sh` (wizard_select_platforms, wizard_select_skill_types), `console/commands/ai-init.sh` (resolve_repositories, create_platform_directories, download_and_install), `console/tasks/ai_extract.sh` (install_filtered)
+
+### 7. UI/UX Improvements
+**Priority**: MEDIUM ✅ FIXED  
+**Issues**:
+- No newline before wizard header makes output cramped
+- Checkbox UI `[ ]` suggests clickable interface but it's text-only input
+- No numbers shown next to options despite instructions asking for "numbers/IDs"
+- Instructions are unclear about input format
+- Bullet points showing color codes `[0m` instead of clean text
+
+**Solutions**:
+- Add newline before header in `run_wizard()` ✅
+- Show option numbers: `[ ] 1) Claude Code - ...` ✅
+- Improve instructions with clear examples ✅
+- Use plain `echo` instead of `print_default` with `\n` for bullet lists ✅
+- Add blank line separation between instruction bullets for readability ✅
+
+### 8. Bash Parameter Default Bug
+**Priority**: CRITICAL ✅ FIXED  
+**Issue**: Using `${1:-{}}` when `$1` contains `{}` results in `{}}` (double closing brace) causing invalid JSON  
+**Error**: `jq: invalid JSON text passed to --argjson`  
+**Root Cause**: Bash interprets unescaped `{}` in parameter default value, causing unexpected concatenation  
+**Solution**: Replace `local existing_config="${1:-{}}"` with explicit check:
+```bash
+local existing_config="$1"
+if [[ -z "${existing_config}" ]]; then
+    existing_config="{}"
+fi
+```
+**Files**: `console/tasks/ai_wizard.sh:272` (run_wizard function)
+
+### 4. Missing Component Source
+**Priority**: MEDIUM  
+**Issue**: `ai_wizard.sh` may not have access to all required print functions  
+**Solution**: Verify all component dependencies are sourced properly  
+**Files**: `console/tasks/ai_wizard.sh`
+
 ## Technical Context
 
-**Language/Version**: Bash 4.0+ (Constitutional requirement: Bash Implementation Consistency)  
+**Language/Version**: Bash 3.2+ (Constitutional requirement: Bash Implementation Consistency, macOS compatibility)  
 **Primary Dependencies**: 
 - curl (tarball downloads via HTTPS)
 - tar (archive extraction)
