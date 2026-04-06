@@ -27,7 +27,7 @@ parse_options() {
                 OPT_FORCE="true"
                 ;;
             *)
-                print_error "Unknown option: ${arg}"
+                print_error_line "Unknown option: ${arg}"
                 show_usage
                 exit 1
                 ;;
@@ -73,8 +73,8 @@ resolve_repositories() {
 
     # Load default repositories
     local default_repos="[]"
-    if [[ -f "data/ai-repositories.json" ]]; then
-        default_repos=$(jq -c '.repositories' data/ai-repositories.json)
+    if [[ -f "${DATA_DIR}/ai-repositories.json" ]]; then
+        default_repos=$(jq -c '.repositories' "${DATA_DIR}/ai-repositories.json")
     fi
 
     # Get custom repositories from config
@@ -106,13 +106,13 @@ download_and_install() {
 
     # Load platform definitions
     local platforms_json
-    platforms_json=$(cat data/ai-platforms.json)
+    platforms_json=$(cat "${DATA_DIR}/ai-platforms.json")
 
     local repo_count
     repo_count=$(echo "${repositories}" | jq 'length')
 
     if [[ ${repo_count} -eq 0 ]]; then
-        print_info "No repositories configured"
+        print_info_line "No repositories configured"
         return 0
     fi
 
@@ -120,7 +120,7 @@ download_and_install() {
     local temp_base
     temp_base=$(mktemp -d "/tmp/hm-ai-tools.XXXXXX")
 
-    print_info "Downloading from ${repo_count} repositories..."
+    print_info_line "Downloading from ${repo_count} repositories..."
 
     local success_count=0
     local fail_count=0
@@ -133,19 +133,19 @@ download_and_install() {
         repo_url=$(echo "${repositories}" | jq -r ".[$i].url")
         repo_branch=$(echo "${repositories}" | jq -r ".[$i].branch // \"main\"")
 
-        print_info "Processing repository: ${repo_name}"
+        print_info_line "Processing repository: ${repo_name}"
 
         # Download repository
         local repo_dir="${temp_base}/${repo_name}"
         if ! download_repository "${repo_url}" "${repo_branch}" "${repo_dir}"; then
-            print_warning "Failed to download ${repo_name}, skipping..."
+            print_warning_line "Failed to download ${repo_name}, skipping..."
             ((fail_count++))
             continue
         fi
 
         # Validate structure
         if ! validate_repository_structure "${repo_dir}"; then
-            print_warning "Invalid repository structure in ${repo_name}, skipping..."
+            print_warning_line "Invalid repository structure in ${repo_name}, skipping..."
             ((fail_count++))
             continue
         fi
@@ -167,7 +167,7 @@ download_and_install() {
                     continue
                 fi
 
-                print_info "Installing ${resource} for ${platform}..."
+                print_info_line "Installing ${resource} for ${platform}..."
 
                 # Install with type filtering
                 if install_filtered "${repo_dir}" "${resource}" "${target_dir}" "${types}" "${force}"; then
@@ -187,10 +187,10 @@ download_and_install() {
     rm -rf "${temp_base}"
 
     # Report results
-    print_info "Processed ${repo_count} repositories (${success_count} successful, ${fail_count} failed)"
+    print_info_line "Processed ${repo_count} repositories (${success_count} successful, ${fail_count} failed)"
 
     if [[ ${fail_count} -gt 0 ]]; then
-        print_warning "Some repositories failed to download or install"
+        print_warning_line "Some repositories failed to download or install"
         return 1
     fi
 
@@ -205,22 +205,22 @@ main() {
     parse_options "$@"
 
     # Load configuration
-    print_info "Loading configuration..."
+    print_info_line "Loading configuration..."
     local config
     config=$(load_ai_properties) || {
-        print_error "Failed to load configuration"
+        print_error_line "Failed to load configuration"
         exit 1
     }
 
     # Check if configuration exists
     if [[ "${config}" == "{}" ]]; then
-        print_error "No configuration found. Run 'hm ai-init' first."
+        print_error_line "No configuration found. Run 'hm ai-init' first."
         exit 1
     fi
 
     # Validate configuration structure
     if ! echo "${config}" | jq -e '.platforms and .resources' >/dev/null 2>&1; then
-        print_error "Invalid configuration in ai-properties.json"
+        print_error_line "Invalid configuration in ai-properties.json"
         exit 1
     fi
 
@@ -231,40 +231,41 @@ main() {
     resources=$(echo "${config}" | jq -r '.resources | join(",")')
 
     if [[ -z "${platforms}" ]] || [[ -z "${resources}" ]]; then
-        print_error "Configuration incomplete: platforms and resources are required"
+        print_error_line "Configuration incomplete: platforms and resources are required"
         exit 1
     fi
 
-    print_info "Configuration loaded:"
-    print_info "  Platforms: ${platforms}"
-    print_info "  Types: ${types:-all}"
-    print_info "  Resources: ${resources}"
-    echo ""
+    print_info_line "Configuration loaded:"
+    print_info_line "  Platforms: ${platforms}"
+    print_info_line "  Types: ${types:-all}"
+    print_info_line "  Resources: ${resources}"
+    echo "" >&2
 
     # Resolve repositories
-    print_info "Resolving repositories..."
+    print_info_line "Resolving repositories..."
     local repositories
     repositories=$(resolve_repositories "${config}") || {
-        print_error "Failed to resolve repositories"
+        print_error_line "Failed to resolve repositories"
         exit 1
     }
 
     # Download and install
-    print_info "Starting download and installation..."
+    print_info_line "Starting download and installation..."
     if ! download_and_install "${repositories}" "${platforms}" "${types}" "${resources}" "${OPT_FORCE}"; then
-        print_warning "Some operations failed, but continuing..."
+        print_warning_line "Some operations failed, but continuing..."
     fi
 
-    print_info "AI tools update complete!"
-    echo ""
-    print_info "Registration: config/docker/ai-registration.json"
-    echo ""
+    echo "" >&2
+    print_info_line "AI tools update complete!"
+    echo "" >&2
+    print_info_line "Registration: config/docker/ai-registration.json"
+    echo "" >&2
 
     if [[ "${OPT_FORCE}" == "true" ]]; then
-        print_warning "Used --force flag: custom skills/agents may have been overwritten"
+        print_warning_line "Used --force flag: custom skills/agents may have been overwritten"
     else
-        print_info "Custom skills/agents were preserved"
-        print_info "Use --force to overwrite custom files"
+        print_info_line "Custom skills/agents were preserved"
+        print_info_line "Use --force to overwrite custom files"
     fi
 }
 

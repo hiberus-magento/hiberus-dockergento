@@ -55,3 +55,24 @@ print_link() {
 print_processing() {
     print_default "🚀 $1\n"
 }
+
+print_header() {
+    printf "$WHITE%b$COLOR_RESET\n" "========================================\n$1\n========================================"
+}
+
+# Versions with automatic newline (write to stderr to avoid contaminating command substitution)
+print_info_line() {
+    printf "$GREEN%b$COLOR_RESET\n" "$1" >&2
+}
+
+print_warning_line() {
+    printf "$YELLOW%b$COLOR_RESET\n" "$1" >&2
+}
+
+print_error_line() {
+    printf "$RED%b$COLOR_RESET\n" "$1" >&2
+}
+
+print_default_line() {
+    printf "$COLOR_RESET%b\n" "$1" >&2
+}

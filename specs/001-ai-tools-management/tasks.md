@@ -24,6 +24,55 @@ This is a CLI extension for Hiberus Dockergento. All paths follow existing CLI p
 
 ---
 
+## Phase 0: Bug Fixes (CRITICAL - Do First)
+
+**Purpose**: Fix compatibility issues preventing `hm ai-init` from running on macOS
+
+- [ ] **[BUG-01]** Fix bash 3.2 compatibility in `console/tasks/ai_wizard.sh`
+  - Replace `local -A selected=()` on line 53 with bash 3.2-compatible array pattern
+  - Use indexed array with string search instead of associative array lookup
+  - Test on macOS bash 3.2.57
+  - **File**: `console/tasks/ai_wizard.sh:53-68`
+
+- [ ] **[BUG-02]** Add missing `print_header` function
+  - Add `print_header()` function to `console/components/print_message.sh`
+  - Use consistent formatting with existing print functions (color + formatting)
+  - **File**: `console/components/print_message.sh`
+
+- [ ] **[BUG-03]** Fix jq empty result handling in `run_wizard()`
+  - Update lines 261, 264, 267 to use `// []` for array results
+  - Update line 270 to use `// []` for custom_repositories
+  - Ensure all jq queries provide appropriate defaults
+  - **File**: `console/tasks/ai_wizard.sh:260-270`
+
+- [ ] **[BUG-04]** Fix jq empty result handling in `ai-init.sh`
+  - Update configuration extraction queries to handle empty strings
+  - Add `// []` defaults for array operations
+  - **File**: `console/commands/ai-init.sh:314-316`
+
+- [ ] **[BUG-05]** Verify component loading
+  - Ensure `print_message.sh` is properly sourced
+  - Check all required functions are available before use
+  - **File**: `console/tasks/ai_wizard.sh:16-18`
+
+- [ ] **[BUG-06]** Fix stdout contamination in wizard functions
+  - Redirect all `print_*` and `echo` calls to stderr with `>&2`
+  - Affects: `multi_select_menu`, `wizard_custom_repositories`, `run_wizard`
+  - Ensures function return values (captured with `$()`) are clean JSON/strings
+  - **File**: `console/tasks/ai_wizard.sh` (lines 32-67, 192-226, 249-257)
+
+- [ ] **[BUG-07]** Fix relative path issues in data file loading
+  - Replace `data/ai-platforms.json` with `${DATA_DIR}/ai-platforms.json`
+  - Replace `data/ai-skill-types.json` with `${DATA_DIR}/ai-skill-types.json`
+  - Replace `data/ai-repositories.json` with `${DATA_DIR}/ai-repositories.json`
+  - **Files**: `console/tasks/ai_wizard.sh`, `console/commands/ai-init.sh`
+
+- [ ] **[UX-01]** Improve wizard UI/UX
+  - Add newline before wizard header in `run_wizard()`
+  - Show option numbers in menu: `[ ] 1) Option Name - Description`
+  - Improve selection instructions with clear examples
+  - **File**: `console/tasks/ai_wizard.sh`
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Project initialization and configuration files that all commands will use

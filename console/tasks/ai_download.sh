@@ -31,13 +31,13 @@ validate_repository_url() {
 
     # Must be HTTPS
     if [[ ! "${url}" =~ ^https:// ]]; then
-        print_error "Repository URL must use HTTPS protocol: ${url}"
+        print_error_line "Repository URL must use HTTPS protocol: ${url}"
         return 1
     fi
 
     # Basic URL format validation
     if [[ ! "${url}" =~ ^https://[a-zA-Z0-9.-]+/[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
-        print_warning "URL format looks unusual: ${url}"
+        print_warning_line "URL format looks unusual: ${url}"
     fi
 
     return 0
@@ -62,7 +62,7 @@ download_tarball() {
     # Transform: https://github.com/owner/repo → https://github.com/owner/repo/archive/refs/heads/BRANCH.tar.gz
     local tarball_url="${repo_url}/archive/refs/heads/${branch}.tar.gz"
 
-    print_info "Downloading from ${tarball_url}..."
+    print_info_line "Downloading from ${tarball_url}..."
 
     # Download with retries
     local attempt=1
@@ -73,21 +73,21 @@ download_tarball() {
             --retry-delay 1 \
             -o "${output_file}" \
             "${tarball_url}"; then
-            print_info "Downloaded successfully"
+            print_info_line "Downloaded successfully"
             return 0
         fi
 
-        print_warning "Download attempt ${attempt}/${MAX_RETRIES} failed"
+        print_warning_line "Download attempt ${attempt}/${MAX_RETRIES} failed"
 
         if [[ ${attempt} -lt ${MAX_RETRIES} ]]; then
-            print_info "Retrying in ${RETRY_DELAY} seconds..."
+            print_info_line "Retrying in ${RETRY_DELAY} seconds..."
             sleep "${RETRY_DELAY}"
         fi
 
         ((attempt++))
     done
 
-    print_error "Failed to download after ${MAX_RETRIES} attempts"
+    print_error_line "Failed to download after ${MAX_RETRIES} attempts"
     return 1
 }
 
@@ -108,11 +108,11 @@ download_git_clone() {
 
     # Check if git is available
     if ! command -v git >/dev/null 2>&1; then
-        print_error "git command not found (fallback unavailable)"
+        print_error_line "git command not found (fallback unavailable)"
         return 1
     fi
 
-    print_info "Using git clone fallback for ${repo_url}..."
+    print_info_line "Using git clone fallback for ${repo_url}..."
 
     # Clone with depth 1 (shallow clone)
     local attempt=1
@@ -124,14 +124,14 @@ download_git_clone() {
             "${repo_url}" \
             "${output_dir}" \
             2>/dev/null; then
-            print_info "Cloned successfully"
+            print_info_line "Cloned successfully"
             return 0
         fi
 
-        print_warning "Clone attempt ${attempt}/${MAX_RETRIES} failed"
+        print_warning_line "Clone attempt ${attempt}/${MAX_RETRIES} failed"
 
         if [[ ${attempt} -lt ${MAX_RETRIES} ]]; then
-            print_info "Retrying in ${RETRY_DELAY} seconds..."
+            print_info_line "Retrying in ${RETRY_DELAY} seconds..."
             sleep "${RETRY_DELAY}"
 
             # Clean up failed attempt
@@ -141,7 +141,7 @@ download_git_clone() {
         ((attempt++))
     done
 
-    print_error "Failed to clone after ${MAX_RETRIES} attempts"
+    print_error_line "Failed to clone after ${MAX_RETRIES} attempts"
     return 1
 }
 
@@ -160,7 +160,7 @@ download_repository() {
 
     # Create output directory
     mkdir -p "${output_dir}" || {
-        print_error "Failed to create output directory: ${output_dir}"
+        print_error_line "Failed to create output directory: ${output_dir}"
         return 1
     }
 
@@ -174,12 +174,12 @@ download_repository() {
             rm -f "${temp_tarball}"
             return 0
         else
-            print_warning "Failed to extract tarball, trying git clone..."
+            print_warning_line "Failed to extract tarball, trying git clone..."
             rm -f "${temp_tarball}"
         fi
     else
         rm -f "${temp_tarball}"
-        print_warning "Tarball download failed, trying git clone..."
+        print_warning_line "Tarball download failed, trying git clone..."
     fi
 
     # Fallback to git clone
