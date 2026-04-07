@@ -18,6 +18,22 @@ source "${SCRIPT_DIR}/../components/print_message.sh"
 source "${SCRIPT_DIR}/ai_registration.sh"
 
 #
+# Find all .md files in agents directory (recursive)
+# Args: $1 = agents directory path
+# Returns: List of .md file paths via stdout (one per line)
+#
+find_agent_files() {
+    local agents_dir="$1"
+
+    if [[ ! -d "${agents_dir}" ]]; then
+        return 0
+    fi
+
+    # Find all .md files recursively
+    find "${agents_dir}" -type f -name "*.md" 2>/dev/null
+}
+
+#
 # Validate repository structure
 # Args: $1 = repository root directory
 # Returns: 0 if valid (has skills/ or agents/), 1 otherwise
@@ -70,6 +86,113 @@ extract_tarball() {
 }
 
 #
+# Install agents from repository (handles .md files, supports nested directories)
+# Args: $1 = repository root directory,
+#       $2 = agents source directory,
+#       $3 = platform agents directory,
+#       $4 = force overwrite (true|false)
+# Returns: 0 on success, 1 on failure
+# Side effects: Updates ai-registration.json
+#
+install_agents_from_directory() {
+    local repo_dir="$1"
+    local source_dir="$2"
+    local platform_dir="$3"
+    local force_overwrite="$4"
+
+    # Create target directory
+    mkdir -p "${platform_dir}" || {
+        print_error_line "Failed to create target directory: ${platform_dir}"
+        return 1
+    }
+
+    # Find all .md files (recursive)
+    local agent_files
+    agent_files=$(find_agent_files "${source_dir}")
+
+    if [[ -z "${agent_files}" ]]; then
+        print_info_line "No agents found in repository"
+        return 0
+    fi
+
+    # Create temp directory for atomic operations
+    local temp_dir
+    temp_dir=$(mktemp -d "${platform_dir}/.tmp.XXXXXX")
+
+    local installed_count=0
+    local skipped_count=0
+
+    # Install each agent file
+    while IFS= read -r agent_path; do
+        [[ -z "${agent_path}" ]] && continue
+
+        # Extract filename without extension
+        local agent_name
+        agent_name=$(basename "${agent_path}" .md)
+
+        local target_path="${platform_dir}/${agent_name}.md"
+        local temp_path="${temp_dir}/${agent_name}.md"
+
+        # Check for conflicts
+        if [[ -f "${target_path}" ]]; then
+            if is_tracked "agents" "${target_path}"; then
+                print_info_line "Updating ${agent_name}..."
+            else
+                if [[ "${force_overwrite}" == "true" ]]; then
+                    print_warning_line "Overwriting custom agent: ${agent_name} (--force enabled)"
+                else
+                    print_warning_line "Skipping ${agent_name} (custom agent exists, use --force to overwrite)"
+                    ((skipped_count++))
+                    continue
+                fi
+            fi
+        else
+            print_info_line "Installing ${agent_name}..."
+        fi
+
+        # Copy to temp directory first
+        cp "${agent_path}" "${temp_path}" || {
+            print_error_line "Failed to copy ${agent_name}"
+            rm -rf "${temp_dir}"
+            return 1
+        }
+
+        # Atomic move from temp to target
+        if [[ -f "${target_path}" ]]; then
+            rm -f "${target_path}"
+        fi
+
+        mv "${temp_path}" "${target_path}" || {
+            print_error_line "Failed to install ${agent_name}"
+            rm -rf "${temp_dir}"
+            return 1
+        }
+
+        # Register installation
+        add_registration_entry "agents" "${target_path}" || {
+            print_warning_line "Failed to register ${agent_name} (continuing anyway)"
+        }
+
+        ((installed_count++))
+    done <<< "${agent_files}"
+
+    # Clean up temp directory
+    rm -rf "${temp_dir}"
+
+    # Report results
+    if [[ ${installed_count} -eq 0 ]] && [[ ${skipped_count} -eq 0 ]]; then
+        print_info_line "No agents to install"
+    else
+        print_info_line "Installed ${installed_count} agents"
+        if [[ ${skipped_count} -gt 0 ]]; then
+            print_info_line "Skipped ${skipped_count} custom agents"
+        fi
+    fi
+
+    return 0
+}
+
+#
 # Install skills/agents from repository with atomic operations
 # Args: $1 = source repository directory,
 #       $2 = resource type (skills|agents),
@@ -99,6 +222,12 @@ install_from_repository() {
     if [[ ! -d "${source_dir}" ]]; then
         print_info_line "No ${resource_type} found in repository"
         return 0
+    fi
+
+    # Handle agents (files) vs skills (directories) differently
+    if [[ "${resource_type}" == "agents" ]]; then
+        install_agents_from_directory "${repo_dir}" "${source_dir}" "${platform_dir}" "${force_overwrite}"
+        return $?
     fi
 
     # Create target directory
@@ -230,6 +359,12 @@ install_filtered() {
     if [[ ! -d "${source_dir}" ]]; then
         print_info_line "No ${resource_type} found in repository"
         return 0
+    fi
+
+    # Handle agents differently - no type filtering for agents
+    if [[ "${resource_type}" == "agents" ]]; then
+        install_agents_from_directory "${repo_dir}" "${source_dir}" "${platform_dir}" "${force_overwrite}"
+        return $?
     fi
 
     # Create target directory
