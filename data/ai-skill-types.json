@@ -3,22 +3,47 @@
     "hyva": {
       "name": "Hyvä Themes",
       "description": "Hyvä Themes development",
-      "tags": ["frontend", "theme", "hyva"]
+      "tags": [
+        "frontend",
+        "theme",
+        "hyva"
+      ]
     },
     "acs": {
       "name": "Adobe Commerce Storefront",
-      "description": "Adobe Commerce Storefront (PWA)",
-      "tags": ["pwa", "frontend", "storefront"]
+      "description": "Adobe Commerce Storefront",
+      "tags": [
+        "pwa",
+        "frontend",
+        "storefront"
+      ]
     },
     "magento": {
       "name": "Magento 2",
       "description": "General Magento 2 development",
-      "tags": ["magento", "ecommerce", "backend"]
+      "tags": [
+        "magento",
+        "ecommerce",
+        "backend"
+      ]
     },
     "php": {
       "name": "PHP",
       "description": "PHP general development",
-      "tags": ["php", "backend"]
+      "tags": [
+        "php",
+        "backend"
+      ]
+    },
+    "dockergento": {
+      "name": "Dockergento CLI",
+      "description": "Dockergento development environment tools",
+      "tags": [
+        "cli",
+        "docker",
+        "devops",
+        "magento"
+      ]
     }
   }
 }
