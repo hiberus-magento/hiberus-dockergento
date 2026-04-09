@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN docker-php-ext-install \
     bcmath \
+    dom \
     gd \
     intl \
     mbstring \
