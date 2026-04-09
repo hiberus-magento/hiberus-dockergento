@@ -1,4 +1,4 @@
-FROM hiberusmagento/php:8.4-bookworm
+FROM php:8.4-fpm
 LABEL maintainer="Hiberus Magento <ddelgado@hiberus.com>"
 
 RUN curl -o- https://deb.nodesource.com/setup_18.x | bash
@@ -30,13 +30,15 @@ RUN docker-php-ext-install \
     gd \
     intl \
     mbstring \
+    opcache \
     pcntl \
     pdo_mysql \
     soap \
     xsl \
     zip \
-    curl \
-    sockets
+    sockets \
+    ftp \
+    ldap
 
 RUN echo 'memory_limit = 2048M' >> /usr/local/etc/php/conf.d/docker-php-memlimit.ini
 
