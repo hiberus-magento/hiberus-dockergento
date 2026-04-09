@@ -1,4 +1,4 @@
-FROM php:8.4-fpm
+FROM hiberusmagento/php:8.4-bookworm
 LABEL maintainer="Hiberus Magento <ddelgado@hiberus.com>"
 
 RUN curl -o- https://deb.nodesource.com/setup_18.x | bash
