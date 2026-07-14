@@ -130,5 +130,17 @@
         "mailhog": "hiberusmagento/mailhog:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
+    },
+    "2.4.9": {
+        "php": "8.5-bookworm",
+        "mariadb": "mariadb:11.8",
+        "search": "3-opensearch",
+        "redis": "valkey/valkey:9-alpine",
+        "varnish": "7.1",
+        "composer": "2.9",
+        "nginx": "hiberusmagento/nginx:1.28",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:4.2",
+        "hitch": "hiberusmagento/hitch:1.7"
     }
 }
