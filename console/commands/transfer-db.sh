@@ -101,14 +101,18 @@ print_info "Creating database dump from origin server...\n"
 # Create database dump from origin server (WITHOUT SSH TUNNEL)
 if [ -z "$ssh_host" ]; then
 
-    # Create dump into mysql container
-    $DOCKER_COMPOSE exec db bash -c "mysqldump -h'$sql_host' -u'$sql_user' -P $sql_port $sql_password $sql_db | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
+    # Create dump into mysql container.
+    # --single-transaction: consistent, LOCK-FREE snapshot (safe on a live/high-traffic
+    #   InnoDB DB — avoids the table locks that can take production down).
+    # --quick: stream row by row (low memory on large tables).
+    # --no-tablespaces: don't require the PROCESS privilege (common on managed/Cloud DBs).
+    $DOCKER_COMPOSE exec db bash -c "dump=\$(command -v mariadb-dump || command -v mysqldump); \"\$dump\" --single-transaction --quick --no-tablespaces --skip-comments -h'$sql_host' -u'$sql_user' -P $sql_port $sql_password $sql_db | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz"
 
 # Create database dump from origin server (WITH SSH TUNNEL)
 else
 
     ssh ${ssh_user}@${ssh_host} \
-        "mysqldump --skip-comments -h'$sql_host' -u'$sql_user' -P $sql_port $sql_password $sql_db \
+        "dump=\$(command -v mariadb-dump || command -v mysqldump); \"\$dump\" --single-transaction --quick --no-tablespaces --skip-comments -h'$sql_host' -u'$sql_user' -P $sql_port $sql_password $sql_db \
         | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' \
         | gzip -9" \
         > db.sql.gz
@@ -121,9 +125,9 @@ fi
 print_info "Restoring database dump into localhost...\n"
 
 # Restore dump
-[ $sql_exclude -eq 1 ] && $DOCKER_COMPOSE exec db bash -c "mysqldump -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE core_config_data admin_user tfa_user_config > /tmp/ccd.sql 2> /dev/null"
-$DOCKER_COMPOSE exec db bash -c "zcat /tmp/db.sql.gz | sed '/sandbox mode/d' | mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE"
-[ $sql_exclude -eq 1 ] && $DOCKER_COMPOSE exec db bash -c "[ -f /tmp/ccd.sql ] && mysql -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE < /tmp/ccd.sql"
+[ $sql_exclude -eq 1 ] && $DOCKER_COMPOSE exec db bash -c "dump=\$(command -v mariadb-dump || command -v mysqldump); \"\$dump\" -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE core_config_data admin_user tfa_user_config > /tmp/ccd.sql 2> /dev/null"
+$DOCKER_COMPOSE exec db bash -c "client=\$(command -v mariadb || command -v mysql); zcat /tmp/db.sql.gz | sed '/sandbox mode/d' | \"\$client\" -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE"
+[ $sql_exclude -eq 1 ] && $DOCKER_COMPOSE exec db bash -c "client=\$(command -v mariadb || command -v mysql); [ -f /tmp/ccd.sql ] && \"\$client\" -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE < /tmp/ccd.sql"
 
 # Anonymise database
 if [ "$anonymise" = "true" ]; then
@@ -139,6 +143,15 @@ else
     else
         print_info "Skipping database anonymisation...\n"
     fi
+fi
+
+# Import shared configuration (app/etc/config.php) into the database.
+# Prevents "config import" / stale-configuration errors after importing a DB from
+# another environment. Safe/idempotent: prints "Nothing to import" when there is
+# no shared config to apply.
+read -p "$(print_question "Do you want to import app config (app:config:import)? [Y/n]: ")" config_import_magento
+if [ -z "$config_import_magento" ] || [ "$config_import_magento" == 'Y' ] || [ "$config_import_magento" == 'y' ]; then
+    $DOCKER_COMPOSE exec phpfpm bin/magento app:config:import
 fi
 
 # Reindex Magento

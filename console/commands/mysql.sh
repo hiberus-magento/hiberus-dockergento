@@ -9,11 +9,16 @@ mysql_container=$(docker ps -qf "name=db")
 # Check if db service is running
 is_run_service "db"
 
+# MariaDB 11+ removed the legacy `mysql` client name; use `mariadb` when present
+# and fall back to `mysql` for older images (10.2-10.4). Resolved inside the
+# container, where $MYSQL_ROOT_PASSWORD / $MYSQL_DATABASE are expanded.
+db_client='client=$(command -v mariadb || command -v mysql); "$client" -u"root" -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
+
 #
 # Execute query in mysql container
 #
 query() {
-    docker exec -e QUERY="$1" $mysql_container bash -c 'mysql -u"root" -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "$QUERY"'
+    docker exec -e QUERY="$1" $mysql_container bash -c "$db_client"' -e "$QUERY"'
 }
 
 #
@@ -37,11 +42,11 @@ mysql_execute() {
             cleaned=${import_database/".sql"/"-cleaned.sql"}
             cat $import_database | sed 's/DEFINER=[^*]*\*/\*/g' > $cleaned
             print_info "Importing database from file with cleaned up definers ...\n"
-            docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\"" < $cleaned
+            docker exec -i $mysql_container bash -c "$db_client" < $cleaned
         else
             # Only import database  
             print_info "Importing database from file ...\n"
-            docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\"" < $import_database
+            docker exec -i $mysql_container bash -c "$db_client" < $import_database
         fi
 
         if ${anonymisation-false} ; then
@@ -51,13 +56,13 @@ mysql_execute() {
         exit
     fi
     # Go into mysql container
-    $DOCKER_COMPOSE exec db bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
+    $DOCKER_COMPOSE exec db bash -c "$db_client"
 }
 
 # If stdin has content
 if [ ! -t 0 ]; then
     print_info "Importing database from stdin ...\n"
-    docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
+    docker exec -i $mysql_container bash -c "$db_client"
 else
     while getopts ":i:q:d:a" options; do
         case "$options" in
