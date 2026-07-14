@@ -4,30 +4,32 @@ Docker environment for Magento 2 projects. Please visit our [Dockerhub repositor
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/gpl-3.0)
 [![DockerHub](https://img.shields.io/badge/DockerHub-hiberusmagento-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/u/hiberusmagento)
-[![Magento](https://img.shields.io/badge/Magento-2.4.8-EE672F?logo=magento&logoColor=white)](https://experienceleague.adobe.com/docs/commerce-operations/release/notes/overview.html)
+[![Magento](https://img.shields.io/badge/Magento-2.4.9-EE672F?logo=magento&logoColor=white)](https://experienceleague.adobe.com/docs/commerce-operations/release/notes/overview.html)
 
 <img alt="Hiberus Dockergento Schema" src="schema.png" width="700"/>
 
 ## Docker images
 
-- **Nginx**: `1.18`
-- **PHP**: `7.2`, `7.3`, `7.4`, `8.1`, `8.2`, `8.3`, `8.4`
-- **MariaDB**: `10.2`, `10.3`, `10.4`, `10.6`, `11.4`
-- **RabbitMQ**: `3.9`
+- **Nginx**: `1.18`, `1.28`
+- **PHP**: `7.2`, `7.3`, `7.4`, `8.1`, `8.2`, `8.3`, `8.4`, `8.5`
+- **MariaDB**: `10.2`, `10.3`, `10.4`, `10.6`, `11.4`, `11.8`
+- **RabbitMQ**: `3.9`, `4.2`
 - **Redis**: `5.0`, `6.2`, `7.0`
+- **Valkey**: `9`
 - **ElasticSearch**: `5.6`, `6.5`, `7.17`
-- **OpenSearch**: `1.2`, `2.5`
+- **OpenSearch**: `1.2`, `2.5`, `3`
 - **Mailhog**: `1.0`
 - **Varnish**: `6.0`, `7.1`
 - **Hitch**: `1.7`
 
-> MariaDB `11.4` uses the official `mariadb:11.4` image directly (no Hiberus wrapper).
+> MariaDB `11.4` / `11.8` use the official `mariadb:11.4` / `mariadb:11.8` images directly (no Hiberus wrapper).
+> Valkey `9` uses the official `valkey/valkey:9-alpine` image directly (no Hiberus wrapper). It is a drop-in replacement for Redis and is wired through the same `redis` service slot, so no Magento configuration changes are required.
 
 <br>
 
 ## Magento compatible versions
 
-- **Magento 2.4**: `2.4.0`, `2.4.1`, `2.4.2`, `2.4.3`, `2.4.4`, `2.4.5`, `2.4.6`, `2.4.7`, `2.4.8`.
+- **Magento 2.4**: `2.4.0`, `2.4.1`, `2.4.2`, `2.4.3`, `2.4.4`, `2.4.5`, `2.4.6`, `2.4.7`, `2.4.8`, `2.4.9`.
 - **Magento 2.3**: `2.3.0`, `2.3.1`, `2.3.2`, `2.3.3`, `2.3.4`, `2.3.5`, `2.3.6`, `2.3.7`.
 
 _(All patched versions are also compatible — run `hm compatibility` to see the full list)_

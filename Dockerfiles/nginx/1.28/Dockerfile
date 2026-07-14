@@ -9,13 +9,14 @@ RUN touch /var/run/nginx.pid
 RUN mkdir /sock
 RUN chown -R app:app /var/cache/nginx/ /var/run/nginx.pid /sock
 
-COPY ./conf/nginx.conf /etc/nginx/
-COPY ./conf/default.conf /etc/nginx/conf.d/
+COPY --chmod=644 ./conf/nginx.conf /etc/nginx/
+COPY --chmod=644 ./conf/default.conf /etc/nginx/conf.d/
 
 RUN echo "app ALL=(ALL) NOPASSWD: /bin/cp -f /var/www/conf/nginx/default.conf /etc/nginx/conf.d/" >> /etc/sudoers.d/app
 
-COPY ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# --chmod=755 para que 'app' pueda leer+ejecutar el entrypoint (un chmod +x sobre
+# un fichero 600 deja 711 y 'app' no puede leerlo -> "Permission denied").
+COPY --chmod=755 ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT [ "docker-entrypoint.sh" ]
 
 RUN mkdir /var/www/html && chown -R app:app /var/www /var/www/html

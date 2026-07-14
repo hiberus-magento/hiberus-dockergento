@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libwebp-dev \
     libonig-dev \
     zip \
+    unzip \
     cron \
     gzip \
     libmcrypt-dev \
@@ -44,12 +45,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
 RUN docker-php-ext-configure ldap
 
+# NOTE (PHP 8.5): OPcache is now compiled statically into the PHP core
+# (RFC "Make OPcache a non-optional part of PHP"); there is no opcache.so.
+# It must NOT be listed here or `docker-php-ext-install` fails with
+# "cp: cannot stat 'modules/*'". OPcache is always available; configure it
+# via opcache.* ini directives only.
 RUN docker-php-ext-install \
     bcmath \
     gd \
     intl \
     mbstring \
-    opcache \
     pcntl \
     pdo_mysql \
     soap \
@@ -59,8 +64,10 @@ RUN docker-php-ext-install \
     ftp \
     ldap
 
+# Xdebug 3.5 is the first release with PHP 8.5 support; 3.5.3 is the latest
+# stable (2026-06-08). Pinned for reproducible builds.
 RUN pecl channel-update pecl.php.net \
-    && pecl install xdebug-3.4.2 \
+    && pecl install xdebug-3.5.3 \
     && docker-php-ext-enable xdebug \
     && sed -i -e 's/^zend_extension/\;zend_extension/g' /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
@@ -86,20 +93,19 @@ RUN chmod 777 /usr/local/bin/n98-magerun
 
 RUN groupadd -g 1000 app && useradd -g 1000 -u 1000 -d /var/www -s /bin/bash app
 
-COPY conf/www.conf /usr/local/etc/php-fpm.d/
-COPY conf/php.ini /usr/local/etc/php/
-COPY conf/xdebug.ini /usr/local/etc/php/conf.d/
-COPY conf/php-fpm.conf /usr/local/etc/
-COPY conf/php-msmtp.conf /etc/msmtp/msmtp.conf
-COPY conf/php-mailhog.ini /usr/local/etc/php/conf.d/php-mailhog.ini
+COPY --chmod=644 conf/www.conf /usr/local/etc/php-fpm.d/
+COPY --chmod=644 conf/php.ini /usr/local/etc/php/
+COPY --chmod=644 conf/xdebug.ini /usr/local/etc/php/conf.d/
+COPY --chmod=644 conf/php-fpm.conf /usr/local/etc/
+COPY --chmod=644 conf/php-msmtp.conf /etc/msmtp/msmtp.conf
+COPY --chmod=644 conf/php-mailhog.ini /usr/local/etc/php/conf.d/php-mailhog.ini
 
 RUN mkdir /sock
 RUN chown -R app:app /usr/local/etc/php/conf.d /sock
 RUN mkdir -p /var/www && chown -R app:app /var/www/
 RUN echo "app ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/app
 
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT [ "docker-entrypoint.sh" ]
 
 USER app:app
