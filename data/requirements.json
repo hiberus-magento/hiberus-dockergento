@@ -133,14 +133,14 @@
     },
     "2.4.9": {
         "php": "8.5-bookworm",
-        "mariadb": "11.8",
+        "mariadb": "12.3",
         "search": "3-opensearch",
         "redis": "hiberusmagento/valkey:9",
         "varnish": "7.1",
         "composer": "2.9",
-        "nginx": "hiberusmagento/nginx:1.28",
+        "nginx": "hiberusmagento/nginx:1.30",
         "mailhog": "hiberusmagento/mailhog:1",
-        "rabbitmq": "hiberusmagento/rabbitmq:4.2",
+        "rabbitmq": "hiberusmagento/rabbitmq:4.3",
         "hitch": "hiberusmagento/hitch:1.7"
     }
 }

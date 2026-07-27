@@ -68,12 +68,18 @@ jobs:
           - docker_file: ./Dockerfiles/mariadb/11.8/
             docker_name: mariadb
             docker_version: 11.8
+          - docker_file: ./Dockerfiles/mariadb/12.3/
+            docker_name: mariadb
+            docker_version: 12.3
           - docker_file: ./Dockerfiles/nginx/1.18/
             docker_name: nginx
             docker_version: 1.18
           - docker_file: ./Dockerfiles/nginx/1.28/
             docker_name: nginx
             docker_version: 1.28
+          - docker_file: ./Dockerfiles/nginx/1.30/
+            docker_name: nginx
+            docker_version: 1.30
           - docker_file: ./Dockerfiles/search/5.6-elasticsearch/
             docker_name: search
             docker_version: 5.6-elasticsearch
@@ -101,6 +107,9 @@ jobs:
           - docker_file: ./Dockerfiles/rabbitmq/4.2/
             docker_name: rabbitmq
             docker_version: 4.2
+          - docker_file: ./Dockerfiles/rabbitmq/4.3/
+            docker_name: rabbitmq
+            docker_version: 4.3
           - docker_file: ./Dockerfiles/varnish/6.0/
             docker_name: varnish
             docker_version: 6.0
