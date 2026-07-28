@@ -8,4 +8,6 @@ if [ -z "$@" ]; then
   exit
 fi
 
-$DOCKER_COMPOSE exec db bash -c 'mysqldump --skip-triggers -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' > "$@"
+# MariaDB 11+ renamed mysqldump -> mariadb-dump; resolve inside the container
+# (fallback to mysqldump for older images).
+$DOCKER_COMPOSE exec db bash -c 'dump=$(command -v mariadb-dump || command -v mysqldump); "$dump" --skip-triggers -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' > "$@"

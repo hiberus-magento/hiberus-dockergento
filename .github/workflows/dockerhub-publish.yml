@@ -65,12 +65,6 @@ jobs:
           - docker_file: ./Dockerfiles/mariadb/10.6/
             docker_name: mariadb
             docker_version: 10.6
-          - docker_file: ./Dockerfiles/mariadb/11.8/
-            docker_name: mariadb
-            docker_version: 11.8
-          - docker_file: ./Dockerfiles/mariadb/12.3/
-            docker_name: mariadb
-            docker_version: 12.3
           - docker_file: ./Dockerfiles/nginx/1.18/
             docker_name: nginx
             docker_version: 1.18
@@ -131,9 +125,6 @@ jobs:
           - docker_file: ./Dockerfiles/redis/7.2/
             docker_name: redis
             docker_version: 7.2
-          - docker_file: ./Dockerfiles/valkey/9/
-            docker_name: valkey
-            docker_version: 9
           - docker_file: ./Dockerfiles/hitch/1.7/
             docker_name: hitch
             docker_version: 1.7
