@@ -10,10 +10,10 @@ Docker environment for Magento 2 projects. Please visit our [Dockerhub repositor
 
 ## Docker images
 
-- **Nginx**: `1.18`, `1.28`
+- **Nginx**: `1.18`, `1.28`, `1.30`
 - **PHP**: `7.2`, `7.3`, `7.4`, `8.1`, `8.2`, `8.3`, `8.4`, `8.5`
-- **MariaDB**: `10.2`, `10.3`, `10.4`, `10.6`, `11.4`, `11.8`
-- **RabbitMQ**: `3.9`, `4.2`
+- **MariaDB**: `10.2`, `10.3`, `10.4`, `10.6`, `11.4`, `11.8`, `12.3`
+- **RabbitMQ**: `3.9`, `4.2`, `4.3`
 - **Redis**: `5.0`, `6.2`, `7.0`
 - **Valkey**: `9`
 - **ElasticSearch**: `5.6`, `6.5`, `7.17`
@@ -22,7 +22,7 @@ Docker environment for Magento 2 projects. Please visit our [Dockerhub repositor
 - **Varnish**: `6.0`, `7.1`
 - **Hitch**: `1.7`
 
-> MariaDB `11.4` / `11.8` use the official `mariadb:11.4` / `mariadb:11.8` images directly (no Hiberus wrapper).
+> MariaDB `11.4` / `11.8` / `12.3` use the official `mariadb:11.4` / `mariadb:11.8` / `mariadb:12.3` images directly (no Hiberus wrapper).
 > Valkey `9` uses the official `valkey/valkey:9-alpine` image directly (no Hiberus wrapper). It is a drop-in replacement for Redis and is wired through the same `redis` service slot, so no Magento configuration changes are required.
 
 <br>

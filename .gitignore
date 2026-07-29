@@ -6,3 +6,5 @@ console/hm-completion.bash
 .vscode
 .vscode/**
 .env
+.tokensave
+.headroom_wrap_marker.json

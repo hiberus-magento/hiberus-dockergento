@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-complete -W "bash \ 
+complete -W "ai-init \ 
+ai-pull \ 
+ai-reset \ 
+bash \ 
 cloud-login \ 
 cloud \ 
 compatibility \ 
@@ -18,7 +21,7 @@ exec \
 grunt \ 
 install \ 
 magento \ 
-masquerade \
+masquerade \ 
 mysql \ 
 mysqldump \ 
 n98-magerun \ 
