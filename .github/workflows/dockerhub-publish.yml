@@ -131,6 +131,9 @@ jobs:
           - docker_file: ./Dockerfiles/deployer/latest/
             docker_name: deployer
             docker_version: latest
+          - docker_file: ./Dockerfiles/deployer/8.3/
+            docker_name: deployer
+            docker_version: 8.3
           - docker_file: ./Dockerfiles/deployer/7.3.1/
             docker_name: deployer
             docker_version: 7.3.1
