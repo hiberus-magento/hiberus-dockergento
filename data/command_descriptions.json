@@ -476,6 +476,13 @@
                     "long": "yes"
                 },
                 "description": "Never ask questions: use defaults or fail with an actionable error"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "force"
+                },
+                "description": "Run a command refused from a git worktree (one invocation only)"
             }
         ]
     }

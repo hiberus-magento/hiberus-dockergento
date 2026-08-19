@@ -41,6 +41,9 @@ parse_global_options() {
             --yes)
                 HM_NON_INTERACTIVE="1"
                 ;;
+            --force)
+                HM_FORCE="1"
+                ;;
             -*)
                 HM_ARGS+=("$arg")
                 ;;
@@ -70,6 +73,10 @@ resolve_output_format() {
 
     export HM_OUTPUT_FORMAT
     export HM_NON_INTERACTIVE="${HM_NON_INTERACTIVE:-}"
+
+    # --force applies to one invocation only: no variable and no configuration file can
+    # turn the guardrails off for good
+    export HM_FORCE="${HM_FORCE:-}"
 
     # USE_DEFAULT_SETTINGS predates this contract and covers part of the setup/install
     # flow. Non-interactive mode is a superset of it, so it turns it on as well.

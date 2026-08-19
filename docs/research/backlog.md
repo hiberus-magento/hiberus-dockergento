@@ -88,7 +88,7 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 | **AI-06** | Fichero de exclusión de contexto | IA | S | — | backlog |
 | **AI-07** | `hm ai-doctor` y versionado de skills | IA | S | — | backlog |
 | **AI-08** | Índice del código como MCP | IA | L | AI-03 | backlog |
-| **WT-01** | Guardarraíles de worktree | Worktrees | S | — | [spec](../../openspec/changes/add-worktree-guardrails/) |
+| **WT-01** | Guardarraíles de worktree | Worktrees | S | — | **hecho** |
 | **WT-02** | `hm worktree` con perfiles de entorno | Worktrees | L | NET-01, DB-02 | backlog |
 | **WT-03** | Recolección de worktrees huérfanos | Worktrees | S | WT-02, ENV-02 | backlog |
 | **UI-01** | Dashboard web sólo lectura | Web | L | NET-01, CLI-02, CLI-03 | backlog |

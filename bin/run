@@ -33,11 +33,20 @@ init_dirs() {
     export COMMAND_BIN_DIR="$ABSOLUTE_PATH"
     export COMMANDS_DIR="$ABSOLUTE_PATH/console/commands"
     export DATA_DIR="$ABSOLUTE_PATH/data"
-    export CUSTOM_COMMANDS_DIR="$PWD/config/$COMMAND_BIN_NAME/commands"
-    export DOCKER_CONFIG_DIR="config/docker"
-    export CUSTOM_PROPERTIES_DIR="$PWD/$DOCKER_CONFIG_DIR"
-    export TASKS_DIR="$ABSOLUTE_PATH/console/tasks"
     export HELPERS_DIR="$ABSOLUTE_PATH/console/helpers"
+
+    # From a git worktree everything is resolved against the main checkout: its
+    # configuration, its properties and its containers
+    source "$HELPERS_DIR"/worktree.sh
+    hm_resolve_project_root
+    export HM_ROOT
+    export HM_IS_WORKTREE
+    export HM_WORKTREE
+
+    export CUSTOM_COMMANDS_DIR="$HM_ROOT/config/$COMMAND_BIN_NAME/commands"
+    export DOCKER_CONFIG_DIR="config/docker"
+    export CUSTOM_PROPERTIES_DIR="$HM_ROOT/$DOCKER_CONFIG_DIR"
+    export TASKS_DIR="$ABSOLUTE_PATH/console/tasks"
     export COMPONENTS_DIR="$ABSOLUTE_PATH/console/components"
 }
 
@@ -84,7 +93,15 @@ docker_env_variables() {
 
     # Auto-detect Docker Compose command (v1 or v2)
     local compose_cmd=$(get_docker_compose_cmd)
-    export DOCKER_COMPOSE="$compose_cmd -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_MACHINE"
+
+    if [ "${HM_IS_WORKTREE:-false}" == "true" ]; then
+        # Absolute paths plus --project-directory: without it, the relative bind mounts of
+        # the compose file resolve against this worktree and `up` would repoint the main
+        # environment at it
+        export DOCKER_COMPOSE="$compose_cmd --project-directory $HM_ROOT -f $HM_ROOT/$DOCKER_COMPOSE_FILE -f $HM_ROOT/$DOCKER_COMPOSE_FILE_MACHINE"
+    else
+        export DOCKER_COMPOSE="$compose_cmd -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_MACHINE"
+    fi
     export DOCKER_COMPOSE_VERSION=$(get_docker_compose_version)
 }
 
@@ -113,6 +130,42 @@ validate_command() {
 }
 
 #
+# Refuse, from a worktree, the commands that would recreate or destroy the environment of
+# the main checkout
+#
+validate_worktree() {
+    local command_name="$1"
+
+    if [ "${HM_IS_WORKTREE:-false}" != "true" ]; then
+        return 0
+    fi
+
+    if hm_alters_environment "$command_name" && [ "${HM_FORCE:-}" != "1" ]; then
+        if is_json_output; then
+            json_error "$command_name" "$HM_EXIT_BLOCKED" "blocked_in_worktree" \
+                "'$command_name' is refused from a worktree: it would recreate or destroy the environment of $HM_ROOT with the mounts of this worktree" \
+                "Run it from $HM_ROOT, or repeat with --force"
+        else
+            print_warning "\nYou are in a git worktree ($HM_WORKTREE).\n"
+            print_default "The environment belongs to the main checkout:\n  "
+            print_code "$HM_ROOT\n\n"
+            print_default "Running "
+            print_code "$COMMAND_BIN_NAME $command_name"
+            print_default " here would recreate or destroy that environment with the mounts of this worktree.\n\n"
+            print_default "  Run it from the main checkout, or repeat with "
+            print_code "--force"
+            print_default " if that is really what you want.\n\n"
+        fi
+
+        exit "$HM_EXIT_BLOCKED"
+    fi
+
+    if hm_operates_on_code "$command_name"; then
+        print_warning_line "Note: the containers serve the code of $HM_ROOT, not this worktree."
+    fi
+}
+
+#
 # Execute of hm command
 #
 execute() {
@@ -137,6 +190,8 @@ execute() {
     docker_env_variables
     # Export the metadata stamped on the containers as hm.* labels
     set_environment_labels
+    # Refuse what would damage the environment of the main checkout
+    validate_worktree "$1"
     # Validation docker compose
     validate_command "$1"
     # Remove command name and pass remaining arguments directly

@@ -22,10 +22,15 @@ GONE_DIR="$WORKDIR/gone"
 mkdir -p "$GONE_DIR"
 
 cleanup() {
+    docker rm -f $(docker ps -aq --filter "label=hm.project=$PROJECT") >/dev/null 2>&1
     ( cd "$WORKDIR" && docker compose -p "$PROJECT" down --remove-orphans >/dev/null 2>&1 )
     rm -rf "$WORKDIR"
 }
 trap cleanup EXIT
+
+# An interrupted run leaves containers behind, and their labels would be read as if they
+# belonged to this run: start from a clean slate rather than trusting the previous one
+docker rm -f $(docker ps -aq --filter "label=hm.project=$PROJECT") >/dev/null 2>&1
 
 cat > "$WORKDIR/docker-compose.yml" <<'YAML'
 x-hm-labels: &hm-labels

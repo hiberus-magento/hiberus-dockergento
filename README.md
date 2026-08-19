@@ -164,6 +164,7 @@ failure as if it were output. In JSON mode an error looks like:
 | `3`  | Docker daemon unavailable |
 | `4`  | Not a configured Dockergento project |
 | `5`  | A required service is not running |
+| `6`  | Refused from a git worktree ([details](docs/worktree.md)) |
 
 **Non-interactive mode.** With `--yes` or `HM_NON_INTERACTIVE=1` no command waits for
 input: questions with a default answer use it, and a question that cannot be guessed

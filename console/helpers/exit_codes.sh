@@ -4,7 +4,7 @@
 # Exit codes used across the CLI.
 #
 # A caller (script, CI job or AI agent) must be able to tell *why* a command failed
-# without parsing its message. Codes 6-9 are reserved for upcoming changes.
+# without parsing its message. Codes 7-9 are reserved for upcoming changes.
 #
 # Commands run as child processes, so functions sourced in bin/run are not inherited.
 # Pull in the printers when they are not already defined.
@@ -22,6 +22,7 @@ export HM_EXIT_USAGE=2     # invalid arguments or unknown command
 export HM_EXIT_DOCKER=3    # docker daemon unavailable
 export HM_EXIT_PROJECT=4   # not a configured Dockergento project
 export HM_EXIT_SERVICE=5   # required service is not running
+export HM_EXIT_BLOCKED=6   # refused on purpose: it would damage another environment
 
 #
 # Fail with a structured error in the active output format and exit with the given code:
