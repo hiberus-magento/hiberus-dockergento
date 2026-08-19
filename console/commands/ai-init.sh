@@ -46,7 +46,7 @@ parse_options() {
             *)
                 print_error "Unknown option: ${arg}"
                 show_usage
-                exit 1
+                exit "$HM_EXIT_USAGE"
                 ;;
         esac
     done

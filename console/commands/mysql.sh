@@ -99,7 +99,7 @@ else
                 print_info "Use this format\n"
                 source "$HELPERS_DIR"/print_usage.sh
                 get_usage "$(basename ${0%.sh})"
-                exit 1
+                exit "$HM_EXIT_USAGE"
             ;;
         esac
     done

@@ -111,7 +111,7 @@ while getopts ":p:e:v:r:u" options; do
             print_error "The command is not correct\n"
             print_info "Use this format\n"
             get_usage "$(basename ${0%.sh})"
-            exit 1
+            exit "$HM_EXIT_USAGE"
         ;;
     esac
 done

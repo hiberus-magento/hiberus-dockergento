@@ -65,6 +65,31 @@ print_all_commands_help_info() {
     commands_output_all=$(print_commands_info "custom")
     echo "$commands_output"
     echo "$commands_output_all"
+    print_global_options
+}
+
+#
+# Print the options accepted by every command
+#
+print_global_options() {
+    local global_opts length name description
+
+    global_opts=$(jq -r '._global.opts' < "$DATA_DIR"/command_descriptions.json)
+    length=$(echo "$global_opts" | jq -r 'if . == null then 0 else length end')
+
+    if [[ $length -eq 0 ]]; then
+        return 0
+    fi
+
+    echo -e "$GREEN\nGlobal options\n--------------\n$COLOR_RESET"
+
+    for ((i = 0; i < length; i++)); do
+        name=$(echo "$global_opts" | jq -r '.['$i'].name.long')
+        description=$(echo "$global_opts" | jq -r '.['$i'].description')
+        printf "\t$BROWN%-20s$COLOR_RESET%s\n" "--$name" " $description"
+    done
+
+    printf "\n"
 }
 
 #

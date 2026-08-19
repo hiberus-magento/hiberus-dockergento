@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-command_name="${1:-""}.sh"
 export COMMAND_BIN_NAME="hm"
 export COMMAND_TOOLNAME="Hiberus Dockergento"
 
@@ -48,6 +47,9 @@ init_dirs() {
 import_dependencies() {
     source "$TASKS_DIR"/load_properties.sh
     source "$COMPONENTS_DIR"/print_message.sh
+    source "$COMPONENTS_DIR"/print_json.sh
+    source "$HELPERS_DIR"/exit_codes.sh
+    source "$HELPERS_DIR"/global_options.sh
     source "$HELPERS_DIR"/map_arguments.sh
     source "$HELPERS_DIR"/process_hm_options.sh
     source "$TASKS_DIR"/set_machine_specific_properties.sh
@@ -59,11 +61,9 @@ import_dependencies() {
 check_command_dir() {
     if [ ! -f "$COMMANDS_DIR/$command_name" ]; then
         if [[ ! -f "$CUSTOM_COMMANDS_DIR/$command_name" ]]; then
-            print_error "Command not found\n"
-            print_default "Execute "
-            print_code "$COMMAND_BIN_NAME --help"
-            print_default " to see commands available\n"
-            exit 1
+            hm_fail "$HM_EXIT_USAGE" "command_not_found" \
+                "Command not found: ${command_name%.sh}" \
+                "$COMMAND_BIN_NAME --help"
         else
             COMMANDS_DIR="$CUSTOM_COMMANDS_DIR"
         fi
@@ -117,8 +117,17 @@ execute() {
     init_dirs
     # Import neecessary dependencies
     import_dependencies
+    # Split global options (--json, --no-json, --yes) from the command arguments
+    parse_global_options "$@"
+    set -- ${HM_ARGS[@]+"${HM_ARGS[@]}"}
+    # Decide between human readable and machine readable output
+    resolve_output_format
     # Show help information when there is an argument --help or -h
     execute_process_hm_options "$@"
+
+    command_name="${1:-""}.sh"
+    export HM_COMMAND="${1:-""}"
+
     # Check if exit command
     check_command_dir "$1"
     # Set composer project name

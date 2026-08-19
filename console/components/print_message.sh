@@ -2,6 +2,38 @@
 
 COLOR_LINK="\033[34;4m"
 
+# Colours normally come from load_properties.sh, but the components are also sourced
+# standalone (tests, subshells). Default them to empty so `set -u` does not blow up and
+# the output degrades to plain text.
+BLUE="${BLUE:-}"
+GREEN="${GREEN:-}"
+CYAN="${CYAN:-}"
+RED="${RED:-}"
+PURPLE="${PURPLE:-}"
+BROWN="${BROWN:-}"
+WHITE="${WHITE:-}"
+YELLOW="${YELLOW:-}"
+COLOR_RESET="${COLOR_RESET:-}"
+
+#
+# In JSON mode stdout carries the response envelope, so decorative output (progress,
+# warnings, informational messages) is routed to stderr and stripped of colour.
+#
+# print_question, print_default, print_table and print_code are excluded on purpose:
+# they are used inside command substitutions to compose prompts and menus, and moving
+# them off stdout would return empty strings.
+#
+_print_decorated() {
+    local color="$1"
+    local text="$2"
+
+    if [[ "${HM_OUTPUT_FORMAT:-text}" == "json" ]]; then
+        printf "%b" "$text" >&2
+    else
+        printf "$color%b$COLOR_RESET" "$text"
+    fi
+}
+
 print_question() {
     local question=$1
     local default_value
@@ -17,19 +49,19 @@ print_question() {
 }
 
 print_info() {
-    printf "$GREEN%b$COLOR_RESET" "$1"
+    _print_decorated "$GREEN" "$1"
 }
 
 print_warning() {
-    printf "$YELLOW%b$COLOR_RESET" "$1"
+    _print_decorated "$YELLOW" "$1"
 }
 
 print_error() {
-    printf "$RED%b$COLOR_RESET" "$1"
+    _print_decorated "$RED" "$1"
 }
 
 print_extra_data() {
-    printf "$PURPLE%b$COLOR_RESET" "$1"
+    _print_decorated "$PURPLE" "$1"
 }
 
 print_table() {
@@ -41,7 +73,7 @@ print_code() {
 }
 
 print_highlight() {
-    printf "$WHITE%b$COLOR_RESET" "$1"
+    _print_decorated "$WHITE" "$1"
 }
 
 print_default() {
@@ -53,11 +85,11 @@ print_link() {
 }
 
 print_processing() {
-    print_default "🚀 $1\n"
+    _print_decorated "$COLOR_RESET" "🚀 $1\n"
 }
 
 print_header() {
-    printf "$WHITE%b$COLOR_RESET\n" "========================================\n$1\n========================================"
+    _print_decorated "$WHITE" "========================================\n$1\n========================================\n"
 }
 
 # Versions with automatic newline (write to stderr to avoid contaminating command substitution)

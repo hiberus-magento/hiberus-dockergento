@@ -67,6 +67,12 @@ multi_select_menu() {
     echo "" >&2
     printf "> " >&2
 
+    if is_non_interactive; then
+        hm_fail "$HM_EXIT_USAGE" "input_required" \
+            "Non-interactive mode cannot run the AI tools wizard" \
+            "$COMMAND_BIN_NAME $HM_COMMAND --platforms=... --types=... --resources=..."
+    fi
+
     # Read user input
     local user_input
     read -r user_input
@@ -205,6 +211,10 @@ wizard_custom_repositories() {
     print_info "Would you like to add a custom repository? (y/N)" >&2
     echo "" >&2
     local add_custom
+    if is_non_interactive; then
+        echo "${existing_repos}"
+        return 0
+    fi
     read -r add_custom
 
     if [[ ! "${add_custom}" =~ ^[Yy] ]]; then

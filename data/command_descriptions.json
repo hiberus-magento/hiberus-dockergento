@@ -67,25 +67,29 @@
                     "long": "edition"
                 },
                 "description": "Magento edition (community | enterprise) "
-            }, {
+            },
+            {
                 "name": {
                     "short": "p",
                     "long": "project-name"
                 },
                 "description": "Project name. Domain is compose with <project_name>.local"
-            }, {
+            },
+            {
                 "name": {
                     "short": "r",
                     "long": "root-directory"
                 },
                 "description": "Project relative path"
-            }, {
+            },
+            {
                 "name": {
                     "short": "u",
                     "long": "use-default"
                 },
                 "description": "Use default settings: \n\t\t\t- edition = community \n\t\t\t- version = <last-version> \n\t\t\t- project-name = <basename> \n\t\t\t- root-directory = '.' \n\t\t\t- basic-settings = <default-local-settings>)"
-            }, {
+            },
+            {
                 "name": {
                     "short": "v",
                     "long": "version"
@@ -128,7 +132,7 @@
             }
         ],
         "example": "exec ls -lah"
-    }, 
+    },
     "grunt": {
         "description": "Prepare grunt configuration and compile theme styles using grunt",
         "example": "grunt Hiberus/luma es_ES",
@@ -136,7 +140,8 @@
             {
                 "name": "Vendor/theme",
                 "description": "Theme vendor reference"
-            }, {
+            },
+            {
                 "name": "locale_LOCALE",
                 "description": "Locale code"
             }
@@ -178,13 +183,15 @@
                     "long": "definers"
                 },
                 "description": "Process database before import (with -i option), removing all DEFINER root"
-            }, {
+            },
+            {
                 "name": {
                     "short": "i",
                     "long": "import"
                 },
                 "description": "Import SQL dump and config minimal settings for local environment"
-            }, {
+            },
+            {
                 "name": {
                     "short": "q",
                     "long": "query"
@@ -252,37 +259,43 @@
                     "long": "domain"
                 },
                 "description": "Domain of local host"
-            }, {
+            },
+            {
                 "name": {
                     "short": "D",
                     "long": "dump"
                 },
                 "description": "Dump for importing"
-            }, {
+            },
+            {
                 "name": {
                     "short": "f",
                     "long": "force"
                 },
                 "description": "Override docker-compose configurations"
-            }, {
+            },
+            {
                 "name": {
                     "short": "i",
                     "long": "install"
                 },
                 "description": "Chose magento installation option"
-            }, {
+            },
+            {
                 "name": {
                     "short": "p",
                     "long": "project-name"
                 },
                 "description": "Project name. Domain is compose with <project_name>.local"
-            }, {
+            },
+            {
                 "name": {
                     "short": "r",
                     "long": "root-directory"
                 },
                 "description": "Project relative path"
-            }, {
+            },
+            {
                 "name": {
                     "short": "u",
                     "long": "use-default"
@@ -408,6 +421,31 @@
                     "long": "confirm"
                 },
                 "description": "Skip confirmation prompt (for automation)"
+            }
+        ]
+    },
+    "_global": {
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "json"
+                },
+                "description": "Force machine readable JSON output"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "no-json"
+                },
+                "description": "Force human readable text output"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "yes"
+                },
+                "description": "Never ask questions: use defaults or fail with an actionable error"
             }
         ]
     }

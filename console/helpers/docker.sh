@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 
+source "${HELPERS_DIR}"/exit_codes.sh
+
 #
 # Check if docker is running
 #
 is_docker_service_running() {
     if [[ ! $(docker info >/dev/null 2>&1; echo $?) -eq 0 ]]; then
-        print_warning "Docker is not running!\n"
-        exit 1
+        hm_fail "$HM_EXIT_DOCKER" "docker_unavailable" \
+            "Docker is not running" \
+            "Start Docker and try again"
     fi
 }
 
@@ -20,7 +23,8 @@ is_run_service() {
     container_id=$(docker ps -qf name="$COMPOSE_PROJECT_NAME"-"$service" -qf name="$COMPOSE_PROJECT_NAME"_"$service")
     
     if [ -z "$container_id" ]; then
-        print_warning "Error: $service service is not running!\n"
-        exit 1
+        hm_fail "$HM_EXIT_SERVICE" "service_not_running" \
+            "Service '$service' is not running" \
+            "$COMMAND_BIN_NAME start $service"
     fi
 }

@@ -10,6 +10,7 @@ set -euo pipefail
 
 # Load dependencies
 source "${COMPONENTS_DIR}/print_message.sh"
+source "${COMPONENTS_DIR}/input_info.sh"
 source "${TASKS_DIR}/ai_registration.sh"
 
 #
@@ -27,7 +28,7 @@ parse_options() {
             *)
                 print_error "Unknown option: ${arg}"
                 show_usage
-                exit 1
+                exit "$HM_EXIT_USAGE"
                 ;;
         esac
     done
@@ -278,8 +279,8 @@ main() {
     print_info_line "Custom skills/agents will be preserved:"
     show_preserved_summary
 
-    # Confirmation prompt (unless --confirm flag)
-    if [[ "${OPT_CONFIRM}" != "true" ]]; then
+    # Confirmation prompt (unless --confirm flag or non-interactive mode)
+    if [[ "${OPT_CONFIRM}" != "true" ]] && ! is_non_interactive; then
         echo ""
         print_warning_line "This action cannot be undone."
         printf "Continue with deletion? (y/N) "

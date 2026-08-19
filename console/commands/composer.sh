@@ -44,7 +44,7 @@ check_create_project() {
     if [[ "$#" != 0 && "$1" == "create-project" ]]; then
         print_error "create-project is not compatible with $COMMAND_BIN_NAME. Please use:\n"
         print_code "\n  $COMMAND_BIN_NAME create-project\n\n"
-        exit 1
+        exit "$HM_EXIT_USAGE"
     fi
 }
 

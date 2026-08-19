@@ -52,11 +52,29 @@ for i in "$@"; do
     esac
 done
 
-# Request SSH credentials
-read -rp "$(print_question "Do you need to use SSH tunneling? [Y/n]: ")" ssh_tunnel
+# Request SSH credentials.
+# In non-interactive mode every prompt is skipped: the answers already fall back to the
+# values passed as options, so an empty answer is exactly the right behaviour.
+input_ssh_host=""
+input_ssh_user=""
+input_sql_host=""
+input_sql_port=""
+input_sql_user=""
+input_sql_db=""
+input_sql_password=""
+ssh_tunnel=""
+sql_exclude=""
+
+if ! is_non_interactive; then
+    confirm "Do you need to use SSH tunneling? [Y/n]: "
+    ssh_tunnel="$REPLY"
+fi
+
 if [ -z "$ssh_tunnel" ] || [ "$ssh_tunnel" == "Y" ] || [ "$ssh_tunnel" == "y" ]; then
-    read -p "$(print_question "SSH Host" "$ssh_host")" input_ssh_host
-    read -p "$(print_question "SSH User" "$ssh_user")" input_ssh_user
+    if ! is_non_interactive; then
+        read -p "$(print_question "SSH Host" "$ssh_host")" input_ssh_host
+        read -p "$(print_question "SSH User" "$ssh_user")" input_ssh_user
+    fi
     ssh_host=${input_ssh_host:-${ssh_host}}
     ssh_user=${input_ssh_user:-${ssh_user}}
 else
@@ -65,11 +83,13 @@ else
 fi
 
 # Request Database credentials
-read -p "$(print_question "Database Host" "$sql_host")" input_sql_host
-read -p "$(print_question "Database Port" "$sql_port")" input_sql_port
-read -p "$(print_question "Database User" "$sql_user")" input_sql_user
-read -p "$(print_question "Database DB Name" "$sql_db")" input_sql_db
-read -p "$(print_question "Database Password" "$sql_password")" input_sql_password
+if ! is_non_interactive; then
+    read -p "$(print_question "Database Host" "$sql_host")" input_sql_host
+    read -p "$(print_question "Database Port" "$sql_port")" input_sql_port
+    read -p "$(print_question "Database User" "$sql_user")" input_sql_user
+    read -p "$(print_question "Database DB Name" "$sql_db")" input_sql_db
+    read -p "$(print_question "Database Password" "$sql_password")" input_sql_password
+fi
 sql_host=${input_sql_host:-${sql_host}}
 sql_port=${input_sql_port:-${sql_port}}
 sql_user=${input_sql_user:-${sql_user}}
@@ -80,7 +100,11 @@ sql_password=${input_sql_password:-${sql_password}}
 [ -z "$sql_password" ] && sql_password="" || sql_password="-p'$sql_password'"
 
 # Request SSH credentials
-read -rp "$(print_question "Do you want to exclude 'core_config_data' table? [Y/n]: ")" sql_exclude
+if ! is_non_interactive; then
+    confirm "Do you want to exclude 'core_config_data' table? [Y/n]: "
+    sql_exclude="$REPLY"
+fi
+
 if [ -z "$sql_exclude" ] || [ "$sql_exclude" == "Y" ] || [ "$sql_exclude" == "y" ]; then
     sql_exclude=1
 else
@@ -88,12 +112,15 @@ else
 fi
 
 print_info "You are going to transfer database from [${ssh_host}:[${sql_host}:${sql_port}]] to [LOCALHOST].\n"
-read -rp "$(print_default "Press any key continue...")"
+if ! is_non_interactive; then
+    read -rp "$(print_default "Press any key continue...")"
+fi
 
 # Check required data
 if [ -z "$sql_host" ] || [ -z "$sql_port" ] || [ -z "$sql_user" ] || [ -z "$sql_db" ]; then
-    print_error "Error: Please enter all required data\n"
-    exit 1
+    hm_fail "$HM_EXIT_USAGE" "input_required" \
+        "Missing connection data for the remote database" \
+        "$COMMAND_BIN_NAME transfer-db --help"
 fi
 
 print_info "Creating database dump from origin server...\n"
@@ -136,7 +163,10 @@ if [ "$anonymise" = "true" ]; then
 elif [ "$anonymise" = "false" ]; then
     print_info "Skipping database anonymisation...\n"
 else
+    anonymise_prompt=""
+if ! is_non_interactive; then
     read -p "$(print_question "Do you want to anonymise the database? [Y/n]: ")" anonymise_prompt
+fi
     if [ -z "$anonymise_prompt" ] || [ "$anonymise_prompt" == "Y" ] || [ "$anonymise_prompt" == "y" ]; then
         print_info "Anonymising database in localhost...\n"
         masquerade_run
@@ -149,19 +179,28 @@ fi
 # Prevents "config import" / stale-configuration errors after importing a DB from
 # another environment. Safe/idempotent: prints "Nothing to import" when there is
 # no shared config to apply.
-read -p "$(print_question "Do you want to import app config (app:config:import)? [Y/n]: ")" config_import_magento
+config_import_magento=""
+if ! is_non_interactive; then
+    read -p "$(print_question "Do you want to import app config (app:config:import)? [Y/n]: ")" config_import_magento
+fi
 if [ -z "$config_import_magento" ] || [ "$config_import_magento" == 'Y' ] || [ "$config_import_magento" == 'y' ]; then
     $DOCKER_COMPOSE exec phpfpm bin/magento app:config:import
 fi
 
 # Reindex Magento
-read -p "$(print_question "Do you want to reindex Magento? [Y/n]: ")" reindex_magento
+reindex_magento=""
+if ! is_non_interactive; then
+    read -p "$(print_question "Do you want to reindex Magento? [Y/n]: ")" reindex_magento
+fi
 if [ -z "$reindex_magento" ] || [ "$reindex_magento" == 'Y' ] || [ "$reindex_magento" == 'y' ]; then
     $DOCKER_COMPOSE exec phpfpm bin/magento indexer:reindex
 fi
 
 # Clear Magento cache
-read -p "$(print_question "Do you want to clear Magento cache? [Y/n]: ")" clear_magento
+clear_magento=""
+if ! is_non_interactive; then
+    read -p "$(print_question "Do you want to clear Magento cache? [Y/n]: ")" clear_magento
+fi
 if [ -z "$clear_magento" ] || [ "$clear_magento" == 'Y' ] || [ "$clear_magento" == 'y' ]; then
     $DOCKER_COMPOSE exec phpfpm bin/magento cache:flush
 fi

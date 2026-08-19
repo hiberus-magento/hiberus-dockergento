@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/exit_codes.sh
+
+#
+# True when the CLI must run without asking anything (--yes / HM_NON_INTERACTIVE)
+#
+is_non_interactive() {
+    [[ -n "${HM_NON_INTERACTIVE:-}" ]]
+}
+
+#
+# Clear the screen only when it makes sense: escape codes would corrupt piped or JSON output
+#
+clear_screen() {
+    if [ -t 1 ] && ! is_non_interactive; then
+        clear
+    fi
+}
 
 get_last_version() {
     echo $(jq -r 'keys | last' "$DATA_DIR"/equivalent_versions.json)
@@ -23,6 +40,12 @@ get_equivalent_version_if_exit() {
     local equivalent_version=$("$HELPERS_DIR"/get_equivalent_version.sh "$1")
 
     if [[ "$equivalent_version" = "null" ]]; then
+        if is_non_interactive; then
+            hm_fail "$HM_EXIT_USAGE" "input_required" \
+                "Unsupported Magento version: $1" \
+                "Run '$COMMAND_BIN_NAME compatibility' and pass a supported version"
+        fi
+
         print_warning "\nWe don't have support for the version $1 "
         print_info "\nPlease, write any version between all versions supported or press Ctrl - C to exit"
         "$COMMANDS_DIR"/compatibility.sh
@@ -189,13 +212,34 @@ _custom_read() {
     local question="$1"
     local argument="${2-}"
 
+    # Without a human to answer, fall back to the default value. A question with no
+    # default cannot be guessed, so fail with an actionable message instead of hanging.
+    if is_non_interactive; then
+        if [ -n "$argument" ] && [ "$argument" != "null" ]; then
+            REPLY="$argument"
+            return 0
+        fi
+
+        hm_fail "$HM_EXIT_USAGE" "input_required" \
+            "Non-interactive mode cannot answer: $question" \
+            "Pass the value as an option, or run without --yes"
+    fi
+
     read -rp "$(print_question "$question " "$argument")"
 }
 
 #
 # Input confirm with specific format for question
 #
+# Confirmations are flow questions ("[Y/n]"), whose callers treat an empty answer as the
+# default, so non-interactive mode answers with the default rather than failing.
+#
 confirm() {
+    if is_non_interactive; then
+        REPLY=""
+        return 0
+    fi
+
     _custom_read "$@"
 }
 
@@ -203,7 +247,7 @@ confirm() {
 # Input question with specific format for question
 #
 custom_question() {
-    clear
+    clear_screen
     _custom_read "$@"
 }
 
@@ -224,12 +268,19 @@ custom_select() {
     local question="$1"
     shift
     local opts=("$@")
-    
-    
+
+    # A choice between options has no safe default: picking one silently could install
+    # the wrong thing.
+    if is_non_interactive; then
+        hm_fail "$HM_EXIT_USAGE" "input_required" \
+            "Non-interactive mode cannot choose: $question (options: ${opts[*]})" \
+            "Pass the value as an option, or run without --yes"
+    fi
+
     for i in "${!opts[@]}"; do
         opts[$i]=$(print_table "${opts[$i]}")
     done
-    clear
+    clear_screen
     print_question "✅ $question\n"
 
     COLUMNS=1

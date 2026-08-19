@@ -52,7 +52,7 @@ edit_versions() {
 #
 print_requirements() {
     services=$(echo "$REQUIREMENTS" | jq -r 'keys|join(" ")')
-    clear
+    clear_screen
     print_table "-------------------------------\n"
     print_table "          REQUIREMENTS"
     print_table "\n-------------------------------\n"
@@ -93,6 +93,12 @@ get_equivalent_version_if_exit() {
     equivalent_version=$("$HELPERS_DIR"/get_equivalent_version.sh "$1")
 
     if [[ "$equivalent_version" = "null" ]]; then
+        if is_non_interactive; then
+            hm_fail "$HM_EXIT_USAGE" "input_required" \
+                "Unsupported Magento version: $1" \
+                "Run '$COMMAND_BIN_NAME compatibility' and pass a supported version"
+        fi
+
         print_warning "\nWe don´t have support for the version $1\n"
         print_info "Please, write any version between all versions supported or press Ctrl - C to exit"
 
@@ -128,7 +134,7 @@ get_requirements() {
 
         MAGENTO_VERSION=$(jq -r '.packages |
                 map(select(.name == "magento/product-community-edition"))[].version' < "$MAGENTO_DIR/composer.lock")
-        clear
+        clear_screen
         print_warning "Magento version detected: $MAGENTO_VERSION\n"
         sleep 1.5
         get_equivalent_version_if_exit "$MAGENTO_VERSION"

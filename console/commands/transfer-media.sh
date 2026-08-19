@@ -26,21 +26,30 @@ for i in "$@"; do
 done
 
 # Request data
-read -p "$(print_question "SSH Host [Default: '$sshHost']: ")" inputSshHost
-read -p "$(print_question "SSH User [Default: '$sshUser']: ")" inputSshUser
-read -p "$(print_question "SSH pub/media path [Default: '$sshPath']: ")" inputSshPath
+inputSshHost=""
+inputSshUser=""
+inputSshPath=""
+
+if ! is_non_interactive; then
+    read -p "$(print_question "SSH Host [Default: '$sshHost']: ")" inputSshHost
+    read -p "$(print_question "SSH User [Default: '$sshUser']: ")" inputSshUser
+    read -p "$(print_question "SSH pub/media path [Default: '$sshPath']: ")" inputSshPath
+fi
 sshHost=${inputSshHost:-${sshHost}}
 sshUser=${inputSshUser:-${sshUser}}
 sshPath=${inputSshPath:-${sshPath}}
 
 if [ -z "$sshUser" ] || [ -z "$sshPath" ] || [ -z "$sshHost" ]; then
-    print_error "Error: Please enter all required data\n"
-    exit 1
+    hm_fail "$HM_EXIT_USAGE" "input_required" \
+        "Missing SSH connection data" \
+        "$COMMAND_BIN_NAME transfer-media --help"
 fi
 
 # Request confirmation
 print_info "You are going to transfer files from [${sshHost}] to [LOCALHOST]. \nPress any key continue..."
-read -r
+if ! is_non_interactive; then
+    read -r
+fi
 
 # Check rsync data
 if ! command -v rsync &>/dev/null; then

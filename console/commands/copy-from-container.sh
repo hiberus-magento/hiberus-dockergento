@@ -34,7 +34,7 @@ if [[ $# -eq 0 ]]; then
     print_error "The command is not correct\n"
     print_info "Use this format\n"
     get_usage "$(basename ${0%.sh})"
-    exit 1
+    exit "$HM_EXIT_USAGE"
 fi
 
 # Command only available in Mac OS
