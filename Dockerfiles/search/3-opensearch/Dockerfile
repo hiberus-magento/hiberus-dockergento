@@ -7,7 +7,10 @@ FROM opensearchproject/opensearch:3.1.0
 # JDK reciente). Reemplazarlo provoca al arrancar:
 #   NoClassDefFoundError: org.opensearch.javaagent.bootstrap.AgentPolicy$AnyCanExit
 # -XX:UseSVE=0 silencia el warning de SVE en arm64 (Apple Silicon), es inofensivo.
-ENV OPENSEARCH_JAVA_OPTS="-Xms512m -Xmx512m -XX:UseSVE=0"
+# -XX:+IgnoreUnrecognizedVMOptions evita el fallo fatal "Unrecognized VM option
+# 'UseSVE=0'" en JDKs que no soportan ese flag (p.ej. x86_64 o versiones antiguas):
+# el flag se aplica donde existe y se ignora silenciosamente donde no.
+ENV OPENSEARCH_JAVA_OPTS="-Xms512m -Xmx512m -XX:+IgnoreUnrecognizedVMOptions -XX:UseSVE=0"
 ENV DISABLE_INSTALL_DEMO_CONFIG="true"
 ENV DISABLE_SECURITY_PLUGIN="true"
 

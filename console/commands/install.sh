@@ -7,6 +7,14 @@ source "$COMPONENTS_DIR"/print_message.sh
 source "$HELPERS_DIR"/docker.sh
 source "$HELPERS_DIR"/version.sh
 
+# Cache/session backend service name. Magento 2.4.9+ ships Valkey (a drop-in Redis
+# replacement) and some environments name the compose service "valkey" instead of
+# "redis". Detect the real service so setup:install connects to the right host.
+cache_host="redis"
+if [ -n "${DOCKER_COMPOSE:-}" ] && $DOCKER_COMPOSE config --services 2>/dev/null | grep -qx "valkey"; then
+    cache_host="valkey"
+fi
+
 command_arguments="--db-host=db \
     --backend-frontname=admin \
     --use-rewrites=1 \
@@ -14,14 +22,14 @@ command_arguments="--db-host=db \
     --db-user=magento \
     --db-password=magento \
     --session-save=redis \
-    --session-save-redis-host=redis \
+    --session-save-redis-host=$cache_host \
     --session-save-redis-db=0 \
     --session-save-redis-disable-locking=1 \
     --cache-backend=redis \
-    --cache-backend-redis-server=redis \
+    --cache-backend-redis-server=$cache_host \
     --cache-backend-redis-db=1 \
     --page-cache=redis \
-    --page-cache-redis-server=redis \
+    --page-cache-redis-server=$cache_host \
     --page-cache-redis-db=2 \
     --amqp-host=rabbitmq \
     --amqp-port=5672 \
