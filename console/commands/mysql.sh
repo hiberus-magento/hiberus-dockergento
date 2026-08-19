@@ -4,7 +4,11 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 source "$TASKS_DIR"/set_magento_configs.sh
 source "$HELPERS_DIR"/docker.sh
-mysql_container=$(docker ps -qf "name=db")
+# Resolve the db container within the current compose project. `docker ps -f name=db`
+# matches by substring across ALL projects on the host, so with more than one
+# environment up it could return several ids (breaking `docker exec`) or target
+# another project's database.
+mysql_container=$($DOCKER_COMPOSE ps -q db)
 
 # Check if db service is running
 is_run_service "db"
@@ -59,8 +63,11 @@ mysql_execute() {
     $DOCKER_COMPOSE exec db bash -c "$db_client"
 }
 
-# If stdin has content
-if [ ! -t 0 ]; then
+# Only treat a non-tty stdin as a dump to import when no options were given
+# (e.g. `hm mysql < dump.sql`). Non-interactive callers (CI, agents) invoking
+# `hm mysql -q ...` never have a tty either, so gating solely on `[ ! -t 0 ]`
+# made -q/-i unreachable for them.
+if [[ $# -eq 0 ]] && [ ! -t 0 ]; then
     print_info "Importing database from stdin ...\n"
     docker exec -i $mysql_container bash -c "$db_client"
 else

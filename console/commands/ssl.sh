@@ -11,11 +11,6 @@ else
     DOMAIN=$1
 fi
 
-if [ -z "$(docker ps | grep hitch)" ]; then
-    print_error "Error: Hitch is not running!\n"
-    exit
-fi
-
 print_info "Generating SSL certificates for domain "
 print_default "$DOMAIN"
 print_info "...\n"
