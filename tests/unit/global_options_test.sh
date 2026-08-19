@@ -77,18 +77,20 @@ assert_equals "no" "$r"
 
 test_case "non-interactive mode also enables USE_DEFAULT_SETTINGS"
 ( unset USE_DEFAULT_SETTINGS
-  HM_NON_INTERACTIVE=1 HM_OUTPUT_FORMAT="" resolve_output_format
+  export HM_NON_INTERACTIVE=1 HM_OUTPUT_FORMAT=""
+  resolve_output_format
   echo "${USE_DEFAULT_SETTINGS:-unset}" ) > "$WORKDIR_TMP" 2>/dev/null
 assert_equals "true" "$(cat "$WORKDIR_TMP")"
 
 test_case "interactive mode leaves USE_DEFAULT_SETTINGS alone"
 ( unset USE_DEFAULT_SETTINGS
-  HM_NON_INTERACTIVE="" HM_OUTPUT_FORMAT="text" resolve_output_format
+  export HM_NON_INTERACTIVE="" HM_OUTPUT_FORMAT="text"
+  resolve_output_format
   echo "${USE_DEFAULT_SETTINGS:-unset}" ) > "$WORKDIR_TMP" 2>/dev/null
 assert_equals "unset" "$(cat "$WORKDIR_TMP")"
 
 test_case "without a terminal the default format is json"
-( HM_OUTPUT_FORMAT="" resolve_output_format; echo "$HM_OUTPUT_FORMAT" ) > "$WORKDIR_TMP"
+( export HM_OUTPUT_FORMAT=""; resolve_output_format; echo "$HM_OUTPUT_FORMAT" ) > "$WORKDIR_TMP"
 assert_equals "json" "$(cat "$WORKDIR_TMP")"
 
 rm -f "$WORKDIR_TMP"

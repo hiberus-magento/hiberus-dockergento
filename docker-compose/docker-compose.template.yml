@@ -1,6 +1,20 @@
 {YML_VERSION}x-toolname: "hiberus-magento"
+
+# Environment metadata stamped on every container. Values are interpolated by Compose at
+# `up` time instead of being written into this file, so they stay correct without having
+# to regenerate a file that is committed to the project repository.
+x-hm-labels: &hm-labels
+  hm.project: "${HM_PROJECT:-}"
+  hm.root: "${HM_ROOT:-}"
+  hm.worktree: "${HM_WORKTREE:-}"
+  hm.profile: "${HM_PROFILE:-full}"
+  hm.magento: "${HM_MAGENTO:-}"
+  hm.version: "${HM_VERSION:-}"
+  hm.agent: "${HM_AGENT:-}"
+
 services:
   phpfpm:
+    labels: *hm-labels
     image: <php_version>
     volumes: &appvolumes
       - sockdata:/sock
@@ -17,12 +31,14 @@ services:
       - rabbitmq
       
   nginx:
+    labels: *hm-labels
     image: <nginx_version>
     volumes: *appvolumes
     depends_on:
       - phpfpm
 
   db:
+    labels: *hm-labels
     image: <mariadb_version>
     ports:
       - 3306:3306
@@ -36,6 +52,7 @@ services:
       - dbdata:/var/lib/mysql
 
   search:
+    labels: *hm-labels
     image: <search_version>
     environment:
       - discovery.type=single-node
@@ -50,6 +67,7 @@ services:
         hard: -1
 
   varnish:
+    labels: *hm-labels
     image: <varnish_version>
     tty: true
     ports:
@@ -58,16 +76,19 @@ services:
       - nginx
 
   redis:
+    labels: *hm-labels
     image: <redis_version>
     volumes:
       - redisdata:/data:delegated
 
   mailhog:
+    labels: *hm-labels
     image: <mailhog_version>
     ports:
       - 8025:8025
 
   rabbitmq:
+    labels: *hm-labels
     image: <rabbitmq_version>
     ports:
       - 5672:5672
@@ -79,6 +100,7 @@ services:
       - rabbitmqdata:/var/lib/rabbitmq
 
   hitch:
+    labels: *hm-labels
     image: <hitch_version>
     ports:
       - 443:443

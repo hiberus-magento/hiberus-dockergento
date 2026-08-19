@@ -64,7 +64,7 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 | **NET-03** | dnsmasq: fin de `/etc/hosts` | Red | M | NET-01 | backlog |
 | **NET-04** | `hm share` con Cloudflared | Red | S | NET-01 | backlog |
 | **ENV-01** | Nombre de proyecto derivado del directorio | Entorno | S | — | backlog |
-| **ENV-02** | Etiquetas `hm.*` en la plantilla compose | Entorno | S | — | [spec](../../openspec/changes/add-compose-project-labels/) |
+| **ENV-02** | Etiquetas `hm.*` en la plantilla compose | Entorno | S | — | **hecho** |
 | **ENV-03** | Mailpit en lugar de Mailhog | Entorno | S | — | backlog |
 | **ENV-04** | Servicios opcionales (`--with=...`) | Entorno | M | — | backlog |
 | **ENV-05** | Servicio de cron | Entorno | S | ENV-04 | backlog |

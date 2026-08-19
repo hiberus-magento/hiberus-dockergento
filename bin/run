@@ -53,6 +53,7 @@ import_dependencies() {
     source "$HELPERS_DIR"/map_arguments.sh
     source "$HELPERS_DIR"/process_hm_options.sh
     source "$TASKS_DIR"/set_machine_specific_properties.sh
+    source "$TASKS_DIR"/set_environment_labels.sh
 }
 
 #
@@ -132,6 +133,8 @@ execute() {
     check_command_dir "$1"
     # Set composer project name
     docker_env_variables
+    # Export the metadata stamped on the containers as hm.* labels
+    set_environment_labels
     # Validation docker compose
     validate_command "$1"
     # Remove command name and pass remaining arguments directly
