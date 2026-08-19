@@ -1,0 +1,53 @@
+schema: spec-driven
+
+context: |
+  Hiberus Dockergento (`hm`): CLI que gestiona entornos Docker de desarrollo para
+  Magento 2 / Adobe Commerce. Traduce comandos propios a `docker compose` sobre un stack
+  de 9 servicios (phpfpm, nginx, db, search, redis, varnish, hitch, mailhog, rabbitmq).
+
+  Implementación: **100 % Bash**. No hay compilación ni gestor de dependencias.
+    - `bin/run` — router de comandos y punto de entrada
+    - `console/commands/*.sh` — un fichero por comando
+    - `console/tasks/*.sh` — funciones reutilizables
+    - `console/helpers/*.sh` — utilidades (docker, properties, versiones, argumentos)
+    - `console/components/*.sh` — E/S (print_message.sh, input_info.sh)
+    - `data/*.json` — configuración (requirements, properties, command_descriptions)
+    - `docker-compose/*.template.yml` — plantillas de compose
+    - `Dockerfiles/<servicio>/<versión>/` — imágenes propias, publicadas en Docker Hub
+      mediante `.github/workflows/dockerhub-publish.yml`
+
+  Convenciones de código:
+    - `#!/usr/bin/env bash` y `set -euo pipefail` en todos los scripts
+    - Salida siempre vía `console/components/print_message.sh`
+      (print_info, print_error, print_warning, print_processing, print_code, print_link)
+    - Opciones con `getopts`; comandos nuevos requieren entrada en
+      `data/command_descriptions.json` y un `docs/<comando>.md`
+    - `jq` para todo el manejo de JSON
+    - Diferencias de plataforma vía `$MACHINE` (mac | linux) y los overlays
+      `docker-compose.dev.mac.yml` / `docker-compose.dev.linux.yml`
+    - Comentarios y documentación de usuario en inglés; investigación interna en español
+    - Cambios de release: fichero en `changelogs/vX.Y.Z.md` y entrada en `changelogs/README.md`
+
+  Contexto de producto (ver `docs/research/backlog.md` para el detalle y los IDs):
+    - Objetivo transversal: soportar trabajo en paralelo con varios agentes de IA sobre el
+      mismo repositorio (git worktrees) sin que se pisen los entornos.
+    - Decisiones tomadas: seguimos con Dockergento (no migramos a Warden ni DDEV);
+      TUI antes que dashboard web; `share` con Cloudflared, no ngrok; `hm` nunca llama a
+      modelos de IA; sin registro de add-ons; sin Portainer; la futura web no implementa
+      lógica de negocio, sólo consume el contrato JSON de la CLI.
+    - Problema conocido y aún abierto: dos proyectos Dockergento no pueden estar levantados
+      a la vez porque cada uno publica los puertos 80, 443, 3306, 9200, 8025, 5672 y 15672.
+
+rules:
+  proposal:
+    - Enlaza el ID del backlog (`docs/research/backlog.md`) al que corresponde el cambio.
+    - Incluye siempre una sección de "Non-goals".
+    - Indica si el cambio afecta a proyectos existentes y si necesita migración.
+  tasks:
+    - Tareas de como mucho medio día.
+    - Incluye siempre una tarea de documentación (`docs/<comando>.md` y
+      `data/command_descriptions.json`) cuando se añade o cambia un comando.
+    - Incluye siempre una tarea de verificación manual con un proyecto real.
+  design:
+    - "Justifica cualquier dependencia externa nueva: en Bash puro es preferible."
+    - Describe el comportamiento en mac y en linux cuando difieran.
