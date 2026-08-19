@@ -50,8 +50,8 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 | ID | Ítem | Área | Esfuerzo | Depende de | Estado |
 |---|---|---|---|---|---|
 | **CLI-01** | Modo agente: `--json`, `--yes`, códigos de salida | CLI | M | — | **hecho** |
-| **CLI-02** | `hm describe [--json]` | CLI | S | CLI-01 | [spec](../../openspec/changes/add-describe-and-list-commands/) |
-| **CLI-03** | `hm list [--json]` | CLI | S | CLI-01, ENV-02 | [spec](../../openspec/changes/add-describe-and-list-commands/) |
+| **CLI-02** | `hm describe [--json]` | CLI | S | CLI-01 | **hecho** |
+| **CLI-03** | `hm list [--json]` | CLI | S | CLI-01, ENV-02 | **hecho** |
 | **CLI-04** | `hm doctor` | CLI | M | — | [spec](../../openspec/changes/add-doctor-command/) |
 | **CLI-05** | `hm logs [servicio] [-f]` | CLI | S | — | backlog |
 | **CLI-06** | `hm launch` | CLI | S | CLI-02 | backlog |

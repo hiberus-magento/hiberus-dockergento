@@ -110,6 +110,26 @@ assert_equals "$REPO" "$(hm_environment_label "$PROJECT" "hm.root")"
 test_case "switching branch is reflected in the derived branch"
 assert_equals "feature/other" "$(hm_environment_branch "$PROJECT")"
 
+# Regression: empty fields used to shift every column, because `read` with IFS=$'\t'
+# collapses consecutive tabs. An environment with no worktree and no recorded Magento
+# version is exactly the case that exposed it.
+source "$TASKS_DIR/collect_environments.sh"
+
+test_case "empty fields do not shift the inventory columns"
+( cd "$WORKDIR" && HM_PROJECT="$PROJECT" HM_ROOT="$REPO" HM_WORKTREE="" HM_MAGENTO="" \
+  docker compose -p "$PROJECT" up -d --force-recreate >/dev/null 2>&1 )
+row=$(collect_environments | jq -c --arg p "$PROJECT" '.[] | select(.name == $p)')
+assert_json_field "$row" '.worktree' ""
+
+test_case "the status still lands in its own field"
+assert_json_field "$row" '.status' "running"
+
+test_case "the container counts are still numbers"
+assert_json_field "$row" '.containers.total' "2"
+
+test_case "the branch is still derived for an environment without metadata fields"
+assert_json_field "$row" '.branch' "feature/other"
+
 test_case "containers outside Dockergento are ignored"
 assert_not_contains "$(hm_environments)" "definitely-not-a-dockergento-project"
 

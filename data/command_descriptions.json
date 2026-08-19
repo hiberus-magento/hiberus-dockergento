@@ -1,4 +1,64 @@
 {
+    "ai-init": {
+        "description": "Initialize AI tools configuration (skills/agents) via interactive wizard",
+        "example": "ai-init\n\t hm ai-init --platforms=claude,cursor --types=hyva,magento --resources=skills,agents",
+        "opts": [
+            {
+                "name": {
+                    "long": "platforms"
+                },
+                "description": "Comma-separated list of AI platforms (claude, cursor, codex, copilot, gemini, opencode)"
+            },
+            {
+                "name": {
+                    "long": "types"
+                },
+                "description": "Comma-separated list of skill types (hyva, acs, magento, php)"
+            },
+            {
+                "name": {
+                    "long": "resources"
+                },
+                "description": "Resource types to download (skills, agents, or both)"
+            },
+            {
+                "name": {
+                    "long": "repository"
+                },
+                "description": "Custom repository URL to include"
+            },
+            {
+                "name": {
+                    "long": "branch"
+                },
+                "description": "Branch name for custom repository (default: main)"
+            }
+        ]
+    },
+    "ai-pull": {
+        "description": "Download/update AI tools (skills/agents) from configured repositories",
+        "example": "ai-pull\n\t hm ai-pull --force",
+        "opts": [
+            {
+                "name": {
+                    "long": "force"
+                },
+                "description": "Force re-download and overwrite existing skills/agents"
+            }
+        ]
+    },
+    "ai-reset": {
+        "description": "Remove downloaded AI tools while preserving custom skills/agents",
+        "example": "ai-reset\n\t hm ai-reset --confirm",
+        "opts": [
+            {
+                "name": {
+                    "long": "confirm"
+                },
+                "description": "Skip confirmation prompt (for automation)"
+            }
+        ]
+    },
     "bash": {
         "description": "Connect into container using bash [Default container: php]",
         "opts": [
@@ -11,12 +71,12 @@
             }
         ]
     },
-    "cloud-login": {
-        "description": "Magento Cloud Login"
-    },
     "cloud": {
         "description": "Magento Cloud Cli",
         "usage": "cloud [options]"
+    },
+    "cloud-login": {
+        "description": "Magento Cloud Login"
     },
     "compatibility": {
         "description": "Check Magento version compatibility"
@@ -104,6 +164,19 @@
     "debug-on": {
         "description": "Enable xDebug"
     },
+    "describe": {
+        "description": "Show everything that defines the current project",
+        "usage": "describe [options]",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "with-secrets"
+                },
+                "description": "Include database credentials in the output"
+            }
+        ]
+    },
     "docker-compose": {
         "description": "Execute docker compose using configuration for your machine",
         "args": [
@@ -158,6 +231,10 @@
                 "description": "Use default settings like currency, admin-user, password-user, etc."
             }
         ]
+    },
+    "list": {
+        "description": "List every Dockergento environment on this machine",
+        "usage": "list"
     },
     "magento": {
         "description": "Execute Magento console commands",
@@ -363,66 +440,6 @@
     },
     "varnish-on": {
         "description": "Turn on varnish service"
-    },
-    "ai-init": {
-        "description": "Initialize AI tools configuration (skills/agents) via interactive wizard",
-        "example": "ai-init\n\t hm ai-init --platforms=claude,cursor --types=hyva,magento --resources=skills,agents",
-        "opts": [
-            {
-                "name": {
-                    "long": "platforms"
-                },
-                "description": "Comma-separated list of AI platforms (claude, cursor, codex, copilot, gemini, opencode)"
-            },
-            {
-                "name": {
-                    "long": "types"
-                },
-                "description": "Comma-separated list of skill types (hyva, acs, magento, php)"
-            },
-            {
-                "name": {
-                    "long": "resources"
-                },
-                "description": "Resource types to download (skills, agents, or both)"
-            },
-            {
-                "name": {
-                    "long": "repository"
-                },
-                "description": "Custom repository URL to include"
-            },
-            {
-                "name": {
-                    "long": "branch"
-                },
-                "description": "Branch name for custom repository (default: main)"
-            }
-        ]
-    },
-    "ai-pull": {
-        "description": "Download/update AI tools (skills/agents) from configured repositories",
-        "example": "ai-pull\n\t hm ai-pull --force",
-        "opts": [
-            {
-                "name": {
-                    "long": "force"
-                },
-                "description": "Force re-download and overwrite existing skills/agents"
-            }
-        ]
-    },
-    "ai-reset": {
-        "description": "Remove downloaded AI tools while preserving custom skills/agents",
-        "example": "ai-reset\n\t hm ai-reset --confirm",
-        "opts": [
-            {
-                "name": {
-                    "long": "confirm"
-                },
-                "description": "Skip confirmation prompt (for automation)"
-            }
-        ]
     },
     "_global": {
         "opts": [
