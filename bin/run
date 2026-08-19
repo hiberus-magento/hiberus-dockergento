@@ -103,7 +103,8 @@ validate_command() {
         "$1" != "ai-init" &&
         "$1" != "ai-pull" &&
         "$1" != "ai-reset" &&
-        "$1" != "list"
+        "$1" != "list" &&
+        "$1" != "doctor"
     ]]; then
         source "$HELPERS_DIR"/docker.sh
         is_docker_service_running
