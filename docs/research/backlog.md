@@ -74,7 +74,7 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 | **UX-04** | Ayuda agrupada, con uso y ejemplos | UX | M | — | **hecho** |
 | **UX-05** | Señal en operaciones largas (<100 ms) | UX | M | UX-02 | backlog |
 | **UX-06** | Selector navegable con flechas | UX | M | UX-07 | backlog |
-| **UX-07** | Biblioteca de componentes de terminal | UX | M | — | [spec](../../openspec/changes/terminal-components/) |
+| **UX-07** | Biblioteca de componentes de terminal | UX | M | — | **hecho** |
 | **TUI-01** | Dashboard de terminal (`hm` sin argumentos) | TUI | M | CLI-02, CLI-03, UX-07 | [spec](../../openspec/changes/terminal-dashboard/) |
 | **NET-01** | Proxy global (`hm proxy`) con Traefik | Red | L | ENV-02 | backlog |
 | **NET-02** | Certificado wildcard | Red | S | NET-01 | backlog |

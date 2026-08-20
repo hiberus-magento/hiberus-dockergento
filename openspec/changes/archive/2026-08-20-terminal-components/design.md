@@ -104,12 +104,31 @@ pseudo-terminal. Así que las funciones se parten en dos:
 
 Sin esta separación, la biblioteca queda sin pruebas, y es la base del TUI.
 
-### 8. Lectura de teclas
+### 8. Lectura de teclas, con la limitación real de Bash 3.2
 
 `read -rsn1` para una pulsación. Las flechas llegan como tres bytes (`\e`, `[`, `A`), así que
-al recibir `\e` se leen los siguientes con un tiempo de espera muy corto (`read -t 0.01`)
-para distinguir una flecha de un `Esc` pulsado a solas. Bash 3.2 admite tiempos de espera
-fraccionarios en `read -t`.
+al recibir `\e` hay que leer los siguientes con un tiempo de espera acotado: sin límite, un
+`Esc` suelto colgaría el panel hasta que el usuario pulse otra tecla.
+
+**Corrección medida.** El diseño afirmaba que Bash 3.2 admite tiempos fraccionarios en
+`read -t`. No es cierto:
+
+```
+$ /bin/bash -c 'read -t 0.01 -rsn1 x'
+read: 0.01: invalid timeout specification
+```
+
+Y 3.2.57 es el único Bash de la máquina de desarrollo, el que ejecuta `hm`. El mínimo
+acotado que admite es **un segundo entero**.
+
+Consecuencia: el tiempo de espera se elige según la versión —`0.05` con Bash 4 o superior,
+`1` con 3.2— mediante una función pura que devuelve el valor y se puede probar sin terminal.
+Las flechas son instantáneas en ambos casos, porque sus bytes ya están en el búfer cuando se
+lee; lo único que se degrada es un `Esc` pulsado a solas, que en 3.2 tarda hasta un segundo
+en registrarse.
+
+Por eso el panel no usa `Esc` como tecla principal para nada: volver atrás también responde a
+otra tecla, y `Esc` es una comodidad, no el camino único.
 
 ### 9. mac y linux
 
