@@ -58,10 +58,16 @@ result=$( ( export TERM=xterm-256color NO_COLOR=1
             echo "[$RED$GREEN$BLUE$COLOR_RESET]" ) )
 assert_equals "[]" "$result"
 
+test_case "the heading weight is also switched off with colour"
+result=$( ( export TERM=xterm-256color NO_COLOR=1
+            load_colors
+            echo "[$BOLD]" ) )
+assert_equals "[]" "$result"
+
 test_case "with colour on the palette is populated"
 result=$( ( export TERM=xterm-256color FORCE_COLOR=1
             load_colors
-            if [ -n "$RED" ] && [ -n "$COLOR_RESET" ]; then echo populated; else echo empty; fi ) )
+            if [ -n "$RED" ] && [ -n "$BOLD" ] && [ -n "$COLOR_RESET" ]; then echo populated; else echo empty; fi ) )
 assert_equals "populated" "$result"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

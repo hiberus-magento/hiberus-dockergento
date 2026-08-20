@@ -70,6 +70,7 @@ load_colors() {
         BROWN=""
         WHITE=""
         YELLOW=""
+        BOLD=""
         COLOR_RESET=""
         return 0
     fi
@@ -82,6 +83,11 @@ load_colors() {
     BROWN="\033[0;33m"
     WHITE="\033[1;37m"
     YELLOW='\033[0;33m'
+    # Bold with no colour: a heading is structure, not content, so it is distinguished by
+    # weight instead of competing in hue with the command names. It also uses whatever
+    # foreground colour the user has configured, so it stays readable on a light theme,
+    # which a fixed dark blue does not.
+    BOLD="\033[1m"
     COLOR_RESET="\033[0m"
 }
 

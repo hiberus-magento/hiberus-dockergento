@@ -93,7 +93,7 @@ print_commands_info() {
             fi
 
             printf "\n"
-            print_info "$title\n"
+            print_heading "$title\n"
         fi
 
         printf "  $command_color%-22s$COLOR_RESET%s\n" "$name" "$description"
@@ -117,7 +117,7 @@ print_all_commands_help_info() {
 # How the tool is invoked
 #
 print_usage_line() {
-    print_info "Usage: "
+    print_heading "Usage: "
     print_default "$COMMAND_BIN_NAME <command> [options]\n"
 }
 
@@ -139,11 +139,11 @@ print_examples() {
     fi
 
     printf "\n"
-    print_info "Examples\n"
+    print_heading "Examples\n"
 
     while IFS=$'\037' read -r command description; do
         [ -z "$command" ] && continue
-        printf "  $BROWN%-30s$COLOR_RESET%s\n" "$command" "$description"
+        printf "  $GREEN%-30s$COLOR_RESET%s\n" "$command" "$description"
     done <<< "$rows"
 }
 
@@ -175,7 +175,7 @@ print_global_options() {
     fi
 
     printf "\n"
-    print_info "Global options\n"
+    print_heading "Global options\n"
 
     while IFS=$'\037' read -r name description; do
         [ -z "$name" ] && continue

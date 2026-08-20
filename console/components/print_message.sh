@@ -19,6 +19,7 @@ PURPLE="${PURPLE:-}"
 BROWN="${BROWN:-}"
 WHITE="${WHITE:-}"
 YELLOW="${YELLOW:-}"
+BOLD="${BOLD:-}"
 COLOR_RESET="${COLOR_RESET:-}"
 
 #
@@ -80,6 +81,10 @@ print_code() {
 
 print_highlight() {
     _print_decorated "$WHITE" "$1"
+}
+
+print_heading() {
+    _print_decorated "$BOLD" "$1"
 }
 
 print_default() {

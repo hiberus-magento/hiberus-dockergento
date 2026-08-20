@@ -64,6 +64,18 @@ for script in "$COMMAND_BIN_DIR"/console/commands/*.sh; do
 done
 assert_empty "$missing" "these commands are not listed:"
 
+test_case "a group heading is not painted like a command"
+# The heading used to be green, the same colour as the command names, so it read as one
+coloured=$( cd "$LAB" && FORCE_COLOR=1 "$HM" --help 2>/dev/null )
+heading=$(printf '%s' "$coloured" | LC_ALL=C grep -m1 -- "Environment")
+assert_not_contains "$heading" $'\033[0;32m'
+
+test_case "and the command names still are"
+# Matched by its description: the line starts with the colour escape, so a plain
+# "  doctor" prefix never matches
+command_line=$(printf '%s' "$coloured" | LC_ALL=C grep -m1 -- "Diagnose the machine")
+assert_contains "$command_line" $'\033[0;32m'
+
 test_case "examples are shown"
 assert_contains "$OUTPUT" "Examples"
 
