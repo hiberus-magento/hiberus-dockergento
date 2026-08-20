@@ -22,7 +22,8 @@ resolve_absolute_dir() {
     done
 
     ABSOLUTE_BIN_PATH="$(cd -P "$(dirname "$source")" && pwd)"
-    ABSOLUTE_PATH="$ABSOLUTE_BIN_PATH/.."
+    # Normalised, not "<bin>/..": this path is printed to the user by `hm --version`
+    ABSOLUTE_PATH="$(cd -P "$ABSOLUTE_BIN_PATH/.." && pwd)"
 }
 
 #
@@ -123,7 +124,8 @@ validate_command() {
         "$1" != "ai-pull" &&
         "$1" != "ai-reset" &&
         "$1" != "list" &&
-        "$1" != "doctor"
+        "$1" != "doctor" &&
+        "$1" != "switch"
     ]]; then
         source "$HELPERS_DIR"/docker.sh
         is_docker_service_running

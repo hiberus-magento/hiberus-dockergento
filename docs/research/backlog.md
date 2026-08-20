@@ -64,9 +64,9 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 | **PERF-02** | Coste fijo de arranque perezoso | Rendimiento | M | — | **hecho** |
 | **PERF-03** | `hm doctor` en paralelo | Rendimiento | S | — | **hecho** |
 | **PERF-04** | Presupuesto de rendimiento vigilado por test | Rendimiento | S | PERF-01 | **hecho** |
-| **REL-01** | `hm --version` con la referencia exacta | Release | S | — | [spec](../../openspec/changes/version-switching/) |
-| **REL-02** | `hm switch` para cambiar de versión y volver | Release | M | REL-01 | [spec](../../openspec/changes/version-switching/) |
-| **REL-03** | `hm update` no debe sacar de un tag en silencio | Release | S | — | [spec](../../openspec/changes/version-switching/) |
+| **REL-01** | `hm --version` con la referencia exacta | Release | S | — | **hecho** |
+| **REL-02** | `hm switch` para cambiar de versión y volver | Release | M | REL-01 | **hecho** |
+| **REL-03** | `hm update` no debe sacar de un tag en silencio | Release | S | — | **hecho** |
 | **UX-01** | Contraseñas sin eco en los prompts | UX | S | — | **hecho** |
 | **UX-02** | Honrar `NO_COLOR`, `TERM=dumb` y `--no-color` | UX | S | — | **hecho** |
 | **UX-03** | Dejar de borrar la pantalla al preguntar | UX | S | — | **hecho** |

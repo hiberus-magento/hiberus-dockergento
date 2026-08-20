@@ -36,6 +36,29 @@ _(All patched versions are also compatible — run `hm compatibility` to see the
 
 <br>
 
+## Versions and release candidates
+
+The installation is a git checkout, so moving between versions is a command:
+
+```bash
+hm --version              # exactly what you are running, including commits ahead of the tag
+hm switch --list          # what is available
+hm switch 1.5.0-rc.1      # try a release candidate
+hm switch --stable        # back to stable
+```
+
+| Branch or tag | Meaning |
+|---|---|
+| `main` | Stable. Reached through a pull request, tagged `X.Y.Z` |
+| `feature/*` | Work in progress |
+| `release/X.Y.Z` | Freeze and validate |
+| `X.Y.Z-rc.N` | Release candidates, shared for internal validation |
+
+While pinned to a tag, `hm update` refuses to run so that it cannot take you off the version
+you are validating. See [switch](docs/switch.md).
+
+<br>
+
 ## Install Hiberus CLI
 Hiberus CLI requires the next dependencies.
 - [Homebrew](https://docs.brew.sh/Installation) (only Mac)

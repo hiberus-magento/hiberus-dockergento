@@ -19,6 +19,14 @@ if [ -z "${COMPONENTS_DIR:-}" ]; then
     export HM_TEST_PROJECT_ROOT="$_hm_test_root"
 fi
 
+# Caches go to a throwaway directory: a test run has no business leaving entries in the
+# developer's HOME, and every temporary project used by a suite would leave one forever
+if [ -z "${HM_CACHE_DIR:-}" ]; then
+    HM_CACHE_DIR="$(mktemp -d)"
+    export HM_CACHE_DIR
+    trap 'rm -rf "$HM_CACHE_DIR"' EXIT
+fi
+
 HM_TESTS_RUN=0
 HM_TESTS_FAILED=0
 HM_CURRENT_TEST=""

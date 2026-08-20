@@ -470,6 +470,27 @@
         "example": "stop phpfpm",
         "group": "environment"
     },
+    "switch": {
+        "description": "Switch the installation to another version or branch",
+        "usage": "switch [<version|branch>|--stable|--list]",
+        "group": "tools",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "list"
+                },
+                "description": "Show the available versions and branches"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "stable"
+                },
+                "description": "Switch back to the stable branch"
+            }
+        ]
+    },
     "test-integration": {
         "description": "Execute your magento integration tests",
         "group": "magento"

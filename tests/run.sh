@@ -21,6 +21,10 @@ export COMPONENTS_DIR="$PROJECT_ROOT/console/components"
 export DATA_DIR="$PROJECT_ROOT/data"
 export HM_TEST_PROJECT_ROOT="$PROJECT_ROOT"
 
+# Same reasoning as in lib/assert.sh: the suite must not touch the developer's cache
+HM_CACHE_DIR="${HM_CACHE_DIR:-$(mktemp -d)}"
+export HM_CACHE_DIR
+
 target="${1:-}"
 suites=()
 
