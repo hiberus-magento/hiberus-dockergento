@@ -88,7 +88,11 @@ if ! is_non_interactive; then
     read -p "$(print_question "Database Port" "$sql_port")" input_sql_port
     read -p "$(print_question "Database User" "$sql_user")" input_sql_user
     read -p "$(print_question "Database DB Name" "$sql_db")" input_sql_db
-    read -p "$(print_question "Database Password" "$sql_password")" input_sql_password
+    # No echo: this is a client environment's database password and it would otherwise stay
+    # on screen and in the terminal's scrollback. The explicit newline is needed because
+    # without echo the user's Enter leaves none.
+    read -rsp "$(print_question "Database Password" "$sql_password")" input_sql_password
+    printf '\\n'
 fi
 sql_host=${input_sql_host:-${sql_host}}
 sql_port=${input_sql_port:-${sql_port}}

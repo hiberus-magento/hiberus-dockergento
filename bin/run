@@ -180,6 +180,9 @@ execute() {
     set -- ${HM_ARGS[@]+"${HM_ARGS[@]}"}
     # Decide between human readable and machine readable output
     resolve_output_format
+    # Colours are loaded before the flags are parsed, so the decision is taken again now
+    # that --no-color is known. Reassigning keeps the export attribute they already have.
+    load_colors
     # Show help information when there is an argument --help or -h
     execute_process_hm_options "$@"
 

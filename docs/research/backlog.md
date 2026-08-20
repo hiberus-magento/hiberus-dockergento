@@ -39,7 +39,8 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 
 | Change | Cubre | Tareas |
 |---|---|---|
-| [speed-up-cli](../../openspec/changes/speed-up-cli/) | PERF-01 a PERF-04 | 25 |
+| [polish-terminal-ux](../../openspec/changes/polish-terminal-ux/) | UX-01, UX-02, UX-03 | 17 |
+| [terminal-components](../../openspec/changes/terminal-components/) | UX-07 | 25 |
 | [add-cli-output-contract](../../openspec/changes/add-cli-output-contract/) | CLI-01 | 32 |
 | [add-compose-project-labels](../../openspec/changes/add-compose-project-labels/) | ENV-02 | 21 |
 | [add-describe-and-list-commands](../../openspec/changes/add-describe-and-list-commands/) | CLI-02, CLI-03 | 26 |
@@ -63,7 +64,14 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 | **PERF-02** | Coste fijo de arranque perezoso | Rendimiento | M | — | **hecho** |
 | **PERF-03** | `hm doctor` en paralelo | Rendimiento | S | — | **hecho** |
 | **PERF-04** | Presupuesto de rendimiento vigilado por test | Rendimiento | S | PERF-01 | **hecho** |
-| **TUI-01** | Dashboard de terminal (`hm` sin argumentos) | TUI | M | CLI-02, CLI-03 | backlog |
+| **UX-01** | Contraseñas sin eco en los prompts | UX | S | — | **hecho** |
+| **UX-02** | Honrar `NO_COLOR`, `TERM=dumb` y `--no-color` | UX | S | — | **hecho** |
+| **UX-03** | Dejar de borrar la pantalla al preguntar | UX | S | — | **hecho** |
+| **UX-04** | Ayuda agrupada, con uso y ejemplos | UX | M | — | backlog |
+| **UX-05** | Señal en operaciones largas (<100 ms) | UX | M | UX-02 | backlog |
+| **UX-06** | Selector navegable con flechas | UX | M | UX-07 | backlog |
+| **UX-07** | Biblioteca de componentes de terminal | UX | M | — | [spec](../../openspec/changes/terminal-components/) |
+| **TUI-01** | Dashboard de terminal (`hm` sin argumentos) | TUI | M | CLI-02, CLI-03, UX-07 | backlog |
 | **NET-01** | Proxy global (`hm proxy`) con Traefik | Red | L | ENV-02 | backlog |
 | **NET-02** | Certificado wildcard | Red | S | NET-01 | backlog |
 | **NET-03** | dnsmasq: fin de `/etc/hosts` | Red | M | NET-01 | backlog |
@@ -105,10 +113,12 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 
 1. **Ola 1 — cimientos (sin decisiones pendientes):** CLI-01, CLI-02, CLI-03, ENV-02, CLI-04.
 2. **Ola 2 — valor inmediato barato:** CLI-05, CLI-06, CLI-07, ENV-03, ENV-01, INST-01, WT-01.
-3. **Ola 3 — rendimiento y visibilidad:** PERF-01, PERF-03, PERF-02, PERF-04, TUI-01, CLI-08, DB-01, DB-03.
-4. **Ola 4 — el salto:** NET-01, NET-02, NET-03, NET-04.
-5. **Ola 5 — agentes:** AI-01, AI-02, DB-02, WT-02, AI-03.
-6. **Ola 6 — lo demás**, según lo que pida el equipo.
+3. **Ola 3 — rendimiento y visibilidad:** PERF-01, PERF-03, PERF-02, PERF-04 *(hechos)*,
+   UX-01, UX-02, UX-03 *(las tres pequeñas)*, CLI-08, DB-01, DB-03.
+4. **Ola 3b — cimientos de interfaz:** UX-07, UX-04, UX-05, UX-06 y sólo entonces TUI-01.
+5. **Ola 4 — el salto:** NET-01, NET-02, NET-03, NET-04.
+6. **Ola 5 — agentes:** AI-01, AI-02, DB-02, WT-02, AI-03.
+7. **Ola 6 — lo demás**, según lo que pida el equipo.
 
 ---
 
@@ -201,6 +211,46 @@ paralelo el peor caso es la más lenta, no la suma. Objetivo: por debajo de 2 s.
 #### PERF-04 · Presupuesto de rendimiento vigilado por test
 **Esfuerzo**: S. **Depende de**: PERF-01. Una prueba que falla si `hm --help`, el arranque
 mínimo o `hm doctor` se pasan de presupuesto, para que la mejora no se degrade en silencio.
+
+### Área UX
+
+Todo el detalle en [terminal-ux.md](terminal-ux.md).
+
+#### UX-01 · Contraseñas sin eco
+**Esfuerzo**: S. `hm transfer-db` pide la contraseña de la base de datos con `read -p`, sin
+`-s`: se ve en pantalla y queda en el scrollback. clig.dev lo prohíbe explícitamente y es lo
+único de esta área que además es un problema de seguridad.
+
+#### UX-02 · Honrar los estándares de color
+**Esfuerzo**: S. No se respeta `NO_COLOR` (que sí respetan Docker, git, ripgrep y compañía),
+ni `TERM=dumb`, ni existe `--no-color`. Como los colores ya salen de variables, basta un
+único punto de decisión en `load_colors`.
+
+#### UX-03 · Dejar de borrar la pantalla al preguntar
+**Esfuerzo**: S. `custom_question` y `custom_select` llaman a `clear`, así que en `hm setup`
+cada respuesta borra lo que el usuario acaba de leer. El borrado tiene sentido en un TUI, y
+allí se hace entrando al buffer alternativo, que se puede deshacer al salir.
+
+#### UX-04 · Ayuda agrupada, con uso y ejemplos
+**Esfuerzo**: M. Hoy son 45 comandos en una lista alfabética plana, sin línea de uso y sin
+ejemplos. clig.dev pide empezar por ejemplos y poner lo más común primero; `docker`, `gh` y
+`ddev` agrupan por propósito. La clasificación ya existe del contrato de salida: falta usarla
+para presentar, con los grupos declarados en `command_descriptions.json`.
+
+#### UX-05 · Señal en operaciones largas
+**Esfuerzo**: M. `composer install` y `setup:upgrade` pueden estar minutos sin decir nada.
+Lo relevante no es el spinner: es la regla de imprimir algo antes de 100 ms. Sin animaciones
+cuando no hay TTY.
+
+#### UX-06 · Selector navegable con flechas
+**Esfuerzo**: M. Hoy es el `select` de Bash: lista numerada, escribir un número, sin valor
+por defecto. Con retroceso a la lista actual y a `fzf` si está instalado.
+
+#### UX-07 · Biblioteca de componentes de terminal
+**Esfuerzo**: M. Tamaño con `stty size` (POSIX, funciona en el Bash 3.2 de macOS), cursor,
+buffer de pantalla alternativo, `SIGWINCH` y lectura de teclas, todo con secuencias VT100 en
+crudo y sin `tput`. **Es el prerrequisito del TUI**: sin esto, el TUI no sabe ni cuánto mide
+la ventana ni cómo salir sin destruir el scrollback.
 
 ### Área TUI
 

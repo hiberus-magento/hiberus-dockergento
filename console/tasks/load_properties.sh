@@ -27,9 +27,53 @@ refactor_old_version() {
 }
 
 #
-# Load colors 
+# Should the output be coloured?
+#
+# One decision point, with an explicit precedence: what the user asked for beats the
+# environment, and forcing beats autodetection but never beats an explicit refusal.
+#
+#   1. --no-color / HM_NO_COLOR   the user said no
+#   2. NO_COLOR                    the ecosystem standard (no-color.org)
+#   3. TERM=dumb or empty          the terminal cannot render it
+#   4. FORCE_COLOR / CLICOLOR_FORCE  colour even when piped, for CI logs that render ANSI
+#   5. stdout is not a terminal    nobody is looking
+#
+should_use_color() {
+    [ -n "${HM_NO_COLOR:-}" ] && return 1
+    [ -n "${NO_COLOR:-}" ] && return 1
+
+    case "${TERM:-}" in
+        dumb | "") return 1 ;;
+    esac
+
+    [ -n "${FORCE_COLOR:-}" ] && return 0
+    [ -n "${CLICOLOR_FORCE:-}" ] && return 0
+
+    [ -t 1 ] || return 1
+
+    return 0
+}
+
+#
+# Load colors
+#
+# When colour is off every variable is empty, so no other file has to know: the printers
+# interpolate them exactly the same way.
 #
 load_colors() {
+    if ! should_use_color; then
+        BLUE=""
+        GREEN=""
+        CYAN=""
+        RED=""
+        PURPLE=""
+        BROWN=""
+        WHITE=""
+        YELLOW=""
+        COLOR_RESET=""
+        return 0
+    fi
+
     BLUE="\033[0;34m"
     GREEN="\033[0;32m"
     CYAN="\033[0;36m"

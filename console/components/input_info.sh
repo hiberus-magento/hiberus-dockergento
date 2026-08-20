@@ -11,7 +11,10 @@ is_non_interactive() {
 }
 
 #
-# Clear the screen only when it makes sense: escape codes would corrupt piped or JSON output
+# Clear the screen only when it makes sense: escape codes would corrupt piped or JSON output.
+#
+# No longer used by the question flow, on purpose. Kept for the terminal components library
+# (UX-07), which will replace it with the alternate screen buffer.
 #
 clear_screen() {
     if [ -t 1 ] && ! is_non_interactive; then
@@ -247,7 +250,10 @@ confirm() {
 # Input question with specific format for question
 #
 custom_question() {
-    clear_screen
+    # Deliberately does not clear the screen: a question that erases what the user just
+    # read, including the previous question and its answer, is disorienting. Redrawing in
+    # place belongs to a TUI, and there it is done with the alternate screen buffer, which
+    # can be undone on exit.
     _custom_read "$@"
 }
 
@@ -280,7 +286,6 @@ custom_select() {
     for i in "${!opts[@]}"; do
         opts[$i]=$(print_table "${opts[$i]}")
     done
-    clear_screen
     print_question "✅ $question\n"
 
     COLUMNS=1

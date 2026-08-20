@@ -44,6 +44,9 @@ parse_global_options() {
             --force)
                 HM_FORCE="1"
                 ;;
+            --no-color)
+                HM_NO_COLOR="1"
+                ;;
             -*)
                 HM_ARGS+=("$arg")
                 ;;
@@ -77,6 +80,7 @@ resolve_output_format() {
     # --force applies to one invocation only: no variable and no configuration file can
     # turn the guardrails off for good
     export HM_FORCE="${HM_FORCE:-}"
+    export HM_NO_COLOR="${HM_NO_COLOR:-}"
 
     # USE_DEFAULT_SETTINGS predates this contract and covers part of the setup/install
     # flow. Non-interactive mode is a superset of it, so it turns it on as well.

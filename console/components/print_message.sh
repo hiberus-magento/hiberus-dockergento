@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
-COLOR_LINK="\033[34;4m"
+# Underlined blue for links, empty when colour is off: it follows the same decision as the
+# rest of the palette instead of painting itself
+if [ -n "${COLOR_RESET:-}" ]; then
+    COLOR_LINK="\033[34;4m"
+else
+    COLOR_LINK=""
+fi
 
 # Colours normally come from load_properties.sh, but the components are also sourced
 # standalone (tests, subshells). Default them to empty so `set -u` does not blow up and

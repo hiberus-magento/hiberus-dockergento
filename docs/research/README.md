@@ -9,6 +9,7 @@ trabajo: **ninguno de ellos describe funcionalidad implementada**.
 | [git-worktrees.md](git-worktrees.md) | Trabajo en paralelo con git worktrees y varios agentes: diagnóstico con evidencias, estado del arte y estrategia por niveles de entorno | Propuesta, con PoC pendiente |
 | [ddev-warden-feature-mining.md](ddev-warden-feature-mining.md) | Funcionalidades de DDEV y Warden que merece la pena incorporar a Dockergento | Catálogo priorizado |
 | [ai-features.md](ai-features.md) | Qué incorporar a Dockergento por el lado de la IA: modo agente, MCP, verificación, datos seguros | Catálogo priorizado |
+| [terminal-ux.md](terminal-ux.md) | Interfaz de terminal y experiencia de uso: colores, preguntas, ayuda, progreso y la base del TUI | Propuesta |
 | [control-plane-ui.md](control-plane-ui.md) | Dashboard y plano de control local servido por el proxy global: qué es, qué no es, arquitectura y fases | Propuesta de arquitectura |
 
 ## Decisiones tomadas

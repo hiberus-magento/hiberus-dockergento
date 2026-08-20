@@ -52,7 +52,10 @@ edit_versions() {
 #
 print_requirements() {
     services=$(echo "$REQUIREMENTS" | jq -r 'keys|join(" ")')
-    clear_screen
+
+    # Printed below the previous table instead of clearing it: seeing the progression of
+    # what you changed is more informative than losing it
+    printf "\n"
     print_table "-------------------------------\n"
     print_table "          REQUIREMENTS"
     print_table "\n-------------------------------\n"
@@ -134,7 +137,7 @@ get_requirements() {
 
         MAGENTO_VERSION=$(jq -r '.packages |
                 map(select(.name == "magento/product-community-edition"))[].version' < "$MAGENTO_DIR/composer.lock")
-        clear_screen
+        printf "\n"
         print_warning "Magento version detected: $MAGENTO_VERSION\n"
         sleep 1.5
         get_equivalent_version_if_exit "$MAGENTO_VERSION"

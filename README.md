@@ -166,6 +166,20 @@ failure as if it were output. In JSON mode an error looks like:
 | `5`  | A required service is not running |
 | `6`  | Refused from a git worktree ([details](docs/worktree.md)) |
 
+**Colour.** Colour marks state (error, warning, success) and highlights what you can act
+on; everything else stays in your terminal's own colour. The decision follows the usual
+ecosystem standards, in this order of precedence:
+
+| | Effect |
+|---|---|
+| `--no-color` | Never colour, whatever else is set |
+| `NO_COLOR` (set and non-empty) | Never colour — the [no-color.org](https://no-color.org/) standard |
+| `TERM=dumb` or empty | Never colour |
+| `FORCE_COLOR` / `CLICOLOR_FORCE` | Colour even when the output is piped, for CI logs that render ANSI |
+| stdout is not a terminal | No colour |
+
+The text is identical either way: removing the colour never removes information.
+
 **Non-interactive mode.** With `--yes` or `HM_NON_INTERACTIVE=1` no command waits for
 input: questions with a default answer use it, and a question that cannot be guessed
 fails with exit code `2` and a message naming the option to pass instead.
