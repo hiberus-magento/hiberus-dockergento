@@ -39,6 +39,7 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 
 | Change | Cubre | Tareas |
 |---|---|---|
+| [speed-up-cli](../../openspec/changes/speed-up-cli/) | PERF-01 a PERF-04 | 25 |
 | [add-cli-output-contract](../../openspec/changes/add-cli-output-contract/) | CLI-01 | 32 |
 | [add-compose-project-labels](../../openspec/changes/add-compose-project-labels/) | ENV-02 | 21 |
 | [add-describe-and-list-commands](../../openspec/changes/add-describe-and-list-commands/) | CLI-02, CLI-03 | 26 |
@@ -58,6 +59,10 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 | **CLI-07** | `hm version` | CLI | S | — | backlog |
 | **CLI-08** | `hm clean [--dry-run]` | CLI | S | ENV-02 | backlog |
 | **CLI-09** | Lanzadores de clientes de BD | CLI | S | CLI-02 | backlog |
+| **PERF-01** | `hm --help` en una sola pasada de `jq` | Rendimiento | S | — | **hecho** |
+| **PERF-02** | Coste fijo de arranque perezoso | Rendimiento | M | — | **hecho** |
+| **PERF-03** | `hm doctor` en paralelo | Rendimiento | S | — | **hecho** |
+| **PERF-04** | Presupuesto de rendimiento vigilado por test | Rendimiento | S | PERF-01 | **hecho** |
 | **TUI-01** | Dashboard de terminal (`hm` sin argumentos) | TUI | M | CLI-02, CLI-03 | backlog |
 | **NET-01** | Proxy global (`hm proxy`) con Traefik | Red | L | ENV-02 | backlog |
 | **NET-02** | Certificado wildcard | Red | S | NET-01 | backlog |
@@ -100,7 +105,7 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 
 1. **Ola 1 — cimientos (sin decisiones pendientes):** CLI-01, CLI-02, CLI-03, ENV-02, CLI-04.
 2. **Ola 2 — valor inmediato barato:** CLI-05, CLI-06, CLI-07, ENV-03, ENV-01, INST-01, WT-01.
-3. **Ola 3 — visibilidad:** TUI-01, CLI-08, DB-01, DB-03.
+3. **Ola 3 — rendimiento y visibilidad:** PERF-01, PERF-03, PERF-02, PERF-04, TUI-01, CLI-08, DB-01, DB-03.
 4. **Ola 4 — el salto:** NET-01, NET-02, NET-03, NET-04.
 5. **Ola 5 — agentes:** AI-01, AI-02, DB-02, WT-02, AI-03.
 6. **Ola 6 — lo demás**, según lo que pida el equipo.
@@ -174,6 +179,28 @@ defecto; nunca borra volúmenes de proyectos existentes sin `--force`.
 #### CLI-09 · Lanzadores de clientes de BD
 **Esfuerzo**: S. `hm tableplus` / `hm sequelace` / `hm dbeaver` abriendo el cliente ya
 conectado, al estilo de DDEV.
+
+### Área Rendimiento
+
+#### PERF-01 · `hm --help` en una sola pasada de `jq`
+**Esfuerzo**: S. **Depende de**: —.
+**Medido**: `hm --help` tarda **5,7–6,2 s** y lanza **143 procesos `jq`** —tres por cada uno
+de los 45 comandos— sobre el mismo fichero, que cabe entero en memoria. Es lo primero que
+ejecuta quien se acerca a la herramienta.
+**Objetivo**: por debajo de 500 ms con una sola invocación de `jq`.
+
+#### PERF-02 · Coste fijo de arranque perezoso
+**Esfuerzo**: M. Cada invocación paga hoy `docker compose version` (188 ms), la versión de
+Magento leyendo un `composer.lock` de 1,6 MB (77 ms) y `git describe` (56 ms), aunque el
+comando no los use. Se calculan la primera vez que se piden y se memorizan.
+
+#### PERF-03 · `hm doctor` en paralelo
+**Esfuerzo**: S. Doce comprobaciones independientes ejecutadas en serie: **3,9–4,6 s**. En
+paralelo el peor caso es la más lenta, no la suma. Objetivo: por debajo de 2 s.
+
+#### PERF-04 · Presupuesto de rendimiento vigilado por test
+**Esfuerzo**: S. **Depende de**: PERF-01. Una prueba que falla si `hm --help`, el arranque
+mínimo o `hm doctor` se pasan de presupuesto, para que la mejora no se degrade en silencio.
 
 ### Área TUI
 

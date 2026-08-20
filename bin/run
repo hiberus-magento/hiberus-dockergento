@@ -102,7 +102,9 @@ docker_env_variables() {
     else
         export DOCKER_COMPOSE="$compose_cmd -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_MACHINE"
     fi
-    export DOCKER_COMPOSE_VERSION=$(get_docker_compose_version)
+    # Not resolved here: only three callers need it (template generation, the doctor check
+    # and describe), and asking Docker for it cost ~190ms on every invocation
+    export HM_COMPOSE_VERSION_CACHE="${HM_COMPOSE_VERSION_CACHE:-}"
 }
 
 #
@@ -188,8 +190,10 @@ execute() {
     check_command_dir "$1"
     # Set composer project name
     docker_env_variables
-    # Export the metadata stamped on the containers as hm.* labels
+    # Export the metadata stamped on the containers as hm.* labels. The expensive ones are
+    # only resolved for the commands that can create containers.
     set_environment_labels
+    hm_creates_containers "$1" && set_environment_labels_full
     # Refuse what would damage the environment of the main checkout
     validate_worktree "$1"
     # Validation docker compose

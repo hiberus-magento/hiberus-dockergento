@@ -32,27 +32,56 @@ print_commands_info() {
         exit 0
     fi
 
-    local files=$(find "$command_path" -name '*.sh' | wc -l)
+    # Parameter expansion instead of `find -exec basename`, which spawned one process per
+    # command file
+    local names="" script basename
+    for script in "$command_path"/*.sh; do
+        [ -f "$script" ] || continue
+        basename="${script##*/}"
+        names+="${basename%.sh}"$'\n'
+    done
 
-    if [ "$files" -gt 0 ]; then
-        echo -e "$command_color\n$title\n$underline$COLOR_RESET"
+    # Glob order, not name order: the glob sorts by file name, so `cloud-login.sh` comes
+    # before `cloud.sh`. Sorting by command name would reorder those two and change output
+    # that has been stable for years, which is a separate decision from making this fast.
 
-        for script in "$command_path"/*.sh; do
-            command_basename=$(basename "$script")
-            command_name=${command_basename%.sh}
-            command_information=$(echo "$file_content" | jq -r '.["'$command_name'"]')
-            command_desc_property=$(echo "$command_information" | jq -r 'if .description then .description else "" end')
-            mac=$(echo "$command_information" | jq -r '.mac')
-            
-            if [[ "$MACHINE" == "mac" || $mac != true ]]; then
-            
-
-                printf "\t$command_color%-20s$COLOR_RESET %s\n" "$command_name" "$command_desc_property"
-            fi
-        done
-
-        printf "\n\n"
+    if [ -z "$names" ]; then
+        return 0
     fi
+
+    echo -e "$command_color\n$title\n$underline$COLOR_RESET"
+
+    # One jq for the whole table instead of three per command. Listing 45 commands used to
+    # spawn 143 jq processes against the same 13 KB file, which was 5 of the 5.7 seconds
+    # `hm --help` took.
+    #
+    # Fields are separated by the unit separator, not a tab: `read` treats tabs as
+    # whitespace and collapses consecutive ones, which would shift every column of a
+    # command whose description is empty.
+    local rows
+    rows=$(printf '%s' "$file_content" | jq -r --arg names "$names" '
+        . as $descriptions
+        | $names
+        | split("\n")
+        | map(select(length > 0))
+        | .[]
+        | [
+            .,
+            ($descriptions[.].description // ""),
+            (($descriptions[.].mac // false) | tostring)
+          ]
+        | join("\u001f")')
+
+    local name description mac_only
+    while IFS=$'\037' read -r name description mac_only; do
+        [ -z "$name" ] && continue
+
+        if [[ "$MACHINE" == "mac" || "$mac_only" != "true" ]]; then
+            printf "\t$command_color%-20s$COLOR_RESET %s\n" "$name" "$description"
+        fi
+    done <<< "$rows"
+
+    printf "\n\n"
 }
 
 #
@@ -72,22 +101,26 @@ print_all_commands_help_info() {
 # Print the options accepted by every command
 #
 print_global_options() {
-    local global_opts length name description
+    local rows name description
 
-    global_opts=$(jq -r '._global.opts' < "$DATA_DIR"/command_descriptions.json)
-    length=$(echo "$global_opts" | jq -r 'if . == null then 0 else length end')
+    # One jq for the whole block: the previous version spent two processes per option plus
+    # two more, ten in total, to print three lines
+    rows=$(jq -r '
+        ._global.opts // []
+        | .[]
+        | [(.name.long // ""), (.description // "")]
+        | join("\u001f")' < "$DATA_DIR"/command_descriptions.json)
 
-    if [[ $length -eq 0 ]]; then
+    if [ -z "$rows" ]; then
         return 0
     fi
 
     echo -e "$GREEN\nGlobal options\n--------------\n$COLOR_RESET"
 
-    for ((i = 0; i < length; i++)); do
-        name=$(echo "$global_opts" | jq -r '.['$i'].name.long')
-        description=$(echo "$global_opts" | jq -r '.['$i'].description')
+    while IFS=$'\037' read -r name description; do
+        [ -z "$name" ] && continue
         printf "\t$BROWN%-20s$COLOR_RESET%s\n" "--$name" " $description"
-    done
+    done <<< "$rows"
 
     printf "\n"
 }

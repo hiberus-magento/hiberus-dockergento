@@ -189,7 +189,10 @@ set_settings() {
     # Determine if we should include version in docker-compose files
     # Docker Compose >= 2.25 shows warning if version is present
     YML_VERSION="version: \"3.7\"\n"
-    if [[ -n "${DOCKER_COMPOSE_VERSION:-}" ]] && version_gte "${DOCKER_COMPOSE_VERSION}" "2.25.0"; then
+    local compose_version
+    compose_version=$(get_docker_compose_version)
+
+    if [[ -n "$compose_version" ]] && version_gte "$compose_version" "2.25.0"; then
         YML_VERSION=""
     fi
 

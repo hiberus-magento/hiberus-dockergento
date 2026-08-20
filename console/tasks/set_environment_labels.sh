@@ -33,7 +33,22 @@ hm_magento_version() {
 }
 
 #
-# Export everything the compose template interpolates
+# Commands that can create or recreate containers, and therefore need every label resolved
+# before compose interpolates them
+#
+hm_creates_containers() {
+    case "$1" in
+        start | restart | rebuild | setup | install | create-project | docker-compose)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+#
+# Export the cheap labels, which every invocation can afford
 #
 set_environment_labels() {
     export HM_PROJECT="${COMPOSE_PROJECT_NAME:-}"
@@ -41,6 +56,18 @@ set_environment_labels() {
     export HM_WORKTREE="${HM_WORKTREE:-}"
     export HM_PROFILE="${HM_PROFILE:-full}"
     export HM_AGENT="${HM_AGENT:-}"
-    export HM_VERSION="${HM_VERSION:-$(hm_installed_version)}"
-    export HM_MAGENTO="${HM_MAGENTO:-$(hm_magento_version)}"
+    export HM_VERSION="${HM_VERSION:-}"
+    export HM_MAGENTO="${HM_MAGENTO:-}"
+}
+
+#
+# Resolve the expensive labels. `git describe` costs ~50ms and reading the Magento version
+# out of a 1.6MB composer.lock costs ~77ms, and only the containers being created care, so
+# this is called for those commands instead of on every invocation.
+#
+set_environment_labels_full() {
+    [ -z "${HM_VERSION:-}" ] && export HM_VERSION="$(hm_installed_version)"
+    [ -z "${HM_MAGENTO:-}" ] && export HM_MAGENTO="$(hm_magento_version)"
+
+    return 0
 }

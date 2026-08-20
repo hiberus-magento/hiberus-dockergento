@@ -63,8 +63,13 @@ run_check() {
 #
 # Run every check and print the raw result lines
 #
+# The checks are independent and mostly spend their time waiting on Docker, so they run
+# concurrently: the total cost becomes the slowest check instead of the sum of all twelve.
+# Each one writes to a file named after its script, and the results are read back in that
+# order, so the report stays identical to the sequential one no matter who finishes first.
+#
 collect_results() {
-    local script id
+    local script id output_dir
 
     export HM_DOCTOR_IN_PROJECT
     HM_DOCTOR_IN_PROJECT=$(detect_project)
@@ -72,6 +77,8 @@ collect_results() {
     # The container table costs a Docker round trip: load it once and hand it down
     hm_load_container_table
     export HM_DOCTOR_CONTAINER_TABLE="$HM_CONTAINER_TABLE_CACHE"
+
+    output_dir=$(mktemp -d)
 
     for script in "$DOCTOR_DIR"/*.sh; do
         [ -f "$script" ] || continue
@@ -83,8 +90,13 @@ collect_results() {
             continue
         fi
 
-        run_check "$script" "$id"
+        run_check "$script" "$id" > "$output_dir/$(basename "$script")" &
     done
+
+    wait
+
+    cat "$output_dir"/* 2>/dev/null
+    rm -rf "$output_dir"
 }
 
 #

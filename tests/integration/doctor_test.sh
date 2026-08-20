@@ -143,6 +143,21 @@ project_scoped=$(printf '%s' "$STDOUT" | jq -r '[.data.checks[] | select(.scope 
 [ "$project_scoped" -gt 0 ] && r=yes || r=no
 assert_equals "yes" "$r"
 
+# Regression: the expensive labels are only exported for commands that create containers,
+# so a check reading HM_MAGENTO straight from the environment misread "not computed yet" as
+# "this project has no Magento".
+test_case "a project with Magento is not reported as lacking it"
+cat > "$PROJECT/composer.lock" <<'JSON'
+{"packages":[{"name":"magento/product-community-edition","version":"2.4.9"}]}
+JSON
+run_in "$PROJECT" doctor --json
+message=$(printf '%s' "$STDOUT" | jq -r '.data.checks[] | select(.id == "magento") | .message')
+assert_not_contains "$message" "has no Magento package"
+
+test_case "and the version it reports is the real one"
+assert_contains "$message" "2.4.9"
+rm -f "$PROJECT/composer.lock"
+
 test_case "a project without Magento reports it, without failing the diagnosis"
 assert_json_field "$STDOUT" '.data.checks[] | select(.id == "magento") | .severity' "warning"
 

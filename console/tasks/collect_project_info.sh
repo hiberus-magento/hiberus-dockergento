@@ -13,6 +13,8 @@
 #
 
 source "$HELPERS_DIR"/docker.sh
+source "$HELPERS_DIR"/version.sh
+source "$TASKS_DIR"/set_environment_labels.sh
 
 HM_COMPOSE_CONFIG_CACHE=""
 
@@ -89,13 +91,13 @@ collect_project_info() {
         --arg root "${HM_ROOT:-$PWD}" \
         --arg worktree "${HM_WORKTREE:-}" \
         --arg domain "${DOMAIN:-}" \
-        --arg magento_version "${HM_MAGENTO:-}" \
+        --arg magento_version "${HM_MAGENTO:-$(hm_magento_version)}" \
         --arg magento_mode "$(magento_deploy_mode)" \
         --arg magento_dir "${MAGENTO_DIR:-.}" \
         --arg workdir "${WORKDIR_PHP:-}" \
         --arg machine "${MACHINE:-}" \
-        --arg hm_version "${HM_VERSION:-}" \
-        --arg compose_version "${DOCKER_COMPOSE_VERSION:-}" \
+        --arg hm_version "${HM_VERSION:-$(hm_installed_version)}" \
+        --arg compose_version "$(get_docker_compose_version)" \
         --arg xdebug "$(xdebug_state)" \
         --arg compose_file "${DOCKER_COMPOSE_FILE:-}" \
         --arg compose_file_machine "${DOCKER_COMPOSE_FILE_MACHINE:-}" \

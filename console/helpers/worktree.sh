@@ -32,26 +32,30 @@ hm_resolve_project_root() {
         return 0
     fi
 
-    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    local common_dir toplevel main_root git_output
+
+    # One git call instead of three. Asking "am I in a repository?", "where is the common
+    # .git?" and "what is this checkout's root?" separately cost 132ms; asked together they
+    # cost 46ms, and outside a repository the call simply fails, which is the same answer
+    # the first question used to give.
+    #
+    # --path-format needs git 2.31; older versions fall back to the relative form.
+    git_output=$(git rev-parse --path-format=absolute --git-common-dir --show-toplevel 2>/dev/null) ||
+        git_output=$(git rev-parse --git-common-dir --show-toplevel 2>/dev/null) ||
+        return 0
+
+    { read -r common_dir; read -r toplevel; } <<< "$git_output"
+
+    if [ -z "$common_dir" ] || [ -z "$toplevel" ]; then
         return 0
     fi
 
-    local common_dir toplevel main_root
+    # The fallback form can return a relative path
+    case "$common_dir" in
+        /*) ;;
+        *)  common_dir=$(cd "$common_dir" 2>/dev/null && pwd) || return 0 ;;
+    esac
 
-    # --path-format needs git 2.31; older versions get the relative path resolved by hand
-    common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
-
-    if [ -z "$common_dir" ]; then
-        common_dir=$(git rev-parse --git-common-dir 2>/dev/null || true)
-
-        case "$common_dir" in
-            "") return 0 ;;
-            /*) ;;
-            *)  common_dir=$(cd "$common_dir" 2>/dev/null && pwd) || return 0 ;;
-        esac
-    fi
-
-    toplevel=$(git rev-parse --show-toplevel 2>/dev/null || true)
     main_root="${common_dir%/.git}"
 
     # A bare repository or an unexpected layout: nothing to resolve
