@@ -9,8 +9,9 @@
 - [ ] 2.1 Ocultar y mostrar el cursor
 - [ ] 2.2 Mover el cursor a una posición y guardar/restaurar la posición
 - [ ] 2.3 Entrar y salir de la pantalla alternativa
-- [ ] 2.4 Borrar la línea actual y definir la región de scroll para una línea fija inferior
-- [ ] 2.5 Documentar cada secuencia en el propio fichero, con lo que hace y por qué no se usa `tput`
+- [ ] 2.4 Borrar la línea actual
+- [ ] 2.5 Ceder el terminal y recuperarlo, para que un comando externo escriba con normalidad
+- [ ] 2.6 Documentar cada secuencia en el propio fichero, con lo que hace y por qué no se usa `tput`
 
 ## 3. Restauración garantizada
 
@@ -37,9 +38,10 @@
 - [ ] 6.1 Pruebas unitarias de las funciones puras: interpretación del tamaño y de las teclas
 - [ ] 6.2 Pruebas de que nada se emite sin terminal
 - [ ] 6.3 Prueba con pseudo-terminal (`script`) del camino interactivo: entrar y salir de la pantalla alternativa
-- [ ] 6.4 Prueba de que el terminal queda restaurado tras una interrupción
-- [ ] 6.5 Comprobación manual: entrar en pantalla alternativa, salir y verificar que el scrollback anterior sigue ahí
-- [ ] 6.6 Verificar en el Bash 3.2 de macOS y en el Bash 5 de linux
+- [ ] 6.4 Prueba de ceder el terminal, ejecutar algo y recuperarlo
+- [ ] 6.5 Prueba de que el terminal queda restaurado tras una interrupción
+- [ ] 6.6 Comprobación manual: entrar en pantalla alternativa, salir y verificar que el scrollback anterior sigue ahí
+- [ ] 6.7 Verificar en el Bash 3.2 de macOS y en el Bash 5 de linux
 
 ## 7. Documentación
 

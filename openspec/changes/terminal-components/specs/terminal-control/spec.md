@@ -31,6 +31,15 @@ pantalla alternativa.
 - **WHEN** se oculta el cursor y después se muestra
 - **THEN** el cursor vuelve a ser visible
 
+#### Scenario: Ceder el terminal a otro comando
+- **WHEN** se cede el terminal, otro comando escribe su salida y después se recupera
+- **THEN** la salida de ese comando se ve con normalidad
+- **AND** al recuperarlo se vuelve a la pantalla alternativa
+
+#### Scenario: Ceder y recuperar repetidamente
+- **WHEN** se cede y se recupera el terminal varias veces
+- **THEN** el estado del terminal es correcto en cada paso
+
 #### Scenario: Nada que emitir sin terminal
 - **WHEN** cualquiera de esas operaciones se ejecuta con la salida no conectada a un terminal
 - **THEN** no se escribe ninguna secuencia de control

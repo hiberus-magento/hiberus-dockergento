@@ -22,7 +22,8 @@ Backlog: **UX-07**. Es prerrequisito de **TUI-01**, **UX-04**, **UX-05** y **UX-
   - **Pantalla alternativa**: entrar y salir sin tocar el contenido previo del terminal.
   - **Teclas**: leer una pulsación, incluidas las flechas y `Esc`, `Enter` y `Ctrl-C`.
   - **Redimensionado**: reaccionar a `SIGWINCH`.
-  - **Región inferior fija**: una línea reservada abajo para estado o progreso.
+  - **Ceder y recuperar el terminal**: salir de la pantalla alternativa, dejar que otro
+    comando escriba con normalidad y volver al panel al terminar.
   - **Restauración garantizada**: al salir, por interrupción o por error, el terminal queda
     como estaba (cursor visible, pantalla principal, eco activado).
 - Todas las funciones **no hacen nada** cuando la salida no es un terminal, para que un

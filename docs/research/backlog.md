@@ -41,6 +41,7 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 |---|---|---|
 | [polish-terminal-ux](../../openspec/changes/polish-terminal-ux/) | UX-01, UX-02, UX-03 | 17 |
 | [terminal-components](../../openspec/changes/terminal-components/) | UX-07 | 25 |
+| [terminal-dashboard](../../openspec/changes/terminal-dashboard/) | TUI-01 | 28 |
 | [add-cli-output-contract](../../openspec/changes/add-cli-output-contract/) | CLI-01 | 32 |
 | [add-compose-project-labels](../../openspec/changes/add-compose-project-labels/) | ENV-02 | 21 |
 | [add-describe-and-list-commands](../../openspec/changes/add-describe-and-list-commands/) | CLI-02, CLI-03 | 26 |
@@ -74,7 +75,7 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 | **UX-05** | Señal en operaciones largas (<100 ms) | UX | M | UX-02 | backlog |
 | **UX-06** | Selector navegable con flechas | UX | M | UX-07 | backlog |
 | **UX-07** | Biblioteca de componentes de terminal | UX | M | — | [spec](../../openspec/changes/terminal-components/) |
-| **TUI-01** | Dashboard de terminal (`hm` sin argumentos) | TUI | M | CLI-02, CLI-03, UX-07 | backlog |
+| **TUI-01** | Dashboard de terminal (`hm` sin argumentos) | TUI | M | CLI-02, CLI-03, UX-07 | [spec](../../openspec/changes/terminal-dashboard/) |
 | **NET-01** | Proxy global (`hm proxy`) con Traefik | Red | L | ENV-02 | backlog |
 | **NET-02** | Certificado wildcard | Red | S | NET-01 | backlog |
 | **NET-03** | dnsmasq: fin de `/etc/hosts` | Red | M | NET-01 | backlog |

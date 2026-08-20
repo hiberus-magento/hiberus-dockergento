@@ -65,7 +65,24 @@ principal, cursor visible, eco activado, región de scroll completa. La restaura
 Es el requisito más importante de este cambio: un TUI que se cuelga y deja el terminal roto
 quema la confianza para siempre.
 
-### 5. Sin terminal, todo es inofensivo
+### 5. Ceder el terminal y recuperarlo
+
+Escribir la especificación del panel (TUI-01) sacó a la luz una operación que faltaba: el
+panel no dibuja la salida de `hm start` dentro de un recuadro, **sale de la pantalla
+alternativa**, deja que el comando escriba con normalidad y vuelve al terminar. Es el patrón
+de `git` al abrir el editor, y evita tener que multiplexar salida.
+
+Eso son dos funciones: ceder el terminal (salir de la pantalla alternativa, mostrar el
+cursor, restaurar el eco) y recuperarlo (volver a entrar), ambas idempotentes y ambas
+inofensivas sin terminal.
+
+Y sacó a la luz lo contrario también: **la región inferior fija no tiene consumidor**. El
+panel dibuja su línea de estado como parte de su propio contenido, y no hay nadie más que la
+pida. Sale de este cambio, por el criterio que ya estaba escrito: nada entra por si acaso.
+
+Ese es el motivo de haber especificado el consumidor antes de la biblioteca.
+
+### 6. Sin terminal, todo es inofensivo
 
 Cada función comprueba si stdout es un TTY y, si no lo es, no escribe nada y devuelve
 correctamente. Así el mismo código sirve para una persona, para un pipe y para un agente,
@@ -74,7 +91,7 @@ que es la línea que ya sigue el resto de la CLI.
 El tamaño es la excepción útil: sin terminal devuelve el valor por defecto, porque quien
 formatea una tabla necesita un número con el que trabajar.
 
-### 6. Separar calcular de emitir, para poder probarlo
+### 7. Separar calcular de emitir, para poder probarlo
 
 Un componente que sólo escribe secuencias en un terminal es imposible de probar sin un
 pseudo-terminal. Así que las funciones se parten en dos:
@@ -87,14 +104,14 @@ pseudo-terminal. Así que las funciones se parten en dos:
 
 Sin esta separación, la biblioteca queda sin pruebas, y es la base del TUI.
 
-### 7. Lectura de teclas
+### 8. Lectura de teclas
 
 `read -rsn1` para una pulsación. Las flechas llegan como tres bytes (`\e`, `[`, `A`), así que
 al recibir `\e` se leen los siguientes con un tiempo de espera muy corto (`read -t 0.01`)
 para distinguir una flecha de un `Esc` pulsado a solas. Bash 3.2 admite tiempos de espera
 fraccionarios en `read -t`.
 
-### 8. mac y linux
+### 9. mac y linux
 
 Sin diferencias en las secuencias. Sí en detalles: `stty size` existe en ambos con la misma
 salida; `read -t` con decimales funciona en ambos. Se verifica en los dos.
@@ -106,7 +123,7 @@ salida; `read -t` con decimales funciona en ambos. Se verifica en los dos.
   común de cualquier terminal de los últimos treinta años; y sin TTY no se emite ninguna.
 - **La biblioteca crece hasta ser un framework** → el criterio de admisión es que exista un
   consumidor concreto y ya especificado; nada entra "por si acaso".
-- **Difícil de probar** → decisión 6.
+- **Difícil de probar** → decisión 7.
 - **`SIGWINCH` y `trap` interactuando mal** → el manejador de redimensionado sólo actualiza
   dos variables; no dibuja. Quien dibuja es el bucle principal del TUI.
 
@@ -118,4 +135,4 @@ No aplica: componente nuevo sin consumidores. Se puede revertir borrando el fich
 
 - ¿Debe el componente ofrecer una función de "dibujar tabla" o eso pertenece a cada
   consumidor? Propuesta: fuera de este cambio. Primero que existan dos consumidores y se vea
-  qué comparten de verdad.
+  qué comparten de verdad; con uno solo, el panel, no hay nada que compartir todavía.
