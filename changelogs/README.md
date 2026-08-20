@@ -16,6 +16,7 @@ Changelogs include:
 
 ## Versions
 
+- [v1.5.0](v1.5.0.md) - unreleased - Machine readable output, describe/list/doctor, worktree safety, 14x faster help and terminal manners
 - [v1.4.5](v1.4.5.md) - 2026-08-19 - Non-interactive `hm mysql`, OpenSearch 3 JVM flag and project-scoped container lookups
 - [v1.4.4](v1.4.4.md) - 2026-07-29 - Deployer PHP 8.3, MariaDB 12.3, RabbitMQ 4.3 and Nginx 1.30 images
 - [v1.3.0](v1.3.0.md) - 2026-04-02 - Magento 2.4.8 support, security patch backfill, data-driven image config
