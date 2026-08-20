@@ -64,6 +64,9 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 | **PERF-02** | Coste fijo de arranque perezoso | Rendimiento | M | — | **hecho** |
 | **PERF-03** | `hm doctor` en paralelo | Rendimiento | S | — | **hecho** |
 | **PERF-04** | Presupuesto de rendimiento vigilado por test | Rendimiento | S | PERF-01 | **hecho** |
+| **REL-01** | `hm --version` con la referencia exacta | Release | S | — | [spec](../../openspec/changes/version-switching/) |
+| **REL-02** | `hm switch` para cambiar de versión y volver | Release | M | REL-01 | [spec](../../openspec/changes/version-switching/) |
+| **REL-03** | `hm update` no debe sacar de un tag en silencio | Release | S | — | [spec](../../openspec/changes/version-switching/) |
 | **UX-01** | Contraseñas sin eco en los prompts | UX | S | — | **hecho** |
 | **UX-02** | Honrar `NO_COLOR`, `TERM=dumb` y `--no-color` | UX | S | — | **hecho** |
 | **UX-03** | Dejar de borrar la pantalla al preguntar | UX | S | — | **hecho** |
@@ -211,6 +214,24 @@ paralelo el peor caso es la más lenta, no la suma. Objetivo: por debajo de 2 s.
 #### PERF-04 · Presupuesto de rendimiento vigilado por test
 **Esfuerzo**: S. **Depende de**: PERF-01. Una prueba que falla si `hm --help`, el arranque
 mínimo o `hm doctor` se pasan de presupuesto, para que la mejora no se degrade en silencio.
+
+### Área Release
+
+Nace de la necesidad de validar versiones candidatas en proyectos reales y de compartirlas
+entre compañeros. Detalle en el change [version-switching](../../openspec/changes/version-switching/).
+
+#### REL-01 · `hm --version` con la referencia exacta
+**Esfuerzo**: S. Usa `git describe --abbrev=0`, así que con once commits por encima del último
+tag seguía diciendo `1.4.5`. Quien reporta un fallo no puede decir sobre qué lo reporta.
+
+#### REL-02 · `hm switch`
+**Esfuerzo**: M. **Depende de**: REL-01. Cambiar de versión y volver, con `--list` y
+`--stable`, negándose si hay cambios sin guardar en la instalación.
+
+#### REL-03 · `hm update` no debe sacar de un tag en silencio
+**Esfuerzo**: S. **Es el urgente.** En un checkout desacoplado, `git pull origin HEAD` no
+falla: trae la rama por defecto del remoto. Quien esté validando una candidata la pierde en
+su primer `hm update`, sin ningún aviso.
 
 ### Área UX
 
