@@ -119,6 +119,32 @@ hm mysql -i /path/.../dump.sql
 
 ## Available commands
 
+Run `hm --help` for the full list, grouped by purpose, with examples:
+
+```
+█  █ █▀▄▀█   Hiberus Dockergento
+█▀▀█ █ ▀ █   Docker environments for Magento 2
+▀  ▀ ▀   ▀
+
+Usage: hm <command> [options]
+
+Environment
+  start                 Start docker services
+  doctor                Diagnose the machine and the current project
+  describe              Show everything that defines the current project
+  ...
+
+Examples
+  hm start                      Bring the environment up
+  hm magento cache:clean        Run a Magento command
+  hm mysql -i dump.sql          Import a database dump
+```
+
+A new command joins a group by declaring `"group"` in `data/command_descriptions.json`;
+one without a group shows up under `Other`.
+
+## Available commands (detail)
+
 ```bash
 hm --help          # list all available commands
 hm setup --help    # help for a specific command

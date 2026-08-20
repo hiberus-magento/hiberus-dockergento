@@ -3,6 +3,11 @@ set -euo pipefail
 
 command_info=""
 
+# Help is the output of this command, not decoration around it: all of it belongs on
+# stdout. Without this, JSON mode would route the headings to stderr and `hm --help > file`
+# would lose them. There is no JSON rendering of help text.
+HM_OUTPUT_FORMAT="text"
+
 source "$COMPONENTS_DIR"/print_message.sh
 source "$TASKS_DIR"/copyright.sh
 source "$HELPERS_DIR"/print_usage.sh
@@ -14,14 +19,12 @@ print_commands_info() {
     local command_path="$COMMANDS_DIR"
     local file_content="$(cat "$DATA_DIR"/command_descriptions.json)"
     local command_color="$GREEN"
-    local title="Command list"
-    local underline="------------\n"
+    local custom=false
 
     if [ $# -gt 0 ] && [ "$1" == 'custom' ]; then
         command_path="$CUSTOM_COMMANDS_DIR"
-        title="Custom command list"
-        underline="-------------------\n"
         command_color="$PURPLE"
+        custom=true
 
         if [ -f "$command_path/command_descriptions.json" ]; then
             file_content=$(cat "$command_path/command_descriptions.json")
@@ -29,11 +32,12 @@ print_commands_info() {
     fi
 
     if [ ! -d "$command_path" ]; then
-        exit 0
+        return 0
     fi
 
     # Parameter expansion instead of `find -exec basename`, which spawned one process per
-    # command file
+    # command file. Glob order, not name order: the glob sorts by file name, so
+    # `cloud-login.sh` comes before `cloud.sh`, and that has been the order for years.
     local names="" script basename
     for script in "$command_path"/*.sh; do
         [ -f "$script" ] || continue
@@ -41,60 +45,115 @@ print_commands_info() {
         names+="${basename%.sh}"$'\n'
     done
 
-    # Glob order, not name order: the glob sorts by file name, so `cloud-login.sh` comes
-    # before `cloud.sh`. Sorting by command name would reorder those two and change output
-    # that has been stable for years, which is a separate decision from making this fast.
-
     if [ -z "$names" ]; then
         return 0
     fi
 
-    echo -e "$command_color\n$title\n$underline$COLOR_RESET"
-
-    # One jq for the whole table instead of three per command. Listing 45 commands used to
-    # spawn 143 jq processes against the same 13 KB file, which was 5 of the 5.7 seconds
-    # `hm --help` took.
+    # Still one jq for the whole table, now carrying the group as well. Grouping by asking
+    # jq once per group would undo the work that took `hm --help` from 5.7s to 0.4s.
     #
     # Fields are separated by the unit separator, not a tab: `read` treats tabs as
     # whitespace and collapses consecutive ones, which would shift every column of a
-    # command whose description is empty.
+    # command with an empty description.
     local rows
     rows=$(printf '%s' "$file_content" | jq -r --arg names "$names" '
         . as $descriptions
+        | (($descriptions._groups // []) | map(.id)) as $order
+        | (($descriptions._groups // []) | map({(.id): .title}) | add // {}) as $titles
         | $names
         | split("\n")
         | map(select(length > 0))
+        | to_entries
+        | map({
+            position: .key,
+            name: .value,
+            description: ($descriptions[.value].description // ""),
+            mac: (($descriptions[.value].mac // false) | tostring),
+            group: ($descriptions[.value].group // "other")
+          })
+        | map(.group as $group | . + {rank: (($order | index($group)) // 999)})
+        | sort_by([.rank, .position])
         | .[]
-        | [
-            .,
-            ($descriptions[.].description // ""),
-            (($descriptions[.].mac // false) | tostring)
-          ]
+        | [.group, ($titles[.group] // "Other"), .name, .description, .mac]
         | join("\u001f")')
 
-    local name description mac_only
-    while IFS=$'\037' read -r name description mac_only; do
+    local group title name description mac_only current_group=""
+    while IFS=$'\037' read -r group title name description mac_only; do
         [ -z "$name" ] && continue
 
-        if [[ "$MACHINE" == "mac" || "$mac_only" != "true" ]]; then
-            printf "\t$command_color%-20s$COLOR_RESET %s\n" "$name" "$description"
+        if [[ "$MACHINE" != "mac" && "$mac_only" == "true" ]]; then
+            continue
         fi
-    done <<< "$rows"
 
-    printf "\n\n"
+        if [ "$group" != "$current_group" ]; then
+            current_group="$group"
+
+            if $custom; then
+                title="Custom commands"
+            fi
+
+            printf "\n"
+            print_info "$title\n"
+        fi
+
+        printf "  $command_color%-22s$COLOR_RESET%s\n" "$name" "$description"
+    done <<< "$rows"
 }
 
 #
 # Print native commands and custom commands info
 #
 print_all_commands_help_info() {
-    local commands_output
-    local commands_output_all
-    commands_output=$(print_commands_info)
-    commands_output_all=$(print_commands_info "custom")
-    echo "$commands_output"
-    echo "$commands_output_all"
+    print_logo
+    print_usage_line
+    print_commands_info
+    print_commands_info "custom"
+    print_examples
     print_global_options
+    print_help_footer
+}
+
+#
+# How the tool is invoked
+#
+print_usage_line() {
+    print_info "Usage: "
+    print_default "$COMMAND_BIN_NAME <command> [options]\n"
+}
+
+#
+# The tasks people actually do, declared in the data file rather than hardcoded here:
+# what counts as common is a team decision and it will change
+#
+print_examples() {
+    local rows command description
+
+    rows=$(jq -r '
+        ._examples // []
+        | .[]
+        | [(.command // ""), (.description // "")]
+        | join("\u001f")' < "$DATA_DIR"/command_descriptions.json)
+
+    if [ -z "$rows" ]; then
+        return 0
+    fi
+
+    printf "\n"
+    print_info "Examples\n"
+
+    while IFS=$'\037' read -r command description; do
+        [ -z "$command" ] && continue
+        printf "  $BROWN%-30s$COLOR_RESET%s\n" "$command" "$description"
+    done <<< "$rows"
+}
+
+#
+# Where to go next
+#
+print_help_footer() {
+    print_default "Run "
+    print_code "$COMMAND_BIN_NAME <command> --help"
+    print_default " for details on a single command.\n\n"
 }
 
 #
@@ -115,11 +174,12 @@ print_global_options() {
         return 0
     fi
 
-    echo -e "$GREEN\nGlobal options\n--------------\n$COLOR_RESET"
+    printf "\n"
+    print_info "Global options\n"
 
     while IFS=$'\037' read -r name description; do
         [ -z "$name" ] && continue
-        printf "\t$BROWN%-20s$COLOR_RESET%s\n" "--$name" " $description"
+        printf "  $BROWN%-22s$COLOR_RESET%s\n" "--$name" "$description"
     done <<< "$rows"
 
     printf "\n"

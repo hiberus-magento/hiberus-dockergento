@@ -33,7 +33,8 @@
                 },
                 "description": "Branch name for custom repository (default: main)"
             }
-        ]
+        ],
+        "group": "ai"
     },
     "ai-pull": {
         "description": "Download/update AI tools (skills/agents) from configured repositories",
@@ -45,7 +46,8 @@
                 },
                 "description": "Force re-download and overwrite existing skills/agents"
             }
-        ]
+        ],
+        "group": "ai"
     },
     "ai-reset": {
         "description": "Remove downloaded AI tools while preserving custom skills/agents",
@@ -57,7 +59,8 @@
                 },
                 "description": "Skip confirmation prompt (for automation)"
             }
-        ]
+        ],
+        "group": "ai"
     },
     "bash": {
         "description": "Connect into container using bash [Default container: php]",
@@ -69,17 +72,21 @@
                 },
                 "description": "Use bash as root user"
             }
-        ]
+        ],
+        "group": "tools"
     },
     "cloud": {
         "description": "Magento Cloud Cli",
-        "usage": "cloud [options]"
+        "usage": "cloud [options]",
+        "group": "tools"
     },
     "cloud-login": {
-        "description": "Magento Cloud Login"
+        "description": "Magento Cloud Login",
+        "group": "tools"
     },
     "compatibility": {
-        "description": "Check Magento version compatibility"
+        "description": "Check Magento version compatibility",
+        "group": "tools"
     },
     "composer": {
         "description": "Execute composer inside php container",
@@ -88,11 +95,13 @@
                 "name": "composer-subcommands",
                 "description": "composer commands (install, update, ...)"
             }
-        ]
+        ],
+        "group": "magento"
     },
     "config-env": {
         "description": "Launch config set of project for local environment",
-        "usage": "config-env"
+        "usage": "config-env",
+        "group": "tools"
     },
     "copy-from-container": {
         "description": "(Mac only) Copy and overwrite container content into host",
@@ -103,7 +112,8 @@
             }
         ],
         "example": "copy-from-container generated",
-        "mac": true
+        "mac": true,
+        "group": "files"
     },
     "copy-to-container": {
         "description": "(Mac only) Copy and overwrite host content into container",
@@ -115,7 +125,8 @@
             }
         ],
         "example": "copy-to-container vendor",
-        "mac": true
+        "mac": true,
+        "group": "files"
     },
     "create-project": {
         "description": "Create new magento project inside current directory",
@@ -156,13 +167,16 @@
                 },
                 "description": "Magento version (you can see all available version with hm compatibility command)"
             }
-        ]
+        ],
+        "group": "tools"
     },
     "debug-off": {
-        "description": "Disable xDebug"
+        "description": "Disable xDebug",
+        "group": "tools"
     },
     "debug-on": {
-        "description": "Enable xDebug"
+        "description": "Enable xDebug",
+        "group": "tools"
     },
     "describe": {
         "description": "Show everything that defines the current project",
@@ -175,7 +189,8 @@
                 },
                 "description": "Include database credentials in the output"
             }
-        ]
+        ],
+        "group": "environment"
     },
     "docker-compose": {
         "description": "Execute docker compose using configuration for your machine",
@@ -184,10 +199,12 @@
                 "name": "[docker-opts]",
                 "description": "docker compose commands (exec, up, down, ...)"
             }
-        ]
+        ],
+        "group": "tools"
     },
     "docker-stop-all": {
-        "description": "Stop all running containers"
+        "description": "Stop all running containers",
+        "group": "tools"
     },
     "doctor": {
         "description": "Diagnose the machine and the current project",
@@ -200,11 +217,13 @@
                 },
                 "description": "Run a single check by id"
             }
-        ]
+        ],
+        "group": "environment"
     },
     "down": {
         "description": "Stop and remove containers, networks, images, and volumes (-v)",
-        "example": "down -v"
+        "example": "down -v",
+        "group": "environment"
     },
     "exec": {
         "description": "Execute a command in a running container [Default container: php]",
@@ -217,7 +236,8 @@
                 "description": "Run command as root user"
             }
         ],
-        "example": "exec ls -lah"
+        "example": "exec ls -lah",
+        "group": "tools"
     },
     "grunt": {
         "description": "Prepare grunt configuration and compile theme styles using grunt",
@@ -231,7 +251,8 @@
                 "name": "locale_LOCALE",
                 "description": "Locale code"
             }
-        ]
+        ],
+        "group": "magento"
     },
     "install": {
         "description": "Execute setup:install Magento command with custom config",
@@ -243,11 +264,13 @@
                 },
                 "description": "Use default settings like currency, admin-user, password-user, etc."
             }
-        ]
+        ],
+        "group": "magento"
     },
     "list": {
         "description": "List every Dockergento environment on this machine",
-        "usage": "list"
+        "usage": "list",
+        "group": "environment"
     },
     "magento": {
         "description": "Execute Magento console commands",
@@ -257,11 +280,13 @@
                 "description": "Execute Magento subcommand."
             }
         ],
-        "example": "magento cache:clean"
+        "example": "magento cache:clean",
+        "group": "magento"
     },
     "masquerade": {
         "example": "masquerade\n\n\t >>> To add proyect config files create the following folder: config/docker/masquerade/magento2 and include de yaml files (.yaml) inside the newly created folder (magento2).",
-        "description": "Execute masquerade tool. 'hm masquerade --help' to view more info. "
+        "description": "Execute masquerade tool. 'hm masquerade --help' to view more info. ",
+        "group": "database"
     },
     "mysql": {
         "example": "mysql < local-path/my-dump.sql\n\t hm mysql -d -i=my-dump.sql",
@@ -288,7 +313,8 @@
                 },
                 "description": "Execute query"
             }
-        ]
+        ],
+        "group": "database"
     },
     "mysqldump": {
         "example": "mysqldump local-path/my-dump.sql",
@@ -298,11 +324,13 @@
                 "name": "path",
                 "description": "Sql file path when you want save dump"
             }
-        ]
+        ],
+        "group": "database"
     },
     "n98-magerun": {
         "description": "Execute n98-magerun tool",
-        "usage": "n98-magerun [options]"
+        "usage": "n98-magerun [options]",
+        "group": "magento"
     },
     "npm": {
         "description": "Execute npm commands into node container",
@@ -311,13 +339,16 @@
                 "name": "npm-subcommand",
                 "description": "Execute npm subcommand."
             }
-        ]
+        ],
+        "group": "magento"
     },
     "purge": {
-        "description": "Remove all magento generated code (caches, generated, static, view_preprocessed)"
+        "description": "Remove all magento generated code (caches, generated, static, view_preprocessed)",
+        "group": "magento"
     },
     "rebuild": {
-        "description": "Rebuild docker services with current configuration"
+        "description": "Rebuild docker services with current configuration",
+        "group": "environment"
     },
     "restart": {
         "description": "Restart docker services",
@@ -327,7 +358,8 @@
                 "description": "Restart specific container of the service-name."
             }
         ],
-        "example": "restart phpfpm"
+        "example": "restart phpfpm",
+        "group": "environment"
     },
     "set-host": {
         "example": "set-host my-project.local",
@@ -337,7 +369,8 @@
                 "name": "domain",
                 "description": "Domain is desired to set"
             }
-        ]
+        ],
+        "group": "tools"
     },
     "setup": {
         "description": "Dockerize magento project",
@@ -392,7 +425,8 @@
                 },
                 "description": "Use default settings of user for language, currency, ..."
             }
-        ]
+        ],
+        "group": "environment"
     },
     "ssl": {
         "description": "Install SSL certificates for docker environment",
@@ -402,7 +436,8 @@
                 "description": "Create certificate for specific domain."
             }
         ],
-        "example": "ssl domain.local"
+        "example": "ssl domain.local",
+        "group": "tools"
     },
     "start": {
         "description": "Start docker services",
@@ -421,7 +456,8 @@
                 "description": "Start specific container of the service-name."
             }
         ],
-        "example": "start phpfpm"
+        "example": "start phpfpm",
+        "group": "environment"
     },
     "stop": {
         "description": "Stop docker services",
@@ -431,29 +467,59 @@
                 "description": "Stop specific container of the service-name."
             }
         ],
-        "example": "stop phpfpm"
+        "example": "stop phpfpm",
+        "group": "environment"
     },
     "test-integration": {
-        "description": "Execute your magento integration tests"
+        "description": "Execute your magento integration tests",
+        "group": "magento"
     },
     "test-unit": {
-        "description": "Execute your magento unit test"
+        "description": "Execute your magento unit test",
+        "group": "magento"
     },
     "transfer-db": {
-        "description": "Transfer database form external source to this project"
+        "description": "Transfer database form external source to this project",
+        "group": "database"
     },
     "transfer-media": {
-        "description": "Transfer multimedia recurses form external source to this project"
+        "description": "Transfer multimedia recurses form external source to this project",
+        "group": "files"
     },
     "update": {
-        "description": "Update hiberus docker tool"
+        "description": "Update hiberus docker tool",
+        "group": "tools"
     },
     "varnish-off": {
-        "description": "Turn off varnish service"
+        "description": "Turn off varnish service",
+        "group": "tools"
     },
     "varnish-on": {
-        "description": "Turn on varnish service"
+        "description": "Turn on varnish service",
+        "group": "tools"
     },
+    "_examples": [
+        {
+            "command": "hm start",
+            "description": "Bring the environment up"
+        },
+        {
+            "command": "hm magento cache:clean",
+            "description": "Run a Magento command"
+        },
+        {
+            "command": "hm mysql -i dump.sql",
+            "description": "Import a database dump"
+        },
+        {
+            "command": "hm describe",
+            "description": "Show what this project is"
+        },
+        {
+            "command": "hm doctor",
+            "description": "Diagnose the machine and the project"
+        }
+    ],
     "_global": {
         "opts": [
             {
@@ -483,7 +549,44 @@
                     "long": "force"
                 },
                 "description": "Run a command refused from a git worktree (one invocation only)"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "no-color"
+                },
+                "description": "Never colour the output (see also NO_COLOR)"
             }
         ]
-    }
+    },
+    "_groups": [
+        {
+            "id": "environment",
+            "title": "Environment"
+        },
+        {
+            "id": "magento",
+            "title": "Magento"
+        },
+        {
+            "id": "database",
+            "title": "Database"
+        },
+        {
+            "id": "files",
+            "title": "Files"
+        },
+        {
+            "id": "tools",
+            "title": "Tools"
+        },
+        {
+            "id": "ai",
+            "title": "AI tools"
+        },
+        {
+            "id": "other",
+            "title": "Other"
+        }
+    ]
 }
