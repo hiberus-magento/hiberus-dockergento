@@ -34,19 +34,23 @@
 
 ## Estado actual
 
-Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
-(`openspec list` para verlos). Ninguno implementado todavía.
+Los cambios de OpenSpec creados a partir de este backlog, todos ya implementados y
+archivados en `openspec/changes/archive/`. Las áreas de Red, Base de datos,
+Instalación e IA siguen enteras en `backlog`.
 
-| Change | Cubre | Tareas |
-|---|---|---|
-| [polish-terminal-ux](../../openspec/changes/polish-terminal-ux/) | UX-01, UX-02, UX-03 | 17 |
-| [terminal-components](../../openspec/changes/terminal-components/) | UX-07 | 25 |
-| [terminal-dashboard](../../openspec/changes/terminal-dashboard/) | TUI-01 | 28 |
-| [add-cli-output-contract](../../openspec/changes/add-cli-output-contract/) | CLI-01 | 32 |
-| [add-compose-project-labels](../../openspec/changes/add-compose-project-labels/) | ENV-02 | 21 |
-| [add-describe-and-list-commands](../../openspec/changes/add-describe-and-list-commands/) | CLI-02, CLI-03 | 26 |
-| [add-doctor-command](../../openspec/changes/add-doctor-command/) | CLI-04 | 29 |
-| [add-worktree-guardrails](../../openspec/changes/add-worktree-guardrails/) | WT-01 | 25 |
+| Change | Cubre | Tareas | Estado |
+|---|---|---|---|
+| [polish-terminal-ux](../../openspec/changes/archive/) | UX-01, UX-02, UX-03 | 17 | hecho |
+| [terminal-components](../../openspec/changes/archive/) | UX-07 | 25 | hecho |
+| [terminal-dashboard](../../openspec/changes/archive/) | TUI-01 | 35 | hecho |
+| [add-cli-output-contract](../../openspec/changes/archive/) | CLI-01 | 32 | hecho |
+| [add-compose-project-labels](../../openspec/changes/archive/) | ENV-02 | 21 | hecho |
+| [add-describe-and-list-commands](../../openspec/changes/archive/) | CLI-02, CLI-03 | 26 | hecho |
+| [add-doctor-command](../../openspec/changes/archive/) | CLI-04 | 29 | hecho |
+| [add-worktree-guardrails](../../openspec/changes/archive/) | WT-01 | 25 | hecho |
+| [speed-up-cli](../../openspec/changes/archive/) | PERF-01..04 | 34 | hecho |
+| [grouped-help](../../openspec/changes/archive/) | UX-04 | 27 | hecho |
+| [version-switching](../../openspec/changes/archive/) | REL-01, REL-02 | 29 | hecho |
 
 ## Vista de triaje
 
@@ -75,7 +79,7 @@ Cinco cambios de OpenSpec creados con proposal, design, specs y tasks
 | **UX-05** | Señal en operaciones largas (<100 ms) | UX | M | UX-02 | backlog |
 | **UX-06** | Selector navegable con flechas | UX | M | UX-07 | backlog |
 | **UX-07** | Biblioteca de componentes de terminal | UX | M | — | **hecho** |
-| **TUI-01** | Dashboard de terminal (`hm` sin argumentos) | TUI | M | CLI-02, CLI-03, UX-07 | [spec](../../openspec/changes/terminal-dashboard/) |
+| **TUI-01** | Dashboard de terminal (`hm tui`) | TUI | M | CLI-02, CLI-03, UX-07 | **hecho** |
 | **NET-01** | Proxy global (`hm proxy`) con Traefik | Red | L | ENV-02 | backlog |
 | **NET-02** | Certificado wildcard | Red | S | NET-01 | backlog |
 | **NET-03** | dnsmasq: fin de `/etc/hosts` | Red | M | NET-01 | backlog |
@@ -276,7 +280,7 @@ la ventana ni cómo salir sin destruir el scrollback.
 
 ### Área TUI
 
-#### TUI-01 · Dashboard de terminal (`hm` sin argumentos)
+#### TUI-01 · Dashboard de terminal (`hm tui`) — hecho
 **Origen**: torre §9 y decisión D2. **Esfuerzo**: M. **Depende de**: CLI-02, CLI-03.
 **Propuesta**: ejecutar `hm` sin argumentos abre una vista de la flota: proyectos, estado,
 URL, worktrees y avisos del doctor, con atajos para arrancar, parar, ver logs y abrir.
@@ -288,6 +292,12 @@ URL, worktrees y avisos del doctor, con atajos para arrancar, parar, ver logs y 
 - Consume el mismo JSON que consumirá la web: el trabajo no se tira.
 **Aceptación**: refresca sin parpadeo; funciona en terminal de 80 columnas; `Ctrl-C` sale
 limpio; si no hay proyectos, explica cómo crear uno.
+**Cómo quedó**: implementado como `hm tui`, no como `hm` sin argumentos: `hm` a secas sigue
+mostrando la ayuda, que es lo que espera quien llega por primera vez y lo que asumen los
+scripts. Sin `fzf` ni ninguna otra dependencia opcional: la navegación con teclas hacía
+falta de todas formas, y tener dos caminos según lo que hubiera instalado significaba dos
+comportamientos que documentar y mantener. Documentado en [docs/tui.md](../tui.md);
+implementado en [terminal-dashboard](../../openspec/changes/archive/).
 
 ### Área Red
 

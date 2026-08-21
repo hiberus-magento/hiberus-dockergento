@@ -507,6 +507,11 @@
         "description": "Transfer multimedia recurses form external source to this project",
         "group": "files"
     },
+    "tui": {
+        "description": "Open the dashboard: every environment on this machine, on one screen",
+        "usage": "tui",
+        "group": "environment"
+    },
     "update": {
         "description": "Update hiberus docker tool",
         "group": "tools"

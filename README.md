@@ -173,6 +173,20 @@ hm --help          # list all available commands
 hm setup --help    # help for a specific command
 ```
 
+## The dashboard
+
+`hm tui` opens every environment on this machine on one screen: what each one is doing,
+which branch it is on, the warnings from `doctor`, and the actions one key away — start,
+stop, restart, follow logs, open in the browser.
+
+```bash
+hm tui
+```
+
+It does not need to run inside a project, and it has no privileges of its own: the data is
+the JSON from `list`, `describe` and `doctor`, and every action runs the real command inside
+that environment's directory, so the same protections apply. See [docs/tui.md](docs/tui.md).
+
 ## Output, exit codes and non-interactive use
 
 Every command can be consumed by a person or by a machine (a script, a CI job, an AI
@@ -188,10 +202,10 @@ hm describe | jq .       # JSON, because stdout is not a terminal
 hm describe --json       # JSON on demand
 ```
 
-Commands whose output *is* data are never wrapped: `mysqldump`, `mysql`, `logs`,
+Commands whose output *is* data are never wrapped: `mysqldump`, `mysql`,
 `copy-from-container` and the passthrough commands (`exec`, `bash`, `magento`,
-`composer`, `npm`, `n98-magerun`, `grunt`, `test-*`, `cloud`) always emit exactly what
-they produce.
+`composer`, `npm`, `n98-magerun`, `grunt`, `test-*`, `cloud`, `docker-compose`) always
+emit exactly what they produce.
 
 **Errors** go to stderr in both formats, so `hm <command> > file` never captures a
 failure as if it were output. In JSON mode an error looks like:
