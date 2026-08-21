@@ -22,6 +22,9 @@
 #   \e[s / \e[u           save / restore the cursor position
 #   \e[2K                 erase the current line
 #   \e[2J                 erase the screen
+#   \e[J                  erase from the cursor down
+#   \e[H                  cursor to the origin
+#   \e[?2026h / \e[?2026l  hold the frame while it is written, then present it
 #
 
 TUI_ROWS="${TUI_ROWS:-24}"
@@ -100,8 +103,18 @@ tui_update_size() {
 # React to the window being resized. The handler only updates the size: drawing belongs to
 # whoever owns the main loop.
 #
+#
+# tui_watch_resize [command]
+#
+# The optional command runs after the size is updated, in the shell that installed the trap —
+# which is how a resize can redraw straight away instead of waiting for the next keystroke.
+#
 tui_watch_resize() {
-    trap 'tui_update_size' WINCH
+    if [ -n "${1:-}" ]; then
+        trap "tui_update_size; $1" WINCH
+    else
+        trap 'tui_update_size' WINCH
+    fi
 }
 
 # ---------------------------------------------------------------------- cursor
@@ -145,6 +158,43 @@ tui_clear_line() {
 tui_clear_screen() {
     tui_available || return 0
     printf '\033[2J'
+}
+
+#
+# Erase from the cursor to the end of the screen.
+#
+# This is what replaces erasing everything: a frame overwrites each line in place and then
+# clears whatever is left below it, so there is never an instant with an empty screen. Erasing
+# the whole screen first is what makes a full-screen program flicker.
+#
+tui_clear_below() {
+    tui_available || return 0
+    printf '\033[J'
+}
+
+tui_home() {
+    tui_available || return 0
+    printf '\033[H'
+}
+
+# ---------------------------------------------------------------- synchronized output
+
+#
+# Frame markers, DEC private mode 2026.
+#
+# Between begin and end the terminal is asked to hold what it has and present the frame in one
+# go — the terminal equivalent of vsync, and the difference between a frame appearing and a
+# frame being drawn in front of you. A terminal that does not know the mode ignores it, which
+# is how DEC private modes work, so there is nothing to detect and no second code path.
+#
+tui_sync_begin() {
+    tui_available || return 0
+    printf '\033[?2026h'
+}
+
+tui_sync_end() {
+    tui_available || return 0
+    printf '\033[?2026l'
 }
 
 # ---------------------------------------------------------------- alternate screen
@@ -279,7 +329,15 @@ tui_key_name() {
 #
 # Read one keypress and return its name
 #
-tui_read_key() {
+#
+# The next key, in TUI_KEY.
+#
+# Assigning rather than writing matters more than it looks: read inside `$( )` puts the wait
+# inside a subshell, and a signal that arrives during that wait is handled by the subshell. A
+# window resize would then update the size where nobody could see it, and the terminal would
+# keep the old width until the next keystroke.
+#
+tui_read_key_into() {
     local key rest
 
     IFS= read -rsn1 key || return 1
@@ -289,5 +347,13 @@ tui_read_key() {
         key="$key$rest"
     fi
 
-    tui_key_name "$key"
+    TUI_KEY=$(tui_key_name "$key")
+}
+
+#
+# The same, written out
+#
+tui_read_key() {
+    tui_read_key_into || return 1
+    printf '%s' "$TUI_KEY"
 }

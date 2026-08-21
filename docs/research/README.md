@@ -1,7 +1,8 @@
 # Research
 
 Línea de investigación abierta sobre la evolución de Hiberus Dockergento. Documentos de
-trabajo: **ninguno de ellos describe funcionalidad implementada**.
+trabajo: salvo donde la tabla diga lo contrario, **ninguno describe funcionalidad
+implementada**.
 
 | Documento | Tema | Estado |
 |---|---|---|
@@ -10,6 +11,7 @@ trabajo: **ninguno de ellos describe funcionalidad implementada**.
 | [ddev-warden-feature-mining.md](ddev-warden-feature-mining.md) | Funcionalidades de DDEV y Warden que merece la pena incorporar a Dockergento | Catálogo priorizado |
 | [ai-features.md](ai-features.md) | Qué incorporar a Dockergento por el lado de la IA: modo agente, MCP, verificación, datos seguros | Catálogo priorizado |
 | [terminal-ux.md](terminal-ux.md) | Interfaz de terminal y experiencia de uso: colores, preguntas, ayuda, progreso y la base del TUI | Propuesta |
+| [tui-landscape.md](tui-landscape.md) | Cómo se hace un TUI en Bash: qué han resuelto bashtop y fff, qué alternativas hay (fzf, gum, dialog), y las seis reglas de render que salieron de medir el nuestro | **Implementado** — las reglas están en `console/tasks/tui_frame.sh` |
 | [control-plane-ui.md](control-plane-ui.md) | Dashboard y plano de control local servido por el proxy global: qué es, qué no es, arquitectura y fases | Propuesta de arquitectura |
 
 ## Decisiones tomadas

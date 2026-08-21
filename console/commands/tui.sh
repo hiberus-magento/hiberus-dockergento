@@ -6,6 +6,7 @@ source "$COMPONENTS_DIR"/print_json.sh
 source "$COMPONENTS_DIR"/tui.sh
 source "$HELPERS_DIR"/exit_codes.sh
 source "$TASKS_DIR"/tui_render.sh
+source "$TASKS_DIR"/tui_frame.sh
 
 #
 # The fleet dashboard.
@@ -25,6 +26,30 @@ DETAIL_JSON=""
 LOADED_AT=""
 MESSAGE="loading…"
 
+# The composed content and the frame live in console/tasks/tui_frame.sh, sourced above: three
+# stages with a clear border between them, where load talks to the CLI, compose turns JSON into
+# lines already cut to the width, and paint turns lines into bytes. Only the first two are
+# allowed to cost anything, and they run when the data or the terminal size changes — which is
+# what makes a keystroke feel immediate.
+
+#
+# The palette holds `\033` as two characters, because the rest of the CLI prints it with
+# `printf '%b'`. A frame is emitted with `%s` —one write, and no chance of a project name
+# containing a backslash being interpreted as an escape— so the escapes are resolved here,
+# once, into the real bytes.
+#
+resolve_palette() {
+    local name value
+    for name in BOLD RED GREEN YELLOW BLUE CYAN WHITE COLOR_RESET; do
+        eval "value=\"\${$name:-}\""
+        [ -z "$value" ] && continue
+        printf -v value '%b' "$value"
+        eval "$name=\"\$value\""
+    done
+}
+
+resolve_palette
+
 #
 # Drawing on something that is not a terminal would write control codes into a file
 #
@@ -38,7 +63,7 @@ fi
 
 load_fleet() {
     MESSAGE="loading…"
-    draw
+    paint
 
     FLEET_JSON=$("$HM" list --json 2>/dev/null || echo '{}')
     DOCTOR_JSON=$("$HM" doctor --json 2>/dev/null || echo '{}')
@@ -53,11 +78,13 @@ load_fleet() {
     elif [ "$SELECTED" -ge "${count:-0}" ]; then
         SELECTED=$((count - 1))
     fi
+
+    compose
 }
 
 load_detail() {
     local root
-    root=$(tui_fleet_field "$FLEET_JSON" "$SELECTED" "root")
+    root=$(fleet_field "root")
 
     if [ -z "$root" ] || [ ! -d "$root" ]; then
         DETAIL_JSON=""
@@ -66,128 +93,16 @@ load_detail() {
     fi
 
     MESSAGE="loading…"
-    draw
+    paint
     DETAIL_JSON=$( (cd "$root" && "$HM" describe --json 2>/dev/null) || echo '{}')
     MESSAGE=""
-}
 
-# ------------------------------------------------------------------ drawing
-
-draw_header() {
-    local title="$1"
-    printf '%b%s%b' "${BOLD:-}" "$title" "${COLOR_RESET:-}"
-    printf '\n\n'
-}
-
-draw_fleet() {
-    draw_header "Dockergento — environments on this machine"
-
-    local warnings
-    warnings=$(tui_doctor_lines "$DOCTOR_JSON" "$((TUI_COLS - 2))")
-
-    if [ -n "$warnings" ]; then
-        printf '%s\n' "$warnings" | while IFS= read -r line; do
-            case "$line" in
-                ERROR*) printf '  %b%s%b\n' "${RED:-}" "$line" "${COLOR_RESET:-}" ;;
-                *)      printf '  %b%s%b\n' "${YELLOW:-}" "$line" "${COLOR_RESET:-}" ;;
-            esac
-        done
-        printf '\n'
-    fi
-
-    printf '  %b%s%b\n' "${BOLD:-}" "$(tui_fleet_header "$((TUI_COLS - 4))")" "${COLOR_RESET:-}"
-
-    local count
-    count=$(tui_fleet_count "$FLEET_JSON")
-
-    # An empty fleet before the first read is not an empty fleet: saying "create one" while
-    # the data is still being read sends the user to fix something that is not broken.
-    if [ "${count:-0}" -eq 0 ]; then
-        if [ -z "$LOADED_AT" ]; then
-            printf '\n  Reading the environments on this machine…\n'
-        else
-            printf '\n  No environments found on this machine.\n'
-            printf '  Create one with %bhm setup%b inside a Magento project.\n' "${GREEN:-}" "${COLOR_RESET:-}"
-        fi
-        return 0
-    fi
-
-    local index=0
-    tui_fleet_rows "$FLEET_JSON" "$((TUI_COLS - 4))" | while IFS= read -r row; do
-        if [ "$index" -eq "$SELECTED" ]; then
-            printf '%b> %s%b\n' "${GREEN:-}" "$row" "${COLOR_RESET:-}"
-        else
-            printf '  %s\n' "$row"
-        fi
-        index=$((index + 1))
-    done
-}
-
-draw_detail() {
-    local name
-    name=$(tui_fleet_field "$FLEET_JSON" "$SELECTED" "name")
-    draw_header "$name"
-
-    if [ -z "$DETAIL_JSON" ]; then
-        printf '  Nothing to show.\n'
-        return 0
-    fi
-
-    tui_detail_lines "$DETAIL_JSON" "$((TUI_COLS - 4))" | while IFS= read -r line; do
-        printf '  %s\n' "$line"
-    done
-}
-
-#
-# The keys available right now, because a dashboard whose keys must be memorised from the
-# documentation does not get used
-#
-draw_footer() {
-    local keys
-
-    # ASCII only: the arrows would be mojibake on a terminal without a UTF-8 locale, and the
-    # footer is the one line that must always be readable. Short form on narrow terminals,
-    # where the full list would be truncated into uselessness.
-    if [ "$VIEW" == "fleet" ]; then
-        if [ "$TUI_COLS" -ge 100 ]; then
-            keys="j/k move   enter open   s start   x stop   r restart   l logs   o browser   g refresh   ? keys   q quit"
-        else
-            keys="j/k move   enter open   s/x/r start/stop/restart   ? keys   q quit"
-        fi
-    else
-        if [ "$TUI_COLS" -ge 100 ]; then
-            keys="esc back   s start   x stop   r restart   l logs   o browser   ? keys   q quit"
-        else
-            keys="esc back   s/x/r start/stop/restart   ? keys   q quit"
-        fi
-    fi
-
-    tui_move "$TUI_ROWS" 1
-    tui_clear_line
-
-    local state="$MESSAGE"
-    [ -z "$state" ] && [ -n "$LOADED_AT" ] && state="data from $LOADED_AT"
-
-    printf '%b%s%b' "${BOLD:-}" "$(tui_truncate "$keys" "$((TUI_COLS - 2))")" "${COLOR_RESET:-}"
-
-    if [ -n "$state" ]; then
-        tui_move "$((TUI_ROWS - 1))" 1
-        tui_clear_line
-        printf '%s' "$(tui_truncate "$state" "$((TUI_COLS - 2))")"
-    fi
-}
-
-draw() {
-    tui_clear_screen
-    tui_move 1 1
-
-    if [ "$VIEW" == "fleet" ]; then
-        draw_fleet
-    else
-        draw_detail
-    fi
-
-    draw_footer
+    # The name is captured with the data, not read from the selection when the frame is built:
+    # otherwise moving through the list behind an open detail would retitle it with one
+    # environment's name over another environment's contents.
+    DETAIL_NAME=$(fleet_field "name")
+    DETAIL_OFFSET=0
+    read_into_detail_rows "$(tui_detail_lines "$DETAIL_JSON" "$((TUI_COLS - 4))")"
 }
 
 # ------------------------------------------------------------------ actions
@@ -201,8 +116,8 @@ draw() {
 #
 run_action() {
     local root name
-    root=$(tui_fleet_field "$FLEET_JSON" "$SELECTED" "root")
-    name=$(tui_fleet_field "$FLEET_JSON" "$SELECTED" "name")
+    root=$(fleet_field "root")
+    name=$(fleet_field "name")
 
     if [ -z "$root" ] || [ ! -d "$root" ]; then
         MESSAGE="that environment's directory is gone"
@@ -236,7 +151,7 @@ run_action() {
 #
 open_in_browser() {
     local root url opener
-    root=$(tui_fleet_field "$FLEET_JSON" "$SELECTED" "root")
+    root=$(fleet_field "root")
 
     if [ -z "$root" ] || [ ! -d "$root" ]; then
         MESSAGE="that environment's directory is gone"
@@ -280,26 +195,39 @@ show_keys() {
 
 tui_enter_screen
 tui_hide_cursor
-tui_watch_resize
+# Redraw on resize without waiting for a key: the handler runs in this shell, so it sees the
+# new size and can recompose to it
+tui_watch_resize "paint"
 tui_update_size
 
 load_fleet
 
 while true; do
-    draw
+    paint
 
-    key=$(tui_read_key) || key="q"
-    count=$(tui_fleet_count "$FLEET_JSON")
+    tui_read_key_into || TUI_KEY="q"
+    key="$TUI_KEY"
+    # The count comes from the composed rows, not from another `jq` on the payload: this runs
+    # on every keystroke.
+    count="${#FLEET_ROWS[@]}"
 
     case "$key" in
         q | ctrl-c)
             break
             ;;
         up | k)
-            [ "$SELECTED" -gt 0 ] && SELECTED=$((SELECTED - 1))
+            if [ "$VIEW" == "detail" ]; then
+                [ "$DETAIL_OFFSET" -gt 0 ] && DETAIL_OFFSET=$((DETAIL_OFFSET - 1))
+            else
+                [ "$SELECTED" -gt 0 ] && SELECTED=$((SELECTED - 1))
+            fi
             ;;
         down | j)
-            [ "$SELECTED" -lt $(( ${count:-1} - 1 )) ] && SELECTED=$((SELECTED + 1))
+            if [ "$VIEW" == "detail" ]; then
+                DETAIL_OFFSET=$((DETAIL_OFFSET + 1))
+            else
+                [ "$SELECTED" -lt $(( ${count:-1} - 1 )) ] && SELECTED=$((SELECTED + 1))
+            fi
             ;;
         enter)
             if [ "$VIEW" == "fleet" ] && [ "${count:-0}" -gt 0 ]; then

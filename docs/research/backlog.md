@@ -297,7 +297,10 @@ mostrando la ayuda, que es lo que espera quien llega por primera vez y lo que as
 scripts. Sin `fzf` ni ninguna otra dependencia opcional: la navegación con teclas hacía
 falta de todas formas, y tener dos caminos según lo que hubiera instalado significaba dos
 comportamientos que documentar y mantener. Documentado en [docs/tui.md](../tui.md);
-implementado en [terminal-dashboard](../../openspec/changes/archive/).
+implementado en [terminal-dashboard](../../openspec/changes/archive/). La primera versión
+parpadeaba y respondía en 404 ms por tecla; el render se rehízo en
+[smooth-dashboard-rendering](../../openspec/changes/archive/) hasta 1,7 ms por fotograma, y de
+ahí salió la comparativa de [tui-landscape.md](tui-landscape.md).
 
 ### Área Red
 

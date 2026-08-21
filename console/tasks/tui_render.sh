@@ -8,46 +8,61 @@
 # can only be checked against a pseudo-terminal, but the layout can be checked like any other
 # function.
 #
+# Cheap on purpose too. Composing is what the dashboard does when data arrives, and it used to
+# cost 400 ms for ten environments: one `jq` plus five `awk` per column set, called twice per
+# frame, and three subshells per row for the truncation. Nothing here forks any more except the
+# single `jq` that reads the payload. The functions that write to stdout are thin wrappers over
+# ones that assign to a variable, so callers in a loop never pay for a subshell.
+#
 
 #
-# tui_truncate <text> <width> — cut from the right, marking it
+# tui_cut <text> <width> — cut from the right, marking it. Leaves the result in TUI_TEXT
+# instead of writing it, which is what lets a row be assembled without forking.
 #
-tui_truncate() {
+tui_cut() {
     local text="$1"
     local width="$2"
 
     if [ "${#text}" -le "$width" ]; then
-        printf '%s\n' "$text"
-        return 0
+        TUI_TEXT="$text"
+    elif [ "$width" -le 1 ]; then
+        TUI_TEXT="${text:0:$width}"
+    else
+        TUI_TEXT="${text:0:$((width - 1))}~"
     fi
-
-    if [ "$width" -le 1 ]; then
-        printf '%s\n' "${text:0:$width}"
-        return 0
-    fi
-
-    printf '%s~\n' "${text:0:$((width - 1))}"
 }
 
 #
-# tui_truncate_path <path> <width> — cut from the left: the end of a path is what identifies
-# it, the beginning is almost always the same /Users/someone/projects prefix
+# tui_truncate <text> <width> — the same, written out
 #
-tui_truncate_path() {
+tui_truncate() {
+    tui_cut "$1" "$2"
+    printf '%s\n' "$TUI_TEXT"
+}
+
+#
+# tui_cut_path <path> <width> — cut from the left: the end of a path is what identifies it, the
+# beginning is almost always the same /Users/someone/projects prefix. Result in TUI_TEXT.
+#
+tui_cut_path() {
     local path="$1"
     local width="$2"
 
     if [ "${#path}" -le "$width" ]; then
-        printf '%s\n' "$path"
-        return 0
+        TUI_TEXT="$path"
+    elif [ "$width" -le 1 ]; then
+        TUI_TEXT="${path:$(( ${#path} - width ))}"
+    else
+        TUI_TEXT="~${path:$(( ${#path} - width + 1 ))}"
     fi
+}
 
-    if [ "$width" -le 1 ]; then
-        printf '%s\n' "${path:$(( ${#path} - width ))}"
-        return 0
-    fi
-
-    printf '~%s\n' "${path:$(( ${#path} - width + 1 ))}"
+#
+# tui_truncate_path <path> <width> — the same, written out
+#
+tui_truncate_path() {
+    tui_cut_path "$1" "$2"
+    printf '%s\n' "$TUI_TEXT"
 }
 
 #
@@ -57,6 +72,8 @@ tui_truncate_path() {
 # context. Below a certain width the path disappears entirely rather than becoming an
 # unreadable stub.
 #
+# The widths are left in TUI_W_* as well as printed: callers that are about to build a row
+# read the variables, and never pay the five `awk` it used to take to parse them back out.
 tui_fleet_columns() {
     local width="${1:-80}"
     local name=22 status=9 services=5 branch=18 path
@@ -72,6 +89,12 @@ tui_fleet_columns() {
         fi
     fi
 
+    TUI_W_NAME="$name"
+    TUI_W_STATUS="$status"
+    TUI_W_SERVICES="$services"
+    TUI_W_BRANCH="$branch"
+    TUI_W_PATH="$path"
+
     printf '%s %s %s %s %s\n' "$name" "$status" "$services" "$branch" "$path"
 }
 
@@ -83,16 +106,16 @@ tui_fleet_columns() {
 tui_fleet_rows() {
     local json="$1"
     local width="${2:-80}"
-    local columns name_w status_w services_w branch_w path_w
+    local name_w status_w services_w branch_w path_w
 
-    columns=$(tui_fleet_columns "$width")
-    name_w=$(printf '%s' "$columns" | awk '{print $1}')
-    status_w=$(printf '%s' "$columns" | awk '{print $2}')
-    services_w=$(printf '%s' "$columns" | awk '{print $3}')
-    branch_w=$(printf '%s' "$columns" | awk '{print $4}')
-    path_w=$(printf '%s' "$columns" | awk '{print $5}')
+    tui_fleet_columns "$width" >/dev/null
+    name_w="$TUI_W_NAME"
+    status_w="$TUI_W_STATUS"
+    services_w="$TUI_W_SERVICES"
+    branch_w="$TUI_W_BRANCH"
+    path_w="$TUI_W_PATH"
 
-    local rows name status services branch root worktree orphan metadata label line
+    local rows name status services branch root worktree orphan metadata label line column
     rows=$(printf '%s' "$json" | jq -r '
         (.data.environments // .environments // [])
         | .[]
@@ -115,19 +138,24 @@ tui_fleet_rows() {
         local name_room=$((name_w - ${#flags}))
         [ "$name_room" -lt 4 ] && name_room=4
 
-        label="$(tui_truncate "$name" "$name_room")$flags"
+        tui_cut "$name" "$name_room"
+        label="$TUI_TEXT$flags"
 
-        line=$(printf '%-*s %-*s %-*s' \
-            "$name_w" "$(tui_truncate "$label" "$name_w")" \
+        tui_cut "$label" "$name_w"
+        printf -v line '%-*s %-*s %-*s' \
+            "$name_w" "$TUI_TEXT" \
             "$status_w" "$status" \
-            "$services_w" "$services")
+            "$services_w" "$services"
 
         if [ "$branch_w" -gt 0 ]; then
-            line="$line $(printf '%-*s' "$branch_w" "$(tui_truncate "${branch:--}" "$branch_w")")"
+            tui_cut "${branch:--}" "$branch_w"
+            printf -v column '%-*s' "$branch_w" "$TUI_TEXT"
+            line="$line $column"
         fi
 
         if [ "$path_w" -gt 0 ]; then
-            line="$line $(tui_truncate_path "$root" "$path_w")"
+            tui_cut_path "$root" "$path_w"
+            line="$line $TUI_TEXT"
         fi
 
         printf '%s\n' "$line"
@@ -139,19 +167,19 @@ tui_fleet_rows() {
 #
 tui_fleet_header() {
     local width="${1:-80}"
-    local columns name_w status_w services_w branch_w path_w line
+    local line column
 
-    columns=$(tui_fleet_columns "$width")
-    name_w=$(printf '%s' "$columns" | awk '{print $1}')
-    status_w=$(printf '%s' "$columns" | awk '{print $2}')
-    services_w=$(printf '%s' "$columns" | awk '{print $3}')
-    branch_w=$(printf '%s' "$columns" | awk '{print $4}')
-    path_w=$(printf '%s' "$columns" | awk '{print $5}')
+    tui_fleet_columns "$width" >/dev/null
 
-    line=$(printf '%-*s %-*s %-*s' "$name_w" "PROJECT" "$status_w" "STATUS" "$services_w" "UP")
+    printf -v line '%-*s %-*s %-*s' \
+        "$TUI_W_NAME" "PROJECT" "$TUI_W_STATUS" "STATUS" "$TUI_W_SERVICES" "UP"
 
-    [ "$branch_w" -gt 0 ] && line="$line $(printf '%-*s' "$branch_w" "BRANCH")"
-    [ "$path_w" -gt 0 ] && line="$line PATH"
+    if [ "$TUI_W_BRANCH" -gt 0 ]; then
+        printf -v column '%-*s' "$TUI_W_BRANCH" "BRANCH"
+        line="$line $column"
+    fi
+
+    [ "$TUI_W_PATH" -gt 0 ] && line="$line PATH"
 
     printf '%s\n' "$line"
 }
@@ -186,7 +214,8 @@ tui_doctor_lines() {
         | (.severity | ascii_upcase) + "  " + .id + "  " + .message' 2>/dev/null |
         while IFS= read -r line; do
             [ -z "$line" ] && continue
-            tui_truncate "$line" "$width"
+            tui_cut "$line" "$width"
+            printf '%s\n' "$TUI_TEXT"
         done
 }
 
@@ -213,6 +242,7 @@ tui_detail_lines() {
         + [($d.services // [] | .[] | "  " + ((.name + "            ")[0:13]) + ((.state + "        ")[0:10]) + .image)]
         | .[]' 2>/dev/null |
         while IFS= read -r line; do
-            tui_truncate "$line" "$width"
+            tui_cut "$line" "$width"
+            printf '%s\n' "$TUI_TEXT"
         done
 }

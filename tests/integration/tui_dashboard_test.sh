@@ -85,11 +85,18 @@ if [ "$probe" == "unsupported" ] || [ -z "$probe" ]; then
     exit 0
 fi
 
-# The transcript with the control sequences removed. The escape is embedded as a literal
-# character because BSD sed does not understand \x1b in a pattern.
+# The transcript as readable lines.
+#
+# A frame positions every line by absolute row instead of writing newlines, so the newlines have
+# to be put back from those positions before the transcript can be read line by line. The escape
+# is passed in as a literal character because neither sed nor awk understands \x1b in a pattern.
 ESC=$(printf '\033')
 plain() {
-    printf '%s' "$1" | LC_ALL=C sed "s/${ESC}\[[0-9;?]*[a-zA-Z]//g"
+    printf '%s' "$1" | LC_ALL=C awk -v esc="$ESC" '{
+        gsub(esc "\\[[0-9]+;1H", "\n")
+        gsub(esc "\\[[0-9;?]*[a-zA-Z]", "")
+        print
+    }'
 }
 
 test_case "it enters its own screen"
@@ -123,6 +130,31 @@ moved=$(selected_after "$(run_tui "jq")")
 untouched=$(selected_after "$(run_tui "q")")
 { [ -n "$moved" ] && [ -n "$untouched" ] && [ "$moved" != "$untouched" ]; } && r=moved || r="$untouched vs $moved"
 assert_equals "moved" "$r"
+
+# ------------------------------------------------------- how it draws
+
+# Erasing the screen and redrawing shows an empty screen for one refresh: that is the flicker.
+# A frame instead overwrites each line in place and clears what is left below it.
+test_case "no frame erases the whole screen"
+assert_not_contains "$probe" $'\033[2J'
+
+test_case "frames are held while they are written and presented in one go"
+assert_contains "$probe" $'\033[?2026h'
+
+test_case "and released afterwards"
+assert_contains "$probe" $'\033[?2026l'
+
+test_case "each line is written where it belongs"
+assert_contains "$probe" $'\033[1;1H'
+
+test_case "and clears what was to its right"
+assert_contains "$probe" $'\033[K'
+
+test_case "what is left below the frame is cleared"
+assert_contains "$probe" $'\033[J'
+
+test_case "the escape sequences are real bytes, not the two characters that spell them"
+assert_not_contains "$probe" '\033['
 
 test_case "the keys help can be opened"
 output=$(run_tui "?q")
