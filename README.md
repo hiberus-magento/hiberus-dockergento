@@ -43,7 +43,7 @@ The installation is a git checkout, so moving between versions is a command:
 ```bash
 hm --version              # exactly what you are running, including commits ahead of the tag
 hm switch --list          # what is available
-hm switch 1.5.0-rc.1      # try a release candidate
+hm switch 1.5.0-rc.2      # try a release candidate
 hm switch --stable        # back to stable
 ```
 
