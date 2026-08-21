@@ -44,6 +44,29 @@ magento_deploy_mode() {
 }
 
 #
+# The admin's front name, read from app/etc/env.php.
+#
+# It is not always "admin": Magento generates a random one on install unless told otherwise, and
+# a project that has one is a project where /admin is a 404. Same source as the deploy mode, and
+# for the same reason — it answers with the environment stopped.
+#
+# The database can override this further, through admin/url/use_custom_path. Reading it would
+# mean a running database and a query, which is not a price worth paying to build a URL; env.php
+# is what `bin/magento info:adminuri` reports for every project that has not done that.
+#
+magento_admin_path() {
+    local env_php="${MAGENTO_DIR:-.}/app/etc/env.php"
+    local front_name=""
+
+    if [ -f "$env_php" ]; then
+        front_name=$(grep -o "'frontName'[[:space:]]*=>[[:space:]]*'[^']*'" "$env_php" 2>/dev/null |
+            head -1 | sed "s/.*'\([^']*\)'$/\1/" || true)
+    fi
+
+    printf '%s' "${front_name:-admin}"
+}
+
+#
 # Xdebug state inside the running php container
 #
 xdebug_state() {
@@ -99,6 +122,7 @@ collect_project_info() {
         --arg hm_version "${HM_VERSION:-$(hm_installed_version)}" \
         --arg compose_version "$(get_docker_compose_version)" \
         --arg xdebug "$(xdebug_state)" \
+        --arg admin_path "$(magento_admin_path)" \
         --arg compose_file "${DOCKER_COMPOSE_FILE:-}" \
         --arg compose_file_machine "${DOCKER_COMPOSE_FILE_MACHINE:-}" \
         --arg states "$(service_states)" \
@@ -116,7 +140,7 @@ collect_project_info() {
                 | (.[0].published // "" | tostring);
             {
                 base:     (if $domain == "" then "" else "https://" + $domain + "/" end),
-                admin:    (if $domain == "" then "" else "https://" + $domain + "/admin" end),
+                admin:    (if $domain == "" then "" else "https://" + $domain + "/" + $admin_path end),
                 mailhog:  (port("mailhog";  "8025") | if . == "" then "" else "http://localhost:" + . end),
                 rabbitmq: (port("rabbitmq"; "15672") | if . == "" then "" else "http://localhost:" + . end),
                 search:   (port("search";   "9200") | if . == "" then "" else "http://localhost:" + . end)

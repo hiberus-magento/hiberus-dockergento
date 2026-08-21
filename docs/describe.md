@@ -61,3 +61,8 @@ https://myproject.local/
 $ hm describe --json | jq -r '.data.services[] | select(.state != "running") | .name'
 varnish
 ```
+
+## The admin URL
+
+The address of the admin panel uses the `frontName` from `app/etc/env.php`, which is a random
+string on most installs. See [launch](launch.md#the-admin-is-not-always-at-admin).

@@ -36,6 +36,10 @@ TBD - created by archiving change add-logs-launch-version. Update Purpose after 
 - **WHEN** se ejecuta sin opciones en un terminal
 - **THEN** se abre la dirección pública del proyecto y se informa de qué se ha abierto
 
+#### Scenario: El panel de administración no siempre está en `/admin`
+- **WHEN** el proyecto tiene un `frontName` propio en `app/etc/env.php`
+- **THEN** la dirección del panel de administración usa ese nombre, no `/admin`
+
 #### Scenario: Otros destinos
 - **WHEN** se pide el panel de administración, el correo, la cola de mensajes o el buscador
 - **THEN** se abre la dirección correspondiente de las que el proyecto publica

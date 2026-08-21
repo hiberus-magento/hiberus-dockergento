@@ -13,6 +13,23 @@ hm launch --search     # the search engine
 The addresses are the ones [`describe`](describe.md) reports, so there is one definition of what
 this project's URL is.
 
+## The admin is not always at `/admin`
+
+Magento generates a random front name on install unless told otherwise, so on many projects
+`/admin` is a 404. It is read from `app/etc/env.php`, which works with the environment stopped:
+
+```console
+$ hm launch --admin --json | jq -r .data.url
+https://project.local/admin_1a2b3c
+```
+
+A project whose `env.php` has no front name —or has no `env.php` yet— falls back to `admin`.
+
+One limit worth knowing: the admin path can also be overridden in the database, through
+`admin/url/use_custom_path`. Reading that would mean a running database and a query, which is
+not a price worth paying to build a URL. For every project that has not done that, `env.php` is
+what `bin/magento info:adminuri` reports.
+
 ## Where there is nowhere to open
 
 The address itself is the useful answer in a script, over SSH, or on a machine with no desktop:

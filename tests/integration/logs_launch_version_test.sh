@@ -84,6 +84,38 @@ test_case "the admin panel is a destination of its own"
 run_in_lab launch --admin --json
 assert_json_field "$STDOUT" '.data.url' "https://verbs.local/admin"
 
+# Magento generates a random front name on install unless told otherwise, and on a project that
+# has one /admin is a 404. It lives in app/etc/env.php, which is readable with the environment
+# stopped.
+test_case "a custom admin front name is honoured"
+mkdir -p "$LAB/app/etc"
+cat > "$LAB/app/etc/env.php" <<'PHP'
+<?php
+return [
+    'backend' => [
+        'frontName' => 'admin_7f3k9x'
+    ],
+    'MAGE_MODE' => 'developer'
+];
+PHP
+run_in_lab launch --admin --json
+assert_json_field "$STDOUT" '.data.url' "https://verbs.local/admin_7f3k9x"
+
+test_case "and describe reports the same address"
+run_in_lab describe --json
+assert_json_field "$STDOUT" '.data.project.urls.admin' "https://verbs.local/admin_7f3k9x"
+
+test_case "the storefront is unaffected by it"
+run_in_lab launch --json
+assert_json_field "$STDOUT" '.data.url' "https://verbs.local/"
+
+test_case "an env.php without a front name falls back to admin"
+printf '<?php\nreturn ['"'"'MAGE_MODE'"'"' => '"'"'developer'"'"'];\n' > "$LAB/app/etc/env.php"
+run_in_lab launch --admin --json
+assert_json_field "$STDOUT" '.data.url' "https://verbs.local/admin"
+
+rm -rf "$LAB/app"
+
 test_case "two destinations are a usage error"
 run_in_lab launch --admin --search --json
 assert_equals "2" "$STATUS"
