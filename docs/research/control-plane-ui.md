@@ -104,7 +104,7 @@ propias en la plantilla:
 
 ```yaml
 labels:
-  hm.project: sports-emotion
+  hm.project: example-shop
   hm.worktree: feature-x        # vacío en el checkout principal
   hm.branch: feature/x
   hm.agent: claude-3            # opcional, lo estampa el flujo de agentes

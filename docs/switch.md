@@ -9,6 +9,24 @@ hm switch --stable        # back to the stable branch
 hm switch release/1.6.0   # follow a release branch
 ```
 
+## What `--list` shows
+
+Versions most recent first, with the installed one marked and pre-releases labelled, followed
+by the branches available:
+
+```console
+$ hm switch --list
+Versions
+  1.5.0-rc.1            pre-release
+  1.4.5                 ← installed
+  1.4.4
+```
+
+A pre-release is there to be tried on purpose. Labelling it is what keeps someone reading the
+list from the top from landing on one by accident.
+
+In JSON each version carries `name`, `pre_release` and `installed`.
+
 ## Why it exists
 
 Validating a release candidate on real projects, and sharing it with colleagues who can go

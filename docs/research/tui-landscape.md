@@ -10,7 +10,7 @@ seguir añadiéndole cosas convenía saber si el problema era Bash o era nuestro
 
 ## 1. La medida, primero
 
-Con diez entornos, en un MacBook con bash 3.2:
+Con diez entornos, en un portátil con bash 3.2:
 
 | | Antes | Después |
 |---|---|---|

@@ -1,6 +1,6 @@
 # Línea base medida (tareas 1.1 – 1.3)
 
-macOS 24.6.0, Apple Silicon, Docker Desktop 28.0.2, proyecto `sports-emotion` con los
+macOS 24.6.0, Apple Silicon, Docker Desktop 28.0.2, proyecto `example-shop` con los
 9 servicios levantados. Mejor de tres intentos.
 
 | Ruta | Antes | Después | Procesos antes → después |

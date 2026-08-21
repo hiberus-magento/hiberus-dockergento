@@ -36,5 +36,26 @@ working.
 Not a failure. The tool's own version is reported and the others are left empty (`not available`
 in readable output), because "Docker is not responding" is itself worth reporting.
 
+## The versions available
+
+`hm switch --list` lists them, most recent first, marking the one installed and labelling
+pre-releases:
+
+```console
+$ hm switch --list
+Versions
+  1.5.0-rc.1            pre-release
+  1.4.5                 ← installed
+  1.4.4
+  ...
+```
+
+In JSON each entry carries `name`, `pre_release` and `installed`, so a script can pick the
+newest final version without parsing version numbers itself:
+
+```bash
+hm switch --list --json | jq -r '[.data.versions[] | select(.pre_release | not)][0].name'
+```
+
 See [switch](switch.md) for moving between versions, and
 [environment labels](environment-labels.md) for the version recorded on each environment.

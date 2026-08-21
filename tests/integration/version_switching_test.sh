@@ -22,6 +22,31 @@ fi
 git clone -q "$COMMAND_BIN_DIR" "$CLONE" 2>/dev/null
 branch=$(git -C "$COMMAND_BIN_DIR" rev-parse --abbrev-ref HEAD)
 git -C "$CLONE" checkout -q "$branch" 2>/dev/null
+
+# A clone carries commits, not the working tree, so without this the suite would be testing the
+# code as it was at the last commit — and every change to `switch` would go unverified until
+# after it was committed. The uncommitted files are copied across and committed in the clone, so
+# it also starts clean: the cases below depend on that.
+copy_working_tree() {
+    local file
+    ( cd "$COMMAND_BIN_DIR" && git ls-files --modified --others --exclude-standard ) |
+        while IFS= read -r file; do
+            [ -f "$COMMAND_BIN_DIR/$file" ] || continue
+            mkdir -p "$CLONE/$(dirname "$file")"
+            cp "$COMMAND_BIN_DIR/$file" "$CLONE/$file"
+        done
+
+    ( cd "$COMMAND_BIN_DIR" && git ls-files --deleted ) |
+        while IFS= read -r file; do
+            rm -f "$CLONE/$file"
+        done
+
+    git -C "$CLONE" add -A >/dev/null 2>&1
+    git -C "$CLONE" -c user.email=test@example.com -c user.name=test \
+        commit -qm "working tree under test" >/dev/null 2>&1 || true
+}
+
+copy_working_tree
 HM="$CLONE/bin/run"
 
 run() {
@@ -73,7 +98,26 @@ test_case "the available versions are listed"
 run switch --list --json
 assert_json_field "$STDOUT" '.data.versions | length > 0' "true"
 
+test_case "each version says whether it is a pre-release"
+assert_json_field "$STDOUT" '.data.versions | all(has("pre_release"))' "true"
+
+test_case "and which one is installed"
+assert_json_field "$STDOUT" '.data.versions | all(has("installed"))' "true"
+
+test_case "a release candidate is marked as a pre-release"
+assert_json_field "$STDOUT" \
+    '[.data.versions[] | select(.name | test("-rc\\."))] | all(.pre_release)' "true"
+
+test_case "a final version is not"
+assert_json_field "$STDOUT" \
+    '[.data.versions[] | select(.name | test("^[0-9.]+$"))] | any(.pre_release) | not' "true"
+
+test_case "the readable list labels the pre-releases"
+run switch --list --no-json
+assert_contains "$STDOUT" "pre-release"
+
 test_case "the current reference is reported"
+run switch --list --json
 assert_json_field "$STDOUT" '.data.current' "$branch"
 
 # ------------------------------------------------------------------ switching

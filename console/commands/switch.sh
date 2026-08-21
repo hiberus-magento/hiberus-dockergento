@@ -94,7 +94,8 @@ list_references() {
             --arg versions "$versions" \
             --arg branches "$branches" \
             '{current: $current,
-              versions: ($versions | split("\n") | map(select(length > 0))),
+              versions: ($versions | split("\n") | map(select(length > 0))
+                         | map({name: ., pre_release: (contains("-")), installed: (. == $current)})),
               branches: ($branches | split("\n") | map(select(length > 0)))}')"
         exit 0
     fi
@@ -102,9 +103,21 @@ list_references() {
     printf "\n"
     print_heading "Versions\n"
     printf '%s\n' "$versions" | sed '/^$/d' | while IFS= read -r version; do
+        # A pre-release is worth labelling: it is there to be tried on purpose, not to be
+        # picked by mistake by someone reading the list from the top
+        local note=""
+        case "$version" in
+            *-*) note="pre-release" ;;
+        esac
+
         if [ "$version" == "$current" ]; then
-            printf "  %s" "$version"
-            print_info "   ← installed\n"
+            printf "  %-22s" "$version"
+            print_info "← installed"
+            [ -n "$note" ] && printf "   %s" "$note"
+            printf "\n"
+        elif [ -n "$note" ]; then
+            printf "  %-22s" "$version"
+            print_warning "$note\n"
         else
             printf "  %s\n" "$version"
         fi

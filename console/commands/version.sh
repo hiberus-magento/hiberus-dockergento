@@ -79,4 +79,7 @@ fi
 printf "\n"
 printf "  %-12s %s\n" "docker" "${docker_version:-not available}"
 printf "  %-12s %s\n" "compose" "${compose_version:-not available}"
+
+printf "\n"
+print_default "  $COMMAND_BIN_NAME switch --list   to see the versions available\n"
 printf "\n"

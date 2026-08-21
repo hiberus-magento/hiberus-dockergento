@@ -62,7 +62,7 @@ Docker is not properly configured or docker is not running. Please execute: hm s
 
 ### 2.2 Pero en un worktree los ficheros SÍ están (y eso es peor)
 
-En un proyecto real (`sports-emotion`) están versionados en git:
+En un proyecto real (`example-shop`) están versionados en git:
 
 ```
 config/docker/properties.json
@@ -79,8 +79,8 @@ válidos. `hm` arranca sin quejarse... y opera sobre el proyecto del checkout pr
 Verificado en la máquina, desde un directorio sin ningún fichero compose:
 
 ```bash
-docker compose -p sports-emotion ps      # lista los 9 servicios
-docker compose -p sports-emotion exec -T phpfpm sh -c 'pwd'   # → /var/www/html
+docker compose -p example-shop ps      # lista los 9 servicios
+docker compose -p example-shop exec -T phpfpm sh -c 'pwd'   # → /var/www/html
 ```
 
 **Esto es la base técnica de la Fase 1**: para `exec`, `ps`, `logs`, `stop` no hacen
@@ -104,10 +104,10 @@ incluida). Es el riesgo más serio de la situación actual.
 
 ### 2.5 El código montado es el del checkout principal
 
-Mounts reales de `sports-emotion-phpfpm-1` (macOS):
+Mounts reales de `example-shop-phpfpm-1` (macOS):
 
 ```
-volume sports-emotion_workspace          -> /var/www/html      (vendor, generated, pub/static…)
+volume example-shop_workspace          -> /var/www/html      (vendor, generated, pub/static…)
 bind  .../commerce/app                   -> /var/www/html/app
 bind  .../commerce/config                -> /var/www/html/config
 bind  .../commerce/composer.json|.lock   -> …
@@ -174,7 +174,7 @@ copia con `mariadb-dump --single-transaction --quick magento | mariadb magento_w
 y el worktree apunta ahí vía `app/etc/env.php` (`db/connection/default/dbname`).
 
 - Sin RAM extra, sin puertos, sin contenedores nuevos.
-- Coste = tamaño de la BD. Medido en `sports-emotion`: **`dbdata` = 245 MB** → clon en
+- Coste = tamaño de la BD. Medido en `example-shop`: **`dbdata` = 245 MB** → clon en
   segundos. En clientes grandes (5–20 GB) sube a minutos: ahí conviene 4.2.
 
 ### 4.2 Clon de volumen + contenedor `db` propio
@@ -236,7 +236,7 @@ Variables de entorno de escape (útiles para agentes/CI):
 
 | Fichero | Cambio |
 |---|---|
-| `console/helpers/worktree.sh` *(nuevo)* | `resolve_project_root()`: `git rev-parse --path-format=absolute --git-common-dir` → si acaba en `/.git`, el checkout principal es su directorio padre (**verificado**: desde un worktree devuelve `/Users/ddelgado/hm/.git`). Detecta worktree comparando con `$PWD`. |
+| `console/helpers/worktree.sh` *(nuevo)* | `resolve_project_root()`: `git rev-parse --path-format=absolute --git-common-dir` → si acaba en `/.git`, el checkout principal es su directorio padre (**verificado**: desde un worktree devuelve la ruta `.git` del checkout principal). Detecta worktree comparando con `$PWD`. |
 | `bin/run` | Resolver `CUSTOM_PROPERTIES_DIR` y los `-f` contra el root resuelto, en rutas **absolutas**, y añadir `--project-directory <root>` + `-p <COMPOSE_PROJECT_NAME>`. |
 | `bin/run` (`validate_command`) | Guardarraíl: en worktree y modo `attach`, bloquear `start`, `stop`, `restart`, `rebuild`, `down`, `setup`, `install`, `docker-stop-all` salvo `--force`, con mensaje explicativo. |
 | `console/commands/docker-stop-all.sh` | Acotar al proyecto o exigir confirmación explícita. |
@@ -264,12 +264,12 @@ Variables de entorno de escape (útiles para agentes/CI):
 
 ## 7. Plan de PoC (1–2 días, sin tocar el CLI)
 
-Validar a mano, sobre `sports-emotion`, antes de escribir código:
+Validar a mano, sobre `example-shop`, antes de escribir código:
 
 1. `git worktree add ../se-wt-a feature/x`.
 2. Crear a mano `docker-compose.wt.yml` con `phpfpm` + `nginx` apuntando al worktree,
-   proyecto `sports-emotion-wt-a`, unido a la red `sports-emotion_default` como externa.
-3. Clonar `sports-emotion_workspace` → `sports-emotion-wt-a_workspace`.
+   proyecto `example-shop-wt-a`, unido a la red `example-shop_default` como externa.
+3. Clonar `example-shop_workspace` → `example-shop-wt-a_workspace`.
 4. `mariadb-dump magento | mariadb magento_wt_a` en el `db` compartido.
 5. `env.php` del worktree: `dbname=magento_wt_a`, redis db distinto, vhost distinto,
    `catalog/search/opensearch_index_prefix=wt_a`.
@@ -277,7 +277,7 @@ Validar a mano, sobre `sports-emotion`, antes de escribir código:
 7. **Criterios de aceptación**: (a) el sitio del worktree carga su propio código;
    (b) `bin/magento setup:upgrade` en el worktree no altera el principal;
    (c) reindexar en uno no rompe el buscador del otro; (d) `docker compose -p
-   sports-emotion-wt-a down -v` no toca el stack principal.
+   example-shop-wt-a down -v` no toca el stack principal.
 
 ---
 
@@ -398,7 +398,7 @@ demás sigue en paralelo.
 - **Linux &gt; macOS para esto.** En Linux los bind mounts son nativos; en macOS todo pasa
   por virtiofs y N stacks concurrentes degradan mucho antes.
 - **La escala real no la da el worktree, la da sacar el entorno del portátil.** 40
-  entornos Magento no caben en un MacBook por RAM, y no hay arquitectura que lo arregle.
+  entornos Magento no caben en un portátil por RAM, y no hay arquitectura que lo arregle.
   En un servidor de desarrollo compartido (128 GB) sí caben del orden de 10–15 stacks de
   nivel 1. Si algún día queremos flotas grandes, el camino es **agentes en remoto**
   (dev-server o sandboxes efímeras), no más contenedores en local.

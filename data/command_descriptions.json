@@ -543,7 +543,7 @@
     "switch": {
         "description": "Switch the installation to another version or branch",
         "usage": "switch [<version|branch>|--stable|--list]",
-        "group": "tools",
+        "group": "versions",
         "opts": [
             {
                 "name": {
@@ -584,12 +584,12 @@
     },
     "update": {
         "description": "Update hiberus docker tool",
-        "group": "tools"
+        "group": "versions"
     },
     "version": {
         "description": "Show the version of the tool, Docker and Compose",
         "usage": "version",
-        "group": "other"
+        "group": "versions"
     },
     "varnish-off": {
         "description": "Turn off varnish service",
@@ -680,6 +680,10 @@
         {
             "id": "tools",
             "title": "Tools"
+        },
+        {
+            "id": "versions",
+            "title": "Versions"
         },
         {
             "id": "ai",
