@@ -146,11 +146,12 @@ run_action() {
 #
 # The storefront in the default browser.
 #
-# The address is the one the CLI itself reports, so a project with no domain configured says
-# so instead of opening something wrong.
+# `hm launch` does the work — resolving the address, finding an opener, saying so when there is
+# no domain — so there is none of it here. Same rule as every other action: the panel presents,
+# the CLI decides.
 #
 open_in_browser() {
-    local root url opener
+    local root output
     root=$(fleet_field "root")
 
     if [ -z "$root" ] || [ ! -d "$root" ]; then
@@ -158,19 +159,11 @@ open_in_browser() {
         return 0
     fi
 
-    url=$( (cd "$root" && "$HM" describe --json 2>/dev/null) | jq -r '.project.urls.base // ""' )
-
-    if [ -z "$url" ]; then
-        MESSAGE="that environment has no domain configured"
-        return 0
+    if output=$( (cd "$root" && "$HM" launch --json 2>&1) ); then
+        MESSAGE="opened $(printf '%s' "$output" | jq -r '.data.url // ""')"
+    else
+        MESSAGE="$(printf '%s' "$output" | jq -r '.error.message // "could not open it"')"
     fi
-
-    opener=$(command -v open || command -v xdg-open) || {
-        MESSAGE="no browser opener on this machine: $url"
-        return 0
-    }
-
-    "$opener" "$url" >/dev/null 2>&1 || MESSAGE="could not open $url"
 }
 
 show_keys() {
@@ -250,9 +243,7 @@ while true; do
             [ "${count:-0}" -gt 0 ] && run_action restart
             ;;
         l)
-            # There is no `hm logs`: the CLI reaches Compose through `docker-compose`,
-            # and going through it keeps the file selection and project name right.
-            [ "${count:-0}" -gt 0 ] && run_action docker-compose logs -f --tail 100
+            [ "${count:-0}" -gt 0 ] && run_action logs -f --tail 100
             ;;
         o)
             [ "${count:-0}" -gt 0 ] && open_in_browser

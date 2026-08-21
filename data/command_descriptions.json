@@ -267,9 +267,79 @@
         ],
         "group": "magento"
     },
+    "launch": {
+        "description": "Open the project in the browser",
+        "usage": "launch [options]",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "admin"
+                },
+                "description": "Open the admin panel"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "mailhog"
+                },
+                "description": "Open the mail catcher"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "rabbitmq"
+                },
+                "description": "Open the message queue"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "search"
+                },
+                "description": "Open the search engine"
+            }
+        ],
+        "group": "environment"
+    },
     "list": {
         "description": "List every Dockergento environment on this machine",
         "usage": "list",
+        "group": "environment"
+    },
+    "logs": {
+        "description": "Show the logs of the project, or of the services named",
+        "usage": "logs [service...] [options]",
+        "opts": [
+            {
+                "name": {
+                    "short": "f",
+                    "long": "follow"
+                },
+                "description": "Follow the log output"
+            },
+            {
+                "name": {
+                    "short": "n",
+                    "long": "tail=<n>"
+                },
+                "description": "Show only the last n lines"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "since=<time>"
+                },
+                "description": "Show logs since a timestamp or relative time"
+            },
+            {
+                "name": {
+                    "short": "t",
+                    "long": "timestamps"
+                },
+                "description": "Show timestamps"
+            }
+        ],
         "group": "environment"
     },
     "magento": {
@@ -515,6 +585,11 @@
     "update": {
         "description": "Update hiberus docker tool",
         "group": "tools"
+    },
+    "version": {
+        "description": "Show the version of the tool, Docker and Compose",
+        "usage": "version",
+        "group": "other"
     },
     "varnish-off": {
         "description": "Turn off varnish service",

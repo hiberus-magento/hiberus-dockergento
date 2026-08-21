@@ -11,11 +11,19 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 TUI="$COMMANDS_DIR/tui.sh"
 
-# The command name is the first word after `run_action`
-actions=$(LC_ALL=C grep -o 'run_action [a-z-]*' "$TUI" | awk '{print $2}' | sort -u)
+# Every command the dashboard runs: the ones it hands the terminal over for (`run_action`) and
+# the ones it calls directly for their answer (`"$HM" <command>`). Both are the CLI's commands,
+# and neither is checked by anything until the key is pressed on somebody else's machine.
+actions=$(
+    {
+        LC_ALL=C grep -o 'run_action [a-z-]*' "$TUI" | awk '{print $2}'
+        LC_ALL=C grep -o '"\$HM" [a-z-]*' "$TUI" | awk '{print $2}'
+    } | sort -u
+)
 
-test_case "the dashboard triggers at least the four state actions"
-assert_equals "4" "$(printf '%s\n' "$actions" | grep -c .)"
+test_case "the dashboard triggers a handful of commands"
+[ "$(printf '%s\n' "$actions" | grep -c .)" -ge 6 ] && r=enough || r="only $actions"
+assert_equals "enough" "$r"
 
 for action in $actions; do
     test_case "'$action' is a real command"
@@ -26,8 +34,11 @@ for action in $actions; do
     assert_equals "true" "$(jq --arg c "$action" 'has($c)' "$DATA_DIR/command_descriptions.json")"
 done
 
-test_case "the browser action does not invent a command either"
-assert_not_contains "$(LC_ALL=C grep -A6 '^open_in_browser' "$TUI")" '"$HM" launch'
+test_case "the browser action goes through the CLI"
+assert_contains "$(LC_ALL=C grep -A12 '^open_in_browser' "$TUI")" '"$HM" launch --json'
+
+test_case "and resolves no address of its own"
+assert_not_contains "$(LC_ALL=C grep -A12 '^open_in_browser' "$TUI")" 'urls.base'
 
 test_case "the dashboard itself is documented as a command"
 assert_equals "true" "$(jq 'has("tui")' "$DATA_DIR/command_descriptions.json")"

@@ -173,6 +173,16 @@ hm --help          # list all available commands
 hm setup --help    # help for a specific command
 ```
 
+## Everyday commands worth knowing
+
+```bash
+hm logs -f phpfpm     # why is it not working
+hm launch             # open the storefront (--admin, --mailhog, --rabbitmq, --search)
+hm version            # what to paste into a bug report: hm, Docker and Compose versions
+```
+
+See [logs](docs/logs.md), [launch](docs/launch.md) and [version](docs/version.md).
+
 ## The dashboard
 
 `hm tui` opens every environment on this machine on one screen: what each one is doing,

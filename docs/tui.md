@@ -32,7 +32,7 @@ fit in a 24-row window, so the view scrolls with `j`/`k` and says which part is 
 | `x` | Stop it |
 | `r` | Restart it |
 | `l` | Follow its logs |
-| `o` | Open its storefront in the browser |
+| `o` | Open its storefront in the browser, through [`hm launch`](launch.md) |
 | `g` | Refresh the data |
 | `?` | The list of keys |
 | `q` / `ctrl-c` | Quit |
@@ -44,7 +44,8 @@ short form; the full list is always one `?` away.
 
 There is no logic of its own here. The data comes from `hm list --json`,
 `hm describe --json` and `hm doctor --json`, and every action runs the real command —
-`hm start`, `hm stop`, `hm restart`, `hm logs -f` — inside that environment's directory.
+[`hm start`](start.md), [`hm stop`](stop.md), [`hm restart`](restart.md),
+[`hm logs -f`](logs.md), [`hm launch`](launch.md) — inside that environment's directory.
 
 Two consequences worth knowing:
 

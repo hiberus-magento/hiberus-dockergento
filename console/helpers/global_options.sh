@@ -9,7 +9,7 @@ is_transparent_command() {
     case "$1" in
         exec | bash | magento | composer | npm | n98-magerun | grunt | \
         test-unit | test-integration | cloud | cloud-login | masquerade | \
-        mysql | mysqldump | docker-compose | copy-to-container | copy-from-container)
+        mysql | mysqldump | docker-compose | copy-to-container | copy-from-container | logs)
             return 0
             ;;
         *)

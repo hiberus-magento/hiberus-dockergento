@@ -48,6 +48,8 @@ Instalación e IA siguen enteras en `backlog`.
 | [add-describe-and-list-commands](../../openspec/changes/archive/) | CLI-02, CLI-03 | 26 | hecho |
 | [add-doctor-command](../../openspec/changes/archive/) | CLI-04 | 29 | hecho |
 | [add-worktree-guardrails](../../openspec/changes/archive/) | WT-01 | 25 | hecho |
+| [smooth-dashboard-rendering](../../openspec/changes/archive/) | TUI-01 (render) | 31 | hecho |
+| [add-logs-launch-version](../../openspec/changes/archive/) | CLI-05, CLI-06, CLI-07 | 35 | hecho |
 | [speed-up-cli](../../openspec/changes/archive/) | PERF-01..04 | 34 | hecho |
 | [grouped-help](../../openspec/changes/archive/) | UX-04 | 27 | hecho |
 | [version-switching](../../openspec/changes/archive/) | REL-01, REL-02 | 29 | hecho |
@@ -60,9 +62,9 @@ Instalación e IA siguen enteras en `backlog`.
 | **CLI-02** | `hm describe [--json]` | CLI | S | CLI-01 | **hecho** |
 | **CLI-03** | `hm list [--json]` | CLI | S | CLI-01, ENV-02 | **hecho** |
 | **CLI-04** | `hm doctor` | CLI | M | — | **hecho** |
-| **CLI-05** | `hm logs [servicio] [-f]` | CLI | S | — | backlog |
-| **CLI-06** | `hm launch` | CLI | S | CLI-02 | backlog |
-| **CLI-07** | `hm version` | CLI | S | — | backlog |
+| **CLI-05** | `hm logs [servicio] [-f]` | CLI | S | — | **hecho** |
+| **CLI-06** | `hm launch` | CLI | S | CLI-02 | **hecho** |
+| **CLI-07** | `hm version` | CLI | S | — | **hecho** |
 | **CLI-08** | `hm clean [--dry-run]` | CLI | S | ENV-02 | backlog |
 | **CLI-09** | Lanzadores de clientes de BD | CLI | S | CLI-02 | backlog |
 | **PERF-01** | `hm --help` en una sola pasada de `jq` | Rendimiento | S | — | **hecho** |
@@ -176,17 +178,28 @@ proceso los ocupa**, validez del compose, certificados y confianza del sistema, 
 **Aceptación**: cada comprobación devuelve OK / aviso / error con **una acción concreta**;
 `--json` para el dashboard; termina en menos de 5 s.
 
-#### CLI-05 · `hm logs [servicio] [-f]`
+#### CLI-05 · `hm logs [servicio] [-f]` — hecho
 **Esfuerzo**: S. Envoltorio de `docker compose logs` acotado al proyecto, con `--since` y
 `--tail`. Útil para personas y para agentes.
+**Cómo quedó**: comando transparente, así que sus opciones llegan intactas a Compose y su salida
+nunca se envuelve. Añade lo que Compose no da: un nombre de servicio inexistente se rechaza con
+la lista de los que sí existen y código de salida 5. Documentado en [docs/logs.md](../logs.md).
 
-#### CLI-06 · `hm launch`
-**Esfuerzo**: S. Abre la URL del proyecto (y `--admin`, `--mailpit`, `--rabbitmq`).
+#### CLI-06 · `hm launch` — hecho
+**Esfuerzo**: S. Abre la URL del proyecto (y `--admin`, `--mailhog`, `--rabbitmq`, `--search`).
+**Cómo quedó**: las direcciones salen de la misma fuente que `describe`. Donde no hay dónde
+abrir —script, SSH, `--json`— escribe la dirección en lugar de fallar. Dos destinos a la vez son
+error de uso, no dos pestañas. No arranca lo que está parado.
+Documentado en [docs/launch.md](../launch.md).
 
-#### CLI-07 · `hm version`
+#### CLI-07 · `hm version` — hecho
 **Esfuerzo**: S. Hoy **no hay forma de saber qué versión de Dockergento tienes**. Debe
 mostrar versión de la CLI, commit, versión de Docker y de Compose. Requiere fijar de dónde
 sale la versión (tag de git frente a fichero `VERSION`).
+**Cómo quedó**: la versión sale de `git describe`, no de un fichero `VERSION` — así no hay dos
+fuentes que puedan discrepar (resuelto en REL-01). `hm --version` se deja intacto porque es el
+camino más corto de la CLI y tiene presupuesto de rendimiento; el comando paga las dos llamadas
+a Docker. No exige proyecto. Documentado en [docs/version.md](../version.md).
 
 #### CLI-08 · `hm clean [--dry-run]`
 **Origen**: cantera §3.11. **Esfuerzo**: S. **Depende de**: ENV-02.
