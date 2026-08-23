@@ -203,8 +203,8 @@ a Docker. No exige proyecto. Documentado en [docs/version.md](../version.md).
 
 #### CLI-08 · `hm clean [--dry-run]`
 **Origen**: cantera §3.11. **Esfuerzo**: S. **Depende de**: ENV-02.
-**Dato**: en una máquina del equipo hay **152 volúmenes y 69 GB**, 45 imágenes y 81
-contenedores. **Aceptación**: sólo toca recursos con etiqueta `hm.*`; `--dry-run` por
+**Motivo**: una máquina que ha levantado unos cuantos proyectos acumula con
+facilidad más de cien volúmenes y decenas de GB que nadie va a reclamar. **Aceptación**: sólo toca recursos con etiqueta `hm.*`; `--dry-run` por
 defecto; nunca borra volúmenes de proyectos existentes sin `--force`.
 
 #### CLI-09 · Lanzadores de clientes de BD

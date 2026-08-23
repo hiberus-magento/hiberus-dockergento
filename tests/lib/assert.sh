@@ -19,12 +19,30 @@ if [ -z "${COMPONENTS_DIR:-}" ]; then
     export HM_TEST_PROJECT_ROOT="$_hm_test_root"
 fi
 
+# A run gets a HOME of its own, and everything a suite writes outside the project lands in it.
+#
+# This is not tidiness. `hm switch` regenerates the shell completion, which registers itself in
+# the shell profile, and the suite that exercises `switch` runs it against a throwaway clone: the
+# result was one dead `source` line in the developer's own .zshrc per run, and an error on every
+# new terminal. A test that can reach the real HOME will eventually write to it.
+if [ -z "${HM_TEST_HOME:-}" ]; then
+    HM_TEST_HOME="$(mktemp -d)"
+    export HM_TEST_HOME
+
+    # Docker keeps its configuration and its contexts under the real HOME, so it has to be
+    # pointed at them explicitly or every suite that talks to Docker loses its daemon
+    export DOCKER_CONFIG="${DOCKER_CONFIG:-$HOME/.docker}"
+
+    export HOME="$HM_TEST_HOME"
+    printf '# profile belonging to a test run\n' > "$HOME/.zshrc"
+    trap 'rm -rf "$HM_TEST_HOME"' EXIT
+fi
+
 # Caches go to a throwaway directory: a test run has no business leaving entries in the
 # developer's HOME, and every temporary project used by a suite would leave one forever
 if [ -z "${HM_CACHE_DIR:-}" ]; then
-    HM_CACHE_DIR="$(mktemp -d)"
+    HM_CACHE_DIR="$HOME/.hm/cache"
     export HM_CACHE_DIR
-    trap 'rm -rf "$HM_CACHE_DIR"' EXIT
 fi
 
 HM_TESTS_RUN=0

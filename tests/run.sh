@@ -21,8 +21,20 @@ export COMPONENTS_DIR="$PROJECT_ROOT/console/components"
 export DATA_DIR="$PROJECT_ROOT/data"
 export HM_TEST_PROJECT_ROOT="$PROJECT_ROOT"
 
-# Same reasoning as in lib/assert.sh: the suite must not touch the developer's cache
-HM_CACHE_DIR="${HM_CACHE_DIR:-$(mktemp -d)}"
+# A HOME for the whole run, shared by every suite. lib/assert.sh does the same when a suite is
+# run on its own; see the reasoning there — it is not tidiness, it is that `hm switch`
+# regenerates the shell completion and that registers itself in the shell profile.
+if [ -z "${HM_TEST_HOME:-}" ]; then
+    HM_TEST_HOME="$(mktemp -d)"
+    export HM_TEST_HOME
+    export DOCKER_CONFIG="${DOCKER_CONFIG:-$HOME/.docker}"
+    export HOME="$HM_TEST_HOME"
+    printf '# profile belonging to a test run\n' > "$HOME/.zshrc"
+    trap 'rm -rf "$HM_TEST_HOME"' EXIT
+fi
+
+# The cache belongs inside that HOME, where the tool would put it anyway
+HM_CACHE_DIR="${HM_CACHE_DIR:-$HOME/.hm/cache}"
 export HM_CACHE_DIR
 
 target="${1:-}"
