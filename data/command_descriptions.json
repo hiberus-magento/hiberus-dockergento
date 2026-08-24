@@ -281,9 +281,9 @@
             {
                 "name": {
                     "short": "",
-                    "long": "mailhog"
+                    "long": "mail"
                 },
-                "description": "Open the mail catcher"
+                "description": "Open the mail catcher (--mailhog and --mailpit also work)"
             },
             {
                 "name": {

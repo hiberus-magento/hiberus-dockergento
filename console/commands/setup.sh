@@ -9,6 +9,21 @@ dump=""
 force_setup=false
 
 #
+# `--mail=<service>` is pulled out before getopts, which only understands short options.
+#
+mail_choice=""
+setup_args=()
+
+for argument in "$@"; do
+    case "$argument" in
+        --mail=*) mail_choice="${argument#--mail=}" ;;
+        *)        setup_args[${#setup_args[@]}]="$argument" ;;
+    esac
+done
+
+set -- ${setup_args[@]+"${setup_args[@]}"}
+
+#
 # Ask sql file and launch mysql import process
 #
 ask_dump() {
@@ -38,6 +53,36 @@ choice_database_mode_creation() {
     if [[ $REPLY == "Import sql Dump" ]]; then
         ask_dump
     fi
+}
+
+#
+# Which mail catcher this project uses.
+#
+# Asked only when the project has not decided yet: an existing project keeps what it has, and
+# nobody is prompted about a service they already configured. Mailhog is the default answer, so
+# accepting everything leaves a project exactly as it was built before this choice existed.
+#
+get_mail_service() {
+    local current="${MAIL_SERVICE:-mailhog}"
+
+    if [ -n "$mail_choice" ]; then
+        current="$mail_choice"
+    elif ! is_non_interactive && [ "${USE_DEFAULT_SETTINGS:-false}" != "true" ]; then
+        local options=("mailhog" "mailpit")
+        custom_select "Which mail catcher? (mailpit is the maintained one)" "${options[@]}"
+        current="${REPLY:-mailhog}"
+    fi
+
+    case "$current" in
+        mailhog | mailpit) ;;
+        *)
+            hm_fail "$HM_EXIT_USAGE" "unknown_mail_service" \
+                "'$current' is not a mail catcher this tool knows about" \
+                "$COMMAND_BIN_NAME setup --mail=mailpit"
+            ;;
+    esac
+
+    export MAIL_SERVICE="$current"
 }
 
 #
@@ -80,6 +125,7 @@ setup_execute() {
     get_project_name "${project_name:-}"
     get_domain "${domain:-}"
     get_magento_root_directory "${magento_root_directory:-}"
+    get_mail_service
     
     if [[ -z $dump ]] && ! ${install_option:-false}; then
         choice_database_mode_creation

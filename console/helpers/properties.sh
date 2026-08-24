@@ -45,10 +45,14 @@ save_properties() {
         --arg project_name "$COMPOSE_PROJECT_NAME" \
         --arg domain "$DOMAIN" \
         --arg derived "$derived" \
+        --arg mail_service "${MAIL_SERVICE:-mailhog}" \
         --argjson had_name "$had_name" \
         '. + {MAGENTO_DIR: $magento_dir, DOMAIN: $domain}
          | if $had_name or ($project_name != $derived and $project_name != "")
            then . + {COMPOSE_PROJECT_NAME: $project_name}
-           else del(.COMPOSE_PROJECT_NAME) end' \
+           else del(.COMPOSE_PROJECT_NAME) end
+         | if $mail_service == "mailhog"
+           then del(.MAIL_SERVICE)
+           else . + {MAIL_SERVICE: $mail_service} end' \
         "$properties_file" > "$properties_file.tmp" && mv "$properties_file.tmp" "$properties_file"
 }

@@ -113,6 +113,9 @@ jobs:
           - docker_file: ./Dockerfiles/mailhog/1.0/
             docker_name: mailhog
             docker_version: 1.0
+          - docker_file: ./Dockerfiles/mailpit/1.0/
+            docker_name: mailpit
+            docker_version: 1.0
           - docker_file: ./Dockerfiles/redis/5.0/
             docker_name: redis
             docker_version: 5.0

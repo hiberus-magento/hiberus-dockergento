@@ -19,7 +19,7 @@ chosen=""
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --admin | --mailhog | --rabbitmq | --search | --base)
+        --admin | --mail | --mailhog | --mailpit | --rabbitmq | --search | --base)
             # Two destinations in one invocation is a typo, not a request for two tabs
             if [ -n "$chosen" ]; then
                 hm_fail "$HM_EXIT_USAGE" "conflicting_options" \
@@ -28,6 +28,12 @@ while [ "$#" -gt 0 ]; do
             fi
             chosen="$1"
             target="${1#--}"
+
+            # The mailbox is one destination whichever catcher is behind it
+            case "$target" in
+                mailhog | mailpit) target="mail" ;;
+            esac
+
             shift
             ;;
         *)

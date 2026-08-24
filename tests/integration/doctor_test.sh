@@ -123,7 +123,8 @@ sed -e 's/{YML_VERSION}//' \
     -e 's|<search_version>|hiberusmagento/search:3-opensearch|' \
     -e 's|<varnish_version>|hiberusmagento/varnish:7.1|' \
     -e 's|<redis_version>|valkey/valkey:9-alpine|' \
-    -e 's|<mailhog_version>|hiberusmagento/mailhog:1|' \
+    -e 's|<mail_service>|mailhog|g' \
+    -e 's|<mail_version>|hiberusmagento/mailhog:1|' \
     -e 's|<rabbitmq_version>|hiberusmagento/rabbitmq:4.3|' \
     -e 's|<hitch_version>|hiberusmagento/hitch:1.7|' \
     -e 's|<composer_version>|2.9|' \

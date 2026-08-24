@@ -8,6 +8,7 @@
         "composer": "1",
         "nginx": "hiberusmagento/nginx:1.18",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
     },
@@ -20,6 +21,7 @@
         "composer": "1",
         "nginx": "hiberusmagento/nginx:1.18",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
     },
@@ -32,6 +34,7 @@
         "composer": "1",
         "nginx": "hiberusmagento/nginx:1.18",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
     },
@@ -44,6 +47,7 @@
         "composer": "1",
         "nginx": "hiberusmagento/nginx:1.18",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
     },
@@ -56,6 +60,7 @@
         "composer": "1",
         "nginx": "hiberusmagento/nginx:1.18",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
     },
@@ -68,6 +73,7 @@
         "composer": "2.1",
         "nginx": "hiberusmagento/nginx:1.18",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
     },
@@ -80,6 +86,7 @@
         "composer": "2.1",
         "nginx": "hiberusmagento/nginx:1.18",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
     },
@@ -92,6 +99,7 @@
         "composer": "2.2",
         "nginx": "hiberusmagento/nginx:1.18",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
     },
@@ -104,6 +112,7 @@
         "composer": "2.2",
         "nginx": "hiberusmagento/nginx:1.18",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
     },
@@ -116,6 +125,7 @@
         "composer": "2.7",
         "nginx": "hiberusmagento/nginx:1.18",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
     },
@@ -128,6 +138,7 @@
         "composer": "2.9",
         "nginx": "hiberusmagento/nginx:1.18",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:3.9",
         "hitch": "hiberusmagento/hitch:1.7"
     },
@@ -140,6 +151,7 @@
         "composer": "2.9",
         "nginx": "hiberusmagento/nginx:1.30",
         "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
         "rabbitmq": "hiberusmagento/rabbitmq:4.3",
         "hitch": "hiberusmagento/hitch:1.7"
     }

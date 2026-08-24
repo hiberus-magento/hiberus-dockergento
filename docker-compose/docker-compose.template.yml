@@ -27,7 +27,7 @@ services:
       - db
       - search
       - redis
-      - mailhog
+      - <mail_service>
       - rabbitmq
       
   nginx:
@@ -81,11 +81,18 @@ services:
     volumes:
       - redisdata:/data:delegated
 
-  mailhog:
+  # The mail catcher, whichever the project chose. Both answer to `mailhog` on the network: a
+  # Magento that was installed pointing its SMTP server at that name keeps delivering after a
+  # switch, without touching its configuration.
+  <mail_service>:
     labels: *hm-labels
-    image: <mailhog_version>
+    image: <mail_version>
     ports:
       - 8025:8025
+    networks:
+      default:
+        aliases:
+          - mailhog
 
   rabbitmq:
     labels: *hm-labels

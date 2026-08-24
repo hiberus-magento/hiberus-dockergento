@@ -138,10 +138,16 @@ collect_project_info() {
                 ($services[$service].ports // [])
                 | map(select((.target | tostring) == $target))
                 | (.[0].published // "" | tostring);
-            {
+            # The mail catcher is either of two services. `mail` is the key that does not depend
+            # on which one, and `mailhog` is kept alongside it with the same value so that
+            # anything already reading that key keeps working.
+            (if $services["mailpit"] then "mailpit" else "mailhog" end) as $mail_service
+            | (port($mail_service; "8025") | if . == "" then "" else "http://localhost:" + . end) as $mail_url
+            | {
                 base:     (if $domain == "" then "" else "https://" + $domain + "/" end),
                 admin:    (if $domain == "" then "" else "https://" + $domain + "/" + $admin_path end),
-                mailhog:  (port("mailhog";  "8025") | if . == "" then "" else "http://localhost:" + . end),
+                mail:     $mail_url,
+                mailhog:  $mail_url,
                 rabbitmq: (port("rabbitmq"; "15672") | if . == "" then "" else "http://localhost:" + . end),
                 search:   (port("search";   "9200") | if . == "" then "" else "http://localhost:" + . end)
             }

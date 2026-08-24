@@ -51,6 +51,7 @@ Instalación e IA siguen enteras en `backlog`.
 | [smooth-dashboard-rendering](../../openspec/changes/archive/) | TUI-01 (render) | 31 | hecho |
 | [add-logs-launch-version](../../openspec/changes/archive/) | CLI-05, CLI-06, CLI-07 | 35 | hecho |
 | [derive-project-name](../../openspec/changes/archive/) | ENV-01 | 26 | hecho |
+| [choose-mail-catcher](../../openspec/changes/archive/) | ENV-03 | 28 | hecho |
 | [speed-up-cli](../../openspec/changes/archive/) | PERF-01..04 | 34 | hecho |
 | [grouped-help](../../openspec/changes/archive/) | UX-04 | 27 | hecho |
 | [version-switching](../../openspec/changes/archive/) | REL-01, REL-02 | 29 | hecho |
@@ -89,7 +90,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **NET-04** | `hm share` con Cloudflared | Red | S | NET-01 | backlog |
 | **ENV-01** | Nombre de proyecto derivado del directorio | Entorno | S | — | **hecho** |
 | **ENV-02** | Etiquetas `hm.*` en la plantilla compose | Entorno | S | — | **hecho** |
-| **ENV-03** | Mailpit en lugar de Mailhog | Entorno | S | — | backlog |
+| **ENV-03** | Mailpit en lugar de Mailhog | Entorno | S | — | **hecho** |
 | **ENV-04** | Servicios opcionales (`--with=...`) | Entorno | M | — | backlog |
 | **ENV-05** | Servicio de cron | Entorno | S | ENV-04 | backlog |
 | **ENV-06** | Adminer / cliente web de BD | Entorno | S | ENV-04 | backlog |
@@ -367,10 +368,17 @@ resuelve al checkout principal, así que sigue sin tener entorno propio: eso es 
 Es la base de `list`, `clean`, el TUI, el dashboard y la detección de huérfanos. **Sin
 estado que se desincronice**: nada de fichero de registro.
 
-#### ENV-03 · Mailpit en lugar de Mailhog
+#### ENV-03 · Mailpit en lugar de Mailhog — hecho
 **Esfuerzo**: S. **Mailhog está sin mantenimiento**; Warden migró a Mailpit en v0.15 y
 nuestra plantilla sigue con Mailhog. Mantener compatibilidad de puerto/UI y actualizar
 `requirements.json` y la documentación.
+**Cómo quedó**: no como sustitución sino como **elección**, que es lo que permite que ningún
+entorno en marcha tenga que moverse. Mailhog sigue siendo el valor por defecto; Mailpit se elige
+en la instalación o cambiando una propiedad y regenerando. Los dos responden al nombre `mailhog`
+en la red, así que un Magento ya instalado sigue entregando correo sin reconfigurarse — el alias
+está comprobado levantando una red de verdad. La imagen se publica a mano y `hm doctor` avisa si
+no está. En la 1.6.0; documentado en [docs/mail.md](../mail.md).
+**Pendiente fuera de la herramienta**: publicar `hiberusmagento/mailpit` en Docker Hub.
 
 #### ENV-04 · Servicios opcionales (`--with=...`)
 **Esfuerzo**: M. Perfiles opcionales en la plantilla en lugar de un registro de add-ons

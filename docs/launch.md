@@ -5,7 +5,7 @@ Open the project in the browser.
 ```bash
 hm launch              # the storefront
 hm launch --admin      # the admin panel
-hm launch --mailhog    # the mail catcher
+hm launch --mail       # the mail catcher, whichever it is
 hm launch --rabbitmq   # the message queue
 hm launch --search     # the search engine
 ```
