@@ -4,7 +4,7 @@ Move the installation to another version or branch, and back.
 
 ```bash
 hm switch --list          # what is available
-hm switch 1.5.0-rc.2      # try a release candidate
+hm switch 1.5.0-rc.3      # try a release candidate
 hm switch --stable        # back to the stable branch
 hm switch release/1.6.0   # follow a release branch
 ```
@@ -17,7 +17,7 @@ by the branches available:
 ```console
 $ hm switch --list
 Versions
-  1.5.0-rc.2            pre-release
+  1.5.0-rc.3            pre-release
   1.4.5                 ← installed
   1.4.4
 ```
@@ -49,15 +49,15 @@ the candidate without a word.
 
 ```bash
 $ hm --version
-hm 1.5.0-rc.2-7-gabc1234
+hm 1.5.0-rc.3-7-gabc1234
   branch       release/1.5.0
   commit       abc1234
   installed    /Users/me/.hm-install
 ```
 
 `hm --version --json` gives the same data as separate fields, including `commits_ahead` and
-whether the checkout is `dirty`. Quote that version when reporting a problem: "1.5.0-rc.2"
-and "1.5.0-rc.2-7-gabc1234" are not the same thing.
+whether the checkout is `dirty`. Quote that version when reporting a problem: "1.5.0-rc.3"
+and "1.5.0-rc.3-7-gabc1234" are not the same thing.
 
 ## One limitation worth knowing
 

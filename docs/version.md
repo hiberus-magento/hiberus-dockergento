@@ -9,7 +9,7 @@ hm version --json
 
 ```console
 $ hm version
-hm 1.5.0-rc.2-4-g32a9490
+hm 1.5.0-rc.3-4-g32a9490
   branch       release/1.5.0
   commit       32a9490
   installed    /Users/someone/hm
@@ -44,7 +44,7 @@ pre-releases:
 ```console
 $ hm switch --list
 Versions
-  1.5.0-rc.2            pre-release
+  1.5.0-rc.3            pre-release
   1.4.5                 ← installed
   1.4.4
   ...
