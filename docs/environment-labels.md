@@ -61,3 +61,6 @@ hm rebuild
 
 Until then the environment is still discovered through the standard Compose labels and
 reported as having no metadata.
+
+The `hm.project` label carries the resolved project name; see
+[the project name](project-name.md) for how that is decided.

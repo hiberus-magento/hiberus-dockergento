@@ -50,6 +50,7 @@ Instalación e IA siguen enteras en `backlog`.
 | [add-worktree-guardrails](../../openspec/changes/archive/) | WT-01 | 25 | hecho |
 | [smooth-dashboard-rendering](../../openspec/changes/archive/) | TUI-01 (render) | 31 | hecho |
 | [add-logs-launch-version](../../openspec/changes/archive/) | CLI-05, CLI-06, CLI-07 | 35 | hecho |
+| [derive-project-name](../../openspec/changes/archive/) | ENV-01 | 26 | hecho |
 | [speed-up-cli](../../openspec/changes/archive/) | PERF-01..04 | 34 | hecho |
 | [grouped-help](../../openspec/changes/archive/) | UX-04 | 27 | hecho |
 | [version-switching](../../openspec/changes/archive/) | REL-01, REL-02 | 29 | hecho |
@@ -86,7 +87,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **NET-02** | Certificado wildcard | Red | S | NET-01 | backlog |
 | **NET-03** | dnsmasq: fin de `/etc/hosts` | Red | M | NET-01 | backlog |
 | **NET-04** | `hm share` con Cloudflared | Red | S | NET-01 | backlog |
-| **ENV-01** | Nombre de proyecto derivado del directorio | Entorno | S | — | backlog |
+| **ENV-01** | Nombre de proyecto derivado del directorio | Entorno | S | — | **hecho** |
 | **ENV-02** | Etiquetas `hm.*` en la plantilla compose | Entorno | S | — | **hecho** |
 | **ENV-03** | Mailpit en lugar de Mailhog | Entorno | S | — | backlog |
 | **ENV-04** | Servicios opcionales (`--with=...`) | Entorno | M | — | backlog |
@@ -348,10 +349,17 @@ que se configure un túnel con nombre.
 
 ### Área Entorno
 
-#### ENV-01 · Nombre de proyecto derivado del directorio
+#### ENV-01 · Nombre de proyecto derivado del directorio — hecho
 **Origen**: cantera §3.12. **Esfuerzo**: S. DDEV lo ofrece como opción global precisamente
 para que **cada worktree sea un proyecto distinto sin configurar nada**. Requiere decidir
 qué pasa con el `COMPOSE_PROJECT_NAME` que hoy está versionado en `properties.json`.
+**Cómo quedó**: el nombre configurado gana siempre, así que ningún proyecto existente se mueve —
+era la restricción que mandaba, porque renombrar un entorno deja sus volúmenes atrás. Sólo se
+deriva cuando no hay nombre, con la regla exacta de Compose, medida y vigilada por un test contra
+`docker compose config`. `hm setup` deja de escribir la propiedad cuando coincide con el
+directorio, que es lo que hacía que un clon heredara la identidad del original. Un worktree
+resuelve al checkout principal, así que sigue sin tener entorno propio: eso es WT-02. En la
+1.6.0; documentado en [docs/project-name.md](../project-name.md).
 
 #### ENV-02 · Etiquetas `hm.*` en la plantilla compose
 **Origen**: torre §5.2. **Esfuerzo**: S.

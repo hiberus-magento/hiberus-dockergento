@@ -87,10 +87,20 @@ check_command_dir() {
 docker_env_variables() {
     # Load version helper for Docker Compose detection
     source "$HELPERS_DIR"/version.sh
+    source "$HELPERS_DIR"/project_name.sh
 
-    if [[ -n "${COMPOSE_PROJECT_NAME+}" ]]; then
-        export COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME"
+    # One resolved name, shared with Compose. A configured name wins; only its absence is
+    # derived from the directory, which is what Compose was already doing on its own while the
+    # CLI still believed the name was the empty string.
+    hm_resolve_project_name
+
+    if [ -z "${COMPOSE_PROJECT_NAME:-}" ]; then
+        hm_fail "$HM_EXIT_PROJECT" "no_project_name" \
+            "No project name can be derived from $(basename "${HM_ROOT:-$PWD}")" \
+            "Rename the directory, or set COMPOSE_PROJECT_NAME in config/docker/properties.json"
     fi
+
+    export COMPOSE_PROJECT_NAME
 
     # Auto-detect Docker Compose command (v1 or v2)
     local compose_cmd=$(get_docker_compose_cmd)
