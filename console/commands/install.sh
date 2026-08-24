@@ -6,6 +6,7 @@ source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 source "$HELPERS_DIR"/docker.sh
 source "$HELPERS_DIR"/version.sh
+source "$TASKS_DIR"/admin_bootstrap.sh
 
 # Cache/session backend service name. Magento 2.4.9+ ships Valkey (a drop-in Redis
 # replacement) and some environments name the compose service "valkey" instead of
@@ -91,8 +92,30 @@ run_install_magento_command() {
         mv "$MAGENTO_DIR/app/etc/config.php" "$MAGENTO_DIR/app/etc/_config.php"
     fi
 
-    config=$(cat "$DATA_DIR/config.json" | jq -r 'to_entries | map("--" + .key + "=" + .value ) | join(" ")')
-    
+    #
+    # A generated password is used for the install and never written down.
+    #
+    # data/config.json lives in the tool's directory, is shared by every project and records what
+    # is answered: a password written there becomes the next project's default and sits in plain
+    # text on disk. A password that *is* set there is respected — that is somebody's decision.
+    #
+    local configured_password
+    configured_password=$(jq -r '."admin-password" // ""' "$DATA_DIR/config.json")
+
+    if [ -n "$configured_password" ]; then
+        HM_ADMIN_PASSWORD="$configured_password"
+        HM_ADMIN_PASSWORD_GENERATED=false
+    else
+        hm_generate_admin_password
+        HM_ADMIN_PASSWORD_GENERATED=true
+    fi
+
+    config=$(jq -r --arg password "$HM_ADMIN_PASSWORD" \
+        '. + {"admin-password": $password} | to_entries | map("--" + .key + "=" + .value) | join(" ")' \
+        "$DATA_DIR/config.json")
+
+    admin_user=$(jq -r '."admin-user" // "admin"' "$DATA_DIR/config.json")
+
     "$COMMANDS_DIR"/magento.sh setup:install $command_arguments $config
     "$COMMANDS_DIR"/magento.sh config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
 
@@ -143,7 +166,7 @@ get_config() {
             "admin-lastname": "hiberus",
             "admin-email": "noreply@hiberus.com",
             "admin-user": "hiberus",
-            "admin-password": "Hiberus123"
+            "admin-password": ""
         }')
         echo $conf | jq '.' > "$DATA_DIR"/config.json
     fi
@@ -159,7 +182,23 @@ get_config() {
     get_argument_command "admin-lastname"
     get_argument_command "admin-email"
     get_argument_command "admin-user"
-    get_argument_command "admin-password"
+}
+
+#
+# The second factor, and everything needed to log in the first time
+#
+finish_admin_bootstrap() {
+    local user="${admin_user:-admin}"
+
+    if hm_two_factor_enabled; then
+        if ! hm_register_second_factor "$user"; then
+            print_warning "Could not register the second factor for '$user'\n"
+        fi
+    else
+        print_info "Two factor authentication is disabled in this project, so none was set up.\n"
+    fi
+
+    hm_print_admin_summary "$user" "$HM_ADMIN_PASSWORD"
 }
 
 #
@@ -171,6 +210,7 @@ init() {
     get_base_url
     get_config
     run_install_magento_command
+    finish_admin_bootstrap
 }
 
 # Process options

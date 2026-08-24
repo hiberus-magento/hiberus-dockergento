@@ -52,6 +52,7 @@ Instalación e IA siguen enteras en `backlog`.
 | [add-logs-launch-version](../../openspec/changes/archive/) | CLI-05, CLI-06, CLI-07 | 35 | hecho |
 | [derive-project-name](../../openspec/changes/archive/) | ENV-01 | 26 | hecho |
 | [choose-mail-catcher](../../openspec/changes/archive/) | ENV-03 | 28 | hecho |
+| [bootstrap-admin-credentials](../../openspec/changes/archive/) | INST-01 | 25 | hecho |
 | [speed-up-cli](../../openspec/changes/archive/) | PERF-01..04 | 34 | hecho |
 | [grouped-help](../../openspec/changes/archive/) | UX-04 | 27 | hecho |
 | [version-switching](../../openspec/changes/archive/) | REL-01, REL-02 | 29 | hecho |
@@ -102,7 +103,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **DB-02** | Volumen "golden" y clonado | Datos | M | DB-01 | backlog |
 | **DB-03** | Ciclo de vida seguro (`stop --snapshot`, protección de `down -v`) | Datos | S | DB-01 | backlog |
 | **DB-04** | Anonimización por defecto en entornos de agente | Datos | S | — | backlog |
-| **INST-01** | Bootstrap: admin aleatorio y 2FA con QR | Instalación | S | — | backlog |
+| **INST-01** | Bootstrap: admin aleatorio y 2FA con QR | Instalación | S | — | **hecho** |
 | **INST-02** | Flags `--clean-install` / `--db-dump` | Instalación | S | INST-01 | backlog |
 | **INST-03** | Proveedores `hm pull` / `hm push` | Instalación | M | CLI-01 | backlog |
 | **AI-01** | `hm verify [--changed] [--json]` | IA | M | CLI-01 | backlog |
@@ -430,11 +431,19 @@ anonimización deja de ser buena práctica y pasa a ser cumplimiento.
 
 ### Área Instalación
 
-#### INST-01 · Admin aleatorio y 2FA con QR
+#### INST-01 · Admin aleatorio y 2FA con QR — hecho
 **Origen**: cantera §3.9. **Esfuerzo**: S.
 Hoy el admin sale de `data/config.json` con contraseña fija `Hiberus123` y sin resolver el
 2FA, que es el primer tropiezo de cualquier instalación moderna. Warden genera contraseña
 aleatoria y pinta el QR de Google Authenticator en el terminal.
+**Cómo quedó**: contraseña de 20 alfanuméricos generada en cada instalación y **no guardada en
+ningún fichero** — `data/config.json` es común a todos los proyectos y guardaba las respuestas, así
+que la contraseña del último proyecto instalado quedaba en claro y se heredaba en el siguiente. El
+segundo factor se da de alta con `security:tfa:google:set-secret` (nombre leído del código del
+módulo, no supuesto) y el QR lo pinta `endroid/qr-code`, que **ya viene en el vendor de cualquier
+Magento**: cero dependencias nuevas, ni en el host ni en la imagen. Si el módulo está desactivado
+—como lo está en uno de los proyectos de la máquina— se informa y no se activa nada. En la 1.6.0;
+documentado en [docs/install.md](../install.md).
 
 #### INST-02 · `--clean-install` / `--db-dump`
 **Esfuerzo**: S. Alinear `hm setup`/`hm install` con las opciones del bootstrap de Warden.
