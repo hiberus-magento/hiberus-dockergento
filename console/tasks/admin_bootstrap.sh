@@ -118,10 +118,23 @@ hm_print_admin_summary() {
         print_info "Scan this with your authenticator app:\n\n"
 
         if ! hm_print_qr "$HM_ADMIN_OTP_URI"; then
-            print_warning "  Could not draw the code. Use this instead:\n"
+            print_warning "  The code could not be drawn. Enter it by hand instead.\n"
         fi
 
-        printf '\n  %s\n' "$HM_ADMIN_OTP_URI"
+        #
+        # The key on its own, not only inside the URI.
+        #
+        # Scanning is not always possible — a phone without the terminal in front of it, a shared
+        # screen, an authenticator that has no camera — and every app offers to type the key in.
+        # Magento's own screen shows both for the same reason. What manual entry asks for is
+        # exactly these three: the account it belongs to, the key, and that it is time based.
+        #
+        printf '\n'
+        printf '  %-10s %s\n' "account" "${DOMAIN:-magento}:${user}"
+        printf '  %-10s %s\n' "key" "$HM_ADMIN_OTP_SECRET"
+        printf '  %-10s %s\n' "type" "time based (TOTP)"
+        printf '\n'
+        printf '  %-10s %s\n' "uri" "$HM_ADMIN_OTP_URI"
     fi
 
     printf '\n'

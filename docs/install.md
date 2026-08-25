@@ -59,12 +59,22 @@ Scan this with your authenticator app:
   █ ███ █ ▄▄▄ █▄▀▄█▄  ▀█ ▀█ █ ███ █
   ...
 
-  otpauth://totp/project.local:hiberus?secret=…&issuer=project.local
+  account    project.local:hiberus
+  key        BQNXE43BRZILRHREAQYNRED6G2KWOZA2
+  type       time based (TOTP)
+
+  uri        otpauth://totp/project.local:hiberus?secret=…&issuer=project.local
 ```
 
 The code is drawn by `endroid/qr-code`, which Magento already ships for the two-factor module's own
-admin screen: nothing to install, and the same result on every machine. If it cannot be drawn, the
-`otpauth://` URI below it does the same job — paste it into the app.
+admin screen: nothing to install, and the same result on every machine.
+
+**The key is shown whether or not the code is.** Scanning is not always possible — a phone that is
+not next to the terminal, a shared screen, an authenticator without a camera — and every app offers
+to enter the key by hand. Those three lines are exactly what manual entry asks for: the account,
+the key, and that it is time based. Magento's own two-factor screen shows both for the same reason.
+
+The `uri` line is the same thing in one string, for pasting into an app that accepts it.
 
 ### If the module is disabled
 

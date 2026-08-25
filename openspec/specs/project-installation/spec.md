@@ -42,6 +42,11 @@ módulo de doble factor esté activo.
 - **WHEN** se genera el secreto del segundo factor
 - **THEN** es una cadena base32, que es el formato que esperan las aplicaciones de autenticación
 
+#### Scenario: La clave, además del código
+- **WHEN** se muestra el código QR
+- **THEN** se muestra también la clave del segundo factor por separado, junto con la cuenta a la
+  que pertenece y el tipo de factor, para poder darlo de alta a mano en cualquier aplicación
+
 #### Scenario: Alternativa al QR
 - **WHEN** el código QR no se puede pintar
 - **THEN** se muestra la URI de registro, que sirve para el mismo fin

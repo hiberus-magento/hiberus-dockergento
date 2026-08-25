@@ -111,4 +111,52 @@ assert_equals "refused" "$r"
 test_case "and leaves no URI behind"
 assert_empty "$HM_ADMIN_OTP_URI"
 
+# ---------------------------------------------------------------- the summary
+
+source "$COMPONENTS_DIR/print_message.sh"
+
+DOMAIN="project.local"
+HM_ADMIN_OTP_SECRET="BQNXE43BRZILRHREAQYNRED6G2KWOZA2"
+HM_ADMIN_OTP_URI="otpauth://totp/project.local:hiberus?secret=$HM_ADMIN_OTP_SECRET&issuer=project.local"
+
+# Scanning is not always possible, so both paths have to carry the key
+summary_with_qr() {
+    hm_print_qr() { printf '  [a qr code]\n'; return 0; }
+    hm_print_admin_summary "hiberus" "Kf3nQpX7mTvL2aBcR8d4"
+}
+
+summary_without_qr() {
+    hm_print_qr() { return 1; }
+    hm_print_admin_summary "hiberus" "Kf3nQpX7mTvL2aBcR8d4"
+}
+
+test_case "the summary carries the password"
+assert_contains "$(summary_with_qr)" "Kf3nQpX7mTvL2aBcR8d4"
+
+test_case "and the key, so any authenticator can be set up by hand"
+assert_contains "$(summary_with_qr)" "$HM_ADMIN_OTP_SECRET"
+
+test_case "the key is there even when the code was drawn"
+output=$(summary_with_qr)
+assert_contains "$output" "[a qr code]"
+
+test_case "with the account it belongs to"
+assert_contains "$output" "project.local:hiberus"
+
+test_case "and the kind of factor it is, which manual entry asks for"
+assert_contains "$output" "time based"
+
+test_case "and the key is still there when the code cannot be drawn"
+assert_contains "$(summary_without_qr)" "$HM_ADMIN_OTP_SECRET"
+
+test_case "the key is shown on its own, not only buried in the URI"
+plain=$(summary_with_qr | grep -v "otpauth://")
+assert_contains "$plain" "$HM_ADMIN_OTP_SECRET"
+
+test_case "the storefront and the admin are both there"
+assert_contains "$output" "https://project.local/admin"
+
+test_case "and it says the password is not kept anywhere"
+assert_contains "$output" "not stored anywhere"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
