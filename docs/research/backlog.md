@@ -53,6 +53,7 @@ Instalación e IA siguen enteras en `backlog`.
 | [derive-project-name](../../openspec/changes/archive/) | ENV-01 | 26 | hecho |
 | [choose-mail-catcher](../../openspec/changes/archive/) | ENV-03 | 28 | hecho |
 | [bootstrap-admin-credentials](../../openspec/changes/archive/) | INST-01 | 25 | hecho |
+| [add-database-snapshots](../../openspec/changes/archive/) | DB-01 | 33 | hecho |
 | [speed-up-cli](../../openspec/changes/archive/) | PERF-01..04 | 34 | hecho |
 | [grouped-help](../../openspec/changes/archive/) | UX-04 | 27 | hecho |
 | [version-switching](../../openspec/changes/archive/) | REL-01, REL-02 | 29 | hecho |
@@ -99,7 +100,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **ENV-08** | Mutagen en macOS | Entorno | L | — | backlog |
 | **ENV-09** | Perfilado: XHProf / XHGui | Entorno | M | ENV-04 | backlog |
 | **ENV-10** | Perfilado: Blackfire | Entorno | M | ENV-04 | backlog |
-| **DB-01** | `hm db snapshot` / `restore` / `list` | Datos | M | — | backlog |
+| **DB-01** | `hm db snapshot` / `restore` / `list` | Datos | M | — | **hecho** |
 | **DB-02** | Volumen "golden" y clonado | Datos | M | DB-01 | backlog |
 | **DB-03** | Ciclo de vida seguro (`stop --snapshot`, protección de `down -v`) | Datos | S | DB-01 | backlog |
 | **DB-04** | Anonimización por defecto en entornos de agente | Datos | S | — | backlog |
@@ -408,12 +409,19 @@ hoy sólo tenemos Xdebug. Empezar por XHProf (libre) y valorar Blackfire (licenc
 
 ### Área Datos
 
-#### DB-01 · `hm db snapshot` / `restore` / `list`
+#### DB-01 · `hm db snapshot` / `restore` / `list` — hecho
 **Origen**: cantera §3.3. **Esfuerzo**: M.
 **Propuesta**: snapshots con **backup en caliente** (`mariadb-backup`) dentro del
 contenedor, con nombre y fecha, al estilo de `ddev snapshot`.
 **Aceptación**: crear y restaurar sin parar el proyecto; `--name`; lista con tamaño y
 origen; funciona con las versiones de MariaDB de `requirements.json`.
+**Cómo quedó**: con volcado **lógico**, no con `mariadb-backup` como proponía esta ficha. La copia
+física se crea en caliente pero **restaurarla exige parar el servidor** —hay que reemplazar su
+directorio de datos—, y el criterio de aceptación de aquí al lado pedía restaurar sin parar el
+proyecto. La lógica es más lenta y sirve entre versiones distintas de MariaDB. Las copias viven en
+`~/.hm/snapshots/<proyecto>/`, fuera del proyecto, y sobreviven a `down -v`. Restaurar vacía el
+esquema antes de cargar, para que devuelva la copia y no una mezcla. En la 1.6.0; documentado en
+[docs/db.md](../db.md).
 
 #### DB-02 · Volumen "golden" y clonado
 **Origen**: worktrees §4.2. **Esfuerzo**: M. **Depende de**: DB-01.

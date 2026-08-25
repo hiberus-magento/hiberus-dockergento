@@ -170,6 +170,33 @@
         ],
         "group": "tools"
     },
+    "db": {
+        "description": "Named copies of this project's database",
+        "usage": "db <snapshot|list|restore|remove> [options]",
+        "args": [
+            {
+                "name": "<subcommand>",
+                "description": "snapshot, list, restore or remove"
+            }
+        ],
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "name=<name>"
+                },
+                "description": "Name for the snapshot (default: the date)"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "force"
+                },
+                "description": "Overwrite a snapshot that already exists"
+            }
+        ],
+        "group": "database"
+    },
     "debug-off": {
         "description": "Disable xDebug",
         "group": "tools"
