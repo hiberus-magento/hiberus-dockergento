@@ -2,6 +2,8 @@
 set -euo pipefail
 
 source "$HELPERS_DIR"/exit_codes.sh
+source "$HELPERS_DIR"/version.sh
+source "$TASKS_DIR"/proxy.sh
 
 regex=""
 
@@ -67,6 +69,18 @@ write_docker_compose() {
     local composer_dir_name
 
     sed "$regex" "$COMMAND_BIN_DIR/docker-compose/docker-compose.template.yml" >"$DOCKER_COMPOSE_FILE"
+
+    if hm_project_uses_proxy; then
+        if ! hm_proxy_compose_is_recent_enough; then
+            hm_fail "$HM_EXIT_ERROR" "compose_too_old" \
+                "The proxy needs Docker Compose $HM_PROXY_MIN_COMPOSE or newer, and this is $(get_docker_compose_version)" \
+                "Set USE_PROXY to false in config/docker/properties.json, or update Docker"
+        fi
+        hm_proxy_write_overlay
+        hm_proxy_write_certificate "${DOMAIN:-localhost}" || true
+    else
+        rm -f "${DOCKER_COMPOSE_FILE%.yml}.proxy.yml"
+    fi
     composer_dir_name=$(dirname "$DOCKER_COMPOSE_FILE_LINUX")
     mkdir -p "$composer_dir_name"
     cp "$COMMAND_BIN_DIR/docker-compose/docker-compose.dev.linux.template.yml" "$DOCKER_COMPOSE_FILE_LINUX"

@@ -89,8 +89,8 @@ Instalación e IA siguen enteras en `backlog`.
 | **UX-06** | Selector navegable con flechas | UX | M | UX-07 | backlog |
 | **UX-07** | Biblioteca de componentes de terminal | UX | M | — | **hecho** |
 | **TUI-01** | Dashboard de terminal (`hm tui`) | TUI | M | CLI-02, CLI-03, UX-07 | **hecho** |
-| **NET-01** | Proxy global (`hm proxy`) con Traefik | Red | L | ENV-02 | backlog |
-| **NET-02** | Certificado wildcard | Red | S | NET-01 | backlog |
+| **NET-01** | Proxy global (`hm proxy`) con Traefik | Red | L | ENV-02 | **hecho** |
+| **NET-02** | Certificado wildcard | Red | S | NET-01 | **hecho** |
 | **NET-03** | dnsmasq: fin de `/etc/hosts` | Red | M | NET-01 | backlog |
 | **NET-04** | `hm share` con Cloudflared | Red | S | NET-01 | backlog |
 | **ENV-01** | Nombre de proyecto derivado del directorio | Entorno | S | — | **hecho** |
@@ -343,6 +343,14 @@ publicar puertos.
 muestra qué rutas hay; un proyecto arrancado sin proxy sigue funcionando (compatibilidad).
 **Riesgo**: es el cambio más invasivo del backlog; necesita plan de migración para los
 proyectos existentes.
+**Cómo quedó**: **opcional por proyecto** (`USE_PROXY`), así que nadie migra y la versión es 1.7.0
+y no 2.0.0. Los proyectos con proxy **no publican ningún puerto**. Lo HTTP va por dominio y
+subdominios; **MySQL y AMQP no se pueden enrutar por nombre** —Traefik lo rechaza: *has HostSNI
+matcher, but no TLS on router*— y se alcanzan con `hm tunnel`. Hitch desaparece: sólo estaba para
+dar HTTPS a Varnish. La superposición usa `!reset` de Compose 2.24, así que **la plantilla base no
+se duplica**. Incluye NET-02: certificado comodín, obligado por los subdominios. Verificado
+levantando dos proyectos a la vez. En la 1.7.0; documentado en [docs/proxy.md](../proxy.md).
+
 
 #### NET-02 · Certificado wildcard
 **Esfuerzo**: S. **Depende de**: NET-01. Un `mkcert` para `*.<dominio>` en lugar de uno por

@@ -460,6 +460,17 @@
         ],
         "group": "magento"
     },
+    "proxy": {
+        "description": "The global proxy, so several projects can be up at once",
+        "usage": "proxy <up|down|status>",
+        "args": [
+            {
+                "name": "<subcommand>",
+                "description": "up, down or status"
+            }
+        ],
+        "group": "environment"
+    },
     "purge": {
         "description": "Remove all magento generated code (caches, generated, static, view_preprocessed)",
         "group": "magento"
@@ -639,6 +650,30 @@
         "description": "Open the dashboard: every environment on this machine, on one screen",
         "usage": "tui",
         "group": "environment"
+    },
+    "tunnel": {
+        "description": "Open a temporary way in to a service that is not routed by name",
+        "usage": "tunnel <service> [port]",
+        "args": [
+            {
+                "name": "<service>",
+                "description": "db, rabbitmq, ..."
+            },
+            {
+                "name": "[port]",
+                "description": "Port inside the container, when the image exposes several"
+            }
+        ],
+        "group": "environment",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "close"
+                },
+                "description": "Close tunnels left open by this project"
+            }
+        ]
     },
     "update": {
         "description": "Update hiberus docker tool",
