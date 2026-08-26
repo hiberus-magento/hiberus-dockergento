@@ -92,7 +92,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **NET-01** | Proxy global (`hm proxy`) con Traefik | Red | L | ENV-02 | **hecho** |
 | **NET-02** | Certificado wildcard | Red | S | NET-01 | **hecho** |
 | **NET-03** | dnsmasq: fin de `/etc/hosts` | Red | M | NET-01 | backlog |
-| **NET-04** | `hm share` con Cloudflared | Red | S | NET-01 | backlog |
+| **NET-04** | `hm share` con Cloudflared | Red | S | NET-01 | **hecho** |
 | **ENV-01** | Nombre de proyecto derivado del directorio | Entorno | S | — | **hecho** |
 | **ENV-02** | Etiquetas `hm.*` en la plantilla compose | Entorno | S | — | **hecho** |
 | **ENV-03** | Mailpit en lugar de Mailhog | Entorno | S | — | **hecho** |
@@ -365,13 +365,19 @@ cambiar a `.test`**, que es el TLD reservado que usan Warden y DDEV.
 por decreto obligaría a regenerar dominios y certificados en todos los proyectos existentes; así
 nadie se mueve y quien quiera prueba `.test` sin arrastrar al resto.
 
-#### NET-04 · `hm share` con Cloudflared
+#### NET-04 · `hm share` con Cloudflared — hecho
 **Origen**: cantera §3.5. **Decisión D3**. **Esfuerzo**: S.
 **Casos de uso**: enseñar avances a cliente o QA sin desplegar, y **recibir webhooks
 reales** de pasarelas de pago, ERPs y marketplaces contra el entorno local.
 **Aceptación**: `hm share` devuelve una URL pública; avisa de que el entorno queda expuesto
 y exige confirmación; `hm share --stop`; documenta que la URL cambia en cada arranque salvo
 que se configure un túnel con nombre.
+**Cómo quedó**: túneles rápidos, sin cuenta ni credenciales y sin instalar nada. **Verificado desde
+la red de la empresa**, que era la única duda real: una primera medición dijo que estaba filtrado y
+era falsa — había consultado la URL antes de que el túnel registrara sus conexiones con el borde.
+No depende del proxy: el túnel se une a la red del proyecto. La confirmación nombra lo que se
+expone, porque es la única de esta herramienta que protege algo que no está en la máquina. En la
+1.7.0; documentado en [docs/share.md](../share.md).
 
 ### Área Entorno
 

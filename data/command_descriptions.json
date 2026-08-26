@@ -557,6 +557,20 @@
         ],
         "group": "environment"
     },
+    "share": {
+        "description": "Give this project a temporary public address",
+        "usage": "share [--stop]",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "stop"
+                },
+                "description": "Close a tunnel left open"
+            }
+        ],
+        "group": "environment"
+    },
     "ssl": {
         "description": "Install SSL certificates for docker environment",
         "args": [
