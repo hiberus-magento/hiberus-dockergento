@@ -84,6 +84,45 @@ Las copias SHALL conservarse cuando el entorno se destruye.
 - **WHEN** se crea una copia
 - **THEN** no se escribe ningún fichero dentro del directorio del proyecto
 
+### Requirement: Vaciar las copias
+
+`hm db clear` SHALL eliminar todas las copias del proyecto, o las de todos los proyectos, siempre
+tras una confirmación explícita.
+
+#### Scenario: Las de este proyecto
+- **WHEN** se vacían las copias sin más indicación
+- **THEN** se eliminan las del proyecto actual y ninguna de otro
+
+#### Scenario: Las de todos
+- **WHEN** se indica que el alcance es toda la máquina
+- **THEN** se eliminan las copias de todos los proyectos
+
+#### Scenario: Se pregunta antes, nombrando lo que se destruye
+- **WHEN** se vacían copias de forma interactiva
+- **THEN** se enumera lo que se va a borrar y se exige escribir el nombre de lo que se destruye
+
+#### Scenario: No confirmar no borra
+- **WHEN** no se confirma
+- **THEN** ninguna copia se elimina
+
+#### Scenario: Nada que borrar
+- **WHEN** no hay ninguna copia
+- **THEN** se informa y el comando termina correctamente
+
+### Requirement: Compatibilidad con todas las versiones de base de datos
+
+Las copias SHALL funcionar con cualquiera de las imágenes de base de datos que la herramienta puede
+configurar.
+
+#### Scenario: Herramientas renombradas
+- **WHEN** la imagen sólo trae los nombres antiguos de cliente y volcador, o sólo los nuevos
+- **THEN** se resuelven dentro del contenedor y el comando funciona igual
+
+#### Scenario: Ida y vuelta en cada versión
+- **WHEN** se copia y se restaura en cualquiera de las versiones soportadas
+- **THEN** vuelven los datos, las rutinas y los disparadores, y no sobrevive nada creado después de
+  la copia
+
 ### Requirement: Borrar una copia
 
 `hm db remove` SHALL eliminar una copia del proyecto actual.

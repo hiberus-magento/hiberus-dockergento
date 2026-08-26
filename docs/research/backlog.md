@@ -422,6 +422,9 @@ proyecto. La lógica es más lenta y sirve entre versiones distintas de MariaDB.
 `~/.hm/snapshots/<proyecto>/`, fuera del proyecto, y sobreviven a `down -v`. Restaurar vacía el
 esquema antes de cargar, para que devuelva la copia y no una mezcla. En la 1.6.0; documentado en
 [docs/db.md](../db.md).
+**Añadido a petición**: `hm db clear` / `--all` para vaciar copias, siempre preguntando y
+enumerando lo que se destruye. Y la compatibilidad con **todas** las imágenes de base de datos
+—de MariaDB 10.2 a 12.3— está verificada por un test de matriz, no supuesta.
 
 #### DB-02 · Volumen "golden" y clonado
 **Origen**: worktrees §4.2. **Esfuerzo**: M. **Depende de**: DB-01.

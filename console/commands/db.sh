@@ -35,7 +35,8 @@ usage() {
     print_default "  $COMMAND_BIN_NAME db snapshot [--name=<name>] [--force]\n"
     print_default "  $COMMAND_BIN_NAME db list\n"
     print_default "  $COMMAND_BIN_NAME db restore <name>\n"
-    print_default "  $COMMAND_BIN_NAME db remove <name>\n\n"
+    print_default "  $COMMAND_BIN_NAME db remove <name>\n"
+    print_default "  $COMMAND_BIN_NAME db clear [--all]\n\n"
 }
 
 #
@@ -269,6 +270,90 @@ do_remove() {
     printf '\n'
 }
 
+# ------------------------------------------------------------------ clear
+
+#
+# Every snapshot of this project, or of all of them.
+#
+# `remove` deletes one by name; this is for reclaiming the space, which is the other reason to
+# delete. Both ask, and the bulk one asks harder: it is the only command here that can destroy
+# copies belonging to projects you are not standing in.
+#
+do_clear() {
+    local scope="project"
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --all) scope="all"; shift ;;
+            *)
+                hm_fail "$HM_EXIT_USAGE" "invalid_argument" "Unknown option: $1" \
+                    "$COMMAND_BIN_NAME db clear [--all]"
+                ;;
+        esac
+    done
+
+    local root="${HM_SNAPSHOT_DIR:-$HOME/.hm/snapshots}"
+    local targets="" confirmation="$COMPOSE_PROJECT_NAME" subject="$COMPOSE_PROJECT_NAME"
+
+    if [ "$scope" == "all" ]; then
+        confirmation="all"
+        subject="every project on this machine"
+        [ -d "$root" ] && targets=$(find "$root" -type f -name '*.sql.gz' 2>/dev/null | sort)
+    else
+        [ -d "$SNAPSHOT_ROOT" ] && targets=$(find "$SNAPSHOT_ROOT" -type f -name '*.sql.gz' 2>/dev/null | sort)
+    fi
+
+    local count=0 total="0B"
+    if [ -n "$targets" ]; then
+        count=$(printf '%s\n' "$targets" | grep -c .)
+        total=$(printf '%s\n' "$targets" | tr '\n' '\0' | xargs -0 du -ch 2>/dev/null |
+            tail -1 | awk '{print $1}')
+    fi
+
+    if [ "$count" -eq 0 ]; then
+        if is_json_output; then
+            json_success "db" "$(jq -n --argjson removed 0 '{removed: $removed, freed: "0B"}')"
+            return 0
+        fi
+        print_info "There are no snapshots to clear.\n"
+        return 0
+    fi
+
+    if ! is_non_interactive; then
+        printf '\n'
+        print_warning "This deletes $count snapshot(s) of $subject, freeing $total.\n"
+        print_warning "There is no undo, and they are the only copies.\n\n"
+
+        # What is being destroyed is named in the answer, so a reflex cannot do it
+        printf '%s\n' "$targets" | while IFS= read -r file; do
+            [ -n "$file" ] && printf '  %s\n' "${file#$root/}"
+        done
+        printf '\n'
+
+        read -rp "$(print_question "Type '$confirmation' to confirm")" reply
+
+        if [ "$reply" != "$confirmation" ]; then
+            print_info "Nothing was deleted.\n"
+            return 0
+        fi
+    fi
+
+    printf '%s\n' "$targets" | while IFS= read -r file; do
+        [ -n "$file" ] && rm -f "$file"
+    done
+
+    # Leave no empty project directories behind
+    [ -d "$root" ] && find "$root" -type d -empty -delete 2>/dev/null
+
+    if is_json_output; then
+        json_success "db" "$(jq -n --argjson removed "$count" --arg freed "$total" \
+            --arg scope "$scope" '$ARGS.named')"
+        return 0
+    fi
+
+    print_info "Deleted $count snapshot(s), freeing $total.\n"
+}
+
 # ------------------------------------------------------------------ router
 
 subcommand="${1:-}"
@@ -276,6 +361,7 @@ subcommand="${1:-}"
 
 case "$subcommand" in
     snapshot) do_snapshot "$@" ;;
+    clear)    do_clear "$@" ;;
     list)     do_list "$@" ;;
     restore)  do_restore "$@" ;;
     remove)   do_remove "$@" ;;
@@ -285,6 +371,6 @@ case "$subcommand" in
     *)
         hm_fail "$HM_EXIT_USAGE" "unknown_subcommand" \
             "'$subcommand' is not something $COMMAND_BIN_NAME db does" \
-            "$COMMAND_BIN_NAME db snapshot | list | restore | remove"
+            "$COMMAND_BIN_NAME db snapshot | list | restore | remove | clear"
         ;;
 esac

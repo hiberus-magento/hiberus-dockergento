@@ -73,6 +73,41 @@ hm db list --json
 Name, when it was taken and how much space it uses. In JSON, `.data.snapshots[]` with `name`,
 `taken_at` and `size`.
 
+## Clearing them
+
+`remove` deletes one by name. To reclaim space:
+
+```bash
+hm db clear          # every snapshot of this project
+hm db clear --all    # every snapshot of every project on this machine
+```
+
+Both list what they are about to delete and ask you to type the name of what is being destroyed —
+the project's name, or `all`. There is no undo and they are the only copies, so a `y` typed by
+reflex is not enough. `hm --yes db clear` skips the question in a script.
+
+## Every database version the tool supports
+
+Projects here run anything from MariaDB 10.2 to 12.3, and the tools were renamed along the way:
+`mysqldump` became `mariadb-dump`, `mysql` became `mariadb`. Both names are resolved inside the
+container, so the same command works on all of them.
+
+That is checked, not assumed: `tests/integration/db_image_matrix_test.sh` takes a snapshot and
+restores it on every image in `data/requirements.json`, verifying the data, the routines and the
+triggers all come back and that nothing created after the snapshot survives it.
+
+| Image | Verified |
+|---|---|
+| `hiberusmagento/mariadb:10.2` | ✓ |
+| `hiberusmagento/mariadb:10.3` | ✓ |
+| `hiberusmagento/mariadb:10.4` | ✓ |
+| `hiberusmagento/mariadb:10.6` | ✓ |
+| `mariadb:11.4` | ✓ |
+| `mariadb:12.3` | ✓ |
+
+By default the test only uses images already on the machine, so a normal run stays fast. Set
+`HM_TEST_DB_MATRIX=1` to pull and check every one.
+
 ## What this is not
 
 Not a backup tool. These are local working copies: no encryption, no rotation, nothing remote, and

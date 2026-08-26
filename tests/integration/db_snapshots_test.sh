@@ -178,6 +178,51 @@ test_case "removing one that does not exist is refused"
 hm_in "$PROJECT" db remove before --json
 assert_json_field "$STDERR" '.error.type' "unknown_snapshot"
 
+# ---------------------------------------------------------------- clear
+
+# Clearing needs no database — it deletes files — and by this point the environment has been
+# destroyed on purpose by the survival check above.
+seed_snapshots() {
+    mkdir -p "$HM_SNAPSHOT_DIR/$PROJECT"
+    for name in "$@"; do
+        printf 'a snapshot\n' | gzip > "$HM_SNAPSHOT_DIR/$PROJECT/$name.sql.gz"
+    done
+}
+
+test_case "clearing asks before deleting anything"
+rm -f "$HM_SNAPSHOT_DIR/$PROJECT"/*.sql.gz 2>/dev/null
+seed_snapshots one two
+( cd "$LAB/$PROJECT" && printf 'no\n' | "$HM" db clear >/dev/null 2>&1 )
+hm_in "$PROJECT" db list --json
+assert_equals "2" "$(printf '%s' "$STDOUT" | jq '.data.snapshots | length')"
+
+test_case "confirming clears this project's snapshots"
+( cd "$LAB/$PROJECT" && printf '%s\n' "$PROJECT" | "$HM" db clear >/dev/null 2>&1 )
+hm_in "$PROJECT" db list --json
+assert_equals "0" "$(printf '%s' "$STDOUT" | jq '.data.snapshots | length')"
+
+test_case "and leaves another project's alone"
+[ -f "$HM_SNAPSHOT_DIR/$OTHER/foreign.sql.gz" ] && r=kept || r=deleted
+assert_equals "kept" "$r"
+
+test_case "clearing everything asks too"
+seed_snapshots one
+( cd "$LAB/$PROJECT" && printf 'no\n' | "$HM" db clear --all >/dev/null 2>&1 )
+[ -f "$HM_SNAPSHOT_DIR/$OTHER/foreign.sql.gz" ] && r=kept || r=deleted
+assert_equals "kept" "$r"
+
+test_case "and confirming it reaches every project"
+( cd "$LAB/$PROJECT" && printf 'all\n' | "$HM" db clear --all >/dev/null 2>&1 )
+assert_empty "$(find "$HM_SNAPSHOT_DIR" -name '*.sql.gz' 2>/dev/null)"
+
+test_case "clearing nothing says so instead of failing"
+hm_in "$PROJECT" db clear --json
+assert_equals "0" "$(printf '%s' "$STDOUT" | jq -r '.data.removed')"
+
+test_case "an unknown option to clear is a usage error"
+hm_in "$PROJECT" db clear --everything --json
+assert_json_field "$STDERR" '.error.type' "invalid_argument"
+
 test_case "an unknown subcommand is a usage error"
 hm_in "$PROJECT" db explode --json
 assert_json_field "$STDERR" '.error.type' "unknown_subcommand"

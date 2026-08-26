@@ -172,11 +172,11 @@
     },
     "db": {
         "description": "Named copies of this project's database",
-        "usage": "db <snapshot|list|restore|remove> [options]",
+        "usage": "db <snapshot|list|restore|remove|clear> [options]",
         "args": [
             {
                 "name": "<subcommand>",
-                "description": "snapshot, list, restore or remove"
+                "description": "snapshot, list, restore, remove or clear"
             }
         ],
         "opts": [
@@ -193,6 +193,13 @@
                     "long": "force"
                 },
                 "description": "Overwrite a snapshot that already exists"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "all"
+                },
+                "description": "With clear: every project's snapshots, not just this one's"
             }
         ],
         "group": "database"
