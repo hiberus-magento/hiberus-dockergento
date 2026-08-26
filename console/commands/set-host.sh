@@ -3,6 +3,7 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
 source "$HELPERS_DIR"/properties.sh
+source "$HELPERS_DIR"/domain_resolution.sh
 
 modify_database=true
 
@@ -21,8 +22,16 @@ set_local_host() {
         shift
     fi
 
-    # Add domain in /etc/hosts
-    if ! grep -q "$DOMAIN" /etc/hosts; then
+    #
+    # Only write to /etc/hosts when something has to be written.
+    #
+    # A wildcard resolver for the TLD — ours, or one the machine already had — makes the entry
+    # pointless, and the entry is what costs a password prompt per project and leaves a line
+    # behind forever.
+    #
+    if hm_domain_resolves_locally "$DOMAIN"; then
+        print_info "$DOMAIN already resolves to this machine, so /etc/hosts was left alone.\n"
+    elif ! grep -qE "[[:space:]]$DOMAIN([[:space:]]|$)" /etc/hosts; then
         print_info "Your system password is needed to add an entry to /etc/hosts...\n"
         echo "0.0.0.0 ::1 $DOMAIN" | sudo tee -a /etc/hosts
     fi

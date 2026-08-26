@@ -91,7 +91,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **TUI-01** | Dashboard de terminal (`hm tui`) | TUI | M | CLI-02, CLI-03, UX-07 | **hecho** |
 | **NET-01** | Proxy global (`hm proxy`) con Traefik | Red | L | ENV-02 | **hecho** |
 | **NET-02** | Certificado wildcard | Red | S | NET-01 | **hecho** |
-| **NET-03** | dnsmasq: fin de `/etc/hosts` | Red | M | NET-01 | backlog |
+| **NET-03** | dnsmasq: fin de `/etc/hosts` | Red | M | NET-01 | **parcial** |
 | **NET-04** | `hm share` con Cloudflared | Red | S | NET-01 | **hecho** |
 | **ENV-01** | Nombre de proyecto derivado del directorio | Entorno | S | — | **hecho** |
 | **ENV-02** | Etiquetas `hm.*` en la plantilla compose | Entorno | S | — | **hecho** |
@@ -364,6 +364,12 @@ cambiar a `.test`**, que es el TLD reservado que usan Warden y DDEV.
 **Decidido (26/08/2026)**: el TLD lo elige **cada proyecto**, con `.local` por defecto. Cambiarlo
 por decreto obligaría a regenerar dominios y certificados en todos los proyectos existentes; así
 nadie se mueve y quien quiera prueba `.test` sin arrastrar al resto.
+**Cómo quedó (parcial)**: lo que da el valor es un `if` — comprobar si el dominio **ya resuelve**
+antes de escribir en `/etc/hosts`. Hecho, y funciona con cualquier resolvedor, incluido el que ya
+tenía la máquina. **Montar un dnsmasq propio se dejó fuera a sabiendas**: el puerto 53 ya estaba
+ocupado por otro resolvedor, así que no había dónde probarlo, y construir a ciegas algo que pide
+`sudo` y puede disputar un puerto no compensa. Documentado cómo conseguirlo en
+[docs/dns.md](../dns.md). En la 1.7.0.
 
 #### NET-04 · `hm share` con Cloudflared — hecho
 **Origen**: cantera §3.5. **Decisión D3**. **Esfuerzo**: S.
