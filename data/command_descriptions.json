@@ -572,7 +572,17 @@
             }
         ],
         "example": "stop phpfpm",
-        "group": "environment"
+        "group": "environment",
+        "usage": "stop [options]",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "snapshot"
+                },
+                "description": "Save a database snapshot before stopping"
+            }
+        ]
     },
     "switch": {
         "description": "Switch the installation to another version or branch",

@@ -108,6 +108,11 @@ triggers all come back and that nothing created after the snapshot survives it.
 By default the test only uses images already on the machine, so a normal run stays fast. Set
 `HM_TEST_DB_MATRIX=1` to pull and check every one.
 
+## Where snapshots come from on their own
+
+`hm down -v` offers to take one before destroying the environment, and `hm stop --snapshot` takes
+one before stopping. See [down](down.md) and [stop](stop.md).
+
 ## What this is not
 
 Not a backup tool. These are local working copies: no encryption, no rotation, nothing remote, and

@@ -29,6 +29,7 @@
 | D5 | **Sin registro de add-ons ni env-types multi-framework** | Coste de ecosistema que no nos corresponde; nuestro valor es el foco en Magento |
 | D6 | **Sin Portainer como servicio global** | Aporta poco frente a Docker Desktop y es superficie que mantener |
 | D7 | **La web no implementará lógica de negocio** | Sólo consume el contrato JSON y llama a los mismos verbos que la CLI |
+| D8 | **El TLD lo elige cada proyecto**, `.local` por defecto | Cambiarlo por decreto obligaría a regenerar dominios y certificados en todos los proyectos existentes |
 
 ---
 
@@ -54,6 +55,7 @@ Instalación e IA siguen enteras en `backlog`.
 | [choose-mail-catcher](../../openspec/changes/archive/) | ENV-03 | 28 | hecho |
 | [bootstrap-admin-credentials](../../openspec/changes/archive/) | INST-01 | 25 | hecho |
 | [add-database-snapshots](../../openspec/changes/archive/) | DB-01 | 33 | hecho |
+| [protect-environment-lifecycle](../../openspec/changes/archive/) | DB-03 | 28 | hecho |
 | [speed-up-cli](../../openspec/changes/archive/) | PERF-01..04 | 34 | hecho |
 | [grouped-help](../../openspec/changes/archive/) | UX-04 | 27 | hecho |
 | [version-switching](../../openspec/changes/archive/) | REL-01, REL-02 | 29 | hecho |
@@ -102,7 +104,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **ENV-10** | Perfilado: Blackfire | Entorno | M | ENV-04 | backlog |
 | **DB-01** | `hm db snapshot` / `restore` / `list` | Datos | M | — | **hecho** |
 | **DB-02** | Volumen "golden" y clonado | Datos | M | DB-01 | backlog |
-| **DB-03** | Ciclo de vida seguro (`stop --snapshot`, protección de `down -v`) | Datos | S | DB-01 | backlog |
+| **DB-03** | Ciclo de vida seguro (`stop --snapshot`, protección de `down -v`) | Datos | S | DB-01 | **hecho** |
 | **DB-04** | Anonimización por defecto en entornos de agente | Datos | S | — | backlog |
 | **INST-01** | Bootstrap: admin aleatorio y 2FA con QR | Instalación | S | — | **hecho** |
 | **INST-02** | Flags `--clean-install` / `--db-dump` | Instalación | S | INST-01 | backlog |
@@ -341,6 +343,9 @@ proyecto, como hace `warden sign-certificate`.
 `/etc/hosts` con `sudo`, que es lo que hace hoy `set-host.sh`. **Ojo**: en macOS requiere
 un resolvedor en `/etc/resolver/`, y `.local` colisiona con mDNS/Bonjour — **valorar
 cambiar a `.test`**, que es el TLD reservado que usan Warden y DDEV.
+**Decidido (26/08/2026)**: el TLD lo elige **cada proyecto**, con `.local` por defecto. Cambiarlo
+por decreto obligaría a regenerar dominios y certificados en todos los proyectos existentes; así
+nadie se mueve y quien quiera prueba `.test` sin arrastrar al resto.
 
 #### NET-04 · `hm share` con Cloudflared
 **Origen**: cantera §3.5. **Decisión D3**. **Esfuerzo**: S.
@@ -432,9 +437,14 @@ Clonar el volumen de datos desde una plantilla congelada para levantar entornos 
 segundos sin tocar el principal. Medido: `dbdata` 245 MB y `workspace` 695 MB en un
 proyecto real, o sea clones de segundos.
 
-#### DB-03 · Ciclo de vida seguro
+#### DB-03 · Ciclo de vida seguro — hecho
 **Esfuerzo**: S. `hm stop --snapshot`, confirmación en `down -v`, y acotar
 `docker-stop-all` al proyecto o exigir confirmación explícita.
+**Cómo quedó**: `down -v` enumera los volúmenes y ofrece **tres** respuestas, con «guardar y
+destruir» por defecto — la que nadie lamenta. `docker-stop-all` no se acota al proyecto: se le pide
+confirmación diciendo cuántos contenedores son ajenos, porque acotarlo cambiaría lo que hace un
+comando que la gente ya usa a propósito. Nada pregunta sin terminal ni con `--yes`. En la 1.6.0;
+documentado en [docs/down.md](../down.md) y [docs/stop.md](../stop.md).
 
 #### DB-04 · Anonimización por defecto en entornos de agente
 **Esfuerzo**: S. Apoyado en `hm masquerade`, que **ya existe**. Con agentes, la
