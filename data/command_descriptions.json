@@ -75,6 +75,20 @@
         ],
         "group": "tools"
     },
+    "clean": {
+        "description": "Collect what environments that no longer exist left behind",
+        "usage": "clean [--force]",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "force"
+                },
+                "description": "Actually delete; without it nothing is removed"
+            }
+        ],
+        "group": "environment"
+    },
     "cloud": {
         "description": "Magento Cloud Cli",
         "usage": "cloud [options]",

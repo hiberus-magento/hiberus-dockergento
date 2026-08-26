@@ -137,7 +137,8 @@ validate_command() {
         "$1" != "doctor" &&
         "$1" != "switch" &&
         "$1" != "tui" &&
-        "$1" != "version"
+        "$1" != "version" &&
+        "$1" != "clean"
     ]]; then
         source "$HELPERS_DIR"/docker.sh
         is_docker_service_running

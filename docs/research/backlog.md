@@ -56,6 +56,7 @@ Instalación e IA siguen enteras en `backlog`.
 | [bootstrap-admin-credentials](../../openspec/changes/archive/) | INST-01 | 25 | hecho |
 | [add-database-snapshots](../../openspec/changes/archive/) | DB-01 | 33 | hecho |
 | [protect-environment-lifecycle](../../openspec/changes/archive/) | DB-03 | 28 | hecho |
+| [add-clean-command](../../openspec/changes/archive/) | CLI-08 | 28 | hecho |
 | [speed-up-cli](../../openspec/changes/archive/) | PERF-01..04 | 34 | hecho |
 | [grouped-help](../../openspec/changes/archive/) | UX-04 | 27 | hecho |
 | [version-switching](../../openspec/changes/archive/) | REL-01, REL-02 | 29 | hecho |
@@ -71,7 +72,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **CLI-05** | `hm logs [servicio] [-f]` | CLI | S | — | **hecho** |
 | **CLI-06** | `hm launch` | CLI | S | CLI-02 | **hecho** |
 | **CLI-07** | `hm version` | CLI | S | — | **hecho** |
-| **CLI-08** | `hm clean [--dry-run]` | CLI | S | ENV-02 | backlog |
+| **CLI-08** | `hm clean [--dry-run]` | CLI | S | ENV-02 | **hecho** |
 | **CLI-09** | Lanzadores de clientes de BD | CLI | S | CLI-02 | backlog |
 | **PERF-01** | `hm --help` en una sola pasada de `jq` | Rendimiento | S | — | **hecho** |
 | **PERF-02** | Coste fijo de arranque perezoso | Rendimiento | M | — | **hecho** |
@@ -207,11 +208,20 @@ fuentes que puedan discrepar (resuelto en REL-01). `hm --version` se deja intact
 camino más corto de la CLI y tiene presupuesto de rendimiento; el comando paga las dos llamadas
 a Docker. No exige proyecto. Documentado en [docs/version.md](../version.md).
 
-#### CLI-08 · `hm clean [--dry-run]`
+#### CLI-08 · `hm clean [--dry-run]` — hecho
 **Origen**: cantera §3.11. **Esfuerzo**: S. **Depende de**: ENV-02.
 **Motivo**: una máquina que ha levantado unos cuantos proyectos acumula con
 facilidad más de cien volúmenes y decenas de GB que nadie va a reclamar. **Aceptación**: sólo toca recursos con etiqueta `hm.*`; `--dry-run` por
 defecto; nunca borra volúmenes de proyectos existentes sin `--force`.
+**Cómo quedó**: se invirtió el planteamiento — no hay `--dry-run`, **no borrar es el
+comportamiento** y borrar es `--force`. Un `--dry-run` que hay que acordarse de escribir protege a
+quien ya tiene cuidado. Y apareció un límite que no estaba previsto: **los volúmenes no llevan
+etiquetas `hm.*`**, sólo las de Compose, así que los de un proyecto sin contenedores no se pueden
+atribuir y no se tocan ni con `--force`; se listan aparte para que decida una persona. Nunca se
+ejecuta un `prune` de Docker, y hay un test que lo comprueba. En la 1.6.0; documentado en
+[docs/clean.md](../clean.md).
+**Anotado para el futuro**: etiquetar también los volúmenes en la plantilla permitiría atribuirlos,
+pero sólo a los creados después, así que no resuelve el caso que hoy duele.
 
 #### CLI-09 · Lanzadores de clientes de BD
 **Esfuerzo**: S. `hm tableplus` / `hm sequelace` / `hm dbeaver` abriendo el cliente ya
