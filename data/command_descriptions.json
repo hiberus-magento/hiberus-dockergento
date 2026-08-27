@@ -797,6 +797,52 @@
         "group": "tools",
         "safety": "caution"
     },
+    "worktree": {
+        "description": "An environment per branch, with its own address and data",
+        "usage": "worktree <add|list|remove> [options]",
+        "args": [
+            {
+                "name": "<subcommand>",
+                "description": "add, list or remove"
+            },
+            {
+                "name": "<branch|name>",
+                "description": "The branch to give an environment, or the environment to remove"
+            }
+        ],
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "profile=<profile>"
+                },
+                "description": "lite, agent or full (default: agent)"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "path=<dir>"
+                },
+                "description": "Where to put the worktree (default: next to the project)"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "no-start"
+                },
+                "description": "Create it without starting the containers"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "force"
+                },
+                "description": "With remove: even with uncommitted changes"
+            }
+        ],
+        "group": "environment",
+        "safety": "dangerous"
+    },
     "_examples": [
         {
             "command": "hm start",

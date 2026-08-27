@@ -1,68 +1,116 @@
-# Working with git worktrees
+# worktree
 
-A git worktree is a second working directory of the same repository, commonly used to run
-several AI agents or several tasks in parallel without stashing. Dockergento understands
-them.
-
-## What happens from a worktree
-
-Everything is resolved against the **main checkout**: its compose files, its properties
-and its containers. That is deliberate — the environment belongs to the main checkout, and
-a worktree shares it.
+An environment per branch, next to the main one instead of on top of it.
 
 ```bash
-cd ../my-project-feature-x     # a worktree
-hm describe                    # describes the environment of the main checkout
-hm mysql -q "SELECT 1"         # queries its database
-hm magento cache:clean         # runs against its containers
+hm worktree add feature/checkout          # branch, environment and data, ready
+hm worktree list
+hm worktree remove feature-checkout
 ```
 
-## What is refused
+## What this replaces
 
-These are blocked from a worktree, with exit code `6`:
+A git worktree is a second working directory of the same repository — how you look at a branch
+without stashing what you are doing, and how several agents work on several tasks at once.
 
-`start` · `stop` · `restart` · `rebuild` · `down` · `setup` · `install` ·
-`create-project` · `docker-stop-all`
+Until now the tool could only defend itself from one. The compose project name is committed, so a
+worktree inherits it: `hm start` from a worktree repointed the main environment's bind mounts at
+the worktree, and `hm down -v` destroyed it with its database. [Those refusals](#the-refusals-stay)
+are still there, and still right, for a worktree with no environment of its own.
 
-The reason is not caution for its own sake. The compose project name lives in
-`config/docker/properties.json`, which is committed, so a worktree inherits it and Docker
-Compose treats it as *the same project*. Running `up` from there recreates the existing
-containers with the mounts of the worktree, silently repointing the main environment at
-it — and `down -v` destroys it, database included.
+This gives it one.
 
-```
-$ hm start
-You are in a git worktree (feature-x).
-The environment belongs to the main checkout:
-  /Users/me/projects/my-project
+## What `add` does
 
-Running hm start here would recreate or destroy that environment with the mounts of
-this worktree.
+1. Creates the git worktree (and the branch, if it does not exist yet).
+2. Registers it in `~/.hm/worktrees/<project>/<name>.json` — **outside the checkout**, because
+   `config/docker/properties.json` is a committed file and writing the worktree's project name
+   there would travel in somebody's commit.
+3. Writes the compose overlay that expresses its profile and its routing.
+4. Gives it dependencies without installing them again.
+5. Clones the database from a [template](db.md#templates-the-same-data-without-the-import).
+6. Starts it, unless `--no-start`.
 
-  Run it from the main checkout, or repeat with --force if that is really what you want.
-```
+From then on, `hm` commands run in that directory act on that environment. Nothing else changes:
+the main environment keeps its name, its containers and its address.
 
-`--force` applies to that single invocation. There is no variable and no setting that
-turns the guardrails off permanently, so they cannot quietly stop existing.
+## Profiles
 
-## Important: the containers serve the main checkout's code
+| Profile | Services | For |
+|---|---|---|
+| `lite` | phpfpm | Running code. No HTTP, no address |
+| `agent` | phpfpm, nginx, db, search, redis | A Magento that answers. **The default** |
+| `full` | everything the project has | What the main environment runs |
 
-This is not a per-worktree environment. When you run `hm magento`, `hm composer` or the
-tests from a worktree, they execute against the code of the main checkout, not the code
-you are looking at. The CLI says so every time:
+A branch environment that also runs Varnish, TLS termination, a mail catcher and a message queue
+costs more than the branch is worth. `agent` keeps the search engine because a Magento without one
+fails on the first reindex — not a surprise to leave in an environment meant for unattended work.
 
-```
-Note: the containers serve the code of /Users/me/projects/my-project, not this worktree.
-```
+The profile is expressed by *removing* services from the configuration, not by listing the ones to
+start. So `hm describe`, `hm doctor` and the dashboard see the truth without being told about
+profiles at all.
 
-Per-worktree environments need a shared proxy and database snapshots; they are a separate
-piece of work.
+## The address
 
-## Escape hatch
+`https://<name>.<the project's domain>`, through the [global proxy](proxy.md). Which is why the
+proxy is required: every branch environment publishing its own ports would be the port collision
+the proxy exists to end, with as many environments as branches.
 
-`HM_PROJECT_DIR` forces which directory is treated as the main checkout, for setups where
-git is unavailable or the layout is unusual.
+The wildcard certificate already covers the subdomain. If the domain reaches your machine through
+`/etc/hosts` rather than a wildcard resolver, the new subdomain needs a line of its own —
+`hm worktree add` says so when that is the case. See [dns](dns.md).
+
+The auxiliary interfaces (mail, queue, search) are not routed for a branch environment. Reach one
+when you need it with [`hm tunnel`](tunnel.md).
+
+## Dependencies
+
+Not installed again, which is the difference between a minute and half an hour:
+
+- **Linux**: `vendor/` and `node_modules/` are symlinks to the main checkout. Both are
+  git-ignored, so nothing appears as modified. If the branch changes dependencies, its own
+  `hm composer install` replaces the link with real files.
+- **macOS**: the code lives in a named volume, so there is nothing to link — the main
+  environment's volume is copied instead. Seconds, and it duplicates the space. That is what
+  macOS charges for not bind mounting.
+
+Only those two are shared. `generated/`, `var/` and `pub/static` are compiled per branch, and a
+class from another branch is the hardest kind of bug to see.
+
+## The database
+
+Cloned from the project's template:
 
 ```bash
-HM_PROJECT_DIR=/Users/me/projects/my-project hm describe
+hm db freeze          # once, in the main checkout
+hm worktree add feature/checkout
 ```
+
+With no template the environment is still created, with an empty database, and the tool says
+which command would have given it data. It does not fall back to sharing the main database: a
+`setup:upgrade` on the branch would then land on everybody, which is the opposite of an isolated
+environment.
+
+## The refusals stay
+
+A worktree with **no** registered environment behaves exactly as before: `start`, `stop`,
+`rebuild`, `down` and the rest are refused, naming the main checkout. That is still the case that
+repoints somebody's mounts and destroys their data.
+
+`hm worktree add` itself must be run from the main checkout.
+
+## Removing one
+
+```bash
+hm worktree remove feature-checkout
+```
+
+Destroys the environment with its volumes, removes the git worktree and deletes the registration.
+It refuses while there is uncommitted work in the worktree: the containers and the database can be
+rebuilt in seconds, and the code cannot be rebuilt at all.
+
+## What this is not
+
+Not a way to run somebody else's branch on a shared machine, and not isolation in the security
+sense: the environments share a Docker daemon, a proxy and a certificate. It is a way to have more
+than one branch of your own project running at once.

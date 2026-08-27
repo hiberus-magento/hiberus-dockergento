@@ -119,7 +119,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **AI-07** | `hm ai-doctor` y versionado de skills | IA | S | — | backlog |
 | **AI-08** | Índice del código como MCP | IA | L | AI-03 | backlog |
 | **WT-01** | Guardarraíles de worktree | Worktrees | S | — | **hecho** |
-| **WT-02** | `hm worktree` con perfiles de entorno | Worktrees | L | NET-01, DB-02 | backlog |
+| **WT-02** | `hm worktree` con perfiles de entorno | Worktrees | L | NET-01, DB-02 | **hecho** |
 | **WT-03** | Recolección de worktrees huérfanos | Worktrees | S | WT-02, ENV-02 | backlog |
 | **UI-01** | Dashboard web sólo lectura | Web | L | NET-01, CLI-02, CLI-03 | backlog |
 | **UI-02** | Acciones seguras desde la web | Web | M | UI-01 | backlog |
@@ -571,9 +571,18 @@ los bind mounts del entorno principal al worktree**, y `hm down -v` lo destruye 
 el checkout principal y bloquear los comandos que alteran la topología salvo `--force`.
 **Es urgente e independiente de todo lo demás.**
 
-#### WT-02 · `hm worktree` con perfiles de entorno
+#### WT-02 · `hm worktree` con perfiles de entorno — hecho
 **Esfuerzo**: L. **Depende de**: NET-01, DB-02. Perfiles `lite` (sólo PHP), `agent`
 (php+nginx+db+search+redis) y `full`.
+**Cómo quedó**: el registro vive en `~/.hm/worktrees/`, nunca en el checkout, porque
+`properties.json` está versionado y el nombre de proyecto del worktree escrito ahí viajaría en el
+commit de alguien. Ese fichero es además el interruptor: un worktree registrado se resuelve contra
+sí mismo (su proyecto, sus volúmenes, sus montajes) y uno sin registrar conserva intactos los
+rechazos de WT-01, que es el caso que sigue destruyendo datos. El perfil se expresa quitando
+servicios (`!reset null`), no listando los que arrancar, así que `describe`, `doctor` y el panel
+ven la verdad sin enterarse de que existen los perfiles. Las dependencias no se reinstalan: enlace
+en Linux, copia del volumen de código en macOS. En la 1.7.0; documentado en
+[docs/worktree.md](../worktree.md).
 
 #### WT-03 · Recolección de huérfanos
 **Esfuerzo**: S. Contenedores y volúmenes cuyo worktree ya no existe en git.
