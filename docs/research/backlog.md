@@ -134,7 +134,7 @@ Instalación e IA siguen enteras en `backlog`.
    UX-01, UX-02, UX-03 *(las tres pequeñas)*, CLI-08, DB-01, DB-03.
 4. **Ola 3b — cimientos de interfaz:** UX-07, UX-04, UX-05, UX-06 y sólo entonces TUI-01.
 5. **Ola 4 — el salto:** NET-01, NET-02, NET-03, NET-04.
-6. **Ola 5 — agentes:** AI-01, AI-02, DB-02, WT-02, AI-03.
+6. **Ola 5 — agentes:** AI-01, AI-02, DB-02, WT-02, AI-03 *(hechos)*.
 7. **Ola 6 — lo demás**, según lo que pida el equipo.
 
 ---
