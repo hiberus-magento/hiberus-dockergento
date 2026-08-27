@@ -34,7 +34,8 @@
                 "description": "Branch name for custom repository (default: main)"
             }
         ],
-        "group": "ai"
+        "group": "ai",
+        "safety": "caution"
     },
     "ai-pull": {
         "description": "Download/update AI tools (skills/agents) from configured repositories",
@@ -47,7 +48,8 @@
                 "description": "Force re-download and overwrite existing skills/agents"
             }
         ],
-        "group": "ai"
+        "group": "ai",
+        "safety": "caution"
     },
     "ai-reset": {
         "description": "Remove downloaded AI tools while preserving custom skills/agents",
@@ -60,7 +62,8 @@
                 "description": "Skip confirmation prompt (for automation)"
             }
         ],
-        "group": "ai"
+        "group": "ai",
+        "safety": "caution"
     },
     "bash": {
         "description": "Connect into container using bash [Default container: php]",
@@ -73,7 +76,8 @@
                 "description": "Use bash as root user"
             }
         ],
-        "group": "tools"
+        "group": "tools",
+        "safety": "dangerous"
     },
     "clean": {
         "description": "Collect what environments that no longer exist left behind",
@@ -87,20 +91,24 @@
                 "description": "Actually delete; without it nothing is removed"
             }
         ],
-        "group": "environment"
+        "group": "environment",
+        "safety": "dangerous"
     },
     "cloud": {
         "description": "Magento Cloud Cli",
         "usage": "cloud [options]",
-        "group": "tools"
+        "group": "tools",
+        "safety": "caution"
     },
     "cloud-login": {
         "description": "Magento Cloud Login",
-        "group": "tools"
+        "group": "tools",
+        "safety": "caution"
     },
     "compatibility": {
         "description": "Check Magento version compatibility",
-        "group": "tools"
+        "group": "tools",
+        "safety": "safe"
     },
     "composer": {
         "description": "Execute composer inside php container",
@@ -110,12 +118,14 @@
                 "description": "composer commands (install, update, ...)"
             }
         ],
-        "group": "magento"
+        "group": "magento",
+        "safety": "caution"
     },
     "config-env": {
         "description": "Launch config set of project for local environment",
         "usage": "config-env",
-        "group": "tools"
+        "group": "tools",
+        "safety": "safe"
     },
     "copy-from-container": {
         "description": "(Mac only) Copy and overwrite container content into host",
@@ -127,7 +137,8 @@
         ],
         "example": "copy-from-container generated",
         "mac": true,
-        "group": "files"
+        "group": "files",
+        "safety": "caution"
     },
     "copy-to-container": {
         "description": "(Mac only) Copy and overwrite host content into container",
@@ -140,7 +151,8 @@
         ],
         "example": "copy-to-container vendor",
         "mac": true,
-        "group": "files"
+        "group": "files",
+        "safety": "caution"
     },
     "create-project": {
         "description": "Create new magento project inside current directory",
@@ -182,7 +194,8 @@
                 "description": "Magento version (you can see all available version with hm compatibility command)"
             }
         ],
-        "group": "tools"
+        "group": "tools",
+        "safety": "caution"
     },
     "db": {
         "description": "Named copies of this project's database",
@@ -216,15 +229,18 @@
                 "description": "With clear: every project's snapshots, not just this one's"
             }
         ],
-        "group": "database"
+        "group": "database",
+        "safety": "dangerous"
     },
     "debug-off": {
         "description": "Disable xDebug",
-        "group": "tools"
+        "group": "tools",
+        "safety": "caution"
     },
     "debug-on": {
         "description": "Enable xDebug",
-        "group": "tools"
+        "group": "tools",
+        "safety": "caution"
     },
     "describe": {
         "description": "Show everything that defines the current project",
@@ -238,7 +254,8 @@
                 "description": "Include database credentials in the output"
             }
         ],
-        "group": "environment"
+        "group": "environment",
+        "safety": "safe"
     },
     "docker-compose": {
         "description": "Execute docker compose using configuration for your machine",
@@ -248,11 +265,13 @@
                 "description": "docker compose commands (exec, up, down, ...)"
             }
         ],
-        "group": "tools"
+        "group": "tools",
+        "safety": "dangerous"
     },
     "docker-stop-all": {
         "description": "Stop all running containers",
-        "group": "tools"
+        "group": "tools",
+        "safety": "dangerous"
     },
     "doctor": {
         "description": "Diagnose the machine and the current project",
@@ -266,12 +285,14 @@
                 "description": "Run a single check by id"
             }
         ],
-        "group": "environment"
+        "group": "environment",
+        "safety": "safe"
     },
     "down": {
         "description": "Stop and remove containers, networks, images, and volumes (-v)",
         "example": "down -v",
-        "group": "environment"
+        "group": "environment",
+        "safety": "dangerous"
     },
     "exec": {
         "description": "Execute a command in a running container [Default container: php]",
@@ -285,7 +306,8 @@
             }
         ],
         "example": "exec ls -lah",
-        "group": "tools"
+        "group": "tools",
+        "safety": "dangerous"
     },
     "grunt": {
         "description": "Prepare grunt configuration and compile theme styles using grunt",
@@ -300,7 +322,8 @@
                 "description": "Locale code"
             }
         ],
-        "group": "magento"
+        "group": "magento",
+        "safety": "caution"
     },
     "install": {
         "description": "Execute setup:install Magento command with custom config",
@@ -313,7 +336,8 @@
                 "description": "Use default settings like currency, admin-user, password-user, etc."
             }
         ],
-        "group": "magento"
+        "group": "magento",
+        "safety": "caution"
     },
     "launch": {
         "description": "Open the project in the browser",
@@ -348,12 +372,14 @@
                 "description": "Open the search engine"
             }
         ],
-        "group": "environment"
+        "group": "environment",
+        "safety": "caution"
     },
     "list": {
         "description": "List every Dockergento environment on this machine",
         "usage": "list",
-        "group": "environment"
+        "group": "environment",
+        "safety": "safe"
     },
     "logs": {
         "description": "Show the logs of the project, or of the services named",
@@ -388,7 +414,8 @@
                 "description": "Show timestamps"
             }
         ],
-        "group": "environment"
+        "group": "environment",
+        "safety": "safe"
     },
     "magento": {
         "description": "Execute Magento console commands",
@@ -399,12 +426,14 @@
             }
         ],
         "example": "magento cache:clean",
-        "group": "magento"
+        "group": "magento",
+        "safety": "caution"
     },
     "masquerade": {
         "example": "masquerade\n\n\t >>> To add proyect config files create the following folder: config/docker/masquerade/magento2 and include de yaml files (.yaml) inside the newly created folder (magento2).",
         "description": "Execute masquerade tool. 'hm masquerade --help' to view more info. ",
-        "group": "database"
+        "group": "database",
+        "safety": "dangerous"
     },
     "mysql": {
         "example": "mysql < local-path/my-dump.sql\n\t hm mysql -d -i=my-dump.sql",
@@ -432,7 +461,8 @@
                 "description": "Execute query"
             }
         ],
-        "group": "database"
+        "group": "database",
+        "safety": "dangerous"
     },
     "mysqldump": {
         "example": "mysqldump local-path/my-dump.sql",
@@ -443,12 +473,14 @@
                 "description": "Sql file path when you want save dump"
             }
         ],
-        "group": "database"
+        "group": "database",
+        "safety": "caution"
     },
     "n98-magerun": {
         "description": "Execute n98-magerun tool",
         "usage": "n98-magerun [options]",
-        "group": "magento"
+        "group": "magento",
+        "safety": "caution"
     },
     "npm": {
         "description": "Execute npm commands into node container",
@@ -458,7 +490,8 @@
                 "description": "Execute npm subcommand."
             }
         ],
-        "group": "magento"
+        "group": "magento",
+        "safety": "caution"
     },
     "proxy": {
         "description": "The global proxy, so several projects can be up at once",
@@ -469,15 +502,33 @@
                 "description": "up, down or status"
             }
         ],
-        "group": "environment"
+        "group": "environment",
+        "safety": "caution"
+    },
+    "permissions": {
+        "description": "Print the permission configuration an agent should be given",
+        "usage": "permissions [--strict]",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "strict"
+                },
+                "description": "Allow only commands with no side effects"
+            }
+        ],
+        "group": "ai",
+        "safety": "safe"
     },
     "purge": {
         "description": "Remove all magento generated code (caches, generated, static, view_preprocessed)",
-        "group": "magento"
+        "group": "magento",
+        "safety": "dangerous"
     },
     "rebuild": {
         "description": "Rebuild docker services with current configuration",
-        "group": "environment"
+        "group": "environment",
+        "safety": "caution"
     },
     "restart": {
         "description": "Restart docker services",
@@ -488,7 +539,8 @@
             }
         ],
         "example": "restart phpfpm",
-        "group": "environment"
+        "group": "environment",
+        "safety": "caution"
     },
     "set-host": {
         "example": "set-host my-project.local",
@@ -499,7 +551,8 @@
                 "description": "Domain is desired to set"
             }
         ],
-        "group": "tools"
+        "group": "tools",
+        "safety": "caution"
     },
     "setup": {
         "description": "Dockerize magento project",
@@ -555,7 +608,8 @@
                 "description": "Use default settings of user for language, currency, ..."
             }
         ],
-        "group": "environment"
+        "group": "environment",
+        "safety": "caution"
     },
     "share": {
         "description": "Give this project a temporary public address",
@@ -569,7 +623,8 @@
                 "description": "Close a tunnel left open"
             }
         ],
-        "group": "environment"
+        "group": "environment",
+        "safety": "dangerous"
     },
     "ssl": {
         "description": "Install SSL certificates for docker environment",
@@ -580,7 +635,8 @@
             }
         ],
         "example": "ssl domain.local",
-        "group": "tools"
+        "group": "tools",
+        "safety": "caution"
     },
     "start": {
         "description": "Start docker services",
@@ -600,7 +656,8 @@
             }
         ],
         "example": "start phpfpm",
-        "group": "environment"
+        "group": "environment",
+        "safety": "caution"
     },
     "stop": {
         "description": "Stop docker services",
@@ -621,7 +678,8 @@
                 },
                 "description": "Save a database snapshot before stopping"
             }
-        ]
+        ],
+        "safety": "caution"
     },
     "switch": {
         "description": "Switch the installation to another version or branch",
@@ -642,28 +700,34 @@
                 },
                 "description": "Switch back to the stable branch"
             }
-        ]
+        ],
+        "safety": "safe"
     },
     "test-integration": {
         "description": "Execute your magento integration tests",
-        "group": "magento"
+        "group": "magento",
+        "safety": "caution"
     },
     "test-unit": {
         "description": "Execute your magento unit test",
-        "group": "magento"
+        "group": "magento",
+        "safety": "caution"
     },
     "transfer-db": {
         "description": "Transfer database form external source to this project",
-        "group": "database"
+        "group": "database",
+        "safety": "caution"
     },
     "transfer-media": {
         "description": "Transfer multimedia recurses form external source to this project",
-        "group": "files"
+        "group": "files",
+        "safety": "caution"
     },
     "tui": {
         "description": "Open the dashboard: every environment on this machine, on one screen",
         "usage": "tui",
-        "group": "environment"
+        "group": "environment",
+        "safety": "safe"
     },
     "tunnel": {
         "description": "Open a temporary way in to a service that is not routed by name",
@@ -687,16 +751,19 @@
                 },
                 "description": "Close tunnels left open by this project"
             }
-        ]
+        ],
+        "safety": "caution"
     },
     "update": {
         "description": "Update hiberus docker tool",
-        "group": "versions"
+        "group": "versions",
+        "safety": "dangerous"
     },
     "version": {
         "description": "Show the version of the tool, Docker and Compose",
         "usage": "version",
-        "group": "versions"
+        "group": "versions",
+        "safety": "safe"
     },
     "verify": {
         "description": "Run whatever code checks this project has installed",
@@ -717,15 +784,18 @@
                 "description": "Also the slow ones: unit tests and DI compilation"
             }
         ],
-        "group": "tools"
+        "group": "tools",
+        "safety": "safe"
     },
     "varnish-off": {
         "description": "Turn off varnish service",
-        "group": "tools"
+        "group": "tools",
+        "safety": "caution"
     },
     "varnish-on": {
         "description": "Turn on varnish service",
-        "group": "tools"
+        "group": "tools",
+        "safety": "caution"
     },
     "_examples": [
         {

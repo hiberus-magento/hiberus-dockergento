@@ -111,7 +111,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **INST-02** | Flags `--clean-install` / `--db-dump` | Instalación | S | INST-01 | backlog |
 | **INST-03** | Proveedores `hm pull` / `hm push` | Instalación | M | CLI-01 | backlog |
 | **AI-01** | `hm verify [--changed] [--json]` | IA | M | CLI-01 | **hecho** |
-| **AI-02** | Permisos y guardarraíles generados | IA | S | — | backlog |
+| **AI-02** | Permisos y guardarraíles generados | IA | S | — | **hecho** |
 | **AI-03** | `hm mcp` (sólo lectura) | IA | M | CLI-01, CLI-02 | backlog |
 | **AI-04** | `hm mcp` (escritura acotada) | IA | M | AI-03, AI-02 | backlog |
 | **AI-05** | Generación de `CLAUDE.md` / `AGENTS.md` y `.mcp.json` | IA | S | CLI-02 | backlog |
@@ -517,10 +517,18 @@ porque `php -l` no necesita nada instalado. Las lentas (pruebas y DI) sólo con 
 comando de cinco minutos no se ejecuta. No corrige nada a propósito. En la 1.7.0; documentado en
 [docs/verify.md](../verify.md).
 
-#### AI-02 · Permisos y guardarraíles generados
+#### AI-02 · Permisos y guardarraíles generados — hecho
 **Esfuerzo**: S. Clasificar cada comando como *seguro sin supervisión* o *requiere
 confirmación* y generar desde ahí la configuración de permisos de cada plataforma. Hoy cada
 persona del equipo mantiene esa lista a mano y todas distintas.
+**Cómo quedó**: el riesgo se declara en `command_descriptions.json`, el fichero por el que hay que
+pasar obligatoriamente al añadir un comando. Tres niveles, no dos: con dos habría que tratar
+`hm start` como `hm down -v` —y entonces nadie lee las preguntas— o como `hm describe`, y entonces
+no protege de nada. Dos reglas que aparecieron al clasificar: un comando que envuelve a otros se
+clasifica por el peor (`hm db` restaura además de copiar), y uno que ejecuta lo que se le dé es
+peligroso por inocente que sea su uso normal — `hm exec` y `hm bash` son puertas abiertas
+disfrazadas. Las dos listas internas que ya existían quedan vigiladas por tests para que no
+diverjan. En la 1.7.0; documentado en [docs/permissions.md](../permissions.md).
 
 #### AI-03 · `hm mcp` (sólo lectura)  ·  #### AI-04 · `hm mcp` (escritura acotada)
 **Esfuerzo**: M cada uno. Herramientas tipadas: lectura (describe, list, logs, `db.query`

@@ -146,7 +146,8 @@ validate_command() {
         "$1" != "tui" &&
         "$1" != "version" &&
         "$1" != "clean" &&
-        "$1" != "proxy"
+        "$1" != "proxy" &&
+        "$1" != "permissions"
     ]]; then
         source "$HELPERS_DIR"/docker.sh
         is_docker_service_running
