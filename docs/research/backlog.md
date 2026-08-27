@@ -461,11 +461,20 @@ esquema antes de cargar, para que devuelva la copia y no una mezcla. En la 1.6.0
 enumerando lo que se destruye. Y la compatibilidad con **todas** las imágenes de base de datos
 —de MariaDB 10.2 a 12.3— está verificada por un test de matriz, no supuesta.
 
-#### DB-02 · Volumen "golden" y clonado
+#### DB-02 · Volumen "golden" y clonado — hecho
 **Origen**: worktrees §4.2. **Esfuerzo**: M. **Depende de**: DB-01.
 Clonar el volumen de datos desde una plantilla congelada para levantar entornos aislados en
 segundos sin tocar el principal. Medido: `dbdata` 245 MB y `workspace` 695 MB en un
 proyecto real, o sea clones de segundos.
+**Cómo quedó**: `hm db freeze` congela el directorio de datos en un volumen etiquetado y
+`hm db clone` lo copia sobre el del proyecto actual. Tres decisiones: la copia se hace con la
+propia imagen del proyecto (ya está en la máquina y su `cp -a` reproduce un directorio de datos
+sin discutir), el servidor se para mientras copia (InnoDB tiene páginas en memoria que aún no
+están en los ficheros, así que copiar por debajo da un *crash* que recuperar, no una copia), y la
+plantilla guarda la imagen con la que se hizo y clonar rechaza otra versión. La dirección es
+`<proyecto>/<nombre>` porque el entorno que necesita una base de datos casi nunca es el que la
+congeló — que es justo lo que necesita WT-02. En la 1.7.0; documentado en
+[docs/db.md](../db.md).
 
 #### DB-03 · Ciclo de vida seguro — hecho
 **Esfuerzo**: S. `hm stop --snapshot`, confirmación en `down -v`, y acotar

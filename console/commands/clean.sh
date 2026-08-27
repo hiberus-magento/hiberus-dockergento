@@ -16,7 +16,7 @@ source "$HELPERS_DIR"/docker.sh
 #
 # Two facts shape it, both checked rather than assumed:
 #
-#   - Volumes carry no hm.* labels, only Compose's. So a volume can only be attributed through the
+#   - Data volumes carry no hm.* labels, only Compose's. So a volume can only be attributed through the
 #     containers of its project. Where those are gone, it cannot be attributed at all.
 #   - Working out volume sizes takes about 25 seconds on a machine with a hundred of them, so that
 #     only happens on the path that is about to delete something.
@@ -88,7 +88,24 @@ while IFS= read -r volume; do
     [ -z "$volume" ] && continue
     project=$(docker volume inspect "$volume" \
         --format '{{index .Labels "com.docker.compose.project"}}' 2>/dev/null)
-    [ -z "$project" ] && continue
+
+    #
+    # A frozen data directory (`hm db freeze`) belongs to no compose project, so the rule above
+    # cannot see it — and they are the largest volumes the tool makes. It carries the project
+    # that made it and where that project lived, which is the same question asked of everything
+    # else here: is the directory still there?
+    #
+    if [ -z "$project" ]; then
+        template_root=$(docker volume inspect "$volume" \
+            --format '{{index .Labels "hm.template"}}|{{index .Labels "hm.root"}}' 2>/dev/null)
+
+        case "$template_root" in
+            "" | "|"*) continue ;;
+        esac
+
+        [ -d "${template_root#*|}" ] || collectable_volumes="${collectable_volumes}${volume}\n"
+        continue
+    fi
 
     if printf '%s\n' "$attributable_projects" | grep -qx "$project"; then
         collectable_volumes="${collectable_volumes}${volume}\n"

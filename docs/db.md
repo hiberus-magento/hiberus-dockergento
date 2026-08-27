@@ -9,6 +9,15 @@ hm db restore before-upgrade
 hm db remove before-upgrade
 ```
 
+Frozen copies of the data directory, for standing a second environment up in seconds:
+
+```bash
+hm db freeze --name=base
+hm db templates
+hm db clone shop/base
+hm db drop shop/base
+```
+
 ## Why not just `hm mysqldump`
 
 `hm mysqldump` and `hm mysql -i` already move a database in and out of a file. What was missing is
@@ -107,6 +116,63 @@ triggers all come back and that nothing created after the snapshot survives it.
 
 By default the test only uses images already on the machine, so a normal run stays fast. Set
 `HM_TEST_DB_MATRIX=1` to pull and check every one.
+
+## Templates: the same data, without the import
+
+A snapshot is a dump. Restoring one means a server parsing SQL and rebuilding indexes — tens of
+minutes on a real catalogue, for data that already exists, byte for byte, in a volume on the same
+disk.
+
+A **template** is that volume: a byte copy of the data directory, frozen under a name.
+
+```bash
+hm db freeze --name=base
+```
+
+The database is stopped while it copies and started again afterwards. That is not caution for its
+own sake: a running InnoDB keeps pages in memory that are not in the files yet, so a copy taken
+underneath it is a crash to recover from rather than a copy.
+
+Standing an environment up from it costs the time of a file copy:
+
+```bash
+hm db clone base       # this project's own template
+hm db clone shop/base  # the template of another project
+```
+
+The qualified form is the point of the feature: the environment that needs a database is rarely
+the one that made it. A second checkout, a branch environment, a colleague's project on the same
+machine — all of them clone by naming whose data they are taking.
+
+Cloning replaces files under a stopped server, so:
+
+- It refuses while the environment is running, and says to `hm stop` first.
+- It asks you to type the project name if there is already a database there.
+- It refuses a template made with a different database image, naming both. A 10.6 data directory
+  under 10.2 produces a server that starts, complains, and loses data in ways that are found much
+  later.
+
+`hm db templates` lists what exists, with the image each came from and its size. `hm db drop`
+deletes one.
+
+### Which of the two to use
+
+| | Snapshot | Template |
+|---|---|---|
+| Shape | Compressed dump | Copy of the data directory |
+| Cost to restore | Minutes to tens of minutes | Seconds |
+| Survives a version change | Yes | No — tied to the image |
+| Can be sent to a colleague | Yes | No |
+| Lives in | `~/.hm/snapshots/` | A Docker volume |
+
+Take a snapshot before something risky, and to keep. Freeze a template for the database you
+recreate again and again.
+
+### Templates and disk
+
+They are full copies, so a template costs what the database costs. `hm db templates` shows the
+size of each, and `hm clean` collects the templates of projects whose directory no longer exists,
+like everything else the tool creates.
 
 ## Where snapshots come from on their own
 

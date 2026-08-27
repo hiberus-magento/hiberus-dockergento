@@ -18,7 +18,8 @@ cleanup() {
     for project in "$ALIVE" "$DEAD" "$STRAY"; do
         containers=$(docker ps -aq --filter "label=com.docker.compose.project=$project" 2>/dev/null)
         [ -n "$containers" ] && docker rm -f $containers >/dev/null 2>&1
-        for volume in $(docker volume ls -q 2>/dev/null | grep "^${project}_" || true); do
+        for volume in $(docker volume ls -q 2>/dev/null |
+            grep -E "^(${project}_|hm-template-${project}-)" || true); do
             docker volume rm "$volume" >/dev/null 2>&1
         done
     done
@@ -66,6 +67,13 @@ build "$DEAD" "$LAB/gone-root"
 build "$STRAY" "$LAB/stray-root"
 docker rm -f $(docker ps -aq --filter "label=com.docker.compose.project=$STRAY") >/dev/null 2>&1
 
+# Frozen data directories (`hm db freeze`) belong to no compose project, so they are attributed
+# by the same question asked of everything else: is the directory they came from still there?
+docker volume create --label hm.template=base --label "hm.project=$DEAD" \
+    --label "hm.root=$LAB/gone-root" "hm-template-$DEAD-base" >/dev/null
+docker volume create --label hm.template=base --label "hm.project=$ALIVE" \
+    --label "hm.root=$LAB/alive-root" "hm-template-$ALIVE-base" >/dev/null
+
 report() {
     ( cd "$LAB" && "$HM" clean "$@" --json 2>/dev/null )
 }
@@ -83,6 +91,15 @@ assert_contains "$(report | jq -r '.data.volumes[]')" "${DEAD}_workspace"
 
 test_case "the volumes of a live environment do not"
 assert_not_contains "$(report | jq -r '.data.volumes[]')" "${ALIVE}_workspace"
+
+test_case "a template of a project that is gone is collectable"
+assert_contains "$(report | jq -r '.data.volumes[]')" "hm-template-$DEAD-base"
+
+test_case "a template of a project that is still there is not"
+assert_not_contains "$(report | jq -r '.data.volumes[]')" "hm-template-$ALIVE-base"
+
+test_case "a template is not reported as unattributable either"
+assert_not_contains "$(report | jq -r '.data.unattributable.volumes[]')" "hm-template-$ALIVE-base"
 
 test_case "a volume with no containers is listed as unattributable"
 assert_contains "$(report | jq -r '.data.unattributable.volumes[]')" "${STRAY}_workspace"
