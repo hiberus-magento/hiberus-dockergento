@@ -112,7 +112,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **INST-03** | Proveedores `hm pull` / `hm push` | Instalación | M | CLI-01 | backlog |
 | **AI-01** | `hm verify [--changed] [--json]` | IA | M | CLI-01 | **hecho** |
 | **AI-02** | Permisos y guardarraíles generados | IA | S | — | **hecho** |
-| **AI-03** | `hm mcp` (sólo lectura) | IA | M | CLI-01, CLI-02 | backlog |
+| **AI-03** | `hm mcp` (sólo lectura) | IA | M | CLI-01, CLI-02 | **hecho** |
 | **AI-04** | `hm mcp` (escritura acotada) | IA | M | AI-03, AI-02 | backlog |
 | **AI-05** | Generación de `CLAUDE.md` / `AGENTS.md` y `.mcp.json` | IA | S | CLI-02 | backlog |
 | **AI-06** | Fichero de exclusión de contexto | IA | S | — | backlog |
@@ -539,11 +539,21 @@ peligroso por inocente que sea su uso normal — `hm exec` y `hm bash` son puert
 disfrazadas. Las dos listas internas que ya existían quedan vigiladas por tests para que no
 diverjan. En la 1.7.0; documentado en [docs/permissions.md](../permissions.md).
 
-#### AI-03 · `hm mcp` (sólo lectura)  ·  #### AI-04 · `hm mcp` (escritura acotada)
+#### AI-03 · `hm mcp` (sólo lectura) — hecho  ·  #### AI-04 · `hm mcp` (escritura acotada)
 **Esfuerzo**: M cada uno. Herramientas tipadas: lectura (describe, list, logs, `db.query`
 sólo SELECT, estado de índices) y escritura acotada (cache clean/flush, reindex,
 config:set). Las peligrosas (setup:upgrade, composer update, import de BD, `down -v`)
 quedan fuera o exigen confirmación humana.
+**Cómo quedó AI-03**: servidor en bash sobre stdin/stdout —el transporte es JSON-RPC delimitado
+por saltos de línea, así que no hay framing que equivocar ni concurrencia que gestionar— con cinco
+herramientas que envuelven comandos que ya responden en JSON, de modo que no aparece una segunda
+fuente de verdad sobre el entorno. Dos decisiones: por stdout no sale nada que no sea protocolo
+(cada comando envuelto va con stderr redirigido y stdin cerrado, porque un aviso suelto es un
+error de parseo en el cliente y un servidor que "dejó de funcionar"), y una herramienta que falla
+responde con un resultado marcado como error, no con un error de JSON-RPC, que la mayoría de
+clientes muestran como servidor roto. `database_query` quita los comentarios antes de validar,
+porque el comentario es donde se esconde la segunda sentencia. En la 1.7.0; documentado en
+[docs/mcp.md](../mcp.md).
 
 #### AI-05 · Generación de `CLAUDE.md` / `AGENTS.md` y `.mcp.json`
 **Esfuerzo**: S. **Depende de**: CLI-02. Que el agente no tenga que adivinar —ni inventarse—

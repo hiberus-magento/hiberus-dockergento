@@ -843,6 +843,22 @@
         "group": "environment",
         "safety": "dangerous"
     },
+    "mcp": {
+        "description": "Read-only tools for agents, over the Model Context Protocol",
+        "usage": "mcp [--config]",
+        "args": [],
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "config"
+                },
+                "description": "Print the entry to add to an MCP client's configuration"
+            }
+        ],
+        "group": "ai",
+        "safety": "safe"
+    },
     "_examples": [
         {
             "command": "hm start",

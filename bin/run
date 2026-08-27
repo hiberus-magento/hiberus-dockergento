@@ -177,7 +177,8 @@ validate_command() {
         "$1" != "version" &&
         "$1" != "clean" &&
         "$1" != "proxy" &&
-        "$1" != "permissions"
+        "$1" != "permissions" &&
+        "$1" != "mcp"
     ]]; then
         source "$HELPERS_DIR"/docker.sh
         is_docker_service_running
