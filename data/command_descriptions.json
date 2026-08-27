@@ -698,6 +698,27 @@
         "usage": "version",
         "group": "versions"
     },
+    "verify": {
+        "description": "Run whatever code checks this project has installed",
+        "usage": "verify [--changed] [--all]",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "changed"
+                },
+                "description": "Only the files that differ from the base branch"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "all"
+                },
+                "description": "Also the slow ones: unit tests and DI compilation"
+            }
+        ],
+        "group": "tools"
+    },
     "varnish-off": {
         "description": "Turn off varnish service",
         "group": "tools"

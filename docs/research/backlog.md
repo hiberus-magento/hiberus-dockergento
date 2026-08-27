@@ -110,7 +110,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **INST-01** | Bootstrap: admin aleatorio y 2FA con QR | Instalación | S | — | **hecho** |
 | **INST-02** | Flags `--clean-install` / `--db-dump` | Instalación | S | INST-01 | backlog |
 | **INST-03** | Proveedores `hm pull` / `hm push` | Instalación | M | CLI-01 | backlog |
-| **AI-01** | `hm verify [--changed] [--json]` | IA | M | CLI-01 | backlog |
+| **AI-01** | `hm verify [--changed] [--json]` | IA | M | CLI-01 | **hecho** |
 | **AI-02** | Permisos y guardarraíles generados | IA | S | — | backlog |
 | **AI-03** | `hm mcp` (sólo lectura) | IA | M | CLI-01, CLI-02 | backlog |
 | **AI-04** | `hm mcp` (escritura acotada) | IA | M | AI-03, AI-02 | backlog |
@@ -505,11 +505,17 @@ declarativos (Adobe Commerce Cloud, SSH/rsync, S3), ejecutables sin interacción
 
 ### Área IA
 
-#### AI-01 · `hm verify [--changed] [--json]`
+#### AI-01 · `hm verify [--changed] [--json]` — hecho
 **Esfuerzo**: M. **Depende de**: CLI-01.
 PHPCS con estándar Magento2, PHPStan/Rector, `test-unit`, compilación de DI y validación de
 XML/XSD, con salida estructurada. Sirve como comando manual, como hook de cierre de tarea
 de los agentes y en CI. **El cuello de botella con agentes no es generar, es verificar.**
+**Cómo quedó**: **descubre lo que hay** en vez de exigir una lista fija — se midió que de catorce
+proyectos de la máquina, diez tenían PHPUnit, seis PHPStan, cinco el estándar de Magento y tres
+nada. Lo ausente se informa como omitido, nunca como fallo. La sintaxis se comprueba siempre,
+porque `php -l` no necesita nada instalado. Las lentas (pruebas y DI) sólo con `--all`, porque un
+comando de cinco minutos no se ejecuta. No corrige nada a propósito. En la 1.7.0; documentado en
+[docs/verify.md](../verify.md).
 
 #### AI-02 · Permisos y guardarraíles generados
 **Esfuerzo**: S. Clasificar cada comando como *seguro sin supervisión* o *requiere
