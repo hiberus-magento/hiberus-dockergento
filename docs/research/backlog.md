@@ -114,8 +114,8 @@ Instalación e IA siguen enteras en `backlog`.
 | **AI-02** | Permisos y guardarraíles generados | IA | S | — | **hecho** |
 | **AI-03** | `hm mcp` (sólo lectura) | IA | M | CLI-01, CLI-02 | **hecho** |
 | **AI-04** | `hm mcp` (escritura acotada) | IA | M | AI-03, AI-02 | backlog |
-| **AI-05** | Generación de `CLAUDE.md` / `AGENTS.md` y `.mcp.json` | IA | S | CLI-02 | backlog |
-| **AI-06** | Fichero de exclusión de contexto | IA | S | — | backlog |
+| **AI-05** | Generación de `CLAUDE.md` / `AGENTS.md` y `.mcp.json` | IA | S | CLI-02 | **hecho** |
+| **AI-06** | Fichero de exclusión de contexto | IA | S | — | **hecho** |
 | **AI-07** | `hm ai-doctor` y versionado de skills | IA | S | — | backlog |
 | **AI-08** | Índice del código como MCP | IA | L | AI-03 | backlog |
 | **AI-09** | Skills de Dockergento en este repositorio | IA | M | AI-05 | **hecho** |
@@ -556,13 +556,22 @@ clientes muestran como servidor roto. `database_query` quita los comentarios ant
 porque el comentario es donde se esconde la segunda sentencia. En la 1.7.0; documentado en
 [docs/mcp.md](../mcp.md).
 
-#### AI-05 · Generación de `CLAUDE.md` / `AGENTS.md` y `.mcp.json`
+#### AI-05 · Generación de `CLAUDE.md` / `AGENTS.md` y `.mcp.json` — hecho
 **Esfuerzo**: S. **Depende de**: CLI-02. Que el agente no tenga que adivinar —ni inventarse—
 URLs, nombres de contenedor o versiones.
 
-#### AI-06 · Fichero de exclusión de contexto
+#### AI-06 · Fichero de exclusión de contexto — hecho
 **Esfuerzo**: S. `app/etc/env.php`, `var/log/*`, `pub/media/customer/*`, `vendor/`,
 `generated/`, `var/cache/`.
+**Cómo quedó (AI-05 y AI-06, juntos porque son el mismo acto)**: `hm ai-context` escribe un
+bloque delimitado en `AGENTS.md` con los datos *resueltos* —incluido el frontName real del admin—,
+crea `CLAUDE.md` sólo si no existe y nunca lo toca si existe, y fusiona la entrada del servidor en
+`.mcp.json`. La lista de exclusión se declara una vez en `data/ai-exclusions.json` con un motivo
+por entrada y tiene dos consumidores que funcionan distinto: el bloque *explica* y
+`hm permissions` *rechaza* (reglas `deny`). El bloque guarda una huella de los datos con los que
+se generó y `hm doctor` avisa cuando ya no describe el proyecto, porque un contexto obsoleto es
+peor que no tenerlo: el agente lo obedece. En la 1.7.0; documentado en
+[docs/ai-context.md](../ai-context.md).
 
 #### AI-07 · `hm ai-doctor` y versionado de skills
 **Esfuerzo**: S. Qué skills hay, de qué repositorio, qué versión y si están al día. Hoy

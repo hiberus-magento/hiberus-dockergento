@@ -38,10 +38,18 @@ done
 allowed_levels='["safe","caution"]'
 $strict && allowed_levels='["safe"]'
 
+#
+# Denied outright: what an agent should not read at all.
+#
+# The list is declared in one place, with a reason each, because it has two consumers that work
+# differently — this, which refuses, and the generated context, which explains. A path that only
+# one of them knows about is a path that is protected in one tool and not the other.
+#
 configuration=$(jq -n \
     --argjson allowed "$allowed_levels" \
     --arg binary "$COMMAND_BIN_NAME" \
     --slurpfile commands "$DATA_DIR/command_descriptions.json" \
+    --slurpfile exclusions "$DATA_DIR/ai-exclusions.json" \
     '
     ($commands[0] | to_entries | map(select(.key | startswith("_") | not))) as $entries
     | {
@@ -49,7 +57,9 @@ configuration=$(jq -n \
             allow: [$entries[] | select(.value.safety as $s | $allowed | index($s))
                     | "Bash(" + $binary + " " + .key + ":*)"] | sort,
             ask:   [$entries[] | select(.value.safety as $s | $allowed | index($s) | not)
-                    | "Bash(" + $binary + " " + .key + ":*)"] | sort
+                    | "Bash(" + $binary + " " + .key + ":*)"] | sort,
+            deny:  [$exclusions[0].exclusions[]
+                    | "Read(./" + .path + (if (.path | test("\\.")) then "" else "/**" end) + ")"] | sort
         }
     }')
 
@@ -69,6 +79,10 @@ if $strict; then
 else
     print_default "  $allowed_count command(s) allowed, $ask_count asking for confirmation.\n\n"
 fi
+
+deny_count=$(printf '%s' "$configuration" | jq '.permissions.deny | length')
+print_default "  $deny_count path(s) denied outright: secrets, customer data, and what is\n"
+print_default "  generated rather than written. See docs/ai-context.md.\n\n"
 
 printf '%s\n' "$configuration"
 

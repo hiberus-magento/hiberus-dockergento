@@ -873,6 +873,14 @@
         "group": "ai",
         "safety": "safe"
     },
+    "ai-context": {
+        "description": "Write the project context an agent reads before it starts",
+        "usage": "ai-context",
+        "args": [],
+        "opts": [],
+        "group": "ai",
+        "safety": "caution"
+    },
     "_examples": [
         {
             "command": "hm start",

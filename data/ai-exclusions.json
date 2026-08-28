@@ -1,0 +1,44 @@
+{
+  "exclusions": [
+    {
+      "path": "app/etc/env.php",
+      "reason": "The encryption key and the database password",
+      "sensitive": true
+    },
+    {
+      "path": "var/log",
+      "reason": "Whatever the site logged about real customers",
+      "sensitive": true
+    },
+    {
+      "path": "pub/media/customer",
+      "reason": "Files real customers uploaded",
+      "sensitive": true
+    },
+    {
+      "path": "var/report",
+      "reason": "Stack traces with request data in them",
+      "sensitive": true
+    },
+    {
+      "path": "vendor",
+      "reason": "Not this project's source, and megabytes of context",
+      "sensitive": false
+    },
+    {
+      "path": "generated",
+      "reason": "Generated code: read the class it was generated from",
+      "sensitive": false
+    },
+    {
+      "path": "var/cache",
+      "reason": "Cache files, unreadable and enormous",
+      "sensitive": false
+    },
+    {
+      "path": "pub/static",
+      "reason": "Deployed static content: read the source in app/design or the module",
+      "sensitive": false
+    }
+  ]
+}
