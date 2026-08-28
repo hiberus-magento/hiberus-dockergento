@@ -104,7 +104,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **ENV-09** | Perfilado: XHProf / XHGui | Entorno | M | ENV-04 | backlog |
 | **ENV-10** | Perfilado: Blackfire | Entorno | M | ENV-04 | backlog |
 | **DB-01** | `hm db snapshot` / `restore` / `list` | Datos | M | — | **hecho** |
-| **DB-02** | Volumen "golden" y clonado | Datos | M | DB-01 | backlog |
+| **DB-02** | Volumen "golden" y clonado | Datos | M | DB-01 | **hecho** |
 | **DB-03** | Ciclo de vida seguro (`stop --snapshot`, protección de `down -v`) | Datos | S | DB-01 | **hecho** |
 | **DB-04** | Anonimización por defecto en entornos de agente | Datos | S | — | backlog |
 | **INST-01** | Bootstrap: admin aleatorio y 2FA con QR | Instalación | S | — | **hecho** |
@@ -118,6 +118,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **AI-06** | Fichero de exclusión de contexto | IA | S | — | backlog |
 | **AI-07** | `hm ai-doctor` y versionado de skills | IA | S | — | backlog |
 | **AI-08** | Índice del código como MCP | IA | L | AI-03 | backlog |
+| **AI-09** | Skills de Dockergento en este repositorio | IA | M | AI-05 | backlog |
 | **WT-01** | Guardarraíles de worktree | Worktrees | S | — | **hecho** |
 | **WT-02** | `hm worktree` con perfiles de entorno | Worktrees | L | NET-01, DB-02 | **hecho** |
 | **WT-03** | Recolección de worktrees huérfanos | Worktrees | S | WT-02, ENV-02 | backlog |
@@ -566,6 +567,44 @@ URLs, nombres de contenedor o versiones.
 #### AI-07 · `hm ai-doctor` y versionado de skills
 **Esfuerzo**: S. Qué skills hay, de qué repositorio, qué versión y si están al día. Hoy
 `ai-pull --force` va a ciegas y se sigue una rama, no una versión.
+
+#### AI-09 · Skills de Dockergento en este repositorio
+**Esfuerzo**: M. **Depende de**: AI-05 (parcialmente).
+**Problema demostrado**: en `hiberus-magento/ai-tools` hay cinco skills de Dockergento
+(`shell-executor`, `mysql-controller`, `database-exporter`, `varnish-controller`,
+`xdebug-toggle`) y las dos más usadas enseñan comandos que **no existen**:
+
+- `hm bash <comando>` aparece unas 150 veces entre las cinco. `console/commands/bash.sh` sólo
+  entiende `-r`: cualquier otro argumento se descarta y abre una shell interactiva, así que un
+  agente sin tty se queda colgado o no ejecuta nada. Lo que quiere decir es `hm exec`, y para
+  Magento y Composer, `hm magento` y `hm composer` — que en macOS además sincronizan `vendor`,
+  cosa que una shell suelta no hace.
+- `hm bash -c <servicio>` (27 usos) no existe. Y los servicios que nombra —`mysql`,
+  `elasticsearch`— se llaman `db` y `search`.
+- `hm mysql -e "..."` aparece 53 veces. `getopts` sólo acepta `-i`, `-q`, `-d` y `-a`: `-e` sale
+  por la rama de error con código 2. Es `-q`.
+- Nombres de contenedor a mano (`dockergento_php`) y usuario `www-data`, cuando son
+  `<proyecto>-phpfpm-1` y `app`.
+- Ninguna menciona nada de la 1.5-1.7: `describe`, `list`, `doctor`, `logs`, `launch`, `db`,
+  `worktree`, `verify`, `permissions`, `mcp`, ni el contrato `--json`.
+
+Son además ficheros de 600-720 líneas, casi todo scripts de bash genéricos que el modelo no
+necesita para elegir un comando.
+
+**Propuesta**: que las skills de Dockergento vivan aquí, en `skills/`, junto a los comandos que
+describen y versionadas con el CLI; y que `ai-tools` siga siendo el conjunto amplio (Magento, PHP,
+Hyvä) y las consuma desde aquí. Dos razones concretas:
+
+1. **Se pueden verificar.** Un test puede extraer cada `hm ...` de cada skill y comprobar que el
+   comando existe y que sus opciones están en `command_descriptions.json`, igual que
+   `tui_actions_test.sh` ya hace con las acciones del panel. Nada de lo de arriba habría llegado
+   a `main` con ese test puesto.
+2. **No se separan de la fuente.** Añadir un comando ya obliga a pasar por
+   `command_descriptions.json`; la skill queda al lado y en el mismo commit.
+
+Alcance: una skill por área de trabajo real (entorno y ciclo de vida, base de datos, depuración,
+worktrees y agentes), cortas y sólo con comandos que existen; el test de verificación; y la
+publicación hacia `ai-tools`, que `hm ai-pull` ya sabe leer desde `data/ai-repositories.json`.
 
 #### AI-08 · Índice del código como MCP
 **Esfuerzo**: L. Módulos, plugins, preferencias, observers y layouts indexados para que los
