@@ -881,6 +881,14 @@
         "group": "ai",
         "safety": "caution"
     },
+    "ai-doctor": {
+        "description": "Show what AI tooling this project has and whether it is up to date",
+        "usage": "ai-doctor",
+        "args": [],
+        "opts": [],
+        "group": "ai",
+        "safety": "safe"
+    },
     "_examples": [
         {
             "command": "hm start",

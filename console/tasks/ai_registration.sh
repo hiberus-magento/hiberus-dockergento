@@ -177,9 +177,15 @@ add_registration_entry() {
         return 1
     fi
 
-    # Calculate checksum if not provided
-    if [[ -z "${checksum}" ]] && [[ -f "${file_path}" ]]; then
-        checksum=$(sha256sum "${file_path}" 2>/dev/null | awk '{print $1}' || echo "")
+    # Calculate checksum if not provided.
+    #
+    # It used to be `sha256sum`, which does not exist on macOS and cannot digest a directory
+    # anyway — and a skill is a directory. So every entry written on a Mac recorded an empty
+    # checksum while looking like it recorded one, and nothing could tell an updated skill from
+    # one somebody had edited.
+    if [[ -z "${checksum}" ]]; then
+        source "${HELPERS_DIR}/digest.sh"
+        checksum=$(hm_digest_path "${file_path}")
     fi
 
     # Load current registration
@@ -188,11 +194,27 @@ add_registration_entry() {
 
     # Add entry
     local updated_registration
+    #
+    # Where it came from, recorded at install time. Without it, `ai-pull --force` goes blind:
+    # everything installed looks the same afterwards, and nothing can say whether a skill is the
+    # one that shipped, a newer one, or one somebody edited.
+    #
     updated_registration=$(echo "${registration}" | jq \
         --arg type "${resource_type}" \
         --arg path "${file_path}" \
         --arg sha "${checksum}" \
-        '.[$type][$path] = {"checksum": $sha, "installed": (now | strftime("%Y-%m-%d %H:%M:%S"))}')
+        --arg origin "${HM_AI_ORIGIN_NAME:-}" \
+        --arg url "${HM_AI_ORIGIN_URL:-}" \
+        --arg branch "${HM_AI_ORIGIN_BRANCH:-}" \
+        --arg version "${HM_AI_ORIGIN_VERSION:-}" \
+        '.[$type][$path] = {
+            "checksum": $sha,
+            "installed": (now | strftime("%Y-%m-%d %H:%M:%S")),
+            "origin": $origin,
+            "url": $url,
+            "branch": $branch,
+            "version": $version
+        }')
 
     # Save updated registration
     save_ai_registration "${updated_registration}"

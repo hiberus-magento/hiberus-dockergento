@@ -116,7 +116,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **AI-04** | `hm mcp` (escritura acotada) | IA | M | AI-03, AI-02 | backlog |
 | **AI-05** | Generación de `CLAUDE.md` / `AGENTS.md` y `.mcp.json` | IA | S | CLI-02 | **hecho** |
 | **AI-06** | Fichero de exclusión de contexto | IA | S | — | **hecho** |
-| **AI-07** | `hm ai-doctor` y versionado de skills | IA | S | — | backlog |
+| **AI-07** | `hm ai-doctor` y versionado de skills | IA | S | — | **hecho** |
 | **AI-08** | Índice del código como MCP | IA | L | AI-03 | backlog |
 | **AI-09** | Skills de Dockergento en este repositorio | IA | M | AI-05 | **hecho** |
 | **WT-01** | Guardarraíles de worktree | Worktrees | S | — | **hecho** |
@@ -573,9 +573,20 @@ se generó y `hm doctor` avisa cuando ya no describe el proyecto, porque un cont
 peor que no tenerlo: el agente lo obedece. En la 1.7.0; documentado en
 [docs/ai-context.md](../ai-context.md).
 
-#### AI-07 · `hm ai-doctor` y versionado de skills
+#### AI-07 · `hm ai-doctor` y versionado de skills — hecho
 **Esfuerzo**: S. Qué skills hay, de qué repositorio, qué versión y si están al día. Hoy
 `ai-pull --force` va a ciegas y se sigue una rama, no una versión.
+**Cómo quedó**: al implementarlo apareció el motivo real de la ceguera — el checksum se calculaba
+con `sha256sum`, que en macOS no existe y que además no digiere un directorio, y una skill *es* un
+directorio: cada entrada escrita en un Mac guardaba una cadena vacía con pinta de checksum. Ahora
+hay un digest que funciona en las dos plataformas y sobre directorios completos, y se registra la
+procedencia (repositorio, rama o versión de la herramienta, y fecha) al instalar. `hm ai-doctor`
+informa de cinco estados; el que justifica la ficha es `modified`: `ai-pull` cumple lo de respetar
+las skills propias dejando en paz lo que no instaló, así que una skill mejorada *in situ*, sin
+renombrar, se perdía en el siguiente pull sin decir nada. Para las skills que vienen con la
+herramienta, `outdated` se responde sin red comparando con la copia instalada; para un repositorio
+descargado se dice de dónde y cuándo y no se afirma nada sobre frescura, que es la consecuencia
+honesta de seguir una rama. En la 1.7.0; documentado en [docs/skills.md](../skills.md).
 
 #### AI-09 · Skills de Dockergento en este repositorio — hecho
 **Esfuerzo**: M. **Depende de**: AI-05 (parcialmente).

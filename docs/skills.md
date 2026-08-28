@@ -62,6 +62,34 @@ They are installed regardless of the skill types configured, because they descri
 used rather than a technology somebody chose. Everything else is unchanged: the same platforms,
 the same registration file, and a skill you wrote yourself is never overwritten without `--force`.
 
+## Knowing what you have
+
+```bash
+hm ai-doctor
+```
+
+Lists every skill and agent installed in this project, where it came from, and which of five
+states it is in:
+
+| State | Means |
+|---|---|
+| `current` | Matches what was installed |
+| `outdated` | The tool now carries a newer copy — `hm ai-pull` will update it |
+| `modified` | Changed since installation — **the next pull overwrites it** |
+| `custom` | The tool never installed it. It is yours, and it is safe |
+| `missing` | Tracked, and no longer there |
+
+`modified` is the state worth knowing about. `hm ai-pull` keeps its promise to preserve custom
+skills by leaving alone what it did not install — so a skill somebody improved *in place*, without
+renaming it, is lost on the next pull. Renaming it is what keeps it.
+
+For the skills that came with the tool, `outdated` is answered offline, by comparing against the
+copy the installed tool carries. For a downloaded repository there is no such copy, so those are
+reported with their origin and their date and nothing is claimed about freshness — which is the
+honest consequence of following a branch rather than a version.
+
+It changes nothing. It is what you run before deciding whether `hm ai-pull --force` is safe.
+
 ## Adding or changing one
 
 Edit the `SKILL.md` and run the suite. If you used a command or an option that is not declared,

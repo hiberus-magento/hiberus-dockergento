@@ -149,9 +149,18 @@ download_and_install() {
         # No type filter for them either: they describe the tool in use, not a technology
         # somebody chose.
         #
+        # Recorded on every resource installed from this repository, so that afterwards
+        # something can say where each one came from and whether it is still that
+        export HM_AI_ORIGIN_NAME="${repo_name}"
+        export HM_AI_ORIGIN_URL="${repo_url}"
+        export HM_AI_ORIGIN_BRANCH="${repo_branch}"
+        export HM_AI_ORIGIN_VERSION=""
+
         if [[ "${repo_local}" == "true" ]]; then
             repo_dir="${COMMAND_BIN_DIR}"
             repo_types=""
+            export HM_AI_ORIGIN_BRANCH=""
+            export HM_AI_ORIGIN_VERSION="${HM_VERSION:-$(git -C "${COMMAND_BIN_DIR}" describe --tags 2>/dev/null || echo unknown)}"
         else
             repo_dir="${temp_base}/${repo_name}"
             if ! download_repository "${repo_url}" "${repo_branch}" "${repo_dir}"; then
