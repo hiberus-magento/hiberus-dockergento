@@ -91,6 +91,28 @@ which command would have given it data. It does not fall back to sharing the mai
 `setup:upgrade` on the branch would then land on everybody, which is the opposite of an isolated
 environment.
 
+## The data an agent will read
+
+`--profile=agent` anonymises the cloned database before handing the environment over. Not because
+anonymising is tidy, but because an agent reads the database and what it reads goes to a model,
+over a network, outside the company — and a development database is a copy of production, with
+real names, addresses, emails and orders in it.
+
+```bash
+hm worktree add feature/x --profile=agent                   # anonymised
+hm worktree add feature/x --profile=agent --no-anonymise    # not
+```
+
+`--no-anonymise` exists because reproducing a bug that only happens with one customer's order
+history is a real thing people do. It is their data and their decision; the tool's job is to make
+the safe path the one you get by not thinking.
+
+`lite` and `full` are not anonymised automatically: those are usually a person's own second
+checkout, and rewriting their data uninvited would be the tool overreaching.
+
+If the anonymisation fails, the environment is still created and the failure is said out loud — an
+environment that was supposed to be anonymised and is not is exactly what this exists to prevent.
+
 ## The refusals stay
 
 A worktree with **no** registered environment behaves exactly as before: `start`, `stop`,

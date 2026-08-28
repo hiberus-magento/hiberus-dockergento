@@ -78,6 +78,10 @@ wait_for_db() {
     query "$1" "SELECT 1" >/dev/null 2>&1
 }
 
+# The anonymisation state is per project and lives outside the checkout; a test has no business
+# writing in the developer's
+export HM_STATE_DIR="$LAB/state"
+
 make_project "$SOURCE" "mariadb:10.6"
 ( cd "$LAB/$SOURCE" && docker compose -p "$SOURCE" up -d ) >/dev/null 2>&1
 
@@ -131,8 +135,18 @@ assert_contains "$STDERR" "running" "it says the environment is running"
 
 make_project "$TARGET" "mariadb:10.6"
 
+#
+# Whatever that template holds, nobody anonymised it afterwards: the record has to expire when
+# the data is replaced, or somebody relies on a reassuring "yes" from before an import
+#
+mkdir -p "$LAB/state"
+printf '{"anonymised_at": "2026-01-01 00:00"}\n' > "$LAB/state/$TARGET.json"
+
 hm_in "$TARGET" db clone "$SOURCE/base"
 assert_equals "0" "$STATUS" "a template of another project can be cloned by address"
+
+assert_equals "" "$(jq -r '.anonymised_at // ""' "$LAB/state/$TARGET.json")" \
+    "and cloning clears the anonymisation record"
 
 ( cd "$LAB/$TARGET" && docker compose -p "$TARGET" up -d ) >/dev/null 2>&1
 

@@ -5,6 +5,7 @@ source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/masquerade.sh
 source "$HELPERS_DIR"/docker.sh
+source "$TASKS_DIR"/anonymisation.sh
 
 # Check php container
 is_run_service "phpfpm"
@@ -160,10 +161,14 @@ print_info "Restoring database dump into localhost...\n"
 $DOCKER_COMPOSE exec db bash -c "client=\$(command -v mariadb || command -v mysql); zcat /tmp/db.sql.gz | sed '/sandbox mode/d' | \"\$client\" -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE"
 [ $sql_exclude -eq 1 ] && $DOCKER_COMPOSE exec db bash -c "client=\$(command -v mariadb || command -v mysql); [ -f /tmp/ccd.sql ] && \"\$client\" -f -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE < /tmp/ccd.sql"
 
+# A database from another environment has just replaced this one. Whatever was true about the
+# old contents is not true about these
+hm_anonymisation_clear
+
 # Anonymise database
 if [ "$anonymise" = "true" ]; then
     print_info "Anonymising database in localhost...\n"
-    masquerade_run
+    masquerade_run && hm_anonymisation_record
 elif [ "$anonymise" = "false" ]; then
     print_info "Skipping database anonymisation...\n"
 else
@@ -173,7 +178,7 @@ if ! is_non_interactive; then
 fi
     if [ -z "$anonymise_prompt" ] || [ "$anonymise_prompt" == "Y" ] || [ "$anonymise_prompt" == "y" ]; then
         print_info "Anonymising database in localhost...\n"
-        masquerade_run
+        masquerade_run && hm_anonymisation_record
     else
         print_info "Skipping database anonymisation...\n"
     fi

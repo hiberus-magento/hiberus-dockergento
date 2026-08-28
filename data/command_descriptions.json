@@ -849,6 +849,13 @@
             {
                 "name": {
                     "short": "",
+                    "long": "no-anonymise"
+                },
+                "description": "With add and the agent profile: do not anonymise the cloned database"
+            },
+            {
+                "name": {
+                    "short": "",
                     "long": "force"
                 },
                 "description": "With remove: even with uncommitted changes"

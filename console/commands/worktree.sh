@@ -10,6 +10,7 @@ source "$HELPERS_DIR"/domain_resolution.sh
 source "$TASKS_DIR"/proxy.sh
 source "$TASKS_DIR"/worktree_env.sh
 source "$TASKS_DIR"/db_template.sh
+source "$TASKS_DIR"/anonymisation.sh
 source "$TASKS_DIR"/collect_project_info.sh
 
 #
@@ -29,7 +30,7 @@ HM="$COMMAND_BIN_DIR/bin/run"
 
 usage() {
     print_info "An environment per branch\n\n"
-    print_default "  $COMMAND_BIN_NAME worktree add <branch> [--profile=agent] [--path=<dir>] [--no-start]\n"
+    print_default "  $COMMAND_BIN_NAME worktree add <branch> [--profile=agent] [--path=<dir>] [--no-start] [--no-anonymise]\n"
     print_default "  $COMMAND_BIN_NAME worktree list\n"
     print_default "  $COMMAND_BIN_NAME worktree remove <name> [--force]\n\n"
     print_info "Profiles: "
@@ -60,7 +61,7 @@ require_main_checkout() {
 # ------------------------------------------------------------------ add
 
 do_add() {
-    local branch="" profile="agent" path="" start=true
+    local branch="" profile="agent" path="" start=true anonymise=true
 
     while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -69,6 +70,7 @@ do_add() {
             --path=*)    path="${1#--path=}"; shift ;;
             --path)      path="${2:-}"; shift 2 ;;
             --no-start)  start=false; shift ;;
+            --no-anonymise | --no-anonymize) anonymise=false; shift ;;
             -*)
                 hm_fail "$HM_EXIT_USAGE" "invalid_argument" "Unknown option: $1" \
                     "$COMMAND_BIN_NAME worktree add <branch> --profile=agent"
@@ -184,6 +186,8 @@ do_add() {
     if $start; then
         print_info "Starting $child...\n"
         ( cd "$path" && "$HM" start ) || true
+
+        anonymise_agent_data "$path" "$profile" "$anonymise"
     fi
 
     if is_json_output; then
@@ -265,6 +269,42 @@ clone_database() {
     print_info "Cloning the database...\n"
     ( cd "$path" && "$HM" db clone "$project/base" --force ) >/dev/null 2>&1 ||
         print_warning_line "The database could not be cloned; the environment starts empty"
+}
+
+#
+# An environment called `agent` is an environment an agent works in, and what an agent reads goes
+# to a model, over a network, outside the company. A development database is a copy of production:
+# real names, addresses, emails and orders. So this is the moment to anonymise — the data has just
+# been cloned and nobody is waiting on it.
+#
+# A default and not a rule: reproducing a bug that only happens with one customer's order history
+# is a real thing people do, and it is their data and their decision.
+#
+anonymise_agent_data() {
+    local path="$1" profile="$2" wanted="$3"
+
+    [ "$profile" == "agent" ] || return 0
+
+    if [ "$wanted" != "true" ]; then
+        print_warning_line "Not anonymised, as asked. This database holds whatever the original held."
+        return 0
+    fi
+
+    print_info "Anonymising the branch environment's database...\n"
+
+    if ( cd "$path" && HM_NON_INTERACTIVE=1 "$HM" masquerade ) >/dev/null 2>&1; then
+        print_info "Anonymised.\n"
+        return 0
+    fi
+
+    #
+    # Reported, not swallowed: an environment that was supposed to be anonymised and is not is
+    # exactly the situation this feature exists to prevent
+    #
+    print_warning_line "The database could not be anonymised"
+    print_default "  It holds whatever the original held. Run "
+    print_code "$COMMAND_BIN_NAME masquerade"
+    print_default " from $path before letting an agent read it.\n"
 }
 
 # ------------------------------------------------------------------ list

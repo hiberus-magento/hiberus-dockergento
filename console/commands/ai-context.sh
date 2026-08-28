@@ -6,6 +6,7 @@ source "$COMPONENTS_DIR"/print_json.sh
 source "$HELPERS_DIR"/exit_codes.sh
 source "$TASKS_DIR"/collect_project_info.sh
 source "$TASKS_DIR"/agent_context.sh
+source "$TASKS_DIR"/anonymisation.sh
 
 #
 # What an agent needs to know about this project, written where it will read it.
@@ -46,6 +47,10 @@ root="${HM_ROOT:-$PWD}"
 agents_file="$root/AGENTS.md"
 claude_file="$root/CLAUDE.md"
 mcp_file="$root/.mcp.json"
+
+# Assigns HM_ANONYMISED and HM_ANONYMISED_AT, which the block states in words: an agent obeys
+# what it reads, and here that is the mechanism rather than the risk
+hm_anonymisation_state
 
 written=""
 block=$(hm_context_block "$info")

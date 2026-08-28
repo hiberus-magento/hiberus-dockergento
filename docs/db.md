@@ -174,6 +174,30 @@ They are full copies, so a template costs what the database costs. `hm db templa
 size of each, and `hm clean` collects the templates of projects whose directory no longer exists,
 like everything else the tool creates.
 
+## Real customer data
+
+```bash
+hm masquerade
+```
+
+Anonymises the database in place, with the [masquerade](https://github.com/elgentos/masquerade)
+tool. A dump from production has real names, addresses, emails, phone numbers and order history in
+it.
+
+**A successful anonymisation is recorded**, with its date, so that `hm describe`, `hm doctor` and
+the [context an agent reads](ai-context.md) can stop guessing. And it **expires**: restoring a
+snapshot, cloning a template, importing a dump or transferring a database clears the record,
+because whatever those brought in has not been anonymised. Three states — anonymised, not,
+unknown — and unknown is never treated as safe.
+
+Since 1.7.0 it also works without a terminal, which it never did: `docker run -t -i` was passed
+unconditionally, so it failed from CI, from a script and from an agent with `the input device is
+not a TTY`.
+
+`hm worktree add --profile=agent` anonymises by default. With an agent, this stops being good
+practice and becomes compliance: what an agent reads goes to a model, over a network, outside the
+company.
+
 ## Where snapshots come from on their own
 
 `hm down -v` offers to take one before destroying the environment, and `hm stop --snapshot` takes

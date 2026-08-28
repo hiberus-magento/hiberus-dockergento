@@ -15,6 +15,7 @@
 source "$HELPERS_DIR"/docker.sh
 source "$HELPERS_DIR"/version.sh
 source "$TASKS_DIR"/set_environment_labels.sh
+source "$TASKS_DIR"/anonymisation.sh
 
 HM_COMPOSE_CONFIG_CACHE=""
 
@@ -106,6 +107,10 @@ collect_project_info() {
     hm_load_container_table
     HM_COMPOSE_CONFIG_CACHE=$($DOCKER_COMPOSE config --format json 2>/dev/null || echo '{}')
 
+    # Whether this copy of the data has been anonymised. Unknown is the honest answer for a
+    # project nobody has touched, and it is never treated as safe
+    hm_anonymisation_state
+
     local running_count
     running_count=$(hm_environment_containers "${COMPOSE_PROJECT_NAME:-}" --running | sed '/^$/d' | wc -l | tr -d ' ')
 
@@ -123,6 +128,8 @@ collect_project_info() {
         --arg compose_version "$(get_docker_compose_version)" \
         --arg xdebug "$(xdebug_state)" \
         --arg admin_path "$(magento_admin_path)" \
+        --arg anonymised "${HM_ANONYMISED:-unknown}" \
+        --arg anonymised_at "${HM_ANONYMISED_AT:-}" \
         --arg compose_file "${DOCKER_COMPOSE_FILE:-}" \
         --arg compose_file_machine "${DOCKER_COMPOSE_FILE_MACHINE:-}" \
         --arg states "$(service_states)" \
@@ -158,6 +165,7 @@ collect_project_info() {
                 status: $status, urls: $urls
             },
             magento: { version: $magento_version, mode: $magento_mode },
+            data: { anonymised: $anonymised, anonymised_at: $anonymised_at },
             services: [
                 $services | to_entries[] | {
                     name: .key,

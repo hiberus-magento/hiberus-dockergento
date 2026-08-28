@@ -18,10 +18,19 @@ config=""
 # Prepare config argument
 [ -d ${masquerade_project_config_folder} ] && config="--config=${masquerade_config_folder}"
 
-masquerade_run() {    
+masquerade_run() {
+    #
+    # A terminal only when there is one. `-t -i` unconditionally meant `the input device is not a
+    # TTY` from CI, from a script and from an agent — so the command that anonymises has never
+    # been usable by anything except a person at a keyboard, which is the opposite of what it is
+    # for.
+    #
+    local terminal=""
+    [ -t 0 ] && [ -t 1 ] && terminal="-t -i"
+
     docker run \
     --network=$(docker ps --filter id="$($DOCKER_COMPOSE ps -q db)" --format '{{ json .Networks }}' | tr -d '"') $volume_config \
-    -t -i --rm hiberusmagento/masquerade\
+    $terminal --rm hiberusmagento/masquerade\
     masquerade run \
     --platform=${platform} \
     --database=${database} \

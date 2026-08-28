@@ -4,6 +4,7 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 source "$TASKS_DIR"/set_magento_configs.sh
 source "$HELPERS_DIR"/docker.sh
+source "$TASKS_DIR"/anonymisation.sh
 # Resolve the db container within the current compose project. `docker ps -f name=db`
 # matches by substring across ALL projects on the host, so with more than one
 # environment up it could return several ids (breaking `docker exec`) or target
@@ -53,9 +54,15 @@ mysql_execute() {
             docker exec -i $mysql_container bash -c "$db_client" < $import_database
         fi
 
+        # An import replaces the data, so whatever was true about the old contents is not true
+        # about these
+        hm_anonymisation_clear
+
         if ${anonymisation-false} ; then
             anonymise
+            hm_anonymisation_record
         fi
+
         set_settings_for_develop
         exit
     fi

@@ -31,6 +31,7 @@ hm_context_fingerprint() {
         domain: .project.domain,
         magento: .magento.version,
         admin: (.project.urls.admin // ""),
+        anonymised: (.data.anonymised // "unknown"),
         services: [.services[] | {name, image}]
     }' | hm_context_digest
 }
@@ -85,6 +86,15 @@ hm_context_block() {
     printf '| 0 | Fine |\n| 2 | Called wrong |\n| 3 | Docker is not running |\n'
     printf '| 4 | Not a project |\n| 5 | A service is not running |\n'
     printf '| 6 | **Refused on purpose** — read the message before retrying |\n\n'
+
+    printf '## The data in this database\n\n'
+    if [ "${HM_ANONYMISED:-unknown}" == "yes" ]; then
+        printf 'Anonymised on %s. It is safe to quote rows in your output.\n\n' "${HM_ANONYMISED_AT:-an earlier date}"
+    else
+        printf '**This database has not been anonymised.** Treat every row as real personal data:\n'
+        printf 'do not quote customer names, emails, addresses, phone numbers or order contents in\n'
+        printf 'your output. `%s masquerade` anonymises it.\n\n' "$binary"
+    fi
 
     printf '## Do not read these\n\n'
     jq -r '.exclusions[] | "- `" + .path + "` — " + .reason' "$DATA_DIR/ai-exclusions.json"

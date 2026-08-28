@@ -106,7 +106,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **DB-01** | `hm db snapshot` / `restore` / `list` | Datos | M | — | **hecho** |
 | **DB-02** | Volumen "golden" y clonado | Datos | M | DB-01 | **hecho** |
 | **DB-03** | Ciclo de vida seguro (`stop --snapshot`, protección de `down -v`) | Datos | S | DB-01 | **hecho** |
-| **DB-04** | Anonimización por defecto en entornos de agente | Datos | S | — | backlog |
+| **DB-04** | Anonimización por defecto en entornos de agente | Datos | S | — | **hecho** |
 | **INST-01** | Bootstrap: admin aleatorio y 2FA con QR | Instalación | S | — | **hecho** |
 | **INST-02** | Flags `--clean-install` / `--db-dump` | Instalación | S | INST-01 | backlog |
 | **INST-03** | Proveedores `hm pull` / `hm push` | Instalación | M | CLI-01 | backlog |
@@ -486,9 +486,19 @@ confirmación diciendo cuántos contenedores son ajenos, porque acotarlo cambiar
 comando que la gente ya usa a propósito. Nada pregunta sin terminal ni con `--yes`. En la 1.6.0;
 documentado en [docs/down.md](../down.md) y [docs/stop.md](../stop.md).
 
-#### DB-04 · Anonimización por defecto en entornos de agente
+#### DB-04 · Anonimización por defecto en entornos de agente — hecho
 **Esfuerzo**: S. Apoyado en `hm masquerade`, que **ya existe**. Con agentes, la
 anonimización deja de ser buena práctica y pasa a ser cumplimiento.
+**Cómo quedó**: `hm worktree add --profile=agent` anonimiza por defecto (`--no-anonymise` para
+quien reproduce un fallo que sólo ocurre con los datos reales). La anonimización se **registra**
+con su fecha fuera del checkout y **caduca**: restaurar un snapshot, clonar una plantilla,
+importar un volcado o traer una BD lo borran, porque nadie anonimizó lo que traen; un «sí» viejo
+de antes de un import sería peor que no tener registro. `describe` lo informa, `doctor` falla si
+el entorno es de un agente y nadie lo anonimizó, y el contexto generado lo dice con palabras
+—«trata cada fila como datos personales reales»—, que es el único mecanismo que funciona con un
+agente cuyo tooling no impone nada. Y apareció un fallo de siempre: `masquerade_run` pasaba
+`-t -i` a `docker run` sin condición, así que el comando que anonimiza **nunca** había funcionado
+desde CI, desde un script ni desde un agente. En la 1.7.0.
 
 ### Área Instalación
 

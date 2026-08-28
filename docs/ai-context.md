@@ -37,6 +37,25 @@ run it. This writes that down where an agent reads it before it starts.
 **No secrets.** The database is named; its password is not. An agent that needs to connect runs
 `hm mysql`, which knows the credentials without printing them.
 
+## It says whether the data is real
+
+The block carries one line that matters more than the rest:
+
+> **This database has not been anonymised.** Treat every row as real personal data: do not quote
+> customer names, emails, addresses, phone numbers or order contents in your output.
+
+or, when it has been:
+
+> Anonymised on 2026-08-28. It is safe to quote rows in your output.
+
+The state comes from `hm masquerade` having been run, and it **expires**: restoring a snapshot,
+cloning a template, importing a dump or transferring a database clears it, because whatever those
+brought in has not been anonymised. Three states — anonymised, not, unknown — and unknown is never
+treated as safe.
+
+An agent obeys what it reads. Everywhere else in this tool that is a risk to be managed; here it
+is the mechanism.
+
 ## What not to read
 
 Declared once, in `data/ai-exclusions.json`, with a reason each:

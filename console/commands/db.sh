@@ -8,6 +8,7 @@ source "$HELPERS_DIR"/exit_codes.sh
 source "$HELPERS_DIR"/docker.sh
 source "$TASKS_DIR"/collect_project_info.sh
 source "$TASKS_DIR"/db_template.sh
+source "$TASKS_DIR"/anonymisation.sh
 
 #
 # Named copies of this project's database.
@@ -234,6 +235,9 @@ do_restore() {
 
     gunzip -c "$source_file" | $DOCKER_COMPOSE exec -T db bash -c \
         "$DB_CLIENT"'; "$client" -u"root" -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
+
+    # Whatever that snapshot holds, nobody anonymised it after the fact
+    hm_anonymisation_clear
 
     if is_json_output; then
         json_success "db" "$(jq -n --arg name "$name" --arg project "$COMPOSE_PROJECT_NAME" \
@@ -592,6 +596,8 @@ do_clone() {
     fi
 
     print_info "Cloning $address...\n"
+
+    hm_anonymisation_clear
 
     if ! hm_template_copy "$template" "$volume" "$image"; then
         hm_fail "$HM_EXIT_BLOCKED" "clone_failed" \
