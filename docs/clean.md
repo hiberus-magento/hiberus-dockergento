@@ -25,6 +25,21 @@ An environment is collectable only when **both** are true:
 A stopped project whose directory is still there is not rubbish; it is a stopped project. That is
 the distinction `docker system prune` cannot make, and the reason this command exists.
 
+## Branch environments whose worktree is gone
+
+[`hm worktree remove`](worktree.md) is the tidy way to get rid of one, and it needs the directory
+to still be there. When somebody removes the worktree with git, or deletes the folder, the
+containers and volumes are collected by the rule above — they carry `hm.root` — but the
+registration in `~/.hm/worktrees` is left over, and nothing else deletes it. It shows in
+`hm worktree list` as `missing` for ever, and it refuses the name if that branch environment is
+ever wanted back.
+
+So those are listed here too, and collected with `--force`: the containers and volumes **by
+name**, because the directory that held the compose configuration is exactly what is missing, and
+then the registration.
+
+The branch is not touched, and neither are that project's database snapshots.
+
 ## What it will not, and why
 
 **Volumes carry no `hm.*` labels** — only the ones Compose adds. So a volume can only be attributed

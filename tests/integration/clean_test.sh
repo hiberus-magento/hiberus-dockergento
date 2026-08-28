@@ -44,7 +44,7 @@ build() {
 services:
   phpfpm:
     image: alpine:latest
-    command: ["sleep", "300"]
+    command: ["sleep", "1800"]
     labels:
       hm.project: "$project"
       hm.root: "$root"
@@ -73,6 +73,22 @@ docker volume create --label hm.template=base --label "hm.project=$DEAD" \
     --label "hm.root=$LAB/gone-root" "hm-template-$DEAD-base" >/dev/null
 docker volume create --label hm.template=base --label "hm.project=$ALIVE" \
     --label "hm.root=$LAB/alive-root" "hm-template-$ALIVE-base" >/dev/null
+
+#
+# A branch environment whose worktree somebody deleted by hand. Its containers and volumes are
+# collected by the rules above already — they carry hm.root — but the registration is left over,
+# and nothing else deletes it: `hm worktree remove` needs the directory to still be there.
+#
+export HM_WORKTREE_DIR="$LAB/worktrees"
+mkdir -p "$HM_WORKTREE_DIR/padre"
+cat > "$HM_WORKTREE_DIR/padre/rama-muerta.json" <<JSON
+{"path": "$LAB/no-existe", "branch": "feature/x", "profile": "agent",
+ "domain": "rama-muerta.shop.test", "project": "$DEAD-rama-muerta", "parent": "padre"}
+JSON
+cat > "$HM_WORKTREE_DIR/padre/rama-viva.json" <<JSON
+{"path": "$LAB/alive-root", "branch": "feature/y", "profile": "agent",
+ "domain": "rama-viva.shop.test", "project": "$ALIVE-rama-viva", "parent": "padre"}
+JSON
 
 report() {
     ( cd "$LAB" && "$HM" clean "$@" --json 2>/dev/null )
@@ -103,6 +119,12 @@ assert_not_contains "$(report | jq -r '.data.unattributable.volumes[]')" "hm-tem
 
 test_case "a volume with no containers is listed as unattributable"
 assert_contains "$(report | jq -r '.data.unattributable.volumes[]')" "${STRAY}_workspace"
+
+test_case "a branch environment whose worktree is gone is collectable"
+assert_contains "$(report | jq -r '.data.worktrees[].name')" "padre/rama-muerta"
+
+test_case "and one whose worktree is still there is not"
+assert_not_contains "$(report | jq -r '.data.worktrees[].name')" "padre/rama-viva"
 
 test_case "looking deletes nothing"
 assert_equals "false" "$(report | jq -r '.data.removed')"
@@ -135,6 +157,12 @@ assert_equals "present" "$r"
 test_case "and its containers are still running"
 running=$(docker ps -q --filter "label=hm.project=$ALIVE" 2>/dev/null | grep -c . || true)
 assert_equals "1" "$running"
+
+test_case "the stale registration is gone after --force"
+assert_equals "1" "$([ -f "$HM_WORKTREE_DIR/padre/rama-muerta.json" ] && echo 0 || echo 1)"
+
+test_case "and the live one is untouched"
+assert_equals "0" "$([ -f "$HM_WORKTREE_DIR/padre/rama-viva.json" ] && echo 0 || echo 1)"
 
 test_case "the unattributable volume survives --force, which is the whole point"
 docker volume inspect "${STRAY}_workspace" >/dev/null 2>&1 && r=present || r=gone

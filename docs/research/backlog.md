@@ -121,7 +121,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **AI-09** | Skills de Dockergento en este repositorio | IA | M | AI-05 | **hecho** |
 | **WT-01** | Guardarraíles de worktree | Worktrees | S | — | **hecho** |
 | **WT-02** | `hm worktree` con perfiles de entorno | Worktrees | L | NET-01, DB-02 | **hecho** |
-| **WT-03** | Recolección de worktrees huérfanos | Worktrees | S | WT-02, ENV-02 | backlog |
+| **WT-03** | Recolección de worktrees huérfanos | Worktrees | S | WT-02, ENV-02 | **hecho** |
 | **UI-01** | Dashboard web sólo lectura | Web | L | NET-01, CLI-02, CLI-03 | backlog |
 | **UI-02** | Acciones seguras desde la web | Web | M | UI-01 | backlog |
 | **UI-03** | Vista de worktrees y agentes | Web | M | UI-01, WT-02 | backlog |
@@ -679,8 +679,14 @@ ven la verdad sin enterarse de que existen los perfiles. Las dependencias no se 
 en Linux, copia del volumen de código en macOS. En la 1.7.0; documentado en
 [docs/worktree.md](../worktree.md).
 
-#### WT-03 · Recolección de huérfanos
+#### WT-03 · Recolección de huérfanos — hecho
 **Esfuerzo**: S. Contenedores y volúmenes cuyo worktree ya no existe en git.
+**Cómo quedó**: los contenedores y volúmenes ya los recogía `hm clean`, porque llevan `hm.root` y
+ese directorio no existe. Lo que quedaba huérfano era el registro en `~/.hm/worktrees`, que no
+borraba nadie: `hm worktree remove` es el camino ordenado y necesita que el directorio siga ahí.
+Ahora `hm clean` los lista y, con `--force`, borra contenedores y volúmenes **por nombre** —el
+directorio que tenía la configuración de compose es justo lo que falta— y olvida el registro. Ni
+la rama ni los snapshots de ese proyecto se tocan. En la 1.7.0.
 
 ### Área Web
 

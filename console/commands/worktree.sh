@@ -349,6 +349,18 @@ do_list() {
         printf '  %-18s %-24s %-7s %-9s %s\n' "$name" "$branch" "$profile" "$state" "https://$domain"
     done
     printf '\n'
+
+    #
+    # `remove` is the tidy path and it needs the directory to still be there. When somebody has
+    # already deleted it, what is left is a registration, and the command that collects those is
+    # the one that collects everything else abandoned.
+    #
+    if printf "$rows" | grep -q "missing"; then
+        print_warning_line "Some of these no longer have a worktree on disk"
+        print_default "  Collect them with "
+        print_code "$COMMAND_BIN_NAME clean"
+        printf '\n\n'
+    fi
 }
 
 # ------------------------------------------------------------------ remove

@@ -6,6 +6,7 @@ source "$COMPONENTS_DIR"/print_json.sh
 source "$COMPONENTS_DIR"/input_info.sh
 source "$HELPERS_DIR"/exit_codes.sh
 source "$HELPERS_DIR"/docker.sh
+source "$TASKS_DIR"/worktree_env.sh
 
 #
 # Collect what abandoned environments left behind.
@@ -114,6 +115,31 @@ while IFS= read -r volume; do
     fi
 done <<< "$(docker volume ls -q 2>/dev/null)"
 
+#
+# Branch environments whose worktree is gone.
+#
+# The containers and volumes of one are collected by the rules above already — they carry
+# `hm.root`, and that directory no longer exists. What is left over is the registration in
+# ~/.hm/worktrees, which nothing else deletes: `hm worktree remove` is the tidy path and it needs
+# the directory to still be there. Somebody who removes a worktree with git, or deletes the folder,
+# leaves an entry that makes `worktree list` say "missing" for ever and refuses the name if they
+# ever want it back.
+#
+orphan_worktrees=""
+
+for registry in "$HM_WORKTREE_HOME"/*; do
+    [ -d "$registry" ] || continue
+    parent=$(basename "$registry")
+
+    while IFS= read -r name; do
+        [ -z "$name" ] && continue
+        hm_worktree_load "$parent" "$name" || continue
+        [ -d "$WORKTREE_PATH" ] && continue
+
+        orphan_worktrees="${orphan_worktrees}${parent}/${name}\t${WORKTREE_PROJECT}\t${WORKTREE_PATH}\n"
+    done <<< "$(hm_worktree_names "$parent")"
+done
+
 count_lines() {
     [ -z "$1" ] && { printf '0'; return 0; }
     printf "$1" | sed '/^$/d' | grep -c . | tr -d ' '
@@ -123,6 +149,7 @@ environments=$(count_lines "$collectable")
 volumes=$(count_lines "$collectable_volumes")
 strays=$(count_lines "$orphan_volumes")
 unknown=$(count_lines "$unattributable")
+worktrees=$(count_lines "$orphan_worktrees")
 
 # ------------------------------------------------------------------ report
 
@@ -132,12 +159,15 @@ if is_json_output; then
         --arg volumes "$collectable_volumes" \
         --arg strays "$orphan_volumes" \
         --arg unknown "$unattributable" \
+        --arg worktrees "$orphan_worktrees" \
         --argjson removed "$($remove && echo true || echo false)" \
         '{
             removed: $removed,
             environments: ($collectable | split("\n") | map(select(length > 0) | split("\t") |
                 {name: .[0], root: .[1]})),
             volumes: ($volumes | split("\n") | map(select(length > 0))),
+            worktrees: ($worktrees | split("\n") | map(select(length > 0) | split("\t") |
+                {name: .[0], project: .[1], path: .[2]})),
             unattributable: {
                 volumes: ($strays | split("\n") | map(select(length > 0))),
                 environments: ($unknown | split("\n") | map(select(length > 0) | split("\t") |
@@ -160,6 +190,14 @@ if ! is_json_output; then
         printf '\n  %s container group(s), %s volume(s)\n' "$environments" "$volumes"
     fi
 
+    if [ "$worktrees" -gt 0 ]; then
+        printf '\n'
+        print_heading "Branch environments whose worktree is gone\n\n"
+        printf "$orphan_worktrees" | while IFS=$'\t' read -r name project path; do
+            [ -n "$name" ] && printf '  %-28s was at %s\n' "$name" "$path"
+        done
+    fi
+
     if [ "$strays" -gt 0 ] || [ "$unknown" -gt 0 ]; then
         printf '\n'
         print_warning "Cannot be attributed, so they are left alone\n\n"
@@ -177,7 +215,7 @@ if ! is_json_output; then
     printf '\n'
 fi
 
-if [ "$environments" -eq 0 ]; then
+if [ "$environments" -eq 0 ] && [ "$worktrees" -eq 0 ]; then
     exit 0
 fi
 
@@ -200,7 +238,7 @@ if ! is_non_interactive; then
             | map(select(.Name as $n | $wanted | index($n)) | .Size) | join(" ")' 2>/dev/null)
 
     printf '\n'
-    print_warning "This deletes $environments environment(s) and $volumes volume(s).\n"
+    print_warning "This deletes $environments environment(s), $volumes volume(s) and $worktrees branch environment(s).\n"
     [ -n "$freed" ] && print_warning "Volume sizes: $freed\n"
     print_warning "Their database snapshots are not touched.\n\n"
 
@@ -220,6 +258,24 @@ printf "$collectable" | while IFS=$'\t' read -r name root; do
     containers=$(docker ps -aq --filter "label=hm.project=$name" 2>/dev/null)
     [ -n "$containers" ] && docker rm -f $containers >/dev/null 2>&1
     print_info "Removed containers of $name\n"
+done
+
+#
+# The worktree's own containers and volumes are deleted by name, not by asking Compose: the
+# directory that held its configuration is exactly what is missing.
+#
+printf "$orphan_worktrees" | while IFS=$'\t' read -r name project path; do
+    [ -z "$name" ] && continue
+
+    containers=$(docker ps -aq --filter "label=com.docker.compose.project=$project" 2>/dev/null)
+    [ -n "$containers" ] && docker rm -f $containers >/dev/null 2>&1
+
+    for volume in $(docker volume ls -q 2>/dev/null | grep "^${project}_" || true); do
+        docker volume rm "$volume" >/dev/null 2>&1
+    done
+
+    hm_worktree_forget "${name%%/*}" "${name#*/}"
+    print_info "Removed the branch environment $name\n"
 done
 
 printf "$collectable_volumes" | while IFS= read -r volume; do
