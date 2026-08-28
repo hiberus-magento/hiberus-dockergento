@@ -69,13 +69,28 @@ commands would repoint the main environment's mounts at your directory and destr
 ## The MCP server
 
 ```bash
-hm mcp --config     # the entry to add to an MCP client's configuration
+hm mcp --config             # the entry to add to an MCP client's configuration
+hm mcp --config --write     # the same, with the four write tools enabled
 ```
 
-It offers read-only tools over the project — `describe_project`, `list_environments`,
-`check_environment`, `service_logs` and `database_query` — and nothing that changes anything.
-`database_query` accepts one `SELECT`, `SHOW`, `DESCRIBE` or `EXPLAIN` and refuses everything
-else, comments included.
+Read-only by default: `describe_project`, `list_environments`, `check_environment`,
+`service_logs` and `database_query`, which accepts one `SELECT`, `SHOW`, `DESCRIBE` or `EXPLAIN`
+and refuses everything else, comments included.
+
+With `--write` it also offers `cache_flush`, `cache_clean`, `reindex` and `config_set` — and
+nothing more. `setup:upgrade`, Composer, `di:compile` and database imports are not offered at all:
+they are the operations whose failure costs an afternoon.
+
+## The project's own context
+
+```bash
+hm ai-context       # write AGENTS.md, CLAUDE.md and .mcp.json for this project
+hm ai-doctor        # what skills and agents are installed, and whether they are current
+```
+
+`hm ai-context` writes down the facts you would otherwise work out: versions, URLs, the admin's
+real front name, what not to read. Run it when the project changes — `hm doctor` says when the
+context has gone stale.
 
 ## Permissions
 

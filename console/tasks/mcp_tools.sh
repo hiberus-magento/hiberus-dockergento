@@ -80,17 +80,20 @@ hm_mcp_tool_definitions() {
   {
     "name": "describe_project",
     "description": "What the Magento project in the current directory is: PHP, database and search versions, the services and whether they are running, its URLs and its deploy mode.",
-    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+    "annotations": { "readOnlyHint": true }
   },
   {
     "name": "list_environments",
     "description": "Every Dockergento environment on this machine, with the directory it belongs to, its branch and its state. Use it to find out what else is running.",
-    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+    "annotations": { "readOnlyHint": true }
   },
   {
     "name": "check_environment",
     "description": "Run the diagnostics (hm doctor) and return each check with its result. Use it when something does not work and you do not know why yet.",
-    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+    "annotations": { "readOnlyHint": true }
   },
   {
     "name": "service_logs",
@@ -103,7 +106,8 @@ hm_mcp_tool_definitions() {
       },
       "required": ["service"],
       "additionalProperties": false
-    }
+    },
+    "annotations": { "readOnlyHint": true }
   },
   {
     "name": "database_query",
@@ -115,12 +119,106 @@ hm_mcp_tool_definitions() {
       },
       "required": ["sql"],
       "additionalProperties": false
-    }
+    },
+    "annotations": { "readOnlyHint": true }
   }
 ]
 JSON
 }
 
+#
+# The write tools, offered only when the server was started with --write.
+#
+# Absent rather than refused: a tool that exists and says no is worse than no tool, because the
+# model sees it, plans around it, reads the refusal and then reaches for a shell — which is the
+# permission these exist to make unnecessary.
+#
+# Which is also the argument for the boundary. An agent that has to flush a cache is given
+# `hm magento` today, and that runs anything Magento can do, `setup:upgrade` included. Four typed
+# tools are a smaller permission than that shell, not a larger one.
+#
+hm_mcp_write_tool_definitions() {
+    cat <<'JSON'
+[
+  {
+    "name": "cache_flush",
+    "description": "Flush the whole Magento cache. Use after a change that a page does not seem to have picked up.",
+    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+    "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true }
+  },
+  {
+    "name": "cache_clean",
+    "description": "Clean Magento cache types. With no argument, all of them; otherwise the types named, for example config or layout.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "types": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Cache types to clean, for example [\"config\", \"layout\"]"
+        }
+      },
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true }
+  },
+  {
+    "name": "reindex",
+    "description": "Rebuild Magento indexes. With no argument, all of them; otherwise the one named. Use when the catalogue or search results do not match the data.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "indexer": { "type": "string", "description": "One indexer, for example catalog_product_price" }
+      },
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true }
+  },
+  {
+    "name": "config_set",
+    "description": "Set a Magento configuration value at default scope, as bin/magento config:set does.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string", "description": "Configuration path, for example web/secure/use_in_frontend" },
+        "value": { "type": "string", "description": "The value to set" }
+      },
+      "required": ["path", "value"],
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true }
+  }
+]
+JSON
+}
+
+#
+# The whole catalogue: read-only, plus the write tools when they are enabled.
+#
+hm_mcp_catalogue() {
+    if [ "${1:-false}" == "true" ]; then
+        jq -c -s 'add' <(hm_mcp_tool_definitions) <(hm_mcp_write_tool_definitions)
+    else
+        hm_mcp_tool_definitions | jq -c .
+    fi
+}
+
+#
+# Is this a Magento configuration path?
+#
+# Not a boundary against a hostile model, and not pretending to be one: it is what stops a
+# plausible mistake from being passed on as a command argument.
+#
+hm_mcp_is_config_path() {
+    case "$1" in
+        "" | */ | /*) return 1 ;;
+        */*) ;;
+        *) return 1 ;;
+    esac
+
+    printf '%s' "$1" | grep -qE '^[a-z0-9_]+(/[a-z0-9_]+)+$'
+}
+
 hm_mcp_tool_names() {
-    hm_mcp_tool_definitions | jq -r '.[].name'
+    hm_mcp_catalogue "${1:-false}" | jq -r '.[].name'
 }

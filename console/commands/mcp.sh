@@ -24,6 +24,7 @@ source "$TASKS_DIR"/mcp_tools.sh
 
 HM="$COMMAND_BIN_DIR/bin/run"
 HM_MCP_VERSION="2025-06-18"
+HM_MCP_WRITE=false
 HM_MCP_KNOWN_VERSIONS='["2025-06-18","2025-03-26","2024-11-05"]'
 
 # ------------------------------------------------------------------ the wire
@@ -141,19 +142,84 @@ tool_database_query() {
     content "$output"
 }
 
+# ------------------------------------------------------------------ the write tools
+
+#
+# Each one is a single Magento command with its arguments checked. Together they are a smaller
+# permission than the shell an agent is given today to do the same four things.
+#
+run_magento() {
+    local output
+    output=$("$HM" --no-json magento "$@" 2>&1 </dev/null)
+
+    if [ -z "$output" ]; then
+        output="(done)"
+    fi
+
+    content "$output"
+}
+
+tool_cache_flush() {
+    run_magento cache:flush
+}
+
+tool_cache_clean() {
+    local types
+    types=$(printf '%s' "$1" | jq -r '(.types // []) | join(" ")')
+
+    # Unquoted on purpose: the list is words, and each one is a cache type
+    run_magento cache:clean $types
+}
+
+tool_reindex() {
+    local indexer
+    indexer=$(printf '%s' "$1" | jq -r '.indexer // ""')
+
+    if [ -n "$indexer" ]; then
+        run_magento indexer:reindex "$indexer"
+    else
+        run_magento indexer:reindex
+    fi
+}
+
+tool_config_set() {
+    local path value
+    path=$(printf '%s' "$1" | jq -r '.path // ""')
+    value=$(printf '%s' "$1" | jq -r '.value // ""')
+
+    if ! hm_mcp_is_config_path "$path"; then
+        content "'$path' is not a configuration path. They look like section/group/field, for example web/secure/use_in_frontend." true
+        return 0
+    fi
+
+    run_magento config:set "$path" "$value"
+}
+
 call_tool() {
     local name="$1" arguments="$2"
 
     case "$name" in
-        describe_project)  tool_describe_project ;;
-        list_environments) tool_list_environments ;;
-        check_environment) tool_check_environment ;;
-        service_logs)      tool_service_logs "$arguments" ;;
-        database_query)    tool_database_query "$arguments" ;;
-        *)
-            content "There is no tool called '$name'. The ones there are: $(hm_mcp_tool_names | tr '\n' ' ')" true
-            ;;
+        describe_project)  tool_describe_project;            return 0 ;;
+        list_environments) tool_list_environments;           return 0 ;;
+        check_environment) tool_check_environment;           return 0 ;;
+        service_logs)      tool_service_logs "$arguments";   return 0 ;;
+        database_query)    tool_database_query "$arguments"; return 0 ;;
     esac
+
+    #
+    # Only reachable when the server was started with --write. Without it these names are not in
+    # the catalogue either, so a model never sees them and has nothing to plan around.
+    #
+    if $HM_MCP_WRITE; then
+        case "$name" in
+            cache_flush) tool_cache_flush;             return 0 ;;
+            cache_clean) tool_cache_clean "$arguments"; return 0 ;;
+            reindex)     tool_reindex "$arguments";     return 0 ;;
+            config_set)  tool_config_set "$arguments";  return 0 ;;
+        esac
+    fi
+
+    content "There is no tool called '$name'. The ones there are: $(hm_mcp_tool_names "$HM_MCP_WRITE" | tr '\n' ' ')" true
 }
 
 # ------------------------------------------------------------------ the session
@@ -196,7 +262,7 @@ handle() {
                 }')"
             ;;
         tools/list)
-            result "$id" "$(jq -cn --argjson tools "$(hm_mcp_tool_definitions)" '{tools: $tools}')"
+            result "$id" "$(jq -cn --argjson tools "$(hm_mcp_catalogue "$HM_MCP_WRITE")" '{tools: $tools}')"
             ;;
         tools/call)
             local name arguments
@@ -223,25 +289,34 @@ print_config() {
     # Printed, not written. An MCP client's configuration has other servers in it, and editing
     # somebody's file to save them a copy and paste is not a good trade.
     #
-    jq -n --arg command "$COMMAND_BIN_DIR/bin/run" --arg directory "$PWD" '{
+    local arguments='["mcp"]'
+    $HM_MCP_WRITE && arguments='["mcp", "--write"]'
+
+    jq -n --arg command "$COMMAND_BIN_DIR/bin/run" --arg directory "$PWD" \
+        --argjson arguments "$arguments" '{
         mcpServers: {
-            hm: {command: $command, args: ["mcp"], cwd: $directory}
+            hm: {command: $command, args: $arguments, cwd: $directory}
         }
     }'
 }
 
-case "${1:-}" in
-    --config)
-        print_config
-        exit 0
-        ;;
-    "")
-        ;;
-    *)
-        hm_fail "$HM_EXIT_USAGE" "invalid_argument" "Unknown option: $1" \
-            "$COMMAND_BIN_NAME mcp [--config]"
-        ;;
-esac
+show_config=false
+
+for argument in "$@"; do
+    case "$argument" in
+        --config) show_config=true ;;
+        --write)  HM_MCP_WRITE=true ;;
+        *)
+            hm_fail "$HM_EXIT_USAGE" "invalid_argument" "Unknown option: $argument" \
+                "$COMMAND_BIN_NAME mcp [--config] [--write]"
+            ;;
+    esac
+done
+
+if $show_config; then
+    print_config
+    exit 0
+fi
 
 while IFS= read -r line; do
     [ -z "$line" ] && continue

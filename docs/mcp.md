@@ -38,7 +38,8 @@ That is the point of doing the read-only half on its own. `hm exec`, `hm bash` a
 of typed questions is the opposite shape, and it can be handed to an agent without deciding
 anything else first.
 
-The write half — cache clean, reindex, config set — is a separate decision, with its own review.
+Enabling the write half is a separate decision, taken once, in the place where such decisions
+belong: the client's configuration, by a person. See below.
 
 ### `database_query` is a SELECT
 
@@ -53,10 +54,46 @@ model that can run `SELECT ... INTO OUTFILE` gets a file.
 Results are capped at 200 rows, because a `SELECT * FROM sales_order` would otherwise be answered
 with the whole context window.
 
+## The write half, off by default
+
+```bash
+hm mcp --write
+```
+
+adds four tools, and only these four:
+
+| Tool | Does |
+|---|---|
+| `cache_flush` | Flushes the whole cache |
+| `cache_clean` | Cleans the cache types named |
+| `reindex` | Rebuilds every index, or the one named |
+| `config_set` | Sets a configuration value at default scope |
+
+Without the flag they **do not exist** — they are absent from the tool list, not refused when
+called. A tool that exists and says no is worse than no tool: the model sees it, plans around it,
+reads the refusal and reaches for a shell.
+
+### This is a smaller permission, not a bigger one
+
+The instinct is that letting an agent write is a widening. Here it is the opposite. An agent that
+has to flush a cache is given `hm magento` today, which runs anything Magento can do —
+`setup:upgrade` included. Four typed tools replace that with four things it can do and nothing
+else.
+
+Which is why the line is where it is. **`setup:upgrade`, Composer, `di:compile`, database imports
+and anything that removes an environment are not offered at all**, with or without the flag. They
+are not slow versions of the tools above; they are the operations whose failure costs an
+afternoon, and they belong to a person at a terminal.
+
+`config_set` checks that the path looks like `section/group/field` before it passes it on. That is
+not a boundary against a hostile model and does not pretend to be one — it stops a plausible
+mistake from becoming a command argument.
+
 ## Wiring it up
 
 ```bash
-hm mcp --config
+hm mcp --config           # read-only
+hm mcp --config --write   # with the four write tools
 ```
 
 prints the entry for a client's configuration, with the absolute command and this project's

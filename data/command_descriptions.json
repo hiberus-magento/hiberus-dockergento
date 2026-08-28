@@ -859,7 +859,7 @@
     },
     "mcp": {
         "description": "Read-only tools for agents, over the Model Context Protocol",
-        "usage": "mcp [--config]",
+        "usage": "mcp [--config] [--write]",
         "args": [],
         "opts": [
             {
@@ -868,6 +868,13 @@
                     "long": "config"
                 },
                 "description": "Print the entry to add to an MCP client's configuration"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "write"
+                },
+                "description": "Also offer the four bounded write tools (cache, reindex, config)"
             }
         ],
         "group": "ai",

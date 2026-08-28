@@ -113,7 +113,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **AI-01** | `hm verify [--changed] [--json]` | IA | M | CLI-01 | **hecho** |
 | **AI-02** | Permisos y guardarraíles generados | IA | S | — | **hecho** |
 | **AI-03** | `hm mcp` (sólo lectura) | IA | M | CLI-01, CLI-02 | **hecho** |
-| **AI-04** | `hm mcp` (escritura acotada) | IA | M | AI-03, AI-02 | backlog |
+| **AI-04** | `hm mcp` (escritura acotada) | IA | M | AI-03, AI-02 | **hecho** |
 | **AI-05** | Generación de `CLAUDE.md` / `AGENTS.md` y `.mcp.json` | IA | S | CLI-02 | **hecho** |
 | **AI-06** | Fichero de exclusión de contexto | IA | S | — | **hecho** |
 | **AI-07** | `hm ai-doctor` y versionado de skills | IA | S | — | **hecho** |
@@ -540,7 +540,7 @@ peligroso por inocente que sea su uso normal — `hm exec` y `hm bash` son puert
 disfrazadas. Las dos listas internas que ya existían quedan vigiladas por tests para que no
 diverjan. En la 1.7.0; documentado en [docs/permissions.md](../permissions.md).
 
-#### AI-03 · `hm mcp` (sólo lectura) — hecho  ·  #### AI-04 · `hm mcp` (escritura acotada)
+#### AI-03 · `hm mcp` (sólo lectura) — hecho  ·  #### AI-04 · `hm mcp` (escritura acotada) — hecho
 **Esfuerzo**: M cada uno. Herramientas tipadas: lectura (describe, list, logs, `db.query`
 sólo SELECT, estado de índices) y escritura acotada (cache clean/flush, reindex,
 config:set). Las peligrosas (setup:upgrade, composer update, import de BD, `down -v`)
@@ -555,6 +555,14 @@ responde con un resultado marcado como error, no con un error de JSON-RPC, que l
 clientes muestran como servidor roto. `database_query` quita los comentarios antes de validar,
 porque el comentario es donde se esconde la segunda sentencia. En la 1.7.0; documentado en
 [docs/mcp.md](../mcp.md).
+**Cómo quedó AI-04**: `hm mcp --write` añade cuatro herramientas y sólo cuatro. Sin el flag no
+existen —ausentes del catálogo, no rechazadas al llamarlas—: una herramienta que existe y dice que
+no es peor que ninguna, porque el modelo la ve, planifica con ella, lee el rechazo y se va a una
+shell. Y ahí está el argumento entero: hoy, a un agente que tiene que vaciar una caché se le da
+`hm magento`, que ejecuta todo lo que Magento sabe hacer, `setup:upgrade` incluido; cuatro
+herramientas tipadas son un permiso *más pequeño* que esa shell, no más grande. Fuera quedan
+`setup:upgrade`, Composer, `di:compile`, importar una base de datos y destruir un entorno: no son
+versiones lentas de lo anterior, son las operaciones cuyo fallo cuesta una tarde. En la 1.7.0.
 
 #### AI-05 · Generación de `CLAUDE.md` / `AGENTS.md` y `.mcp.json` — hecho
 **Esfuerzo**: S. **Depende de**: CLI-02. Que el agente no tenga que adivinar —ni inventarse—

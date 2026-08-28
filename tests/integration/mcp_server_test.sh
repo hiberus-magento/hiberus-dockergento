@@ -135,6 +135,38 @@ assert_contains "$(printf '%s' "$OUT" | jq -r '.result.content[0].text')" "phpfp
 test_case "the environments of the machine can be listed"
 assert_equals "false" "$(call "list_environments" '{}' | jq -r '.result.isError')"
 
+# ---------------------------------------------------------------- the write half
+
+write_session() {
+    ( cd "$LAB/$PROJECT" && printf '%s\n' "$@" | "$HM" mcp --write 2>/dev/null )
+}
+
+test_case "a read-only server does not list the write tools"
+assert_equals "5" "$(session '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | jq -r '.result.tools | length')"
+
+test_case "and calling one is an unknown tool, not a refusal to plan around"
+OUT=$(call "cache_flush" '{}')
+assert_equals "true" "$(printf '%s' "$OUT" | jq -r '.result.isError')"
+assert_contains "$(printf '%s' "$OUT" | jq -r '.result.content[0].text')" "no tool called"
+
+test_case "with --write there are four more"
+OUT=$(write_session '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
+assert_equals "9" "$(printf '%s' "$OUT" | jq -r '.result.tools | length')"
+assert_contains "$(printf '%s' "$OUT" | jq -r '.result.tools[].name' | tr '\n' ' ')" "config_set"
+
+test_case "and they declare that they are not read-only"
+assert_equals "4" "$(printf '%s' "$OUT" | jq -r '[.result.tools[] | select(.annotations.readOnlyHint == false)] | length')"
+
+test_case "a configuration path that is not one is refused without running anything"
+OUT=$(write_session "$(jq -cn '{jsonrpc: "2.0", id: 7, method: "tools/call",
+    params: {name: "config_set", arguments: {path: "no es una ruta", value: "1"}}}')")
+assert_equals "true" "$(printf '%s' "$OUT" | jq -r '.result.isError')"
+assert_contains "$(printf '%s' "$OUT" | jq -r '.result.content[0].text')" "section/group/field"
+
+test_case "the configuration entry carries the flag"
+OUT=$( cd "$LAB/$PROJECT" && "$HM" mcp --config --write 2>/dev/null )
+assert_equals "mcp --write" "$(printf '%s' "$OUT" | jq -r '.mcpServers.hm.args | join(" ")')"
+
 # ---------------------------------------------------------------- wiring
 
 test_case "the client configuration is printed, not written"
