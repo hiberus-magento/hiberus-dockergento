@@ -199,11 +199,15 @@
     },
     "db": {
         "description": "Named copies of this project's database",
-        "usage": "db <snapshot|list|restore|remove|clear> [options]",
+        "usage": "db <snapshot|list|restore|remove|clear|freeze|templates|clone|drop> [options]",
         "args": [
             {
                 "name": "<subcommand>",
-                "description": "snapshot, list, restore, remove or clear"
+                "description": "snapshot, list, restore, remove or clear for dumps; freeze, templates, clone or drop for data directory templates"
+            },
+            {
+                "name": "<name>",
+                "description": "The snapshot, or the template as [<project>/]<name>"
             }
         ],
         "opts": [
@@ -212,14 +216,14 @@
                     "short": "",
                     "long": "name=<name>"
                 },
-                "description": "Name for the snapshot (default: the date)"
+                "description": "Name for the snapshot or template (default: the date, or 'base')"
             },
             {
                 "name": {
                     "short": "",
                     "long": "force"
                 },
-                "description": "Overwrite a snapshot that already exists"
+                "description": "Overwrite what already exists, or skip the confirmation"
             },
             {
                 "name": {
@@ -292,7 +296,17 @@
         "description": "Stop and remove containers, networks, images, and volumes (-v)",
         "example": "down -v",
         "group": "environment",
-        "safety": "dangerous"
+        "safety": "dangerous",
+        "opts": [
+            {
+                "name": {
+                    "short": "v",
+                    "long": "volumes"
+                },
+                "description": "Also delete the volumes, and the database with them"
+            }
+        ],
+        "usage": "down [-v]"
     },
     "exec": {
         "description": "Execute a command in a running container [Default container: php]",

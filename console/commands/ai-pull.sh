@@ -71,10 +71,13 @@ EOF
 resolve_repositories() {
     local config="$1"
 
-    # Load default repositories
+    # Load default repositories. The file can be pointed elsewhere, which is how the tests
+    # exercise the local installation without reaching the network
+    local repositories_file="${HM_AI_REPOSITORIES:-${DATA_DIR}/ai-repositories.json}"
+
     local default_repos="[]"
-    if [[ -f "${DATA_DIR}/ai-repositories.json" ]]; then
-        default_repos=$(jq -c '.repositories' "${DATA_DIR}/ai-repositories.json")
+    if [[ -f "${repositories_file}" ]]; then
+        default_repos=$(jq -c '.repositories' "${repositories_file}")
     fi
 
     # Get custom repositories from config
@@ -127,20 +130,35 @@ download_and_install() {
 
     # Iterate repositories
     for ((i=0; i<repo_count; i++)); do
-        local repo_name repo_url repo_branch
+        local repo_name repo_url repo_branch repo_local repo_types repo_dir
 
         repo_name=$(echo "${repositories}" | jq -r ".[$i].name")
-        repo_url=$(echo "${repositories}" | jq -r ".[$i].url")
+        repo_url=$(echo "${repositories}" | jq -r ".[$i].url // \"\"")
         repo_branch=$(echo "${repositories}" | jq -r ".[$i].branch // \"main\"")
+        repo_local=$(echo "${repositories}" | jq -r ".[$i].local // false")
+        repo_types="${types}"
 
         print_info_line "Processing repository: ${repo_name}"
 
-        # Download repository
-        local repo_dir="${temp_base}/${repo_name}"
-        if ! download_repository "${repo_url}" "${repo_branch}" "${repo_dir}"; then
-            print_warning_line "Failed to download ${repo_name}, skipping..."
-            ((fail_count++))
-            continue
+        #
+        # The skills that come with the tool are installed from the installed copy of it, not
+        # downloaded. Downloading them would give somebody running an older version the skills
+        # of the branch, describing commands their tool does not have — which is the drift
+        # keeping them here was meant to end.
+        #
+        # No type filter for them either: they describe the tool in use, not a technology
+        # somebody chose.
+        #
+        if [[ "${repo_local}" == "true" ]]; then
+            repo_dir="${COMMAND_BIN_DIR}"
+            repo_types=""
+        else
+            repo_dir="${temp_base}/${repo_name}"
+            if ! download_repository "${repo_url}" "${repo_branch}" "${repo_dir}"; then
+                print_warning_line "Failed to download ${repo_name}, skipping..."
+                ((fail_count++))
+                continue
+            fi
         fi
 
         # Validate structure
@@ -170,7 +188,7 @@ download_and_install() {
                 print_info_line "Installing ${resource} for ${platform}..."
 
                 # Install with type filtering
-                if install_filtered "${repo_dir}" "${resource}" "${target_dir}" "${types}" "${force}"; then
+                if install_filtered "${repo_dir}" "${resource}" "${target_dir}" "${repo_types}" "${force}"; then
                     repo_success=true
                 fi
             done

@@ -118,7 +118,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **AI-06** | Fichero de exclusión de contexto | IA | S | — | backlog |
 | **AI-07** | `hm ai-doctor` y versionado de skills | IA | S | — | backlog |
 | **AI-08** | Índice del código como MCP | IA | L | AI-03 | backlog |
-| **AI-09** | Skills de Dockergento en este repositorio | IA | M | AI-05 | backlog |
+| **AI-09** | Skills de Dockergento en este repositorio | IA | M | AI-05 | **hecho** |
 | **WT-01** | Guardarraíles de worktree | Worktrees | S | — | **hecho** |
 | **WT-02** | `hm worktree` con perfiles de entorno | Worktrees | L | NET-01, DB-02 | **hecho** |
 | **WT-03** | Recolección de worktrees huérfanos | Worktrees | S | WT-02, ENV-02 | backlog |
@@ -568,7 +568,7 @@ URLs, nombres de contenedor o versiones.
 **Esfuerzo**: S. Qué skills hay, de qué repositorio, qué versión y si están al día. Hoy
 `ai-pull --force` va a ciegas y se sigue una rama, no una versión.
 
-#### AI-09 · Skills de Dockergento en este repositorio
+#### AI-09 · Skills de Dockergento en este repositorio — hecho
 **Esfuerzo**: M. **Depende de**: AI-05 (parcialmente).
 **Problema demostrado**: en `hiberus-magento/ai-tools` hay cinco skills de Dockergento
 (`shell-executor`, `mysql-controller`, `database-exporter`, `varnish-controller`,
@@ -605,6 +605,14 @@ Hyvä) y las consuma desde aquí. Dos razones concretas:
 Alcance: una skill por área de trabajo real (entorno y ciclo de vida, base de datos, depuración,
 worktrees y agentes), cortas y sólo con comandos que existen; el test de verificación; y la
 publicación hacia `ai-tools`, que `hm ai-pull` ya sabe leer desde `data/ai-repositories.json`.
+**Cómo quedó**: cuatro skills en `skills/`, una por área de trabajo, de unas cien líneas cada
+una. El test (`tests/unit/skills_test.sh`) es lista blanca: una opción que nadie declaró tumba la
+suite, y en su primera ejecución encontró un hueco real —`hm down -v`, usado en todas partes y
+declarado en ninguna—. `hm ai-pull` las instala desde la copia instalada de la herramienta, no
+descargándolas: quien tenga la 1.5 debe recibir las skills de la 1.5, o volvemos a la misma deriva
+por otro camino. Se instalan aunque los tipos configurados no las nombren, porque describen la
+herramienta que se está usando, no una tecnología que alguien eligió. En la 1.7.0; documentado en
+[docs/skills.md](../skills.md).
 
 #### AI-08 · Índice del código como MCP
 **Esfuerzo**: L. Módulos, plugins, preferencias, observers y layouts indexados para que los

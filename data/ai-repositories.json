@@ -1,17 +1,30 @@
 {
   "repositories": [
     {
+      "name": "dockergento",
+      "local": true,
+      "types": [
+        "dockergento"
+      ],
+      "description": "The skills that come with this tool, describing its own commands"
+    },
+    {
       "name": "hiberus-magento-ai-tools",
       "url": "https://github.com/hiberus-magento/ai-tools",
       "branch": "main",
-      "types": ["magento", "php"],
+      "types": [
+        "magento",
+        "php"
+      ],
       "description": "Hiberus Magento AI tools repository"
     },
     {
       "name": "hyva-ai-tools",
       "url": "https://github.com/hyva-themes/hyva-ai-tools",
       "branch": "main",
-      "types": ["hyva"],
+      "types": [
+        "hyva"
+      ],
       "description": "Hyvä Themes AI tools repository"
     }
   ]
