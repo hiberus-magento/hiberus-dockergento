@@ -76,11 +76,17 @@ hm_worktree_load() {
 
     [ -f "$record" ] || return 1
 
+    #
+    # Joined with a unit separator rather than with tabs. `read` collapses consecutive IFS
+    # *whitespace*, and a tab is whitespace: a record with any empty field — an old one with no
+    # `created`, a project with no domain — shifted every field after it by one, silently.
+    #
     local line
-    line=$(jq -r '[.path, .branch, .profile, .domain, .project, .created] | @tsv' < "$record" 2>/dev/null) || return 1
+    line=$(jq -r '[.path, .branch, .profile, .domain, .project, .created, (.vendor // "own")]
+        | join("\u001f")' < "$record" 2>/dev/null) || return 1
 
-    IFS=$'\t' read -r WORKTREE_PATH WORKTREE_BRANCH WORKTREE_PROFILE \
-        WORKTREE_DOMAIN WORKTREE_PROJECT WORKTREE_CREATED <<< "$line"
+    IFS=$'\037' read -r WORKTREE_PATH WORKTREE_BRANCH WORKTREE_PROFILE \
+        WORKTREE_DOMAIN WORKTREE_PROJECT WORKTREE_CREATED WORKTREE_VENDOR <<< "$line"
 
     [ -n "$WORKTREE_PATH" ]
 }
@@ -100,11 +106,13 @@ hm_worktree_names() {
 
 hm_worktree_save() {
     local project="$1" name="$2" path="$3" branch="$4" profile="$5" domain="$6" child="$7"
+    local vendor="${8:-own}"
 
     mkdir -p "$(hm_worktree_home "$project")"
 
     jq -n --arg path "$path" --arg branch "$branch" --arg profile "$profile" \
         --arg domain "$domain" --arg project "$child" --arg parent "$project" \
+        --arg vendor "$vendor" \
         --arg created "$(date "+%Y-%m-%d %H:%M")" '$ARGS.named' \
         > "$(hm_worktree_record "$project" "$name")"
 }
@@ -112,6 +120,42 @@ hm_worktree_save() {
 hm_worktree_forget() {
     rm -f "$(hm_worktree_record "$1" "$2")" "$(hm_worktree_overlay_file "$1" "$2")"
     rmdir "$(hm_worktree_home "$1")" 2>/dev/null || true
+}
+
+#
+# Can this worktree read the main checkout's dependencies?
+#
+# Only while they are the same dependencies. Equal locks mean identical trees and sharing is
+# free; different locks mean the branch changed dependencies and sharing would be a lie.
+#
+# It is compared once, when the worktree is created, and the answer is written into the
+# registration — so that the overlay, `hm composer` and anybody debugging later read the decision
+# instead of guessing it again from files that may have moved on.
+#
+hm_worktree_shares_vendor() {
+    local main="$1" worktree="$2"
+
+    [ -d "$main/vendor" ] || return 1
+    [ -f "$main/composer.lock" ] || return 1
+    [ -f "$worktree/composer.lock" ] || return 1
+
+    cmp -s "$main/composer.lock" "$worktree/composer.lock"
+}
+
+#
+# The mounts that put the main checkout's dependencies where PHP expects to find them.
+#
+# Read-only, and that is not caution for its own sake: it is what stops a `composer require` in
+# one branch from corrupting the dependencies that five other environments are reading.
+#
+hm_worktree_vendor_mounts() {
+    local main="$1" workdir="${2:-/var/www/html}"
+    local directory
+
+    for directory in vendor node_modules; do
+        [ -d "$main/$directory" ] || continue
+        printf '      - %s/%s:%s/%s:ro\n' "$main" "$directory" "$workdir" "$directory"
+    done
 }
 
 #
@@ -137,6 +181,7 @@ hm_worktree_web_service() {
 #
 hm_worktree_write_overlay() {
     local file="$1" profile="$2" domain="$3" router="$4" services="$5" network="$6"
+    local mounts="${7:-}"
 
     local keeps web port
     keeps=$(hm_worktree_profile_keeps "$profile") || return 1
@@ -178,11 +223,33 @@ hm_worktree_write_overlay() {
                 printf '      traefik.http.routers.%s.entrypoints: "websecure"\n' "$router"
                 printf '      traefik.http.routers.%s.tls: "true"\n' "$router"
                 printf '      traefik.http.services.%s.loadbalancer.server.port: "%s"\n' "$router" "$port"
+
+                if [ "$service" == "phpfpm" ] && [ -n "$mounts" ]; then
+                    printf '    volumes:\n'
+                    printf '%s\n' "$mounts"
+                fi
+
                 continue
             fi
 
             printf '  %s:\n    ports: !reset []\n' "$service"
             [ -n "$keeps" ] && printf '    depends_on: !reset []\n'
+
+            #
+            # Only on phpfpm: that is where PHP runs, and where `__DIR__` has to resolve inside
+            # the worktree rather than behind a link into the main checkout. Compose appends
+            # volume entries across files, so this sits on top of the code mount without
+            # disturbing it.
+            #
+            #
+            # With a newline of its own: the caller builds the list with a command substitution,
+            # which eats the trailing one, and without it the next service key lands on the same
+            # line and the document stops being YAML.
+            #
+            if [ "$service" == "phpfpm" ] && [ -n "$mounts" ]; then
+                printf '    volumes:\n'
+                printf '%s\n' "$mounts"
+            fi
         done
 
         printf 'networks:\n  %s:\n    external: true\n' "$network"

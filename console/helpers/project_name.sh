@@ -25,13 +25,23 @@
 hm_derive_project_name() {
     local name="${1##*/}"
 
+    #
+    # The character classes are written out rather than as ranges. A range in a `case` pattern is
+    # matched by the locale's collation, and under a UTF-8 locale `[a-z]` matches accented
+    # letters: on a machine with LANG=en_US.UTF-8 a directory called `acentúado` derived
+    # `acentúado` while Compose derived `acentado`, and the tool and Compose then disagreed about
+    # the name of the project.
+    #
+    local upper="ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    local keep="abcdefghijklmnopqrstuvwxyz0123456789_-"
+
     # Lowercase. Bash 3.2 has no ${var,,}, and `tr` would be a process on the hot path.
     local lower="" char
     local index=0
     while [ "$index" -lt "${#name}" ]; do
         char="${name:$index:1}"
         case "$char" in
-            [A-Z]) lower="$lower$(_hm_lower_char "$char")" ;;
+            [$upper]) lower="$lower$(_hm_lower_char "$char")" ;;
             *)     lower="$lower$char" ;;
         esac
         index=$((index + 1))
@@ -43,7 +53,7 @@ hm_derive_project_name() {
     while [ "$index" -lt "${#lower}" ]; do
         char="${lower:$index:1}"
         case "$char" in
-            [a-z0-9_-]) clean="$clean$char" ;;
+            [$keep]) clean="$clean$char" ;;
         esac
         index=$((index + 1))
     done

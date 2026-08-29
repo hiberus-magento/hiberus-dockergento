@@ -125,4 +125,99 @@ test_case "a profile with no web service is routed nowhere"
 assert_not_contains "$(cat "$LITE")" "traefik.enable"
 assert_contains "$(cat "$LITE")" "nginx: !reset null"
 
+# ---------------------------------------------------------------- dependencies
+#
+# Composer's autoloader computes its base directory from `dirname($vendorDir)`, and PHP resolves
+# `__DIR__` to the real path behind a symlink. With a link, the worktree's own modules are never
+# registered and the main checkout's code runs — verified with a real PHP. So they are mounted,
+# and only while they are the same dependencies.
+
+MAIN="$WORK/principal"
+BRANCH="$WORK/rama"
+mkdir -p "$MAIN/vendor/composer" "$MAIN/node_modules" "$BRANCH"
+printf '{"packages": []}\n' > "$MAIN/composer.lock"
+
+test_case "the same lock means the same dependencies, so they can be read"
+cp "$MAIN/composer.lock" "$BRANCH/composer.lock"
+hm_worktree_shares_vendor "$MAIN" "$BRANCH" && r=comparte || r=no
+assert_equals "comparte" "$r"
+
+test_case "a branch that changes them does not share"
+printf '{"packages": [{"name": "algo/nuevo"}]}\n' > "$BRANCH/composer.lock"
+hm_worktree_shares_vendor "$MAIN" "$BRANCH" && r=comparte || r=no
+assert_equals "no" "$r"
+
+test_case "and neither does a branch with no lock at all"
+rm -f "$BRANCH/composer.lock"
+hm_worktree_shares_vendor "$MAIN" "$BRANCH" && r=comparte || r=no
+assert_equals "no" "$r"
+
+test_case "a main checkout with no vendor has nothing to share"
+cp "$MAIN/composer.lock" "$BRANCH/composer.lock"
+rm -rf "$MAIN/vendor"
+hm_worktree_shares_vendor "$MAIN" "$BRANCH" && r=comparte || r=no
+assert_equals "no" "$r"
+mkdir -p "$MAIN/vendor/composer"
+
+test_case "the mounts put them where PHP looks for them"
+MOUNTS=$(hm_worktree_vendor_mounts "$MAIN" "/var/www/html")
+assert_contains "$MOUNTS" "$MAIN/vendor:/var/www/html/vendor:ro"
+assert_contains "$MOUNTS" "$MAIN/node_modules:/var/www/html/node_modules:ro"
+
+#
+# Read-only is not caution for its own sake: it is what stops a `composer require` in one branch
+# from corrupting the dependencies five other environments are reading.
+#
+test_case "and always read-only"
+assert_equals "0" "$(printf '%s' "$MOUNTS" | grep -c -v ':ro$' || true)"
+
+test_case "what is not there is not mounted"
+rm -rf "$MAIN/node_modules"
+assert_not_contains "$(hm_worktree_vendor_mounts "$MAIN" "/var/www/html")" "node_modules"
+
+test_case "the overlay carries them on phpfpm, where PHP runs"
+MOUNTED="$WORK/mounted.yml"
+hm_worktree_write_overlay "$MOUNTED" "agent" "feature-x.shop.test" "shop-feature-x" \
+    "$SERVICES" "hm-gateway" "$(hm_worktree_vendor_mounts "$MAIN" "/var/www/html")"
+assert_contains "$(sed -n '/^  phpfpm:/,/^  [a-z]/p' "$MOUNTED")" "/vendor:ro"
+
+test_case "and on nobody else"
+assert_equals "1" "$(grep -c 'vendor:ro' "$MOUNTED")"
+
+#
+# The list is built with a command substitution, which eats the trailing newline: without one of
+# its own the next service key lands on the same line and the document stops being YAML. It
+# looked fine to a grep and failed on the first `docker compose config`.
+#
+test_case "and the line ends where it should"
+assert_equals "" "$(grep -E 'vendor:ro.+' "$MOUNTED" || true)"
+
+
+test_case "a worktree with its own dependencies gets no mount at all"
+OWN="$WORK/own.yml"
+hm_worktree_write_overlay "$OWN" "agent" "feature-x.shop.test" "shop-feature-x" \
+    "$SERVICES" "hm-gateway" ""
+assert_not_contains "$(cat "$OWN")" "vendor"
+
+test_case "nothing is ever linked"
+assert_equals "" "$(grep -n 'ln -s' "$COMMANDS_DIR/worktree.sh" || true)"
+
+# ---------------------------------------------------------------- the recorded decision
+
+test_case "the registration says whether they are shared"
+hm_worktree_save "shop" "con-vendor" "/code/wt" "feature/x" "agent" "x.test" "shop-wt" "shared"
+hm_worktree_load "shop" "con-vendor"
+assert_equals "shared" "$WORKTREE_VENDOR"
+
+test_case "and defaults to its own when nobody said"
+hm_worktree_save "shop" "sin-vendor" "/code/wt2" "feature/y" "agent" "y.test" "shop-wt2"
+hm_worktree_load "shop" "sin-vendor"
+assert_equals "own" "$WORKTREE_VENDOR"
+
+test_case "an older registration, written before any of this, reads as its own"
+printf '{"path": "/code/wt3", "branch": "b", "profile": "agent", "domain": "z.test", "project": "p"}\n' \
+    > "$WORK/registry/shop/antigua.json"
+hm_worktree_load "shop" "antigua"
+assert_equals "own" "$WORKTREE_VENDOR"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

@@ -160,15 +160,27 @@ do_add() {
     local services
     services=$($DOCKER_COMPOSE config --services 2>/dev/null | tr '\n' ' ')
 
+    #
+    # Decided before the overlay is written, because the overlay is where the answer takes
+    # effect: the dependencies of the main checkout are mounted where PHP expects to find them,
+    # or the worktree installs its own.
+    #
+    local vendor="own" mounts=""
+
+    if [ "${MACHINE:-}" != "mac" ] && hm_worktree_shares_vendor "$HM_ROOT" "$path"; then
+        vendor="shared"
+        mounts=$(hm_worktree_vendor_mounts "$HM_ROOT" "${WORKDIR_PHP:-/var/www/html}")
+    fi
+
     hm_worktree_write_overlay \
         "$(hm_worktree_overlay_file "$project" "$name")" \
-        "$profile" "$domain" "$child" "$services" "$HM_PROXY_NETWORK"
+        "$profile" "$domain" "$child" "$services" "$HM_PROXY_NETWORK" "$mounts"
 
-    hm_worktree_save "$project" "$name" "$path" "$branch" "$profile" "$domain" "$child"
+    hm_worktree_save "$project" "$name" "$path" "$branch" "$profile" "$domain" "$child" "$vendor"
 
     # ------------------------------------------------------------ dependencies
 
-    share_dependencies "$path" "$child"
+    share_dependencies "$path" "$child" "$vendor"
 
     # ------------------------------------------------------------ the address
 
@@ -213,16 +225,22 @@ do_add() {
 #
 # Dependencies without installing them again.
 #
-# On Linux the code is bind mounted, so vendor/ and node_modules/ are links to the main
-# checkout: instant, nothing duplicated, and both are git-ignored so nothing shows up as
-# modified. On macOS the code lives in a named volume and there is nothing to link, so the
-# volume is copied — seconds, and the space is what macOS charges for not bind mounting.
+# On Linux they are *mounted* into the containers, never linked. Composer's autoloader computes
+# its base directory from `dirname($vendorDir)`, and PHP resolves `__DIR__` to the real path
+# behind a symlink: with a link, `autoload_files.php` loads the main checkout's
+# NonComposerComponentRegistration.php, which registers the main checkout's modules. The
+# worktree's own modules are never registered and its code never runs. Verified with a real PHP,
+# which is the only way that class of bug gets found.
 #
-# Only those two are shared. generated/, var/ and pub/static are compiled per branch, and a
-# class from another branch is the hardest kind of bug to see.
+# On macOS the code lives in a named volume and the volume is copied. Docker 26+ could mount a
+# subdirectory of it instead, which would save hundreds of megabytes; that belongs to 2.0, where
+# it is recorded.
+#
+# Only vendor/ and node_modules/ are shared. generated/, var/ and pub/static are compiled per
+# branch, and a class from another branch is the hardest kind of bug to see.
 #
 share_dependencies() {
-    local path="$1" child="$2"
+    local path="$1" child="$2" vendor="${3:-own}"
 
     if [ "${MACHINE:-}" == "mac" ]; then
         local source_volume="${COMPOSE_PROJECT_NAME}_workspace"
@@ -239,12 +257,19 @@ share_dependencies() {
         return 0
     fi
 
-    local directory
-    for directory in vendor node_modules; do
-        if [ -d "$HM_ROOT/$directory" ] && [ ! -e "$path/$directory" ]; then
-            ln -s "$HM_ROOT/$directory" "$path/$directory"
-        fi
-    done
+    if [ "$vendor" == "shared" ]; then
+        print_info "Dependencies are read from the main checkout; nothing was copied.\n"
+        return 0
+    fi
+
+    #
+    # The branch changed its dependencies, so sharing them would be a lie. That is the honest
+    # price of having changed them.
+    #
+    print_warning_line "This branch's composer.lock differs from the main checkout's"
+    print_default "  Install its dependencies there before using it:\n\n    "
+    print_code "cd $path && $COMMAND_BIN_NAME composer install"
+    printf '\n\n'
 }
 
 #

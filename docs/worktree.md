@@ -67,15 +67,32 @@ when you need it with [`hm tunnel`](tunnel.md).
 
 Not installed again, which is the difference between a minute and half an hour:
 
-- **Linux**: `vendor/` and `node_modules/` are symlinks to the main checkout. Both are
-  git-ignored, so nothing appears as modified. If the branch changes dependencies, its own
-  `hm composer install` replaces the link with real files.
-- **macOS**: the code lives in a named volume, so there is nothing to link — the main
-  environment's volume is copied instead. Seconds, and it duplicates the space. That is what
-  macOS charges for not bind mounting.
+- **Linux**: the main checkout's `vendor/` and `node_modules/` are **mounted read-only** into the
+  worktree's containers, at the path they belong to. Nothing is copied and nothing is linked.
+- **macOS**: the code lives in a named volume, so the main environment's volume is copied.
+  Seconds, and it duplicates the space — what macOS charges for not bind mounting.
 
-Only those two are shared. `generated/`, `var/` and `pub/static` are compiled per branch, and a
-class from another branch is the hardest kind of bug to see.
+**Why not a symlink.** Composer's autoloader computes its base directory from
+`dirname($vendorDir)`, and PHP resolves `__DIR__` to the real path behind a link. With
+`vendor` linked, `autoload_files.php` loads `NonComposerComponentRegistration.php` from the *main
+checkout*, and that file registers the modules it finds next to itself. The worktree's own modules
+are never registered and its code never runs — while everything looks fine. Versions before 1.7.1
+did exactly that on Linux.
+
+**Why read-only.** Nothing writes to `vendor` while a site runs. Read-only is what stops a
+`composer require` in one branch from corrupting the dependencies that the main checkout and every
+other worktree are reading at the same time. `hm composer install|update|require|remove` in a
+worktree with shared dependencies is refused, with an explanation, rather than failing three
+layers down on a read-only filesystem.
+
+**They are shared only while they are the same.** The branch's `composer.lock` is compared with
+the main checkout's when the worktree is created. If it differs, nothing is mounted and the
+worktree is told to run its own `hm composer install` — the honest price of having changed the
+dependencies. The answer is recorded in the worktree's registration, so nothing has to guess it
+again later.
+
+Only `vendor/` and `node_modules/` are shared. `generated/`, `var/` and `pub/static` are compiled
+per branch, and a class from another branch is the hardest kind of bug to see.
 
 ## The database
 

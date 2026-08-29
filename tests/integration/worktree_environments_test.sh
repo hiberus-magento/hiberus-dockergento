@@ -43,6 +43,8 @@ services:
   phpfpm:
     image: alpine:latest
     command: ["sleep", "600"]
+    volumes:
+      - ./.:/var/www/html
     depends_on:
       - db
       - mailhog
@@ -74,6 +76,11 @@ YAML
     cp "$dir/docker-compose.yml" "$dir/docker-compose.dev.linux.yml"
     printf '{"MAGENTO_DIR": ".", "DOMAIN": "shop.test", "COMPOSE_PROJECT_NAME": "%s", "USE_PROXY": "%s"}\n' \
         "$name" "$proxy" > "$dir/config/docker/properties.json"
+
+    # A project with dependencies installed, which is the case worth testing
+    mkdir -p "$dir/vendor/composer"
+    printf '{"packages": []}\n' > "$dir/composer.lock"
+    printf '<?php return array();\n' > "$dir/vendor/composer/autoload_psr4.php"
 
     ( cd "$dir" && git init -q . && git add -A && git -c user.email=t@t -c user.name=t commit -qm init )
 }
@@ -148,6 +155,80 @@ assert_contains "$(printf '%s' "$STDOUT" | jq -r '.services.nginx.labels["traefi
 assert_equals "$TREE/app" \
     "$(printf '%s' "$STDOUT" | jq -r '.services.nginx.volumes[0].source')" \
     "and its code is the worktree's, not the main checkout's"
+
+# ---------------------------------------------------------------- dependencies
+#
+# Composer's autoloader resolves its base directory through `__DIR__`, which PHP follows to the
+# real path behind a symlink. Linked, the worktree's own modules are never registered and the main
+# checkout's code runs. So they are mounted — and the code mount has to survive underneath, which
+# is the part that would be catastrophic to get wrong.
+
+test_case "nothing is linked into the worktree"
+assert_equals "false" "$([ -L "$TREE/vendor" ] && echo true || echo false)"
+assert_equals "false" "$([ -L "$TREE/node_modules" ] && echo true || echo false)"
+
+#
+# The mounts are generated on the platform that bind mounts the code, so the overlay is written
+# directly here rather than through `worktree add`: what is being checked is that Compose merges
+# them the way this depends on, and that is the same on every platform.
+#
+export COMPONENTS_DIR HELPERS_DIR TASKS_DIR COMMAND_BIN_NAME
+source "$TASKS_DIR/worktree_env.sh"
+
+MOUNTS=$(hm_worktree_vendor_mounts "$MAIN" "/var/www/html")
+hm_worktree_write_overlay "$LAB/con-vendor.yml" "agent" "feature-x.shop.test" \
+    "$PROJECT-feature-x" "phpfpm nginx db search redis varnish hitch mailhog rabbitmq" \
+    "hm-gateway" "$MOUNTS"
+
+RESOLVED=$( cd "$TREE" && docker compose \
+    -f "$TREE/docker-compose.yml" -f "$LAB/con-vendor.yml" config --format json 2>/dev/null )
+
+test_case "the dependencies of the main checkout are mounted where PHP looks for them"
+assert_equals "$MAIN/vendor" \
+    "$(printf '%s' "$RESOLVED" | jq -r '.services.phpfpm.volumes[] | select(.target == "/var/www/html/vendor") | .source')"
+
+test_case "read-only, so one branch cannot corrupt what the others read"
+assert_equals "true" \
+    "$(printf '%s' "$RESOLVED" | jq -r '.services.phpfpm.volumes[] | select(.target == "/var/www/html/vendor") | .read_only')"
+
+test_case "and the code mount is still there underneath"
+assert_equals "1" \
+    "$(printf '%s' "$RESOLVED" | jq -r '[.services.phpfpm.volumes[] | select(.target == "/var/www/html")] | length')"
+
+test_case "no other service is given the dependencies"
+assert_equals "0" \
+    "$(printf '%s' "$RESOLVED" | jq -r '[.services.nginx.volumes[]? | select(.target == "/var/www/html/vendor")] | length')"
+
+#
+# The refusal reads the recorded decision, so it is tested against a registration that says the
+# dependencies are shared — which is what the Linux path writes.
+#
+test_case "Composer refuses to write to dependencies that are somebody else's"
+python3 - "$HM_WORKTREE_DIR/$PROJECT/feature-x.json" <<'INNER'
+import json, sys, pathlib
+p = pathlib.Path(sys.argv[1])
+d = json.loads(p.read_text())
+d["vendor"] = "shared"
+p.write_text(json.dumps(d))
+INNER
+hm_in "$TREE" composer install
+assert_equals "6" "$STATUS"
+assert_contains "$STDERR" "dependencies"
+
+test_case "and says where they belong"
+assert_contains "$STDERR" "$MAIN"
+
+test_case "while the rest of Composer is untouched"
+hm_in "$TREE" composer --version
+assert_equals "0" "$([ "$STATUS" != "6" ] && echo 0 || echo 1)"
+
+python3 - "$HM_WORKTREE_DIR/$PROJECT/feature-x.json" <<'INNER'
+import json, sys, pathlib
+p = pathlib.Path(sys.argv[1])
+d = json.loads(p.read_text())
+d["vendor"] = "own"
+p.write_text(json.dumps(d))
+INNER
 
 # ---------------------------------------------------------------- the guardrails
 

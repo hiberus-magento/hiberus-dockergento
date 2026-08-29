@@ -2,6 +2,32 @@
 set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/exit_codes.sh
+
+#
+# A worktree that reads the main checkout's dependencies cannot write to them.
+#
+# The mount is read-only, so Composer would fail on a read-only filesystem — an error about
+# permissions, three layers down, for something that is a decision rather than an accident. It is
+# said here instead, with the way out.
+#
+refuse_on_shared_dependencies() {
+    [ "${HM_WORKTREE_ENVIRONMENT:-false}" == "true" ] || return 0
+
+    case "${1:-}" in
+        install | update | require | remove) ;;
+        *) return 0 ;;
+    esac
+
+    source "$TASKS_DIR"/worktree_env.sh
+    hm_worktree_load "${HM_PARENT_PROJECT:-}" "${HM_WORKTREE:-}" || return 0
+
+    [ "${WORKTREE_VENDOR:-own}" == "shared" ] || return 0
+
+    hm_fail "$HM_EXIT_BLOCKED" "shared_dependencies" \
+        "This worktree reads the dependencies of $HM_MAIN_ROOT, so Composer cannot write to them" \
+        "Change composer.json in this branch and run $COMMAND_BIN_NAME worktree remove/add, or work on dependencies in the main checkout"
+}
 
 #
 # Copy vendor and magento defaults files into container
@@ -53,6 +79,7 @@ check_create_project() {
 #
 composer_excute() {
     check_create_project "$@"
+    refuse_on_shared_dependencies "$@"
 
     if [[ "$#" != 0 && 
         ("$1" == "install" || 
