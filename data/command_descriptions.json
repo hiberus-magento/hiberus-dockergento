@@ -620,10 +620,32 @@
                     "long": "use-default"
                 },
                 "description": "Use default settings of user for language, currency, ..."
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "clean-install"
+                },
+                "description": "Install Magento rather than importing a dump (as --install)"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "db-dump=<file>"
+                },
+                "description": "Import this dump rather than installing (as --dump)"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "mail=<service>"
+                },
+                "description": "Mail catcher for this project: mailhog or mailpit"
             }
         ],
         "group": "environment",
-        "safety": "caution"
+        "safety": "caution",
+        "usage": "setup [--domain=<domain>] [--clean-install | --db-dump=<file>] [options]"
     },
     "share": {
         "description": "Give this project a temporary public address",

@@ -4,12 +4,32 @@ Runs Magento's `setup:install` against this environment, with the database, cach
 queue already wired to the containers.
 
 ```bash
-hm install        # asks the install settings
-hm install -u     # uses the saved settings without asking
+hm install                  # asks the install settings
+hm install --use-default    # uses the saved settings without asking (-u)
 ```
 
 Usually you do not run it directly: `hm setup` calls it when you choose to install rather than
 import a dump.
+
+## Bootstrapping without being asked anything
+
+```bash
+hm setup --yes --clean-install --domain=shop.test
+hm setup --yes --db-dump=./dump.sql
+```
+
+`hm setup` asks four things. Three have defaults — the project name and the domain come from the
+directory, the root directory is the current one — so `--yes` answers them. The fourth, *import a
+dump or install Magento*, has no safe default: choosing wrong either wipes a database or spends
+twenty minutes installing something nobody wanted, so it refuses under `--yes` unless the answer
+was given on the command line.
+
+`--clean-install` and `--db-dump` are Warden's names for `--install` and `--dump`. Both spellings
+work, in both the `--option=value` and `--option value` forms, and so do the short `-i` and `-D`.
+
+**A dump that is not there stops the command**, with the usage exit code and the path it could
+not find. It used to warn and carry on into the question, which is how an automated bootstrap
+hangs instead of failing.
 
 ## The admin account
 

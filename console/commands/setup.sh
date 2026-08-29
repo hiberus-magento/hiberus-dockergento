@@ -4,24 +4,25 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/input_info.sh
-
-dump=""
-force_setup=false
+source "$TASKS_DIR"/setup_options.sh
 
 #
-# `--mail=<service>` is pulled out before getopts, which only understands short options.
+# Read first, act afterwards. Every option this command documents is accepted, in its short and
+# long forms, and anything wrong with them is said before a single file is created — which is the
+# fix for a dump path that does not exist: it used to be a warning, after which the command
+# carried on and asked the question interactively, so a pipeline hung instead of failing.
 #
-mail_choice=""
-setup_args=()
+hm_setup_parse_options "$@"
 
-for argument in "$@"; do
-    case "$argument" in
-        --mail=*) mail_choice="${argument#--mail=}" ;;
-        *)        setup_args[${#setup_args[@]}]="$argument" ;;
-    esac
-done
+dump="$SETUP_DUMP"
+force_setup=$SETUP_FORCE
+mail_choice="$SETUP_MAIL"
+project_name="$SETUP_PROJECT_NAME"
+domain="$SETUP_DOMAIN"
+magento_root_directory="$SETUP_ROOT"
+install_option=$SETUP_INSTALL
 
-set -- ${setup_args[@]+"${setup_args[@]}"}
+$SETUP_USE_DEFAULT && export USE_DEFAULT_SETTINGS=true
 
 #
 # Ask sql file and launch mysql import process
@@ -140,50 +141,5 @@ setup_execute() {
 
     summary_process
 }
-
-# Process options
-while getopts ":D:p:d:r:fui" options; do
-    case "$options" in
-        D)
-            # Dump
-            if [[ -f $OPTARG ]]; then
-                dump="$OPTARG"
-            else
-                print_warning "No such file: $OPTARG\n"
-            fi
-        ;;
-        p)
-            # Project name
-            project_name="$OPTARG"
-        ;;
-        d)
-            # Domain
-            domain="$OPTARG"
-        ;;
-        r)
-            # Magento root 
-            magento_root_directory="$OPTARG"
-        ;;
-        i)
-            # Choise magento install option
-            install_option=true
-        ;;
-        u)
-            # Use saved user settings
-            export USE_DEFAULT_SETTINGS=true
-        ;;
-        f)
-            # Force
-            force_setup=true
-        ;;
-        ?)
-            print_error "The command is not correct\n\n"
-            print_info "Use this format\n"
-            source "$HELPERS_DIR"/print_usage.sh
-            get_usage "$(basename ${0%.sh})"
-            exit "$HM_EXIT_USAGE"
-        ;;
-    esac
-done
 
 setup_execute

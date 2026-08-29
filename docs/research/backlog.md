@@ -108,7 +108,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **DB-03** | Ciclo de vida seguro (`stop --snapshot`, protección de `down -v`) | Datos | S | DB-01 | **hecho** |
 | **DB-04** | Anonimización por defecto en entornos de agente | Datos | S | — | **hecho** |
 | **INST-01** | Bootstrap: admin aleatorio y 2FA con QR | Instalación | S | — | **hecho** |
-| **INST-02** | Flags `--clean-install` / `--db-dump` | Instalación | S | INST-01 | backlog |
+| **INST-02** | Flags `--clean-install` / `--db-dump` | Instalación | S | INST-01 | **hecho** |
 | **INST-03** | Proveedores `hm pull` / `hm push` | Instalación | M | CLI-01 | backlog |
 | **AI-01** | `hm verify [--changed] [--json]` | IA | M | CLI-01 | **hecho** |
 | **AI-02** | Permisos y guardarraíles generados | IA | S | — | **hecho** |
@@ -544,8 +544,17 @@ Magento**: cero dependencias nuevas, ni en el host ni en la imagen. Si el módul
 —como lo está en uno de los proyectos de la máquina— se informa y no se activa nada. En la 1.6.0;
 documentado en [docs/install.md](../install.md).
 
-#### INST-02 · `--clean-install` / `--db-dump`
+#### INST-02 · `--clean-install` / `--db-dump` — hecho
 **Esfuerzo**: S. Alinear `hm setup`/`hm install` con las opciones del bootstrap de Warden.
+**Cómo quedó**: al implementarlo apareció que el problema era mayor que los dos nombres —
+`hm setup` documentaba siete opciones y no aceptaba ninguna: su parser era un `getopts` que sólo
+entiende formas cortas, así que `--dump=dump.sql` era una opción desconocida y el comando
+preguntaba lo que ya le habían contestado. Ahora se lee primero y se actúa después, que es lo que
+permite rechazar un volcado inexistente **antes** de crear nada: antes avisaba y seguía hasta la
+pregunta interactiva, que es como una tubería se queda colgada en vez de fallar. Con
+`--clean-install` o `--db-dump`, `hm setup --yes` no pregunta nada; la única pregunta sin respuesta
+segura sigue rechazándose, porque elegir mal borra una base de datos o instala veinte minutos de
+algo que nadie quería. En la 1.7.0; documentado en [docs/install.md](../install.md).
 
 #### INST-03 · Proveedores `hm pull` / `hm push`
 **Esfuerzo**: M. Formalizar `transfer-db`, `transfer-media` y `cloud` como proveedores

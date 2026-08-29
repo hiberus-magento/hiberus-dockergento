@@ -213,6 +213,20 @@ init() {
     finish_admin_bootstrap
 }
 
+#
+# `--use-default` is the same thing as `-u`. The long form is what the command documents, and
+# what somebody types when they are not looking at the letter
+#
+install_args=()
+for argument in "$@"; do
+    case "$argument" in
+        --use-default) install_args[${#install_args[@]}]="-u" ;;
+        *)             install_args[${#install_args[@]}]="$argument" ;;
+    esac
+done
+
+set -- ${install_args[@]+"${install_args[@]}"}
+
 # Process options
 while getopts ":u" options; do
     case "$options" in
