@@ -47,6 +47,8 @@ SHALL do so in a way that leaves the autoloader resolving against the worktree.
 - **THEN** the environment is still created, and the tool says which command would have given it
   data instead of silently sharing the main database
 
+## ADDED Requirements
+
 ### Requirement: Not writing to somebody else's dependencies
 
 The tool SHALL refuse to run Composer against dependencies shared with the main checkout, and
