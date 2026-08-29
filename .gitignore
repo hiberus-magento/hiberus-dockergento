@@ -8,3 +8,5 @@ console/hm-completion.bash
 .env
 .tokensave
 .headroom_wrap_marker.json
+# Local Pi runtime state
+.atl/

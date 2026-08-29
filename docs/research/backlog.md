@@ -9,6 +9,9 @@
 
 ---
 
+> **Este backlog es de la 1.x.** Con la 1.x en mantenimiento, los puntos que quedan en la Ola 6
+> pertenecen en su mayoría a la 2.0: ver [2.0-arquitectura.md](2.0-arquitectura.md).
+
 ## Cómo usar este backlog
 
 - Cada ítem tiene **ID estable** (no se reutiliza), esfuerzo, dependencias y criterios de
