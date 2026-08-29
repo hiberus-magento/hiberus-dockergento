@@ -73,7 +73,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **CLI-06** | `hm launch` | CLI | S | CLI-02 | **hecho** |
 | **CLI-07** | `hm version` | CLI | S | — | **hecho** |
 | **CLI-08** | `hm clean [--dry-run]` | CLI | S | ENV-02 | **hecho** |
-| **CLI-09** | Lanzadores de clientes de BD | CLI | S | CLI-02 | backlog |
+| **CLI-09** | Lanzadores de clientes de BD | CLI | S | CLI-02 | **hecho** |
 | **PERF-01** | `hm --help` en una sola pasada de `jq` | Rendimiento | S | — | **hecho** |
 | **PERF-02** | Coste fijo de arranque perezoso | Rendimiento | M | — | **hecho** |
 | **PERF-03** | `hm doctor` en paralelo | Rendimiento | S | — | **hecho** |
@@ -224,9 +224,18 @@ ejecuta un `prune` de Docker, y hay un test que lo comprueba. En la 1.6.0; docum
 **Anotado para el futuro**: etiquetar también los volúmenes en la plantilla permitiría atribuirlos,
 pero sólo a los creados después, así que no resuelve el caso que hoy duele.
 
-#### CLI-09 · Lanzadores de clientes de BD
+#### CLI-09 · Lanzadores de clientes de BD — hecho
 **Esfuerzo**: S. `hm tableplus` / `hm sequelace` / `hm dbeaver` abriendo el cliente ya
 conectado, al estilo de DDEV.
+**Cómo quedó**: tres comandos sobre una sola implementación —se diferencian en una palabra— con
+los datos leídos de la configuración resuelta, que es lo que evita que se queden obsoletos como
+se quedan los perfiles guardados. Dos decisiones: si el cliente no está instalado se imprime la
+cadena de conexión de todos modos, porque lo que hacía falta era la conexión; y si el proyecto va
+por el proxy no publica puerto de base de datos, así que el comando se para y nombra
+`hm tunnel db` en lugar de abrir un cliente que se quedaría intentándolo. No abre el túnel él
+mismo a propósito: `hm tunnel` vive en primer plano para que la puerta se cierre al terminar, y un
+lanzador que dejara un relay suelto sería algo que alguien encuentra tres semanas después. En la
+1.7.0; documentado en [docs/db.md](../db.md).
 
 ### Área Rendimiento
 

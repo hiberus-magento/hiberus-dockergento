@@ -903,6 +903,75 @@
         "group": "ai",
         "safety": "safe"
     },
+    "tableplus": {
+        "description": "Open TablePlus on this project's database",
+        "usage": "tableplus [--print] [--port=<port>]",
+        "args": [],
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "print"
+                },
+                "description": "Print the connection string instead of opening anything"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "port=<port>"
+                },
+                "description": "Use this port, for a database reached through a tunnel"
+            }
+        ],
+        "group": "database",
+        "safety": "caution"
+    },
+    "sequelace": {
+        "description": "Open Sequel Ace on this project's database",
+        "usage": "sequelace [--print] [--port=<port>]",
+        "args": [],
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "print"
+                },
+                "description": "Print the connection string instead of opening anything"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "port=<port>"
+                },
+                "description": "Use this port, for a database reached through a tunnel"
+            }
+        ],
+        "group": "database",
+        "safety": "caution"
+    },
+    "dbeaver": {
+        "description": "Open DBeaver on this project's database",
+        "usage": "dbeaver [--print] [--port=<port>]",
+        "args": [],
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "print"
+                },
+                "description": "Print the connection string instead of opening anything"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "port=<port>"
+                },
+                "description": "Use this port, for a database reached through a tunnel"
+            }
+        ],
+        "group": "database",
+        "safety": "caution"
+    },
     "_examples": [
         {
             "command": "hm start",

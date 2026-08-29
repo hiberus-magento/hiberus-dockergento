@@ -174,6 +174,29 @@ They are full copies, so a template costs what the database costs. `hm db templa
 size of each, and `hm clean` collects the templates of projects whose directory no longer exists,
 like everything else the tool creates.
 
+## Opening it in a client
+
+```bash
+hm tableplus          # or hm sequelace, or hm dbeaver
+hm tableplus --print  # just the connection string
+```
+
+The host port, user, password and database name are read from the resolved configuration, so a
+project that renamed its database or moved its port opens correctly without anybody updating a
+saved profile — which is what goes stale about saved profiles.
+
+If the client is not installed, the connection string is printed anyway with the name of what was
+missing: what you needed was the connection.
+
+**A project routed through the [proxy](proxy.md) publishes no database port.** MySQL carries no
+hostname, so Traefik cannot route it and the overlay removes the port; there is nothing on your
+machine to point a client at. The command says so and names the one that opens a door:
+
+```bash
+hm tunnel db                      # leave it running
+hm tableplus --port=<the port>    # in another terminal
+```
+
 ## Real customer data
 
 ```bash
