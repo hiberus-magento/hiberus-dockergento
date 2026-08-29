@@ -1,4 +1,4 @@
-# Worktree dependencies
+# Worktree environments
 
 ## MODIFIED Requirements
 
