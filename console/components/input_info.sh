@@ -2,6 +2,7 @@
 
 source "$COMPONENTS_DIR"/print_message.sh
 source "$HELPERS_DIR"/exit_codes.sh
+source "$COMPONENTS_DIR"/select.sh
 
 #
 # True when the CLI must run without asking anything (--yes / HM_NON_INTERACTIVE)
@@ -281,6 +282,21 @@ custom_select() {
         hm_fail "$HM_EXIT_USAGE" "input_required" \
             "Non-interactive mode cannot choose: $question (options: ${opts[*]})" \
             "Pass the value as an option, or run without --yes"
+    fi
+
+    #
+    # Three ways to ask, chosen once. Somebody who installed fzf has opinions about picking from
+    # a list; everybody else gets arrows; and a terminal that cannot be drawn on still gets the
+    # numbered list, which has always been good at working anywhere.
+    #
+    if hm_select_has_fzf; then
+        hm_select_with_fzf "$question" "${opts[@]}"
+        return 0
+    fi
+
+    if hm_select_can_draw; then
+        hm_select_interactive "$question" "${opts[@]}"
+        return 0
     fi
 
     for i in "${!opts[@]}"; do

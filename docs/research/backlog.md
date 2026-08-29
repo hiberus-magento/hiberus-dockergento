@@ -86,7 +86,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **UX-03** | Dejar de borrar la pantalla al preguntar | UX | S | — | **hecho** |
 | **UX-04** | Ayuda agrupada, con uso y ejemplos | UX | M | — | **hecho** |
 | **UX-05** | Señal en operaciones largas (<100 ms) | UX | M | UX-02 | **hecho** |
-| **UX-06** | Selector navegable con flechas | UX | M | UX-07 | backlog |
+| **UX-06** | Selector navegable con flechas | UX | M | UX-07 | **hecho** |
 | **UX-07** | Biblioteca de componentes de terminal | UX | M | — | **hecho** |
 | **TUI-01** | Dashboard de terminal (`hm tui`) | TUI | M | CLI-02, CLI-03, UX-07 | **hecho** |
 | **NET-01** | Proxy global (`hm proxy`) con Traefik | Red | L | ENV-02 | **hecho** |
@@ -308,9 +308,18 @@ import, los 25 s de `clean` midiendo volúmenes y cada comprobación de `verify`
 paz los comandos que ya imprimen lo suyo: lo que les faltaba era una línea *antes*, no un spinner
 por encima de la salida de otro. En la 1.7.0; documentado en [docs/progress.md](../progress.md).
 
-#### UX-06 · Selector navegable con flechas
+#### UX-06 · Selector navegable con flechas — hecho
 **Esfuerzo**: M. Hoy es el `select` de Bash: lista numerada, escribir un número, sin valor
 por defecto. Con retroceso a la lista actual y a `fzf` si está instalado.
+**Cómo quedó**: tres formas de preguntar elegidas una sola vez —`fzf` si está instalado, el
+selector con flechas si se puede dibujar, y la lista numerada si no—, y el rechazo no interactivo
+intacto. La primera opción viene preseleccionada, así que la respuesta más segura de `hm down -v`
+es la que sale al pulsar Enter. Escape no hace nada a propósito: quien pregunta lee `REPLY` y
+actúa, así que un cancelar que devolviera vacío haría continuar con nada elegido —en una pregunta
+destructiva, por la rama equivocada—. La lista se reescribe en el sitio, así que una tecla mal
+pulsada ya no arrastra la pregunta fuera de la pantalla. Mover y dibujar son dos funciones sin
+terminal de por medio, probadas directamente; el resto se prueba por pseudo-terminal. En la 1.7.0;
+documentado en [docs/questions.md](../questions.md).
 
 #### UX-07 · Biblioteca de componentes de terminal
 **Esfuerzo**: M. Tamaño con `stty size` (POSIX, funciona en el Bash 3.2 de macOS), cursor,
