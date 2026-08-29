@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
+source "$COMPONENTS_DIR"/progress.sh
 source "$TASKS_DIR"/set_magento_configs.sh
 source "$HELPERS_DIR"/docker.sh
 source "$TASKS_DIR"/anonymisation.sh
@@ -46,12 +47,14 @@ mysql_execute() {
         if ${clean_definers-false} ; then
             cleaned=${import_database/".sql"/"-cleaned.sql"}
             cat $import_database | sed 's/DEFINER=[^*]*\*/\*/g' > $cleaned
-            print_info "Importing database from file with cleaned up definers ...\n"
+            hm_start "Importing the database, with the DEFINER clauses removed..."
             docker exec -i $mysql_container bash -c "$db_client" < $cleaned
+            hm_stop $?
         else
             # Only import database  
-            print_info "Importing database from file ...\n"
+            hm_start "Importing the database..."
             docker exec -i $mysql_container bash -c "$db_client" < $import_database
+            hm_stop $?
         fi
 
         # An import replaces the data, so whatever was true about the old contents is not true

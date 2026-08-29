@@ -4,6 +4,7 @@ set -uo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/print_json.sh
 source "$HELPERS_DIR"/exit_codes.sh
+source "$COMPONENTS_DIR"/progress.sh
 source "$HELPERS_DIR"/docker.sh
 
 #
@@ -95,8 +96,10 @@ check_syntax() {
     local target="app/code app/design"
     local output
 
+    hm_start "Checking syntax..."
+
     if [ "$SCOPE" == "changed" ]; then
-        [ -z "$FILES" ] && { record "syntax" "skipped" "0" "no PHP files changed"; return 0; }
+        [ -z "$FILES" ] && { hm_stop 0 "nothing to check"; record "syntax" "skipped" "0" "no PHP files changed"; return 0; }
         output=$(in_container "for f in $(printf '%s' "$FILES" | tr '\n' ' '); do [ -f \"\$f\" ] && php -l \"\$f\"; done | grep -v '^No syntax errors' || true")
     else
         output=$(in_container "find $target -name '*.php' -print0 2>/dev/null | xargs -0 -n1 -P4 php -l 2>&1 | grep -v '^No syntax errors' || true")
@@ -104,6 +107,8 @@ check_syntax() {
 
     local problems
     problems=$(printf '%s' "$output" | sed '/^$/d' | grep -c . || true)
+
+    hm_stop 0
 
     if [ "${problems:-0}" -eq 0 ]; then
         record "syntax" "ok" "0" ""
@@ -122,9 +127,18 @@ check_with_binary() {
         return 0
     fi
 
+
+    #
+    # Each of these is a minute of a PHP process saying nothing. The label goes up before the
+    # process starts, which is the whole rule.
+    #
+    hm_start "Running $binary..."
+
     local output status
     output=$(in_container "$command")
     status=$?
+
+    hm_stop 0
 
     if [ "$status" -eq 0 ]; then
         record "$name" "ok" "0" ""

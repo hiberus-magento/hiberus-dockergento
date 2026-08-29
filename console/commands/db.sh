@@ -4,6 +4,7 @@ set -uo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/print_json.sh
 source "$COMPONENTS_DIR"/input_info.sh
+source "$COMPONENTS_DIR"/progress.sh
 source "$HELPERS_DIR"/exit_codes.sh
 source "$HELPERS_DIR"/docker.sh
 source "$TASKS_DIR"/collect_project_info.sh
@@ -113,7 +114,7 @@ do_snapshot() {
     local taken_at
     taken_at=$(date "+%Y-%m-%d %H:%M:%S")
 
-    print_info "Saving the database as '$name'...\n"
+    hm_start "Saving the database as '$name'..."
 
     #
     # --single-transaction takes the copy from a consistent snapshot without locking the tables,
@@ -129,6 +130,8 @@ do_snapshot() {
                 --routines --triggers --events \
                 -u"root" -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
     } | gzip -6 > "$target.partial"
+
+    hm_stop 0
 
     # Renamed only once it is complete: an interrupted dump must not look like a usable snapshot
     mv "$target.partial" "$target"
@@ -223,7 +226,7 @@ do_restore() {
         fi
     fi
 
-    print_info "Restoring '$name'...\n"
+    hm_start "Restoring '$name'..."
 
     #
     # Emptied first. Restoring over a database that kept living would leave whatever was created
@@ -235,6 +238,8 @@ do_restore() {
 
     gunzip -c "$source_file" | $DOCKER_COMPOSE exec -T db bash -c \
         "$DB_CLIENT"'; "$client" -u"root" -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
+
+    hm_stop 0
 
     # Whatever that snapshot holds, nobody anonymised it after the fact
     hm_anonymisation_clear
@@ -417,6 +422,7 @@ do_freeze() {
     fi
 
     local bytes size
+    hm_step "Measuring the data directory..."
     bytes=$(hm_template_measure "$volume" "$image")
     size=$(hm_template_human_size "${bytes:-0}")
 
@@ -428,10 +434,10 @@ do_freeze() {
     local was_running=false
     if [ -n "$($DOCKER_COMPOSE ps -q --status running db 2>/dev/null)" ]; then
         was_running=true
-        print_info "The database will be unavailable while it copies ($size)...\n"
+        hm_start "The database is stopped while it copies ($size)..."
         $DOCKER_COMPOSE stop db >/dev/null 2>&1
     else
-        print_info "Copying the data directory ($size)...\n"
+        hm_start "Copying the data directory ($size)..."
     fi
 
     $force && hm_template_exists "$template" && docker volume rm "$template" >/dev/null 2>&1
@@ -448,6 +454,8 @@ do_freeze() {
 
     local status=0
     hm_template_copy "$volume" "$template" "$image" || status=$?
+
+    hm_stop "$status"
 
     $was_running && $DOCKER_COMPOSE start db >/dev/null 2>&1
 
@@ -595,15 +603,18 @@ do_clone() {
         fi
     fi
 
-    print_info "Cloning $address...\n"
+    hm_start "Cloning $address..."
 
     hm_anonymisation_clear
 
     if ! hm_template_copy "$template" "$volume" "$image"; then
+        hm_stop 1
         hm_fail "$HM_EXIT_BLOCKED" "clone_failed" \
             "The template could not be copied into '$COMPOSE_PROJECT_NAME'" \
             "$COMMAND_BIN_NAME doctor"
     fi
+
+    hm_stop 0
 
     if is_json_output; then
         json_success "db" "$(jq -n --arg cloned "$address" --arg project "$COMPOSE_PROJECT_NAME" \

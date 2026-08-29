@@ -85,7 +85,7 @@ Instalación e IA siguen enteras en `backlog`.
 | **UX-02** | Honrar `NO_COLOR`, `TERM=dumb` y `--no-color` | UX | S | — | **hecho** |
 | **UX-03** | Dejar de borrar la pantalla al preguntar | UX | S | — | **hecho** |
 | **UX-04** | Ayuda agrupada, con uso y ejemplos | UX | M | — | **hecho** |
-| **UX-05** | Señal en operaciones largas (<100 ms) | UX | M | UX-02 | backlog |
+| **UX-05** | Señal en operaciones largas (<100 ms) | UX | M | UX-02 | **hecho** |
 | **UX-06** | Selector navegable con flechas | UX | M | UX-07 | backlog |
 | **UX-07** | Biblioteca de componentes de terminal | UX | M | — | **hecho** |
 | **TUI-01** | Dashboard de terminal (`hm tui`) | TUI | M | CLI-02, CLI-03, UX-07 | **hecho** |
@@ -293,10 +293,20 @@ ejemplos. clig.dev pide empezar por ejemplos y poner lo más común primero; `do
 `ddev` agrupan por propósito. La clasificación ya existe del contrato de salida: falta usarla
 para presentar, con los grupos declarados en `command_descriptions.json`.
 
-#### UX-05 · Señal en operaciones largas
+#### UX-05 · Señal en operaciones largas — hecho
 **Esfuerzo**: M. `composer install` y `setup:upgrade` pueden estar minutos sin decir nada.
 Lo relevante no es el spinner: es la regla de imprimir algo antes de 100 ms. Sin animaciones
 cuando no hay TTY.
+**Cómo quedó**: la etiqueta la imprime la misma sentencia que empieza el trabajo, así que la regla
+se cumple por construcción y no hay nada que medir. Tres formas —una línea y ya, línea con
+spinner, y envoltorio que guarda la salida y sólo la enseña si falla— y una única función que
+decide si se anima: contesta que no salvo que stdout sea una terminal, el formato sea para
+personas, `TERM` sirva, no haya `NO_COLOR` y la ejecución sea interactiva. Cuando dice que no, la
+misma información sale en dos líneas planas: un log de CI saca más de eso que de un carrusel de
+retornos de carro. Se aplicó donde estaban los silencios reales (snapshot, restore, freeze, clone,
+import, los 25 s de `clean` midiendo volúmenes y cada comprobación de `verify`), y se dejaron en
+paz los comandos que ya imprimen lo suyo: lo que les faltaba era una línea *antes*, no un spinner
+por encima de la salida de otro. En la 1.7.0; documentado en [docs/progress.md](../progress.md).
 
 #### UX-06 · Selector navegable con flechas
 **Esfuerzo**: M. Hoy es el `select` de Bash: lista numerada, escribir un número, sin valor

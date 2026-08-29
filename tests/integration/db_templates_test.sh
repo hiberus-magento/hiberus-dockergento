@@ -14,17 +14,42 @@ SOURCE="hm-template-selftest"
 TARGET="hm-template-target"
 OTHER="hm-template-otherversion"
 
+#
+# Removes the containers and volumes by name as well as through Compose. A run that is
+# interrupted leaves the data volumes behind, and the next run then finds a target that already
+# has data: the clone asks for confirmation, nobody answers, and it returns successfully having
+# done nothing — which is a confusing way to fail a test about something else entirely.
+#
 cleanup() {
-    local project
+    local project container volume
     for project in "$SOURCE" "$TARGET" "$OTHER"; do
         ( cd "$LAB/$project" 2>/dev/null && docker compose -p "$project" down -v --remove-orphans ) >/dev/null 2>&1
+
+        for container in $(docker ps -aq --filter "label=com.docker.compose.project=$project" 2>/dev/null); do
+            docker rm -f "$container" >/dev/null 2>&1
+        done
+
+        for volume in $(docker volume ls -q 2>/dev/null | grep -E "^(${project}_|hm-template-${project}-)" || true); do
+            docker volume rm -f "$volume" >/dev/null 2>&1
+        done
     done
-    docker volume ls -q --filter "label=hm.template" |
-        grep -E "^hm-template-(${SOURCE}|${TARGET}|${OTHER})-" |
-        while read -r volume; do docker volume rm -f "$volume" >/dev/null 2>&1; done
     rm -rf "$LAB"
 }
 trap cleanup EXIT
+
+# Anything a previous interrupted run left behind, before this one starts believing it
+cleanup_leftovers() {
+    local project container volume
+    for project in "$SOURCE" "$TARGET" "$OTHER"; do
+        for container in $(docker ps -aq --filter "label=com.docker.compose.project=$project" 2>/dev/null); do
+            docker rm -f "$container" >/dev/null 2>&1
+        done
+
+        for volume in $(docker volume ls -q 2>/dev/null | grep -E "^(${project}_|hm-template-${project}-)" || true); do
+            docker volume rm -f "$volume" >/dev/null 2>&1
+        done
+    done
+}
 
 if ! docker info >/dev/null 2>&1; then
     echo "  - skipped: docker is not available"
@@ -81,6 +106,8 @@ wait_for_db() {
 # The anonymisation state is per project and lives outside the checkout; a test has no business
 # writing in the developer's
 export HM_STATE_DIR="$LAB/state"
+
+cleanup_leftovers
 
 make_project "$SOURCE" "mariadb:10.6"
 ( cd "$LAB/$SOURCE" && docker compose -p "$SOURCE" up -d ) >/dev/null 2>&1

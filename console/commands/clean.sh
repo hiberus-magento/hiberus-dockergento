@@ -4,6 +4,7 @@ set -uo pipefail
 source "$COMPONENTS_DIR"/print_message.sh
 source "$COMPONENTS_DIR"/print_json.sh
 source "$COMPONENTS_DIR"/input_info.sh
+source "$COMPONENTS_DIR"/progress.sh
 source "$HELPERS_DIR"/exit_codes.sh
 source "$HELPERS_DIR"/docker.sh
 source "$TASKS_DIR"/worktree_env.sh
@@ -230,12 +231,14 @@ fi
 # ------------------------------------------------------------------ remove
 
 if ! is_non_interactive; then
-    print_info "Working out how much space this frees...\n"
+    hm_start "Working out how much space this frees..."
 
     freed=$(docker system df -v --format '{{json .Volumes}}' 2>/dev/null |
         jq -r --arg names "$collectable_volumes" '
             ($names | split("\n") | map(select(length > 0))) as $wanted
             | map(select(.Name as $n | $wanted | index($n)) | .Size) | join(" ")' 2>/dev/null)
+
+    hm_stop 0
 
     printf '\n'
     print_warning "This deletes $environments environment(s), $volumes volume(s) and $worktrees branch environment(s).\n"
