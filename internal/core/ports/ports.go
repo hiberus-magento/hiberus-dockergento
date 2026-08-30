@@ -132,6 +132,28 @@ type DataState interface {
 	Anonymisation(project string) (string, string)
 }
 
+// Orchestrator brings environments up and down, and runs things inside them.
+//
+// It is Compose, called as a library rather than as a command. The same code the `docker compose`
+// CLI runs, in this process: it computes the same configuration hash and stamps the same labels,
+// so what it creates and what the command creates are the same containers — which is the property
+// everything else here depends on, and the one that is tested rather than assumed.
+type Orchestrator interface {
+	// Up creates and starts what is missing and leaves alone what already matches.
+	Up(project core.Project, files core.ComposeFiles, services []string) error
+
+	// Stop stops without removing: an everyday operation that has to be quick and keep the data.
+	Stop(project core.Project, files core.ComposeFiles, services []string) error
+
+	// Logs writes the logs of the services named, or of all of them, until it is interrupted or
+	// they end.
+	Logs(project core.Project, files core.ComposeFiles, services []string, options core.LogOptions) error
+
+	// Exec runs a command inside a running service and returns its exit code, which is the
+	// command's own — a wrapper that flattened it would break everything that branches on it.
+	Exec(project core.Project, files core.ComposeFiles, service string, command []string, options core.ExecOptions) (int, error)
+}
+
 // Legacy runs a command of the shell implementation.
 //
 // It exists because the migration is a strangler and not a rewrite: what has not been ported yet

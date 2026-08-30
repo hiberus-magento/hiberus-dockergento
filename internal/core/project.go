@@ -53,6 +53,16 @@ type Worktree struct {
 	// Name is the slug the environment is known by, and the first label of its address.
 	Name string
 
+	// Project and Domain are read from the registration rather than derived from the parent's.
+	// Deriving them would be a second place where the naming rule lives, and the day the two
+	// disagreed the environment would answer to a name nothing created.
+	Project string
+	Domain  string
+
+	// Path is the worktree's own directory, which is what its relative bind mounts resolve
+	// against.
+	Path string
+
 	// Branch is the git branch checked out in it.
 	Branch string
 

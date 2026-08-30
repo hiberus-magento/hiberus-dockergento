@@ -247,8 +247,15 @@ assert_equals "3" "$?"
 assert_contains "$(cat "$LAB/roto.err")" "shell implementation"
 
 test_case "the release builds the binary for both platforms and both architectures"
-assert_contains "$(cat "$COMMAND_BIN_DIR/.goreleaser.yaml")" "goos: [darwin, linux]"
+assert_contains "$(cat "$COMMAND_BIN_DIR/.goreleaser.yaml")" "goos: [linux]"
+assert_contains "$(cat "$COMMAND_BIN_DIR/.goreleaser.yaml")" "goos: [darwin]"
 assert_contains "$(cat "$COMMAND_BIN_DIR/.goreleaser.yaml")" "goarch: [amd64, arm64]"
+
+# Compose's file watcher reaches FSEvents through cgo, so a darwin binary that is cross-compiled
+# with cgo off does not build at all — and the failure is a wall of undefined symbols from a
+# package nobody here imports directly
+test_case "and asks for cgo on macOS, which is what the watcher needs"
+assert_contains "$(cat "$COMMAND_BIN_DIR/.goreleaser.yaml")" "CGO_ENABLED=1"
 
 test_case "and stamps the version into the binary"
 assert_contains "$(cat "$COMMAND_BIN_DIR/.goreleaser.yaml")" "internal/cli.Version={{.Version}}"

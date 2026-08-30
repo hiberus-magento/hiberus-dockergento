@@ -2,9 +2,14 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+
+	"golang.org/x/term"
+
+	"github.com/hiberus-magento/hiberus-dockergento/internal/core"
 )
 
 // The exit codes are a contract that callers branch on, and they are the shell implementation's:
@@ -66,18 +71,24 @@ func wantsJSON(args []string, stdout io.Writer) (bool, []string) {
 	return !isTerminal(stdout), remaining
 }
 
-func isTerminal(writer io.Writer) bool {
-	file, ok := writer.(*os.File)
+// asRefusal unwraps a refusal, which is the only error the layers below deliberately shape.
+func asRefusal(err error, target *core.Refusal) bool {
+	return errors.As(err, target)
+}
+
+// isTerminal reports whether there is somebody watching.
+//
+// Asked of the terminal itself and not of the file mode. `os.ModeCharDevice` is also true of
+// /dev/null, so `hm describe > /dev/null` looked like a terminal and answered with a table where
+// the shell implementation answers with JSON — and `hm exec` asked Docker for a pseudo-terminal
+// that was not there, which is a hard failure rather than a wrong-looking one.
+func isTerminal(stream any) bool {
+	file, ok := stream.(*os.File)
 	if !ok {
 		return false
 	}
 
-	info, err := file.Stat()
-	if err != nil {
-		return false
-	}
-
-	return info.Mode()&os.ModeCharDevice != 0
+	return term.IsTerminal(int(file.Fd()))
 }
 
 // failure reports an error the way the contract says: on stderr, structured when the output is

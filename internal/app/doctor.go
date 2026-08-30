@@ -31,9 +31,9 @@ type Doctor struct {
 	Project   core.Project
 	InProject bool
 
-	// ComposeFiles is the pair the project is built from, and Template is the one the tool ships
-	// — used to know which ports an environment would need when there is no project to ask.
-	ComposeFiles []string
+	// ComposeFiles is what the project is built from, and Template is the one the tool ships —
+	// used to know which ports an environment would need when there is no project to ask.
+	ComposeFiles core.ComposeFiles
 	Template     string
 
 	// Platform is "mac" or "linux": the conditions that matter are not the same on both.
@@ -207,7 +207,7 @@ func (d Doctor) gather() facts {
 
 	go func() {
 		if d.InProject {
-			shared.compose, shared.composeErr = d.Compose.Load(d.Project.Root, d.Project.Name, d.ComposeFiles)
+			shared.compose, shared.composeErr = d.Compose.Load(d.Project.Root, d.Project.Name, d.ComposeFiles.Load)
 		}
 
 		done <- struct{}{}

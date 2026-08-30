@@ -10,6 +10,10 @@ type Container struct {
 	ID      string
 	Running bool
 
+	// Name is what Docker calls it, which is how the environment holding a port is named to
+	// somebody who has to go and stop it.
+	Name string
+
 	// ComposeProject and ComposeService are what Compose stamps on everything it creates.
 	ComposeProject string
 	ComposeService string
@@ -31,6 +35,20 @@ type Container struct {
 	// Published is the ports this container holds on the host, which is how a port conflict is
 	// attributed to the environment causing it instead of reported as "something is listening".
 	Published []string
+
+	// Mounts is what is mounted into it, and where. Read from the container rather than from the
+	// configuration on purpose: what matters is what the running container actually has.
+	Mounts []Mount
+}
+
+// Mount is one thing mounted into a container.
+type Mount struct {
+	// Type is bind, volume or tmpfs. The distinction is the whole point of the check that uses
+	// it: dependencies on a bind mount are dependencies PHP resolves through the host.
+	Type string
+
+	// Destination is where it appears inside the container.
+	Destination string
 }
 
 // DaemonInfo is what the daemon says about itself: the memory and CPUs the containers actually
@@ -94,6 +112,18 @@ type Compose struct {
 
 	// Volumes maps the name in the file to the name Docker gives it.
 	Volumes map[string]string
+}
+
+// ComposeFiles is what a project is built from: everything that has to be loaded to resolve it,
+// and the ones the project itself declares.
+//
+// They are not the same list, and reporting the wrong one would be a small lie with consequences:
+// a project routed through the global proxy carries a third file that removes its published ports
+// and adds the routing, and a branch environment carries an overlay that lives outside the
+// checkout. Both have to be loaded; neither is something the project declared.
+type ComposeFiles struct {
+	Load     []string
+	Declared []string
 }
 
 // Service is one service of that configuration.

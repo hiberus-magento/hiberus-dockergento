@@ -11,9 +11,9 @@ import (
 
 	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/fsprops"
 	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/gitvcs"
+	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/hmstate"
 	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/legacy"
 	"github.com/hiberus-magento/hiberus-dockergento/internal/app"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/core"
 )
 
 // Version is stamped at build time. Empty means a build nobody released.
@@ -63,6 +63,30 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			jsonOutput, rest := wantsJSON(args[1:], stdout)
 
 			return doctor(rest, stdout, stderr, jsonOutput)
+		case "stop":
+			jsonOutput, rest := wantsJSON(args[1:], stdout)
+
+			return stop(rest, stdout, stderr, jsonOutput)
+		case "logs":
+			jsonOutput, rest := wantsJSON(args[1:], stdout)
+
+			return logs(rest, stdout, stderr, jsonOutput)
+		case "exec":
+			// Everything after the command belongs to the command, so the global flags are not
+			// consumed here: `hm exec grep --json` is asking grep for --json
+			return execute(args[1:], stdout, stderr, !isTerminal(stdout))
+		case "start":
+			if onThisPlatform() {
+				jsonOutput, rest := wantsJSON(args[1:], stdout)
+
+				return start(rest, stdout, stderr, jsonOutput)
+			}
+		case "restart":
+			if onThisPlatform() {
+				jsonOutput, rest := wantsJSON(args[1:], stdout)
+
+				return restart(rest, stdout, stderr, jsonOutput)
+			}
 		}
 	}
 
@@ -152,9 +176,5 @@ func project(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// registry is a placeholder while the worktree registry is still owned by the shell
-// implementation. It reports no branch environment, which is the truth for every project until
-// that part is ported: what it must not do is guess.
-type registry struct{}
-
-func (registry) Worktree(string, string) (*core.Worktree, error) { return nil, nil }
+// registry is where branch environments are recorded, outside any checkout.
+type registry = hmstate.Registry

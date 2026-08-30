@@ -8,6 +8,7 @@ package dockerd
 import (
 	"context"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -54,7 +55,23 @@ func (e Engine) Containers() ([]core.Container, error) {
 			}
 		}
 
+		name := ""
+		if len(item.Names) > 0 {
+			name = strings.TrimPrefix(item.Names[0], "/")
+		}
+
+		mounts := make([]core.Mount, 0, len(item.Mounts))
+
+		for _, mount := range item.Mounts {
+			mounts = append(mounts, core.Mount{
+				Type:        string(mount.Type),
+				Destination: mount.Destination,
+			})
+		}
+
 		containers = append(containers, core.Container{
+			Mounts:         mounts,
+			Name:           name,
 			Published:      published,
 			ID:             item.ID,
 			Running:        item.State == "running",

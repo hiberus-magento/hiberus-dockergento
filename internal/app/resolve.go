@@ -61,12 +61,27 @@ func (r Resolver) Resolve(dir string) (core.Project, error) {
 		return project, nil
 	}
 
+	//
 	// With one, it resolves against itself — its own root, its own name, its own properties.
+	//
+	// The name and the address come from the registration and are not derived from the parent's:
+	// the worktree's properties.json is the same committed file as the main checkout's and names
+	// the same compose project, so reading it back would undo exactly the identity this
+	// environment is built on.
+	//
 	registered := projectFrom(dir, mustLoad(r.Properties, dir, properties))
-	registered.Name = project.Name + "-" + worktree.Name
-	registered.Domain = worktree.Name + "." + project.Domain
+	registered.Name = worktree.Project
+	registered.Domain = worktree.Domain
 	registered.Worktree = worktree
 	registered.Worktree.Parent = project.Name
+
+	if registered.Name == "" {
+		registered.Name = project.Name + "-" + worktree.Name
+	}
+
+	if registered.Domain == "" {
+		registered.Domain = worktree.Name + "." + project.Domain
+	}
 
 	return registered, nil
 }

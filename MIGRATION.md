@@ -12,7 +12,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 3 de 63 |
+| Comandos en Go | 8 de 63 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -45,7 +45,7 @@ detalle de cada una en `openspec/changes/`.
   - [x] `list` — el primero: sólo lectura, puro Docker, salida idéntica byte a byte
   - [x] `describe` — el más usado y el de contrato más rico
   - [x] `doctor` — diecisiete comprobaciones, cinco a Docker y cuatro a la máquina
-  - [ ] `start`, `stop`, `restart`, `logs`, `exec`
+  - [x] `start`, `stop`, `restart`, `logs`, `exec` — Compose como librería (ADR-009 bis)
   - [ ] `magento`, `composer`
 - [ ] **4 · Registro SQLite con las dos topologías + tanda 2**
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
@@ -64,11 +64,23 @@ Medido en esta máquina, misma salida byte a byte:
 | `list --json` | 205 ms | **63 ms** |
 | `describe --json` | 285 ms | **94 ms** |
 | `doctor --json` | 260 ms | **85 ms** |
+| `start` (crear el entorno) | 555 ms | **265 ms** |
+| `start` (entorno ya en marcha) | 320 ms | **95 ms** |
+| `stop` (parar el entorno) | 10,3 s | 10,2 s — lo que tarda es el contenedor |
 
 De dónde sale: leer la configuración de compose con librería en vez de `docker compose config`
 son 1,7 ms contra 58 ms, y las preguntas independientes —la rama de cada entorno, la versión de
 git, la de compose, el exec de xdebug— se hacen a la vez en lugar de en fila. Eso último es lo que
 bash no puede hacer.
+
+Lo que cuesta: enlazar el motor de Compose sube el binario publicado de **8,5 MB a 60,6 MB** y el
+grafo de dependencias de 70 módulos a 426. Es el precio de ADR-009 bis y está aceptado a
+conciencia; el detalle y lo que se compra con ello, en `docs/research/2.0-arquitectura.md`.
+
+`start` y `restart` siguen en shell **en Linux**: arrancar ahí también iguala los ids de usuario y
+grupo del contenedor con los del host y escribe los dominios del proyecto en su `/etc/hosts`, y
+ninguna de las dos cosas está portada. La frontera es una condición en un sitio y se va cuando se
+vayan esas tareas.
 
 ## Los comandos
 
@@ -101,12 +113,12 @@ herramientas externas y pueden quedarse en shell indefinidamente.
 | `docker-stop-all` | tools | 3 | shell |
 | `doctor` | environment | 1 | go |
 | `down` | environment | 2 | shell |
-| `exec` | tools | 1 | shell |
+| `exec` | tools | 1 | go |
 | `grunt` | magento | 4 | shell |
 | `install` | magento | 3 | shell |
 | `launch` | environment | 3 | shell |
 | `list` | environment | 1 | go |
-| `logs` | environment | 1 | shell |
+| `logs` | environment | 1 | go |
 | `magento` | magento | 1 | shell |
 | `masquerade` | database | 3 | shell |
 | `mcp` | ai | 3 | shell |
@@ -118,14 +130,14 @@ herramientas externas y pueden quedarse en shell indefinidamente.
 | `proxy` | environment | 2 | shell |
 | `purge` | magento | 3 | shell |
 | `rebuild` | environment | 3 | shell |
-| `restart` | environment | 1 | shell |
+| `restart` | environment | 1 | go |
 | `sequelace` | database | 3 | shell |
 | `set-host` | tools | 3 | shell |
 | `setup` | environment | 2 | shell |
 | `share` | environment | 3 | shell |
 | `ssl` | tools | 4 | shell |
-| `start` | environment | 1 | shell |
-| `stop` | environment | 1 | shell |
+| `start` | environment | 1 | go |
+| `stop` | environment | 1 | go |
 | `switch` | versions | 3 | shell |
 | `tableplus` | database | 3 | shell |
 | `test-integration` | magento | 3 | shell |

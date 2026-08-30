@@ -23,7 +23,7 @@ type Describer struct {
 }
 
 // Describe builds the whole description of a project.
-func (d Describer) Describe(project core.Project, composeFiles []string, withSecrets bool) (core.Description, error) {
+func (d Describer) Describe(project core.Project, files core.ComposeFiles, withSecrets bool) (core.Description, error) {
 	//
 	// Six independent questions, asked at once.
 	//
@@ -55,7 +55,7 @@ func (d Describer) Describe(project core.Project, composeFiles []string, withSec
 		}()
 	}
 
-	ask(func() { configuration, configErr = d.Compose.Load(project.Root, project.Name, composeFiles) })
+	ask(func() { configuration, configErr = d.Compose.Load(project.Root, project.Name, files.Load) })
 	ask(func() { containers, enginErr = d.Engine.Containers() })
 	ask(func() {
 		version = d.Magento.Version(project.Root, project.MagentoDir)
@@ -143,7 +143,7 @@ func (d Describer) Describe(project core.Project, composeFiles []string, withSec
 	if d.Machine == "mac" {
 		description.Paths.Strategy = "named volume with selective binds"
 	}
-	description.Paths.ComposeFiles = composeFiles
+	description.Paths.ComposeFiles = files.Declared
 
 	description.Tooling.Machine = d.Machine
 	description.Tooling.HmVersion = toolVersion

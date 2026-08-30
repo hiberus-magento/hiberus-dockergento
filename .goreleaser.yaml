@@ -17,19 +17,38 @@ before:
   hooks:
     - go mod tidy
 
+#
+# Two builds and not one, because the two platforms do not have the same requirement.
+#
+# Compose's file watcher reaches macOS's FSEvents through cgo, so a darwin binary has to be built
+# with cgo on and therefore on a macOS machine. Linux has no such dependency and cross-compiles
+# from anywhere. Building the release on macOS covers both: darwin natively and for the other
+# architecture through Apple's toolchain, linux with cgo off.
+#
 builds:
-  - id: hm
+  - id: hm-linux
     main: ./cmd/hm
     binary: hm
     env:
       - CGO_ENABLED=0
-    goos: [darwin, linux]
+    goos: [linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X github.com/hiberus-magento/hiberus-dockergento/internal/cli.Version={{.Version}}
+
+  - id: hm-darwin
+    main: ./cmd/hm
+    binary: hm
+    env:
+      - CGO_ENABLED=1
+    goos: [darwin]
     goarch: [amd64, arm64]
     ldflags:
       - -s -w -X github.com/hiberus-magento/hiberus-dockergento/internal/cli.Version={{.Version}}
 
 archives:
   - id: hm
+    ids: [hm-linux, hm-darwin]
     formats: [binary]
     name_template: "hm_{{ .Os }}_{{ .Arch }}"
 
