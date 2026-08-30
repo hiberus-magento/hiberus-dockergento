@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/compose-spec/compose-go/v2 v2.14.0
 	github.com/docker/docker v27.4.1+incompatible
+	golang.org/x/sys v0.47.0
 )
 
 require (
@@ -37,7 +38,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.4 // indirect
 	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gotest.tools/v3 v3.5.2 // indirect

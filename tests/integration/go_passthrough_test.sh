@@ -112,6 +112,73 @@ assert_equals "$(jq -S 'del(.data)' < "$LAB/shell.out")" "$(jq -S 'del(.data)' <
 test_case "both default to JSON when the output is not a terminal"
 assert_equals "1" "$( cd "$DIR" && "$GO_BINARY" list | jq -r '.schema_version' )"
 
+# ---------------------------------------------------------------- ported: doctor
+#
+# Seventeen checks, of which five ask Docker and four look at the host. Compared whole rather than
+# check by check: what a port of this command can lose is a single line nobody notices missing
+# until the day it was the one that mattered.
+
+both doctor --json
+test_case "the diagnosis finds exactly what the shell one found"
+assert_equals "$(jq -S . < "$LAB/shell.out" 2>/dev/null)" "$(jq -S . < "$LAB/go.out" 2>/dev/null)"
+
+test_case "and reports every check, in the same order"
+assert_equals "$(jq -r '.data.checks[].id' < "$LAB/shell.out")" "$(jq -r '.data.checks[].id' < "$LAB/go.out")"
+
+test_case "and prints the same report, character for character"
+( cd "$DIR" && NO_COLOR=1 "$SHELL_CLI" --no-json doctor >"$LAB/shell.out" 2>&1 )
+( cd "$DIR" && NO_COLOR=1 "$GO_BINARY"  --no-json doctor >"$LAB/go.out" 2>&1 )
+assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
+
+both doctor --only=ports
+test_case "and one check on its own is still the same check"
+assert_equals "$(jq -S . < "$LAB/shell.out" 2>/dev/null)" "$(jq -S . < "$LAB/go.out" 2>/dev/null)"
+
+#
+# Outside a project the diagnosis still runs and answers about the machine — which is the question
+# somebody has when nothing works anywhere. The ports it needs then come from the template the
+# tool ships, because there is no configuration to ask.
+#
+test_case "outside a project both answer about the machine"
+( cd "$LAB" && "$SHELL_CLI" doctor --json >"$LAB/shell.out" 2>&1 )
+( cd "$LAB" && "$GO_BINARY"  doctor --json >"$LAB/go.out" 2>&1 )
+assert_equals "$(jq -S . < "$LAB/shell.out" 2>/dev/null)" "$(jq -S . < "$LAB/go.out" 2>/dev/null)"
+
+test_case "and neither reports a project check there"
+assert_equals "" "$(jq -r '[.data.checks[] | select(.scope == "project")] | .[]' < "$LAB/go.out")"
+
+#
+# The fingerprint is the one value in the diagnosis that has to agree with something already
+# written down: `hm ai-context` is still the shell implementation, and the digest it left in
+# AGENTS.md is what the Go check compares against. A jq newline the port dropped would make every
+# generated context on every project read as stale.
+#
+( cd "$DIR" && "$SHELL_CLI" ai-context >/dev/null 2>&1 )
+
+test_case "the Go check recognises the context the shell command generated"
+( cd "$DIR" && "$GO_BINARY" doctor --json --only=agent-context >"$LAB/go.out" 2>&1 )
+assert_equals "ok" "$(jq -r '.data.checks[0].severity' < "$LAB/go.out")"
+
+test_case "and both notice when the project moved on"
+printf '{"MAGENTO_DIR": "./src", "DOMAIN": "otro.test", "COMPOSE_PROJECT_NAME": "%s"}\n' "$PROJECT" \
+    > "$DIR/config/docker/properties.json"
+both doctor --json --only=agent-context
+assert_equals "$(jq -r '.data.checks[0].severity' < "$LAB/shell.out")" "$(jq -r '.data.checks[0].severity' < "$LAB/go.out")"
+assert_equals "error" "$(jq -r '.data.checks[0].severity' < "$LAB/go.out")"
+
+test_case "a diagnosis that found something broken fails, in both"
+assert_equals "1" "$GO_STATUS"
+assert_equals "$SHELL_STATUS" "$GO_STATUS"
+
+rm -f "$DIR/AGENTS.md"
+printf '{"MAGENTO_DIR": "./src", "DOMAIN": "go.test", "COMPOSE_PROJECT_NAME": "%s"}\n' "$PROJECT" \
+    > "$DIR/config/docker/properties.json"
+
+both doctor --nonsense
+test_case "and an option nobody declared is refused the same way"
+assert_equals "2" "$GO_STATUS"
+assert_equals "$SHELL_STATUS" "$GO_STATUS"
+
 # ---------------------------------------------------------------- the same refusals
 #
 # The exit codes are a contract: 2 is a usage error, 4 is not a project, 6 is a refusal on

@@ -17,6 +17,24 @@ func (FS) IsDir(path string) bool {
 	return err == nil && info.IsDir()
 }
 
+// Exists reports whether the path is there at all, directory or not.
+func (FS) Exists(path string) bool {
+	_, err := os.Stat(path)
+
+	return err == nil
+}
+
+// Read returns a file's contents, or an empty string when it cannot be read. A file that is not
+// there is not an error for any of the callers here: it is an answer.
+func (FS) Read(path string) string {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+
+	return string(contents)
+}
+
 // Branches reports the branch checked out in a directory.
 type Branches struct{}
 

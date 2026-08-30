@@ -7,10 +7,10 @@ package dockerd
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
 
 	"github.com/hiberus-magento/hiberus-dockergento/internal/core"
 )
@@ -24,16 +24,7 @@ type Engine struct {
 
 // Containers returns every container on the machine, running or not.
 func (e Engine) Containers() ([]core.Container, error) {
-	options := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
-
-	// Where the daemon is, resolved from the docker context when the environment does not say.
-	// Without this the binary reports "Docker is not running" on every machine using Colima or
-	// Docker Desktop, which is all of them.
-	if host := Endpoint(); host != "" {
-		options = append(options, client.WithHost(host))
-	}
-
-	docker, err := client.NewClientWithOpts(options...)
+	docker, err := connect()
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +46,16 @@ func (e Engine) Containers() ([]core.Container, error) {
 	containers := make([]core.Container, 0, len(listed))
 
 	for _, item := range listed {
+		published := make([]string, 0, len(item.Ports))
+
+		for _, port := range item.Ports {
+			if port.PublicPort != 0 {
+				published = append(published, strconv.Itoa(int(port.PublicPort)))
+			}
+		}
+
 		containers = append(containers, core.Container{
+			Published:      published,
 			ID:             item.ID,
 			Running:        item.State == "running",
 			StateName:      item.State,

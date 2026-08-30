@@ -33,6 +33,8 @@ func paint(code, text string) string {
 }
 
 func header(text string) string  { return paint("\033[1;37m", text) }
+func good(text string) string    { return paint("\033[0;32m", text) }
+func bad(text string) string     { return paint("\033[0;31m", text) }
 func section(text string) string { return paint("\033[0;34m", text) }
 func warning(text string) string { return paint("\033[0;33m", text) }
 func link(text string) string    { return paint("\033[34;4m", text) }

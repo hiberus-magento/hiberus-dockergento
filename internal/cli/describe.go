@@ -42,7 +42,7 @@ func describe(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		Magento: magentofiles.Reader{},
 		Tooling: toolinfo.Reader{Root: hmRoot(), WorkdirPHP: property(project, "WORKDIR_PHP")},
 		State:   toolinfo.State{Dir: os.Getenv("HM_STATE_DIR")},
-		Machine: machine(),
+		Machine: machineName(),
 	}
 
 	description, err := describer.Describe(project, composeFilesFor(project), withSecrets)
@@ -133,7 +133,7 @@ func orUnknown(value string) string {
 	return value
 }
 
-func machine() string {
+func machineName() string {
 	if runtime.GOOS == "darwin" {
 		return "mac"
 	}

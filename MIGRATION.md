@@ -12,7 +12,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 2 de 63 |
+| Comandos en Go | 3 de 63 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -44,7 +44,7 @@ detalle de cada una en `openspec/changes/`.
   - [x] Adaptador del demonio por SDK, resolviendo el socket desde el contexto de Docker
   - [x] `list` — el primero: sólo lectura, puro Docker, salida idéntica byte a byte
   - [x] `describe` — el más usado y el de contrato más rico
-  - [ ] `doctor`
+  - [x] `doctor` — diecisiete comprobaciones, cinco a Docker y cuatro a la máquina
   - [ ] `start`, `stop`, `restart`, `logs`, `exec`
   - [ ] `magento`, `composer`
 - [ ] **4 · Registro SQLite con las dos topologías + tanda 2**
@@ -63,6 +63,7 @@ Medido en esta máquina, misma salida byte a byte:
 |---|---|---|
 | `list --json` | 205 ms | **63 ms** |
 | `describe --json` | 285 ms | **94 ms** |
+| `doctor --json` | 260 ms | **85 ms** |
 
 De dónde sale: leer la configuración de compose con librería en vez de `docker compose config`
 son 1,7 ms contra 58 ms, y las preguntas independientes —la rama de cada entorno, la versión de
@@ -98,7 +99,7 @@ herramientas externas y pueden quedarse en shell indefinidamente.
 | `describe` | environment | 1 | go |
 | `docker-compose` | tools | 3 | shell |
 | `docker-stop-all` | tools | 3 | shell |
-| `doctor` | environment | 1 | shell |
+| `doctor` | environment | 1 | go |
 | `down` | environment | 2 | shell |
 | `exec` | tools | 1 | shell |
 | `grunt` | magento | 4 | shell |

@@ -27,6 +27,30 @@ type Container struct {
 	// StateName is Docker's own word for the state — running, exited, created — which is what a
 	// description reports, as opposed to the boolean the inventory needs.
 	StateName string
+
+	// Published is the ports this container holds on the host, which is how a port conflict is
+	// attributed to the environment causing it instead of reported as "something is listening".
+	Published []string
+}
+
+// DaemonInfo is what the daemon says about itself: the memory and CPUs the containers actually
+// have, and what is providing them.
+type DaemonInfo struct {
+	MemoryBytes int64
+	CPUs        int
+
+	// Runtime is the daemon's own name — colima, docker-desktop — which is what decides whether
+	// there is an instruction to give for making it bigger.
+	Runtime string
+}
+
+// Listener is a process holding a port on this machine.
+type Listener struct {
+	Port string
+
+	// Process is empty when the tool that listed the port does not name it, and the message says
+	// "processes on the host" rather than inventing one.
+	Process string
 }
 
 // Key is the name the container's environment is known by.

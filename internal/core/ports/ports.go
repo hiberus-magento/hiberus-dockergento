@@ -39,11 +39,66 @@ type ContainerEngine interface {
 	Containers() ([]core.Container, error)
 }
 
+// Daemon is what the diagnosis asks Docker beyond the container list.
+//
+// Separate from ContainerEngine because they are asked for different reasons: the inventory needs
+// containers, and only the diagnosis needs to know how much memory the VM was given or whether an
+// image can still be pulled.
+type Daemon interface {
+	// Reachable is the first question, and the one that makes every other answer meaningless
+	// when it is no.
+	Reachable() bool
+
+	// Info is what the daemon says about itself.
+	Info() (core.DaemonInfo, error)
+
+	// Leftovers counts volumes and dangling images. Counting them is 0.13s where computing their
+	// real sizes was 18s on a machine with 152 volumes, and it catches the same thing: an
+	// environment graveyard nobody cleans up.
+	Leftovers() (volumes, danglingImages int, err error)
+
+	// ImageAvailability reports whether an image is already here and whether it could be pulled.
+	ImageAvailability(image string) (local, pullable bool)
+}
+
+// Machine is what the host says about itself, as opposed to what Docker says.
+type Machine interface {
+	// MemoryBytes is the machine's own memory, which on macOS is not the containers'.
+	MemoryBytes() int64
+
+	// FreeDiskGB is the space left on the startup disk, and whether it could be read at all.
+	FreeDiskGB() (int, bool)
+
+	// Listening is every port held on this machine, with the process holding it when the tool
+	// that listed them names it.
+	Listening() ([]core.Listener, error)
+
+	// InGroup answers whether the user belongs to a group, which on Linux decides whether they
+	// can talk to Docker at all.
+	InGroup(name string) bool
+
+	// Mkcert reports whether it is installed and where its local authority lives.
+	Mkcert() (installed bool, caroot string)
+
+	// HostsEntry is whether /etc/hosts sends this domain anywhere.
+	HostsEntry(domain string) bool
+
+	// ResolvesLocally is whether the name resolves to a loopback address. Resolving to something
+	// else is not enough: a domain that answers with a real internet address belongs to somebody.
+	ResolvesLocally(domain string) bool
+}
+
 // FS is the little the domain needs to know about the filesystem.
 type FS interface {
 	// IsDir reports whether the path is a directory that exists. It is how an environment whose
 	// project was deleted is told from one that is merely stopped.
 	IsDir(path string) bool
+
+	// Exists reports whether the path is there at all.
+	Exists(path string) bool
+
+	// Read returns a file's contents, empty when there are none to read.
+	Read(path string) string
 }
 
 // Branches reports the branch checked out in a working directory.

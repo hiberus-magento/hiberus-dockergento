@@ -59,6 +59,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			jsonOutput, rest := wantsJSON(args[1:], stdout)
 
 			return describe(rest, stdout, stderr, jsonOutput)
+		case "doctor":
+			jsonOutput, rest := wantsJSON(args[1:], stdout)
+
+			return doctor(rest, stdout, stderr, jsonOutput)
 		}
 	}
 
