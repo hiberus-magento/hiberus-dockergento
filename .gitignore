@@ -10,3 +10,6 @@ console/hm-completion.bash
 .headroom_wrap_marker.json
 # Local Pi runtime state
 .atl/
+
+# The Go binary is built, not committed
+/bin/hm

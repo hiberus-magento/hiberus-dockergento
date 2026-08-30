@@ -1,0 +1,42 @@
+name: go
+
+# From the first commit, and not later: with the shell implementation a bad commit breaks the
+# command somebody runs; with a binary it breaks everybody who pulls. That difference is the one
+# thing the migration cannot be casual about.
+on:
+  push:
+    branches: [main, "release/**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: formato
+        run: |
+          unformatted=$(gofmt -l ./cmd ./internal)
+          if [ -n "$unformatted" ]; then
+            echo "sin formatear:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: vet
+        run: go vet ./...
+
+      - name: tests de go
+        run: go test ./... -race
+
+      - name: compila
+        run: go build -o bin/hm ./cmd/hm
+
+      # The shell implementation is still most of the tool, and it is what the binary delegates
+      # to. Its unit suite runs here too: the parts that need Docker do not, and they are the
+      # ones a runner cannot give.
+      - name: suite de bash (unidad)
+        run: ./tests/run.sh tests/unit
