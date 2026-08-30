@@ -9,6 +9,8 @@
 # stop agreeing with each other.
 version: 2
 
+# Built with the Go the module asks for; the binaries it produces run anywhere.
+
 project_name: hm
 
 before:

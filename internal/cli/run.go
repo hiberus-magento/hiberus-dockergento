@@ -40,6 +40,21 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
+	//
+	// Ported commands. Everything else falls through to the shell implementation, and the list
+	// grows one command at a time — each with the tests of the one it replaces, and each checked
+	// against it by tests/integration/go_passthrough_test.sh.
+	//
+	// The global flags are consumed here because the Go side owns the output format now. What is
+	// left is passed to the command, which is why an unknown option still reaches it and is still
+	// a usage error.
+	//
+	if len(args) > 0 && args[0] == "list" {
+		jsonOutput, rest := wantsJSON(args[1:], stdout)
+
+		return list(rest, stdout, stderr, jsonOutput)
+	}
+
 	code, err := runner.Run(args)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s\n", err)

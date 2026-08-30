@@ -12,7 +12,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 0 de 63 |
+| Comandos en Go | 1 de 63 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -41,8 +41,8 @@ detalle de cada una en `openspec/changes/`.
   - [x] Distribución: `goreleaser` y binarios para darwin/linux, amd64/arm64
   - [x] Instalación: `hm` es el binario, con vuelta al shell si no se puede descargar
 - [ ] **3 · Adaptador de Docker (SDK) + tanda 1** — *en marcha*, donde gana todo el equipo
-  - [ ] Adaptador del demonio por SDK, con dobles para los tests
-  - [ ] `list` — el primero: sólo lectura, puro Docker, con contrato JSON que comparar
+  - [x] Adaptador del demonio por SDK, resolviendo el socket desde el contexto de Docker
+  - [x] `list` — el primero: sólo lectura, puro Docker, salida idéntica byte a byte
   - [ ] `describe`, `doctor`
   - [ ] `start`, `stop`, `restart`, `logs`, `exec`
   - [ ] `magento`, `composer`
@@ -89,7 +89,7 @@ herramientas externas y pueden quedarse en shell indefinidamente.
 | `grunt` | magento | 4 | shell |
 | `install` | magento | 3 | shell |
 | `launch` | environment | 3 | shell |
-| `list` | environment | 1 | shell |
+| `list` | environment | 1 | go |
 | `logs` | environment | 1 | shell |
 | `magento` | magento | 1 | shell |
 | `masquerade` | database | 3 | shell |

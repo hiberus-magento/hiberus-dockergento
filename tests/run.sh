@@ -28,6 +28,12 @@ if [ -z "${HM_TEST_HOME:-}" ]; then
     HM_TEST_HOME="$(mktemp -d)"
     export HM_TEST_HOME
     export DOCKER_CONFIG="${DOCKER_CONFIG:-$HOME/.docker}"
+
+    # The same for Go's caches: a suite that builds the binary would otherwise fill the throwaway
+    # HOME with a module cache of read-only files, which the cleanup then cannot remove — and the
+    # temporary directory outlives the run, once per run
+    export GOCACHE="${GOCACHE:-$HOME/Library/Caches/go-build}"
+    export GOMODCACHE="${GOMODCACHE:-$HOME/go/pkg/mod}"
     export HOME="$HM_TEST_HOME"
     printf '# profile belonging to a test run\n' > "$HOME/.zshrc"
     trap 'rm -rf "$HM_TEST_HOME"' EXIT

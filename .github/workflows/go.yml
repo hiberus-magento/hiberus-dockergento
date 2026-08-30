@@ -16,7 +16,9 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          # 1.25 because the Docker SDK's dependency graph asks for it — otel and
+          # grpc-gateway declare it. Only building needs it; the binary runs anywhere.
+          go-version: "1.25"
           cache: true
 
       - name: formato

@@ -31,6 +31,26 @@ type Registry interface {
 	Worktree(parent, name string) (*core.Worktree, error)
 }
 
+// ContainerEngine is the Docker daemon.
+type ContainerEngine interface {
+	// Containers returns every container on the machine, running or not. One call: the inventory
+	// is built by grouping them, and asking per environment cost seconds on a machine with a
+	// hundred of them.
+	Containers() ([]core.Container, error)
+}
+
+// FS is the little the domain needs to know about the filesystem.
+type FS interface {
+	// IsDir reports whether the path is a directory that exists. It is how an environment whose
+	// project was deleted is told from one that is merely stopped.
+	IsDir(path string) bool
+}
+
+// Branches reports the branch checked out in a working directory.
+type Branches interface {
+	Branch(dir string) string
+}
+
 // Legacy runs a command of the shell implementation.
 //
 // It exists because the migration is a strangler and not a rewrite: what has not been ported yet

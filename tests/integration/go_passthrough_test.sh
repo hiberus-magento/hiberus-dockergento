@@ -12,13 +12,20 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 SHELL_CLI="$COMMAND_BIN_DIR/bin/run"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
-trap 'rm -rf "$LAB"' EXIT
+trap 'rm -rf "$LAB"; hm_test_home_cleanup' EXIT
 
 if ! command -v go >/dev/null 2>&1; then
     echo "  - skipped: go is not installed"
     echo "RESULT 0 0"
     exit 0
 fi
+
+#
+# The build cache goes in the lab, not in the throwaway HOME: this suite replaces the harness's
+# own cleanup trap with its own, so anything left in HOME outlives the run — once per run, for
+# ever. The module cache stays where it is, or every run downloads the dependency tree again.
+#
+export GOCACHE="$LAB/go-build"
 
 ( cd "$COMMAND_BIN_DIR" && go build -o "$GO_BINARY" ./cmd/hm ) >/dev/null 2>&1 || {
     echo "  - skipped: the binary does not build here"
@@ -51,10 +58,35 @@ both describe --json
 test_case "and so does describe, field for field"
 assert_equals "$(jq -S . < "$LAB/shell.out" 2>/dev/null)" "$(jq -S . < "$LAB/go.out" 2>/dev/null)"
 
+# ---------------------------------------------------------------- ported: list
+#
+# The first command that stopped going through the shell implementation. What is compared is not
+# "roughly the same" but the whole document and the whole table, because the moment the two are
+# allowed to differ a little, nobody can tell a port from a regression.
+
 both list --json
-test_case "and listing the machine"
-assert_equals "$(jq -r '.data.environments | length' < "$LAB/shell.out" 2>/dev/null)" \
-    "$(jq -r '.data.environments | length' < "$LAB/go.out" 2>/dev/null)"
+test_case "the ported command answers exactly what the shell one did"
+assert_equals "$(jq -S . < "$LAB/shell.out" 2>/dev/null)" "$(jq -S . < "$LAB/go.out" 2>/dev/null)"
+
+both --no-json list
+test_case "and prints exactly the same table"
+assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
+
+both list --nonsense
+test_case "and refuses the same options, with the same code"
+assert_equals "2" "$GO_STATUS"
+assert_equals "$SHELL_STATUS" "$GO_STATUS"
+
+test_case "the JSON envelope is the same shape"
+both list --json
+assert_equals "$(jq -S 'del(.data)' < "$LAB/shell.out")" "$(jq -S 'del(.data)' < "$LAB/go.out")"
+
+#
+# Piped output is being read by a program, and a program reading a table of dashes breaks the
+# first time a column widens. Both implementations answer JSON when nobody is watching.
+#
+test_case "both default to JSON when the output is not a terminal"
+assert_equals "1" "$( cd "$DIR" && "$GO_BINARY" list | jq -r '.schema_version' )"
 
 # ---------------------------------------------------------------- the same refusals
 #
@@ -107,17 +139,19 @@ cp "$GO_BINARY" "$INSTALL/bin/hm"
 printf '#!/bin/sh\nprintf "soy el shell: %%s\\n" "$*"\n' > "$INSTALL/bin/run"
 chmod +x "$INSTALL/bin/run"
 
+PROBE="una-orden-que-nadie-va-a-portar"
+
 test_case "the binary finds the shell tree beside it"
-assert_equals "soy el shell: list" "$( cd "$LAB" && HM_LEGACY_ROOT= "$INSTALL/bin/hm" list )"
+assert_equals "soy el shell: $PROBE" "$( cd "$LAB" && HM_LEGACY_ROOT= "$INSTALL/bin/hm" "$PROBE" )"
 
 test_case "and through the symlink an installation leaves in the path"
 ln -sf "$INSTALL/bin/hm" "$LAB/hm-enlazado"
-assert_equals "soy el shell: list" "$( cd "$LAB" && HM_LEGACY_ROOT= "$LAB/hm-enlazado" list )"
+assert_equals "soy el shell: $PROBE" "$( cd "$LAB" && HM_LEGACY_ROOT= "$LAB/hm-enlazado" "$PROBE" )"
 
 test_case "a checkout with no shell tree says so instead of guessing"
 mkdir -p "$LAB/roto/bin"
 cp "$GO_BINARY" "$LAB/roto/bin/hm"
-( cd "$LAB" && HM_LEGACY_ROOT= "$LAB/roto/bin/hm" list >/dev/null 2>"$LAB/roto.err" )
+( cd "$LAB" && HM_LEGACY_ROOT= "$LAB/roto/bin/hm" "$PROBE" >/dev/null 2>"$LAB/roto.err" )
 assert_equals "3" "$?"
 assert_contains "$(cat "$LAB/roto.err")" "shell implementation"
 

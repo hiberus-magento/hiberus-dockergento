@@ -62,8 +62,14 @@ environment_rows() {
                     (metadata[key] ? "true" : "false"), running[key] + 0, total[key]
             }
         }
-    ' | sort
+    ' | LC_ALL=C sort
 }
+
+#
+# Sorted in the C locale on purpose. `sort` under en_US.UTF-8 ignores punctuation in its primary
+# weight, so `magento_dev` came before `magento-demo` there and after it elsewhere: the order of
+# this list depended on the machine's locale, which is not something a list should depend on.
+#
 
 #
 # Every environment as a JSON array

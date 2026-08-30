@@ -33,10 +33,31 @@ if [ -z "${HM_TEST_HOME:-}" ]; then
     # pointed at them explicitly or every suite that talks to Docker loses its daemon
     export DOCKER_CONFIG="${DOCKER_CONFIG:-$HOME/.docker}"
 
+    # The same for Go's caches: a suite that builds the binary would otherwise fill the throwaway
+    # HOME with a module cache of read-only files, which the cleanup then cannot remove — and the
+    # temporary directory outlives the run, once per run
+    export GOCACHE="${GOCACHE:-$HOME/Library/Caches/go-build}"
+    export GOMODCACHE="${GOMODCACHE:-$HOME/go/pkg/mod}"
+
     export HOME="$HM_TEST_HOME"
     printf '# profile belonging to a test run\n' > "$HOME/.zshrc"
+
+    # Owned by this suite, which matters because a suite that sets a trap of its own replaces
+    # this one — bash keeps the last trap, not both — and then the directory outlives the run
+    export HM_TEST_HOME_OWNED=true
     trap 'rm -rf "$HM_TEST_HOME"' EXIT
 fi
+
+#
+# For a suite that needs a trap of its own: call this from it, or the throwaway HOME is left
+# behind once per run.
+#
+hm_test_home_cleanup() {
+    [ "${HM_TEST_HOME_OWNED:-false}" == "true" ] || return 0
+    [ -n "${HM_TEST_HOME:-}" ] || return 0
+
+    rm -rf "$HM_TEST_HOME"
+}
 
 # Caches go to a throwaway directory: a test run has no business leaving entries in the
 # developer's HOME, and every temporary project used by a suite would leave one forever
