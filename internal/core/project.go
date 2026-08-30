@@ -60,8 +60,9 @@ type Worktree struct {
 	Domain  string
 
 	// Path is the worktree's own directory, which is what its relative bind mounts resolve
-	// against.
-	Path string
+	// against, and ParentRoot is the main checkout it was made from.
+	Path       string
+	ParentRoot string
 
 	// Branch is the git branch checked out in it.
 	Branch string

@@ -74,6 +74,7 @@ func (r Resolver) Resolve(dir string) (core.Project, error) {
 	registered.Domain = worktree.Domain
 	registered.Worktree = worktree
 	registered.Worktree.Parent = project.Name
+	registered.Worktree.ParentRoot = mainRoot
 
 	if registered.Name == "" {
 		registered.Name = project.Name + "-" + worktree.Name

@@ -260,6 +260,13 @@ assert_contains "$(cat "$COMMAND_BIN_DIR/.goreleaser.yaml")" "CGO_ENABLED=1"
 test_case "and stamps the version into the binary"
 assert_contains "$(cat "$COMMAND_BIN_DIR/.goreleaser.yaml")" "internal/cli.Version={{.Version}}"
 
+# Both platforms, every time: the tool is used on macOS and on Linux, and a release that quietly
+# shipped one of them broken would be found by whoever installed it
+test_case "the release is built where both platforms can be built"
+assert_contains "$(cat "$COMMAND_BIN_DIR/.github/workflows/release.yml")" "runs-on: macos-latest"
+assert_contains "$(cat "$COMMAND_BIN_DIR/.github/workflows/release.yml")" "GOOS=linux"
+assert_contains "$(cat "$COMMAND_BIN_DIR/.github/workflows/release.yml")" "GOOS=darwin"
+
 test_case "the installer prefers the binary and falls back to the shell"
 assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$HOME/hm/bin/hm"'
 assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$HOME/hm/bin/run"'

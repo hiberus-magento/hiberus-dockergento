@@ -12,7 +12,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 8 de 63 |
+| Comandos en Go | 10 de 63 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -46,7 +46,7 @@ detalle de cada una en `openspec/changes/`.
   - [x] `describe` — el más usado y el de contrato más rico
   - [x] `doctor` — diecisiete comprobaciones, cinco a Docker y cuatro a la máquina
   - [x] `start`, `stop`, `restart`, `logs`, `exec` — Compose como librería (ADR-009 bis)
-  - [ ] `magento`, `composer`
+  - [x] `magento`, `composer` — el baile del vendor en macOS sigue en shell
 - [ ] **4 · Registro SQLite con las dos topologías + tanda 2**
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web**
@@ -67,6 +67,7 @@ Medido en esta máquina, misma salida byte a byte:
 | `start` (crear el entorno) | 555 ms | **265 ms** |
 | `start` (entorno ya en marcha) | 320 ms | **95 ms** |
 | `stop` (parar el entorno) | 10,3 s | 10,2 s — lo que tarda es el contenedor |
+| `magento <lo que sea>` | 210 ms | **75 ms** de envoltorio |
 
 De dónde sale: leer la configuración de compose con librería en vez de `docker compose config`
 son 1,7 ms contra 58 ms, y las preguntas independientes —la rama de cada entorno, la versión de
@@ -76,6 +77,12 @@ bash no puede hacer.
 Lo que cuesta: enlazar el motor de Compose sube el binario publicado de **8,5 MB a 60,6 MB** y el
 grafo de dependencias de 70 módulos a 426. Es el precio de ADR-009 bis y está aceptado a
 conciencia; el detalle y lo que se compra con ello, en `docs/research/2.0-arquitectura.md`.
+
+`composer install|update|require|remove` sigue en shell **en macOS**: ahí no se ejecuta en el
+contenedor sin más, sino que se copia el `vendor` dentro, corre Composer y se copia el árbol
+entero de vuelta encima del host —borrando su `vendor` por el camino—. Depende de
+`copy-to-container`, que no está portado, y no es cosa de portar a medias. Todo lo demás de
+`composer` y `magento` va por Go en las dos plataformas.
 
 `start` y `restart` siguen en shell **en Linux**: arrancar ahí también iguala los ids de usuario y
 grupo del contenedor con los del host y escribe los dominios del proyecto en su `/etc/hosts`, y
@@ -99,7 +106,7 @@ herramientas externas y pueden quedarse en shell indefinidamente.
 | `cloud` | tools | 4 | shell |
 | `cloud-login` | tools | 4 | shell |
 | `compatibility` | tools | 4 | shell |
-| `composer` | magento | 1 | shell |
+| `composer` | magento | 1 | go |
 | `config-env` | tools | 3 | shell |
 | `copy-from-container` | files | 3 | shell |
 | `copy-to-container` | files | 3 | shell |
@@ -119,7 +126,7 @@ herramientas externas y pueden quedarse en shell indefinidamente.
 | `launch` | environment | 3 | shell |
 | `list` | environment | 1 | go |
 | `logs` | environment | 1 | go |
-| `magento` | magento | 1 | shell |
+| `magento` | magento | 1 | go |
 | `masquerade` | database | 3 | shell |
 | `mcp` | ai | 3 | shell |
 | `mysql` | database | 3 | shell |

@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -225,15 +224,8 @@ func execute(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	operator := operatorFor(project, stdout, stderr, jsonOutput)
 
-	// A terminal is asked for only when there is one, which is what the docker CLI itself does:
-	// asking for one where there is none is how a command that works by hand fails in CI
-	options := core.ExecOptions{
-		User:        user,
-		Interactive: true,
-		Tty:         isTerminal(os.Stdin) && isTerminal(os.Stdout),
-	}
-
-	status, err := operator.Orchestrator.Exec(project, composeFilesFor(project), "phpfpm", args, options)
+	status, err := operator.Orchestrator.Exec(project, composeFilesFor(project), phpService,
+		args, terminalOptions(user))
 	if status != 0 {
 		return status
 	}

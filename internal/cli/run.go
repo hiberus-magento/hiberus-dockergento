@@ -71,6 +71,14 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			jsonOutput, rest := wantsJSON(args[1:], stdout)
 
 			return logs(rest, stdout, stderr, jsonOutput)
+		case "magento":
+			return magento(args[1:], stdout, stderr, !isTerminal(stdout))
+		case "composer":
+			// The invocation that rewrites the host's dependency tree stays with the shell
+			// implementation, and only that one
+			if !mirrorsVendor(args[1:]) {
+				return composer(args[1:], stdout, stderr, !isTerminal(stdout))
+			}
 		case "exec":
 			// Everything after the command belongs to the command, so the global flags are not
 			// consumed here: `hm exec grep --json` is asking grep for --json

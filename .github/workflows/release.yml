@@ -1,0 +1,40 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  #
+  # On macOS, and not on Linux, for one reason: Compose's file watcher reaches macOS's FSEvents
+  # through cgo, so a darwin binary cannot be cross-compiled with cgo off — it fails to build at
+  # all. A macOS runner produces all four: darwin natively and for the other architecture through
+  # Apple's toolchain, and linux with cgo off, which cross-compiles from anywhere.
+  #
+  binaries:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Both platforms build before anything is published
+        run: |
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build ./...
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build ./...
+          CGO_ENABLED=0 GOOS=linux  GOARCH=arm64 go build ./...
+          CGO_ENABLED=0 GOOS=linux  GOARCH=amd64 go build ./...
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

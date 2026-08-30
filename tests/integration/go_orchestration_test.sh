@@ -172,4 +172,33 @@ test_case "and a failed snapshot leaves the environment running"
 assert_equals "1" "$?"
 assert_equals "2" "$(docker ps -q -f "label=com.docker.compose.project=$PROJECT" | wc -l | tr -d ' ')"
 
+# ---------------------------------------------------------------- php and composer
+#
+# Both are the same thing underneath — something run in the php container — and what has to match
+# is the wrapper: the command it builds, and the exit code it hands back.
+
+test_case "the Magento CLI is invoked the same way"
+( cd "$DIR" && "$SHELL_CLI" magento cache:flush >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
+( cd "$DIR" && "$GO_BINARY"  magento cache:flush >"$LAB/go.out" 2>&1 );    GO_STATUS=$?
+assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
+assert_equals "$SHELL_STATUS" "$GO_STATUS"
+
+test_case "and so is Composer"
+( cd "$DIR" && "$SHELL_CLI" composer show >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
+( cd "$DIR" && "$GO_BINARY"  composer show >"$LAB/go.out" 2>&1 );    GO_STATUS=$?
+assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
+assert_equals "$SHELL_STATUS" "$GO_STATUS"
+
+#
+# Said before anything runs, because Composer would create the project in the container and leave
+# it there. The shell implementation printed a paragraph to stdout and exited 2; this says the
+# same thing through the error contract, so a --json caller can read it.
+#
+test_case "creating a project through Composer is refused, with the usage code"
+( cd "$DIR" && "$GO_BINARY" composer create-project >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
+( cd "$DIR" && "$SHELL_CLI" composer create-project >/dev/null 2>&1 );     SHELL_STATUS=$?
+assert_equals "2" "$GO_STATUS"
+assert_equals "$SHELL_STATUS" "$GO_STATUS"
+assert_contains "$(cat "$LAB/go.err")" "create-project"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
