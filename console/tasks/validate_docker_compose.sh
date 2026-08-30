@@ -9,8 +9,8 @@ source "$HELPERS_DIR"/cache.sh
 # Validating the configuration costs a round trip to Compose: 72ms warm, 325ms cold, on
 # nearly every command, while the files themselves change once in a blue moon.
 #
-# The cache key is the project root and the validity token is the modification time of the
-# compose files, so any edit invalidates it. It errs on the safe side: it revalidates more
+# The cache key is the project root and the validity token is the modification time and size of
+# the compose files, so any edit invalidates it. It errs on the safe side: it revalidates more
 # often than strictly needed, never less. `hm doctor` skips project validation altogether
 # and runs the real check itself, so there is always a way to verify for real.
 #
@@ -19,7 +19,7 @@ CACHE_TOKEN=""
 
 for compose_file in "$DOCKER_COMPOSE_FILE" "$DOCKER_COMPOSE_FILE_MACHINE"; do
     if [ -f "$compose_file" ]; then
-        CACHE_TOKEN="$CACHE_TOKEN:$(hm_file_mtime "$compose_file")"
+        CACHE_TOKEN="$CACHE_TOKEN:$(hm_file_token "$compose_file")"
     fi
 done
 

@@ -566,7 +566,24 @@
             }
         ],
         "group": "tools",
-        "safety": "caution"
+        "safety": "caution",
+        "usage": "set-host [<domain>] [--remove] [--no-database]",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "remove"
+                },
+                "description": "Remove the entry this tool added for the domain, and nothing else"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "no-database"
+                },
+                "description": "Only touch /etc/hosts, not core_config_data"
+            }
+        ]
     },
     "setup": {
         "description": "Dockerize magento project",

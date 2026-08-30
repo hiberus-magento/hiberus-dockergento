@@ -12,6 +12,8 @@
 # no record at all — somebody would rely on it.
 #
 
+source "$HELPERS_DIR"/lock.sh
+
 HM_STATE_DIR="${HM_STATE_DIR:-$HOME/.hm/state}"
 
 hm_state_file() {
@@ -49,7 +51,7 @@ hm_anonymisation_record() {
     [ -f "$file" ] && existing=$(jq -c . "$file" 2>/dev/null || echo '{}')
 
     printf '%s' "$existing" | jq --arg at "$(date '+%Y-%m-%d %H:%M')" \
-        '.anonymised_at = $at' > "$file.tmp" && mv "$file.tmp" "$file"
+        '.anonymised_at = $at' | hm_write_atomically "$file"
 }
 
 #
@@ -61,6 +63,6 @@ hm_anonymisation_clear() {
 
     [ -f "$file" ] || return 0
 
-    jq 'del(.anonymised_at)' "$file" > "$file.tmp" 2>/dev/null && mv "$file.tmp" "$file"
+    jq 'del(.anonymised_at)' "$file" 2>/dev/null | hm_write_atomically "$file"
     return 0
 }

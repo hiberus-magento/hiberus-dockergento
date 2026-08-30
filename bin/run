@@ -118,9 +118,34 @@ docker_env_variables() {
             export HM_WORKTREE_OVERLAY
             HM_WORKTREE_OVERLAY=$(hm_worktree_overlay_file "$COMPOSE_PROJECT_NAME" "$HM_WORKTREE")
             HM_ROOT="$WORKTREE_PATH"
+
+            #
+            # The properties directory is derived from the project root, and the root was not
+            # known until the registration had been read: everything until this point had been
+            # reading the main checkout's properties, and `save_properties` from a worktree wrote
+            # into somebody else's checkout.
+            #
+            # Re-deriving and re-reading is not elegant. Keying the registry by path rather than
+            # by project name would remove the need entirely, and that belongs to the rebuild of
+            # the registry; here the cost is one more read of a small file.
+            #
+            export CUSTOM_PROPERTIES_DIR="$HM_ROOT/$DOCKER_CONFIG_DIR"
+            export CUSTOM_COMMANDS_DIR="$HM_ROOT/config/$COMMAND_BIN_NAME/commands"
+            load_properties
+
+            #
+            # After the re-read, not before: the worktree's properties.json is the same committed
+            # file as the main checkout's and names the same compose project, so reading it back
+            # would undo exactly the identity this environment is built on.
+            #
             COMPOSE_PROJECT_NAME="$WORKTREE_PROJECT"
+
             export HM_PROFILE="$WORKTREE_PROFILE"
             export DOMAIN="$WORKTREE_DOMAIN"
+
+            # An environment on the agent profile is an environment an agent works in, and until
+            # now nothing said so: the label existed and was always empty
+            [ "$WORKTREE_PROFILE" == "agent" ] && export HM_AGENT="true" || true
         fi
     fi
 

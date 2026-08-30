@@ -136,7 +136,9 @@ hm_context_write_block() {
         return 1
     fi
 
-    temporary="$file.hm-tmp"
+    # A fixed temporary name is not a temporary file, it is a shared file with a longer name:
+    # two of these at once interleave
+    temporary=$(mktemp "$file.XXXXXX") || return 1
 
     {
         head -n "$((begin_line - 1))" "$file"
@@ -165,7 +167,7 @@ hm_context_write_mcp() {
         existing=$(jq -c . "$file" 2>/dev/null) || existing='{}'
     fi
 
-    temporary="$file.hm-tmp"
+    temporary=$(mktemp "$file.XXXXXX") || return 1
 
     printf '%s' "$existing" | jq --arg command "$command" --arg directory "$directory" \
         --arg name "${COMMAND_BIN_NAME:-hm}" '

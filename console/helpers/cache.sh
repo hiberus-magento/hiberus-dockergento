@@ -16,11 +16,21 @@
 HM_CACHE_DIR="${HM_CACHE_DIR:-$HOME/.hm/cache}"
 
 #
-# Modification time of a file, portable across macOS and Linux
+# Which `stat` this machine has, decided once.
 #
-hm_file_mtime() {
-    stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo "0"
-}
+# Not by trying one and falling back on failure: busybox's `stat -f` means "filesystem status",
+# so on Alpine the BSD form printed a block of filesystem information **and exited successfully**.
+# The fallback never ran and the value was a multi-line blob that no cache could compare. GNU is
+# tried first because BSD's `stat` rejects `-c` cleanly, which is what makes the detection work
+# at all.
+#
+if stat -c %Y . >/dev/null 2>&1; then
+    hm_file_mtime() { stat -c %Y "$1" 2>/dev/null || echo "0"; }
+    hm_file_token() { stat -c "%Y-%s" "$1" 2>/dev/null || echo "0"; }
+else
+    hm_file_mtime() { stat -f %m "$1" 2>/dev/null || echo "0"; }
+    hm_file_token() { stat -f "%m-%z" "$1" 2>/dev/null || echo "0"; }
+fi
 
 #
 # hm_cache_read <key> <token> — prints the value, returns non-zero on a miss

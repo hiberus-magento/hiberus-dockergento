@@ -120,11 +120,47 @@ do_add() {
 
     name=$(hm_worktree_slug "$(basename "$path")")
 
+    local child domain
+    child="$project-$name"
+    domain="$name.${DOMAIN:-localhost}"
+
+    #
+    # Names are refused, never resolved. Appending a number would give the environment a name
+    # nobody chose — and here the name decides which containers, which volumes and which database
+    # are used, so a name nobody chose is how somebody ends up working in an environment they did
+    # not mean to open.
+    #
     if hm_worktree_is_registered "$project" "$name"; then
         hm_worktree_load "$project" "$name"
-        hm_fail "$HM_EXIT_USAGE" "already_registered" \
-            "'$name' already has an environment at $WORKTREE_PATH" \
-            "$COMMAND_BIN_NAME worktree list"
+
+        if [ "$WORKTREE_BRANCH" == "$branch" ]; then
+            hm_fail "$HM_EXIT_USAGE" "already_registered" \
+                "'$name' already has an environment at $WORKTREE_PATH" \
+                "$COMMAND_BIN_NAME worktree list"
+        fi
+
+        # Two different branches whose names reduce to the same thing: feature/x and Feature_X
+        hm_fail "$HM_EXIT_USAGE" "name_taken" \
+            "'$branch' would be called '$name', and that name belongs to '$WORKTREE_BRANCH'" \
+            "$COMMAND_BIN_NAME worktree add $branch --path=<another directory>"
+    fi
+
+    hm_load_container_table
+
+    if [ -n "$(hm_container_table | awk -F'|' -v p="$child" '$3 == p { print $1 }')" ]; then
+        hm_fail "$HM_EXIT_USAGE" "project_taken" \
+            "There is already an environment called '$child' on this machine" \
+            "$COMMAND_BIN_NAME list"
+    fi
+
+    #
+    # Two environments answering on one address is not something Traefik refuses — the routers
+    # have different names, so it accepts both and the routing is simply ambiguous.
+    #
+    if hm_proxy_is_running && printf '%s\n' "$(hm_proxy_routes)" | grep -qF "\`$domain\`"; then
+        hm_fail "$HM_EXIT_USAGE" "address_taken" \
+            "Something is already routed at $domain" \
+            "$COMMAND_BIN_NAME proxy status"
     fi
 
     if [ -e "$path" ]; then
@@ -132,10 +168,6 @@ do_add() {
             "$path already exists" \
             "$COMMAND_BIN_NAME worktree add $branch --path=<somewhere else>"
     fi
-
-    local child domain
-    child="$project-$name"
-    domain="$name.${DOMAIN:-localhost}"
 
     # ------------------------------------------------------------ the checkout
 
@@ -172,11 +204,24 @@ do_add() {
         mounts=$(hm_worktree_vendor_mounts "$HM_ROOT" "${WORKDIR_PHP:-/var/www/html}")
     fi
 
+    #
+    # Checked and written under one lock. Without it the four steps — is the name free, create the
+    # worktree, write the overlay, write the registration — are four moments in which another
+    # agent can do the same thing, and both end up believing they own it.
+    #
+    if ! hm_lock_acquire "$HM_WORKTREE_LOCK"; then
+        hm_fail "$HM_EXIT_BLOCKED" "locked" \
+            "Another worktree is being created; this one waited ${HM_LOCK_TIMEOUT}s" \
+            "Try again in a moment"
+    fi
+
     hm_worktree_write_overlay \
         "$(hm_worktree_overlay_file "$project" "$name")" \
         "$profile" "$domain" "$child" "$services" "$HM_PROXY_NETWORK" "$mounts"
 
     hm_worktree_save "$project" "$name" "$path" "$branch" "$profile" "$domain" "$child" "$vendor"
+
+    hm_lock_release "$HM_WORKTREE_LOCK"
 
     # ------------------------------------------------------------ dependencies
 

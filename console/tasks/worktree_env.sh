@@ -12,7 +12,13 @@
 # it is still the case that repoints the main environment's mounts and destroys its database.
 #
 
+source "$HELPERS_DIR"/lock.sh
+
 HM_WORKTREE_HOME="${HM_WORKTREE_DIR:-$HOME/.hm/worktrees}"
+
+# One name for the lock: the registry is shared by every project on the machine, and the whole
+# point is that two agents registering different worktrees still take turns
+HM_WORKTREE_LOCK="worktrees"
 
 #
 # The services each profile keeps. Empty means "everything the project has".
@@ -113,13 +119,17 @@ hm_worktree_save() {
     jq -n --arg path "$path" --arg branch "$branch" --arg profile "$profile" \
         --arg domain "$domain" --arg project "$child" --arg parent "$project" \
         --arg vendor "$vendor" \
-        --arg created "$(date "+%Y-%m-%d %H:%M")" '$ARGS.named' \
-        > "$(hm_worktree_record "$project" "$name")"
+        --arg created "$(date "+%Y-%m-%d %H:%M")" '$ARGS.named' |
+        hm_write_atomically "$(hm_worktree_record "$project" "$name")"
 }
 
 hm_worktree_forget() {
     rm -f "$(hm_worktree_record "$1" "$2")" "$(hm_worktree_overlay_file "$1" "$2")"
-    rmdir "$(hm_worktree_home "$1")" 2>/dev/null || true
+
+    # Under the lock: `rmdir` succeeds only on an empty directory, and the moment between another
+    # process creating its registration and writing into it is exactly when this would take the
+    # directory out from under it
+    hm_with_lock "$HM_WORKTREE_LOCK" rmdir "$(hm_worktree_home "$1")" 2>/dev/null || true
 }
 
 #

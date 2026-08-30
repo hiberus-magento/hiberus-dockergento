@@ -141,6 +141,30 @@ for registry in "$HM_WORKTREE_HOME"/*; do
     done <<< "$(hm_worktree_names "$parent")"
 done
 
+#
+# Entries this tool put in /etc/hosts whose environment no longer exists.
+#
+# Listed and never removed here. It needs sudo, it is a file other things depend on, and a
+# command that quietly rewrites it in the middle of an unrelated cleanup is one nobody trusts
+# twice. What it can do is find them — which nothing could before the entries were marked.
+#
+orphan_hosts=""
+
+if [ -r /etc/hosts ]; then
+    known_domains=$(hm_container_table | awk -F'|' '{ print $3 }' | sort -u)
+
+    while IFS= read -r domain; do
+        [ -z "$domain" ] && continue
+
+        # A domain belongs to a live environment when some project on the machine is named after
+        # its first label — which is how this tool builds them
+        printf '%s\n' "$known_domains" | grep -qx "${domain%%.*}" && continue
+
+        orphan_hosts="${orphan_hosts}${domain}\n"
+    done <<< "$(grep "added by $COMMAND_BIN_NAME" /etc/hosts 2>/dev/null |
+        awk '{ for (i = 1; i <= NF; i++) if ($i ~ /\./) { print $i; break } }')"
+fi
+
 count_lines() {
     [ -z "$1" ] && { printf '0'; return 0; }
     printf "$1" | sed '/^$/d' | grep -c . | tr -d ' '
@@ -151,6 +175,7 @@ volumes=$(count_lines "$collectable_volumes")
 strays=$(count_lines "$orphan_volumes")
 unknown=$(count_lines "$unattributable")
 worktrees=$(count_lines "$orphan_worktrees")
+hosts=$(count_lines "$orphan_hosts")
 
 # ------------------------------------------------------------------ report
 
@@ -161,6 +186,7 @@ if is_json_output; then
         --arg strays "$orphan_volumes" \
         --arg unknown "$unattributable" \
         --arg worktrees "$orphan_worktrees" \
+        --arg hosts "$orphan_hosts" \
         --argjson removed "$($remove && echo true || echo false)" \
         '{
             removed: $removed,
@@ -169,6 +195,7 @@ if is_json_output; then
             volumes: ($volumes | split("\n") | map(select(length > 0))),
             worktrees: ($worktrees | split("\n") | map(select(length > 0) | split("\t") |
                 {name: .[0], project: .[1], path: .[2]})),
+            hosts: ($hosts | split("\n") | map(select(length > 0))),
             unattributable: {
                 volumes: ($strays | split("\n") | map(select(length > 0))),
                 environments: ($unknown | split("\n") | map(select(length > 0) | split("\t") |
@@ -197,6 +224,16 @@ if ! is_json_output; then
         printf "$orphan_worktrees" | while IFS=$'\t' read -r name project path; do
             [ -n "$name" ] && printf '  %-28s was at %s\n' "$name" "$path"
         done
+    fi
+
+    if [ "$hosts" -gt 0 ]; then
+        printf '\n'
+        print_heading "Entries in /etc/hosts with no environment left\n\n"
+        printf "$orphan_hosts" | while IFS= read -r domain; do
+            [ -n "$domain" ] && printf '  %-32s %s set-host --remove %s\n' \
+                "$domain" "$COMMAND_BIN_NAME" "$domain"
+        done
+        printf '\n  Not removed from here: that file needs a password and other things depend on it.\n'
     fi
 
     if [ "$strays" -gt 0 ] || [ "$unknown" -gt 0 ]; then
