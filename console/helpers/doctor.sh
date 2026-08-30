@@ -35,6 +35,47 @@ doctor_warning() { doctor_result "warning" "$1" "${2:-}"; }
 doctor_error()   { doctor_result "error" "$1" "${2:-}"; }
 
 #
+# How much memory the machine has, in bytes, on either platform
+#
+hm_host_memory_bytes() {
+    sysctl -n hw.memsize 2>/dev/null && return 0
+    awk '/^MemTotal:/ { print $2 * 1024 }' /proc/meminfo 2>/dev/null && return 0
+    printf '0'
+}
+
+#
+# Whether the memory the containers actually have is enough, and enough compared to what the
+# machine has.
+#
+# The two numbers are different on macOS and identical on Linux, and that difference is the whole
+# reason this check exists: a laptop with 48 GB whose Docker VM has 6 is a laptop that fits six
+# environments, and nothing said so. Measured cost of one environment on the agent profile —
+# php, nginx, database, search and Redis — is about 550 MB, of which the search engine is 85%.
+#
+# Pure so it can be tested without a daemon: verdict, in bytes.
+#
+hm_vm_memory_verdict() {
+    local vm="$1" host="$2"
+
+    [ "${vm:-0}" -le 0 ] && { printf 'unknown'; return 0; }
+
+    # Under four gigabytes not even one project with its full stack is comfortable
+    if [ "$vm" -lt $((4 * 1024 * 1024 * 1024)) ]; then
+        printf 'small'
+        return 0
+    fi
+
+    # A quarter of a machine that has something to spare. Below that the limit is a setting
+    # somebody forgot, not the hardware
+    if [ "${host:-0}" -ge $((16 * 1024 * 1024 * 1024)) ] && [ "$vm" -lt $((host / 4)) ]; then
+        printf 'cramped'
+        return 0
+    fi
+
+    printf 'fine'
+}
+
+#
 # True when the diagnosis is running inside a configured project
 #
 doctor_in_project() {

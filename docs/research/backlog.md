@@ -12,6 +12,15 @@
 > **Este backlog es de la 1.x.** Con la 1.x en mantenimiento, los puntos que quedan en la Ola 6
 > pertenecen en su mayoría a la 2.0: ver [2.0-arquitectura.md](2.0-arquitectura.md).
 
+## Pendiente de publicar (no es código)
+
+| Qué | Por qué | Estado |
+|---|---|---|
+| Reconstruir y publicar `hiberusmagento/nginx` 1.18, 1.28 y 1.30 | `worker_connections 1048576` reservaba **884 MB por contenedor**; con 1024 son 3,4 MB. Y `error_log debug` escribía un párrafo por petición. Corregido en `Dockerfiles/nginx/*/conf/nginx.conf`, pero el registro sigue teniendo las viejas | pendiente |
+| Publicar `hiberusmagento/mailpit` | Elegible desde 1.6.0; hasta que se publique, elegirlo deja el proyecto apuntando a algo que Docker no puede traer (`hm doctor` lo avisa) | pendiente |
+
+Ninguna de las dos se puede hacer desde el repositorio: las imágenes se publican a mano.
+
 ## Cómo usar este backlog
 
 - Cada ítem tiene **ID estable** (no se reutiliza), esfuerzo, dependencias y criterios de

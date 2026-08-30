@@ -63,6 +63,28 @@ The port list comes from the compose configuration, never from a list hardcoded 
 check. Outside a project, ports held by running environments are reported as information,
 not as a problem: that is the normal state of a working machine.
 
+## The memory check
+
+On macOS the containers do not run on your laptop. They run in a virtual machine — Colima, Docker
+Desktop — with whatever memory somebody gave it once, usually when they installed it and never
+since.
+
+A machine with 48 GB whose Docker VM has 6 fits about six environments at a time. Nothing said so,
+and the symptom was environments that would not start on a laptop with most of its memory free.
+
+```
+⚠ Docker has 6 GB of this machine's 48 GB, so about 8 environments fit at once
+  → colima stop && colima start --memory 16 --cpu 4
+```
+
+The figure of "about N environments" comes from a measurement: an environment on the `agent`
+profile — php, nginx, database, search and Redis — costs around 550 MB, and the search engine is
+85% of that. A full stack costs more.
+
+It warns when the VM has less than a quarter of a machine that has memory to spare, and fails when
+it has under 4 GB, which is not enough for one project. On Linux both numbers are the same and it
+always passes, which is the correct answer there.
+
 ## Robustness
 
 Each check runs in its own process with a time limit. A check that hangs or crashes is
