@@ -11,7 +11,7 @@
 | | |
 |---|---|
 | Rama | `release/2.0.0` |
-| Fase | **2 · esqueleto y puente**, en marcha |
+| Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
 | Comandos en Go | 0 de 63 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
@@ -33,14 +33,19 @@ detalle de cada una en `openspec/changes/`.
 
 - [x] **0 · Estabilizar la 1.x.** Concurrencia, colisiones, `vendor` montado, cachés que no
   invalidaban, chequeo de memoria de la VM. Prueba de diez worktrees pasada.
-- [ ] **2 · Esqueleto y puente** — *en marcha*
+- [x] **2 · Esqueleto y puente**
   - [x] Módulo, dominio, puertos y casos de uso separados de los adaptadores
   - [x] Puente a bash: todo lo no portado corre igual, con sus códigos de salida
   - [x] Resolución del proyecto en Go (raíz, worktree, properties), probada contra la de bash
   - [x] CI que compila, formatea, pasa `vet`, los tests de Go y la suite unitaria de bash
-  - [ ] Distribución: `goreleaser` y binarios para darwin/linux, amd64/arm64
-  - [ ] Instalación: que `hm` sea el binario y encuentre el árbol de shell
-- [ ] **3 · Adaptador de Docker (SDK) + tanda 1** — donde gana todo el equipo
+  - [x] Distribución: `goreleaser` y binarios para darwin/linux, amd64/arm64
+  - [x] Instalación: `hm` es el binario, con vuelta al shell si no se puede descargar
+- [ ] **3 · Adaptador de Docker (SDK) + tanda 1** — *en marcha*, donde gana todo el equipo
+  - [ ] Adaptador del demonio por SDK, con dobles para los tests
+  - [ ] `list` — el primero: sólo lectura, puro Docker, con contrato JSON que comparar
+  - [ ] `describe`, `doctor`
+  - [ ] `start`, `stop`, `restart`, `logs`, `exec`
+  - [ ] `magento`, `composer`
 - [ ] **4 · Registro SQLite con las dos topologías + tanda 2**
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web**

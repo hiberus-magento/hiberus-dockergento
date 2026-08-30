@@ -1,7 +1,8 @@
-# Go entry point
+# go-entrypoint Specification
 
-## ADDED Requirements
-
+## Purpose
+TBD - created by archiving change go-skeleton-and-bridge. Update Purpose after archive.
+## Requirements
 ### Requirement: Everything not ported runs unchanged
 
 The binary SHALL execute the shell implementation for every command it does not implement,
@@ -80,6 +81,28 @@ command does.
 - **WHEN** the names of these commands are compared with the shell implementation's
 - **THEN** none of them is a command the shell implementation has
 
+### Requirement: Installing the binary
+
+The release SHALL publish a binary per platform, and the installation SHALL make it the command,
+without taking the shell implementation away from a machine that cannot get it.
+
+#### Scenario: An installation
+
+- **WHEN** the tool is installed
+- **THEN** the binary for that platform and architecture is fetched into the checkout and the
+  command in the path points at it
+
+#### Scenario: A machine that cannot fetch it
+
+- **WHEN** the binary cannot be downloaded
+- **THEN** the command points at the shell implementation and says so, rather than leaving the
+  machine without a tool
+
+#### Scenario: Finding the shell tree from where it is installed
+
+- **WHEN** the binary is invoked through the symlink an installation leaves in the path
+- **THEN** it finds the shell tree beside it, whatever directory it was invoked from
+
 ### Requirement: The state of the migration is written down and true
 
 The repository SHALL carry a document saying where the migration is, and a test SHALL keep it
@@ -100,3 +123,4 @@ from drifting.
 
 - **WHEN** somebody opens the document
 - **THEN** it says how to build it, how to test it, and which phase is next
+

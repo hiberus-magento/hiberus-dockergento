@@ -1,0 +1,42 @@
+# The release publishes binaries, not archives with the tree inside.
+#
+# The installation *is* the git checkout: that is how `hm switch` and `hm update` work, by moving
+# the repository to another version. So a release adds one file to that checkout — the binary for
+# the platform — and everything else keeps coming from git.
+#
+# The consequence, which is written down rather than discovered: the binary has to follow the
+# checkout. Switching versions has to fetch the matching binary, or the two halves of the tool
+# stop agreeing with each other.
+version: 2
+
+project_name: hm
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: hm
+    main: ./cmd/hm
+    binary: hm
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X github.com/hiberus-magento/hiberus-dockergento/internal/cli.Version={{.Version}}
+
+archives:
+  - id: hm
+    formats: [binary]
+    name_template: "hm_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true
+
+release:
+  draft: false
+  prerelease: auto

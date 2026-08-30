@@ -9,4 +9,4 @@
 - [x] Integration test comparing the binary with the shell CLI
 - [x] CI: format, vet, Go tests, shell unit suite
 - [x] `MIGRATION.md` and the test that keeps it honest
-- [ ] Distribution with goreleaser and an installation that makes `hm` the binary
+- [x] Distribution with goreleaser and an installation that makes `hm` the binary

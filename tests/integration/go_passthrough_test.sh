@@ -95,4 +95,41 @@ assert_equals "classic" "$(printf '%s' "$resolved" | jq -r '.topology')"
 test_case "the binary says which build it is, which the shell one cannot"
 assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" hm-go-version >/dev/null 2>&1; echo $?)"
 
+# ---------------------------------------------------------------- installed shape
+#
+# The installation is the checkout with one file added: the binary at bin/hm, beside bin/run. It
+# has to find the shell tree from there, whatever directory it is invoked from and whether it was
+# reached through a symlink — which is how /usr/local/bin/hm reaches it.
+
+INSTALL="$LAB/instalado"
+mkdir -p "$INSTALL/bin" "$INSTALL/console"
+cp "$GO_BINARY" "$INSTALL/bin/hm"
+printf '#!/bin/sh\nprintf "soy el shell: %%s\\n" "$*"\n' > "$INSTALL/bin/run"
+chmod +x "$INSTALL/bin/run"
+
+test_case "the binary finds the shell tree beside it"
+assert_equals "soy el shell: list" "$( cd "$LAB" && HM_LEGACY_ROOT= "$INSTALL/bin/hm" list )"
+
+test_case "and through the symlink an installation leaves in the path"
+ln -sf "$INSTALL/bin/hm" "$LAB/hm-enlazado"
+assert_equals "soy el shell: list" "$( cd "$LAB" && HM_LEGACY_ROOT= "$LAB/hm-enlazado" list )"
+
+test_case "a checkout with no shell tree says so instead of guessing"
+mkdir -p "$LAB/roto/bin"
+cp "$GO_BINARY" "$LAB/roto/bin/hm"
+( cd "$LAB" && HM_LEGACY_ROOT= "$LAB/roto/bin/hm" list >/dev/null 2>"$LAB/roto.err" )
+assert_equals "3" "$?"
+assert_contains "$(cat "$LAB/roto.err")" "shell implementation"
+
+test_case "the release builds the binary for both platforms and both architectures"
+assert_contains "$(cat "$COMMAND_BIN_DIR/.goreleaser.yaml")" "goos: [darwin, linux]"
+assert_contains "$(cat "$COMMAND_BIN_DIR/.goreleaser.yaml")" "goarch: [amd64, arm64]"
+
+test_case "and stamps the version into the binary"
+assert_contains "$(cat "$COMMAND_BIN_DIR/.goreleaser.yaml")" "internal/cli.Version={{.Version}}"
+
+test_case "the installer prefers the binary and falls back to the shell"
+assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$HOME/hm/bin/hm"'
+assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$HOME/hm/bin/run"'
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

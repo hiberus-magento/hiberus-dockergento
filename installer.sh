@@ -74,6 +74,40 @@ clone_project() {
 }
 
 #
+# Fetch the compiled entry point for this machine.
+#
+# From 2.0 the command is a binary that runs the shell implementation for everything not ported
+# yet. The installation is still the git checkout — that is how `hm switch` and `hm update` work —
+# so this adds exactly one file to it.
+#
+# A machine that cannot get the binary is not left without a tool: the link falls back to the
+# shell implementation, which is the whole of 1.x and most of 2.0.
+#
+download_binary() {
+    local system architecture asset
+
+    case "$(uname -s)" in
+        Darwin) system="darwin" ;;
+        Linux)  system="linux" ;;
+        *)      return 1 ;;
+    esac
+
+    case "$(uname -m)" in
+        arm64 | aarch64) architecture="arm64" ;;
+        x86_64 | amd64)  architecture="amd64" ;;
+        *)               return 1 ;;
+    esac
+
+    asset="https://github.com/hiberus-magento/hiberus-dockergento/releases/latest/download/hm_${system}_${architecture}"
+
+    curl -fsSL "$asset" -o "$HOME/hm/bin/hm.download" 2>/dev/null || return 1
+    chmod +x "$HOME/hm/bin/hm.download"
+
+    # Renamed once it is whole: an interrupted download must not look like an entry point
+    mv "$HOME/hm/bin/hm.download" "$HOME/hm/bin/hm"
+}
+
+#
 # Create binary link to hm command
 #
 create_link_to_command() {
@@ -82,10 +116,18 @@ create_link_to_command() {
         sudo mkdir -p /usr/local/bin
     fi
 
+    local target="$HOME/hm/bin/run"
+
+    if [ -x "$HOME/hm/bin/hm" ] || download_binary; then
+        target="$HOME/hm/bin/hm"
+    else
+        echo -e "${orange}Could not fetch the compiled command; using the shell one.${colorReset}"
+    fi
+
     # Link hm command
     if [ ! -e /usr/local/bin/hm ]; then
-        sudo ln -s "$HOME"/hm/bin/run /usr/local/bin/hm
-    fi 
+        sudo ln -s "$target" /usr/local/bin/hm
+    fi
 }
 
 check_dependencies
