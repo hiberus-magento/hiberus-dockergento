@@ -58,6 +58,7 @@ func (e Engine) Containers() ([]core.Container, error) {
 		containers = append(containers, core.Container{
 			ID:             item.ID,
 			Running:        item.State == "running",
+			StateName:      item.State,
 			ComposeProject: item.Labels["com.docker.compose.project"],
 			ComposeService: item.Labels["com.docker.compose.service"],
 			Project:        item.Labels["hm.project"],

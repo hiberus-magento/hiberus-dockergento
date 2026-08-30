@@ -51,6 +51,32 @@ type Branches interface {
 	Branch(dir string) string
 }
 
+// ComposeConfig reads a project's Compose configuration.
+type ComposeConfig interface {
+	Load(root, name string, files []string) (core.Compose, error)
+}
+
+// MagentoFiles reads what the project's own files say, which works with the environment stopped —
+// and that is the point: the first question anybody asks is asked before anything is running.
+type MagentoFiles interface {
+	Version(root, magentoDir string) string
+	Mode(root, magentoDir string) string
+	AdminPath(root, magentoDir string) string
+}
+
+// Tooling is what the machine says about itself.
+type Tooling interface {
+	Version() string
+	ComposeVersion() string
+	Workdir() string
+	Xdebug(project string) string
+}
+
+// DataState is whether this copy of the data has been anonymised, and when.
+type DataState interface {
+	Anonymisation(project string) (string, string)
+}
+
 // Legacy runs a command of the shell implementation.
 //
 // It exists because the migration is a strangler and not a rewrite: what has not been ported yet

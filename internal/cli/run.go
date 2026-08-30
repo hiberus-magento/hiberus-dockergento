@@ -49,10 +49,17 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	// left is passed to the command, which is why an unknown option still reaches it and is still
 	// a usage error.
 	//
-	if len(args) > 0 && args[0] == "list" {
-		jsonOutput, rest := wantsJSON(args[1:], stdout)
+	if len(args) > 0 {
+		switch args[0] {
+		case "list":
+			jsonOutput, rest := wantsJSON(args[1:], stdout)
 
-		return list(rest, stdout, stderr, jsonOutput)
+			return list(rest, stdout, stderr, jsonOutput)
+		case "describe":
+			jsonOutput, rest := wantsJSON(args[1:], stdout)
+
+			return describe(rest, stdout, stderr, jsonOutput)
+		}
 	}
 
 	code, err := runner.Run(args)

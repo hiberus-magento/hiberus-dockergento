@@ -54,9 +54,33 @@ test_case "the version command answers the same"
 assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
 assert_equals "$SHELL_STATUS" "$GO_STATUS"
 
+# ---------------------------------------------------------------- ported: describe
+#
+# The richest document the tool produces, and the command run most often. Compared whole, with
+# and without the secrets, and as a table with colour turned off — anything less and a port could
+# quietly drop a field nobody looks at until an agent needs it.
+
 both describe --json
-test_case "and so does describe, field for field"
+test_case "describe answers exactly what the shell one did"
 assert_equals "$(jq -S . < "$LAB/shell.out" 2>/dev/null)" "$(jq -S . < "$LAB/go.out" 2>/dev/null)"
+
+both describe --json --with-secrets
+test_case "and with the credentials too, when they are asked for"
+assert_equals "$(jq -S . < "$LAB/shell.out" 2>/dev/null)" "$(jq -S . < "$LAB/go.out" 2>/dev/null)"
+
+test_case "which are never volunteered"
+both describe --json
+assert_equals "null" "$(jq -r '.data.credentials // "null"' < "$LAB/go.out")"
+
+test_case "and the table is the same, character for character"
+( cd "$DIR" && NO_COLOR=1 "$SHELL_CLI" --no-json describe >"$LAB/shell.out" 2>&1 )
+( cd "$DIR" && NO_COLOR=1 "$GO_BINARY"  --no-json describe >"$LAB/go.out" 2>&1 )
+assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
+
+both describe --nonsense
+test_case "an option nobody declared is refused the same way"
+assert_equals "2" "$GO_STATUS"
+assert_equals "$SHELL_STATUS" "$GO_STATUS"
 
 # ---------------------------------------------------------------- ported: list
 #

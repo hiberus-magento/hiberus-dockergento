@@ -12,7 +12,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 1 de 63 |
+| Comandos en Go | 2 de 63 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -43,7 +43,8 @@ detalle de cada una en `openspec/changes/`.
 - [ ] **3 · Adaptador de Docker (SDK) + tanda 1** — *en marcha*, donde gana todo el equipo
   - [x] Adaptador del demonio por SDK, resolviendo el socket desde el contexto de Docker
   - [x] `list` — el primero: sólo lectura, puro Docker, salida idéntica byte a byte
-  - [ ] `describe`, `doctor`
+  - [x] `describe` — el más usado y el de contrato más rico
+  - [ ] `doctor`
   - [ ] `start`, `stop`, `restart`, `logs`, `exec`
   - [ ] `magento`, `composer`
 - [ ] **4 · Registro SQLite con las dos topologías + tanda 2**
@@ -53,6 +54,20 @@ detalle de cada una en `openspec/changes/`.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
+
+## Lo que va costando cada comando portado
+
+Medido en esta máquina, misma salida byte a byte:
+
+| | bash | go |
+|---|---|---|
+| `list --json` | 205 ms | **63 ms** |
+| `describe --json` | 285 ms | **94 ms** |
+
+De dónde sale: leer la configuración de compose con librería en vez de `docker compose config`
+son 1,7 ms contra 58 ms, y las preguntas independientes —la rama de cada entorno, la versión de
+git, la de compose, el exec de xdebug— se hacen a la vez en lugar de en fila. Eso último es lo que
+bash no puede hacer.
 
 ## Los comandos
 
@@ -80,7 +95,7 @@ herramientas externas y pueden quedarse en shell indefinidamente.
 | `dbeaver` | database | 3 | shell |
 | `debug-off` | tools | 3 | shell |
 | `debug-on` | tools | 3 | shell |
-| `describe` | environment | 1 | shell |
+| `describe` | environment | 1 | go |
 | `docker-compose` | tools | 3 | shell |
 | `docker-stop-all` | tools | 3 | shell |
 | `doctor` | environment | 1 | shell |
