@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -313,11 +312,3 @@ func truthy(value string) bool {
 
 	return false
 }
-
-// onThisPlatform reports whether the Go implementation of `start` is the one that runs here.
-//
-// On Linux it is not, and that is declared rather than half-done: starting an environment there
-// also matches the container's user and group ids to the host's and writes the project's domains
-// into the container's /etc/hosts, and neither of those is ported yet. A `start` that quietly
-// skipped them would leave an environment that looks up and cannot write to its own files.
-func onThisPlatform() bool { return runtime.GOOS == "darwin" }

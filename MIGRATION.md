@@ -12,7 +12,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 10 de 63 |
+| Comandos en Go | 10 de 64 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -84,10 +84,12 @@ entero de vuelta encima del host —borrando su `vendor` por el camino—. Depen
 `copy-to-container`, que no está portado, y no es cosa de portar a medias. Todo lo demás de
 `composer` y `magento` va por Go en las dos plataformas.
 
-`start` y `restart` siguen en shell **en Linux**: arrancar ahí también iguala los ids de usuario y
-grupo del contenedor con los del host y escribe los dominios del proyecto en su `/etc/hosts`, y
-ninguna de las dos cosas está portada. La frontera es una condición en un sitio y se va cuando se
-vayan esas tareas.
+`start` y `restart` van por Go **en las dos plataformas**. Lo que en Linux hay que hacer después
+—igualar los ids de usuario y grupo del contenedor con los del host, y escribir los dominios del
+proyecto en su `/etc/hosts`— se devuelve al shell como `hm post-start`, que es un comando y no un
+bloque dentro de `start`: hay dos cosas que levantan entornos ahora, y una sola copia de esos
+pasos. Sigue en shell porque el segundo lee los dominios de la base de datos con `hm mysql`, que
+es tanda 3: portarlo ahora sería portar aquello primero.
 
 ## Los comandos
 
@@ -133,6 +135,7 @@ herramientas externas y pueden quedarse en shell indefinidamente.
 | `mysqldump` | database | 3 | shell |
 | `n98-magerun` | magento | 3 | shell |
 | `npm` | magento | 3 | shell |
+| `post-start` | environment | 3 | shell |
 | `permissions` | ai | 3 | shell |
 | `proxy` | environment | 2 | shell |
 | `purge` | magento | 3 | shell |

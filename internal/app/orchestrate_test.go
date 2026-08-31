@@ -222,3 +222,55 @@ func TestRestartingIsAStopAndAStart(t *testing.T) {
 		t.Fatalf("y sobre el servicio que se pidió: %v", orchestration.upCalls[0])
 	}
 }
+
+//
+// What the platform needs after the environment is up is a hand-off, not a fork of the command:
+// everything else about starting is the same code on both, which is what keeps them from
+// drifting.
+//
+
+func TestLinuxIsHandedBackWhatIsNotPortedYet(t *testing.T) {
+	orchestration, legacy := &orchestrator{}, &shell{}
+	operator := operatorWith(nil, orchestration, legacy)
+	operator.Platform = "linux"
+
+	if err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false); err != nil {
+		t.Fatalf("arranque fallido: %v", err)
+	}
+
+	if len(legacy.ran) != 1 || strings.Join(legacy.ran[0], " ") != "post-start" {
+		t.Fatalf("en Linux hay que igualar los ids y escribir el /etc/hosts del contenedor: %v", legacy.ran)
+	}
+}
+
+func TestMacOSIsNotEvenAsked(t *testing.T) {
+	// Asking costs a shell process, on a command where that is a fifth of the time
+	orchestration, legacy := &orchestrator{}, &shell{}
+	operator := operatorWith(nil, orchestration, legacy)
+
+	if err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false); err != nil {
+		t.Fatalf("arranque fallido: %v", err)
+	}
+
+	if len(legacy.ran) != 0 {
+		t.Fatalf("en macOS no hay nada que hacer después: %v", legacy.ran)
+	}
+}
+
+func TestTheEnvironmentIsUpBeforeAnyOfThatIsTried(t *testing.T) {
+	// The hand-off happens after the up, so a project whose post-steps fail still has its
+	// containers running — which is the state somebody can look at
+	orchestration, legacy := &orchestrator{}, &shell{err: errors.New("no se pudo")}
+	operator := operatorWith(nil, orchestration, legacy)
+	operator.Platform = "linux"
+
+	err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false)
+
+	if err == nil {
+		t.Fatal("un fallo después de arrancar sigue siendo un fallo")
+	}
+
+	if len(orchestration.upCalls) != 1 {
+		t.Fatalf("pero el entorno ya está en marcha: %v", orchestration.upCalls)
+	}
+}

@@ -84,17 +84,13 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			// consumed here: `hm exec grep --json` is asking grep for --json
 			return execute(args[1:], stdout, stderr, !isTerminal(stdout))
 		case "start":
-			if onThisPlatform() {
-				jsonOutput, rest := wantsJSON(args[1:], stdout)
+			jsonOutput, rest := wantsJSON(args[1:], stdout)
 
-				return start(rest, stdout, stderr, jsonOutput)
-			}
+			return start(rest, stdout, stderr, jsonOutput)
 		case "restart":
-			if onThisPlatform() {
-				jsonOutput, rest := wantsJSON(args[1:], stdout)
+			jsonOutput, rest := wantsJSON(args[1:], stdout)
 
-				return restart(rest, stdout, stderr, jsonOutput)
-			}
+			return restart(rest, stdout, stderr, jsonOutput)
 		}
 	}
 

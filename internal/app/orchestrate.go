@@ -61,10 +61,33 @@ func (o Operator) Start(project core.Project, files core.ComposeFiles, services 
 	// Only when the whole environment was started: naming a service is asking for that service,
 	// and answering with a complaint about a different one is a command arguing with its caller
 	if len(services) == 0 {
-		return o.checkDependenciesAreNotBound(project)
+		if err := o.checkDependenciesAreNotBound(project); err != nil {
+			return err
+		}
 	}
 
-	return nil
+	return o.afterStarting()
+}
+
+// afterStarting is what the platform needs once the environment is up.
+//
+// On macOS, nothing — and it is not asked, because asking costs a shell process on a command
+// where that is a fifth of the time. On Linux it matches the container's user and group ids to
+// the host's and writes the project's domains into its /etc/hosts, and that is still the shell
+// implementation's: the second of the two reads those domains out of the database through a
+// command that is not ported, so porting this would mean porting that first.
+//
+// It is a hand-off and not a fork of the command. Everything else about starting — the proxy, the
+// refusals, the error contract — is the same code on both platforms, which is what it costs to
+// keep them from drifting.
+func (o Operator) afterStarting() error {
+	if o.Platform != "linux" {
+		return nil
+	}
+
+	_, err := o.Legacy.Run([]string{"post-start"})
+
+	return err
 }
 
 // ensureProxy starts the one proxy on the machine when this project needs it and it is not up.

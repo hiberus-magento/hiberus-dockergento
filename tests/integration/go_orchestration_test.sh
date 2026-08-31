@@ -114,12 +114,19 @@ assert_contains "$(docker inspect "$(docker ps -q -f "label=com.docker.compose.p
 
 # ---------------------------------------------------------------- the same output
 
-test_case "the logs are the shell implementation's, character for character"
+#
+# The padding of the prefix is not compared, and that is not a concession: Compose computes it
+# from the containers registered so far, so a line printed before the widest name has arrived gets
+# a narrower prefix. It is its own race, in its own consumer, and both implementations have it.
+# What has to match is every line and every prefix.
+#
+test_case "the logs are the shell implementation's, line for line"
 ( cd "$DIR" && "$SHELL_CLI" --no-json logs --no-color >"$LAB/shell.out" 2>&1 )
 ( cd "$DIR" && "$GO_BINARY"  --no-json logs --no-color >"$LAB/go.out" 2>&1 )
-assert_equals "$(sort < "$LAB/shell.out")" "$(sort < "$LAB/go.out")"
+assert_equals "$(sed 's/  */ /g' < "$LAB/shell.out" | sort)" "$(sed 's/  */ /g' < "$LAB/go.out" | sort)"
 
-test_case "and so are the logs of one service, prefixes and colour included"
+# One service, so there is one name and the width cannot move: this one is compared whole
+test_case "and the logs of one service are the same, character for character"
 ( cd "$DIR" && "$SHELL_CLI" --no-json logs nginx >"$LAB/shell.out" 2>&1 )
 ( cd "$DIR" && "$GO_BINARY"  --no-json logs nginx >"$LAB/go.out" 2>&1 )
 assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"

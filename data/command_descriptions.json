@@ -519,6 +519,13 @@
         "group": "environment",
         "safety": "caution"
     },
+    "post-start": {
+        "description": "Apply what the platform needs after an environment comes up",
+        "usage": "post-start",
+        "example": "post-start",
+        "group": "environment",
+        "safety": "caution"
+    },
     "permissions": {
         "description": "Print the permission configuration an agent should be given",
         "usage": "permissions [--strict]",

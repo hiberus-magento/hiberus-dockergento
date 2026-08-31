@@ -37,15 +37,9 @@ start_execute() {
         $DOCKER_COMPOSE up -d "$@"
     fi
 
-    if [[ "$MACHINE" == "linux" ]]; then
-        print_processing "Waiting for everything to spin up..."
-        sleep 5
-        print_processing "Fixing permissions"
-        "$TASKS_DIR"/fix_linux_permissions.sh
-        print_processing "Permissions fix finished"
-        print_processing "Configuring self-routing domains..."
-        "$TASKS_DIR"/set_etc_hosts.sh
-    fi
+    # What the platform needs afterwards, which on macOS is nothing. One copy of it, because the
+    # Go implementation brings the environment up too and calls the same command
+    "$COMMANDS_DIR"/post-start.sh
 }
 
 while getopts ":s" options; do
