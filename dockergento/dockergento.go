@@ -13,6 +13,7 @@
 package dockergento
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -239,6 +240,82 @@ func (e *Engine) Exec(dir, service string, command []string, options core.ExecOp
 	}
 
 	return e.orchestrator(project).Exec(project, e.ComposeFiles(project), service, command, options)
+}
+
+//
+// The database of a project, which is the second thing after Docker that everything needs: the
+// diagnosis reads the domains out of it, an install writes to it, and a developer wants a client.
+//
+
+// Query runs one statement against the project's database and writes what it answers.
+func (e *Engine) Query(dir, statement string, out io.Writer) (int, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return 0, err
+	}
+
+	return e.database().Query(project, statement, out)
+}
+
+// Console opens the database client, attached to whatever terminal there is.
+func (e *Engine) Console(dir string) (int, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return 0, err
+	}
+
+	if _, err := e.database().Ready(project); err != nil {
+		return 0, err
+	}
+
+	return e.orchestrator(project).Exec(project, e.ComposeFiles(project), "db",
+		app.Client(), core.ExecOptions{Interactive: true, Tty: e.attached()})
+}
+
+// Feed sends what is on the engine's input into the database client, which is how a dump is
+// imported.
+func (e *Engine) Feed(dir string) (int, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return 0, err
+	}
+
+	if _, err := e.database().Ready(project); err != nil {
+		return 0, err
+	}
+
+	// Interactive without a terminal: the input is a file or a pipe, and asking for a pseudo
+	// terminal there is how a command that works by hand fails in a script
+	return e.orchestrator(project).Exec(project, e.ComposeFiles(project), "db",
+		app.Client(), core.ExecOptions{Interactive: true})
+}
+
+func (e *Engine) database() app.Database {
+	return app.Database{
+		Engine: dockerd.Engine{Timeout: e.options.Timeout},
+		Runner: dockerd.Runner{},
+		Binary: e.options.Binary,
+	}
+}
+
+// attached reports whether there is a terminal to give the command.
+func (e *Engine) attached() bool {
+	in, out := e.options.Stdin, e.options.Stdout
+	if in == nil {
+		in = os.Stdin
+	}
+
+	if out == nil {
+		out = os.Stdout
+	}
+
+	return terminal(in) && terminal(out)
+}
+
+func terminal(file *os.File) bool {
+	info, err := file.Stat()
+
+	return err == nil && info.Mode()&os.ModeCharDevice != 0 && info.Mode()&os.ModeDevice != 0
 }
 
 // Configuration is a project's resolved Compose configuration: what the files say after being

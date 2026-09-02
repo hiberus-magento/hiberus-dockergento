@@ -6,7 +6,11 @@
 // exactly the part of the tool that could not be tested before.
 package ports
 
-import "github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
+import (
+	"io"
+
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
+)
 
 // Properties reads the configuration a project keeps in config/docker/properties.json.
 type Properties interface {
@@ -152,6 +156,16 @@ type Orchestrator interface {
 	// Exec runs a command inside a running service and returns its exit code, which is the
 	// command's own — a wrapper that flattened it would break everything that branches on it.
 	Exec(project core.Project, files core.ComposeFiles, service string, command []string, options core.ExecOptions) (int, error)
+}
+
+// ContainerRunner runs a command inside a container that is already running, and gives back what
+// it said.
+//
+// Separate from the orchestrator's Exec, which attaches the terminal: this one captures. Both are
+// needed and they are not the same thing — an interactive client wants the terminal, and a query
+// whose answer somebody has to read wants the bytes.
+type ContainerRunner interface {
+	Run(container string, command []string, environment []string, out io.Writer) (int, error)
 }
 
 // Legacy runs a command of the shell implementation.

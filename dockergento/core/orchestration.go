@@ -30,4 +30,9 @@ type ExecOptions struct {
 	Index      int
 	Privileged bool
 	Workdir    string
+
+	// Environment is how a value reaches the command without going through a shell that would
+	// have to quote it. A SQL query full of quotes and backticks passed as an argument is a
+	// quoting bug waiting for the right query.
+	Environment []string
 }
