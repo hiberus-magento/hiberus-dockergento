@@ -151,6 +151,19 @@ func (o Orchestrator) open(project core.Project, files core.ComposeFiles) (api.C
 		return nil, nil, err
 	}
 
+	//
+	// Whether anything is coloured, decided the way the `docker compose` command decides it and
+	// by the same function: automatic means "is the output a terminal", and `COMPOSE_ANSI`
+	// overrides it. Left out, everything came out coloured even when the output was a pipe — and
+	// the escape sequences are invisible until something compares the bytes.
+	//
+	ansi := formatter.Auto
+	if mode, set := os.LookupEnv("COMPOSE_ANSI"); set {
+		ansi = mode
+	}
+
+	formatter.SetANSIMode(docker, ansi)
+
 	loaded, err := o.load(project, files)
 	if err != nil {
 		return nil, nil, err

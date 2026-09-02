@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hiberus Dockergento</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --fondo: #fbfbfa;      --panel: #fff;        --borde: #e6e4df;
+    --texto: #1c1b19;      --tenue: #6b6862;     --acento: #2f6f4e;
+    --parado: #9a958c;     --parcial: #b5761f;   --huerfano: #a33a2c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fondo: #16171a;    --panel: #1d1f23;     --borde: #2c2f35;
+      --texto: #e8e6e1;    --tenue: #94918a;     --acento: #6bbf8e;
+      --parado: #6f6b64;   --parcial: #d99a3c;   --huerfano: #d4655a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fondo); color: var(--texto);
+    font: 14px/1.5 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 20px 24px; border-bottom: 1px solid var(--borde);
+  }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: .01em; }
+  header .version { color: var(--tenue); font-size: 12px; font-variant-numeric: tabular-nums; }
+  header .estado { margin-left: auto; color: var(--tenue); font-size: 12px; }
+  main { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; min-height: calc(100vh - 61px); }
+  @media (max-width: 720px) { main { grid-template-columns: 1fr; } }
+  #entornos { border-right: 1px solid var(--borde); padding: 12px; }
+  #detalle { padding: 20px 24px; min-width: 0; }
+  .entorno {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    background: transparent; border: 1px solid transparent; border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 2px; color: inherit; font: inherit;
+  }
+  .entorno:hover { background: var(--panel); border-color: var(--borde); }
+  .entorno[aria-current="true"] { background: var(--panel); border-color: var(--borde); }
+  .entorno .nombre { font-weight: 600; }
+  .entorno .meta { color: var(--tenue); font-size: 12px; display: flex; gap: 8px; margin-top: 2px; }
+  .punto { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; margin-top: 6px; }
+  .running { background: var(--acento); }
+  .stopped { background: var(--parado); }
+  .partial { background: var(--parcial); }
+  .orphan  { background: var(--huerfano); }
+  .fila { display: flex; gap: 10px; align-items: flex-start; }
+  h2 { font-size: 14px; margin: 24px 0 8px; font-weight: 600; }
+  h2:first-child { margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  td, th { text-align: left; padding: 5px 12px 5px 0; vertical-align: top; }
+  th { color: var(--tenue); font-weight: 400; width: 148px; }
+  .servicios td:first-child { font-weight: 500; width: 140px; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  a { color: var(--acento); }
+  .acciones { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  button.accion {
+    font: inherit; padding: 6px 14px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--borde); background: var(--panel); color: inherit;
+  }
+  button.accion:hover:not(:disabled) { border-color: var(--acento); color: var(--acento); }
+  button.accion:disabled { opacity: .5; cursor: default; }
+  .hallazgo { display: flex; gap: 10px; padding: 5px 0; align-items: baseline; }
+  .hallazgo .id { color: var(--tenue); width: 140px; flex: none; }
+  .ok .marca { color: var(--acento); } .warning .marca { color: var(--parcial); } .error .marca { color: var(--huerfano); }
+  .accion-sugerida { color: var(--tenue); }
+  .vacio { color: var(--tenue); padding: 40px 0; }
+  .aviso { color: var(--huerfano); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hiberus Dockergento</h1>
+  <span class="version mono" id="version"></span>
+  <span class="estado" id="estado"></span>
+</header>
+<main>
+  <nav id="entornos"><p class="vacio">Cargando…</p></nav>
+  <section id="detalle"><p class="vacio">Elige un entorno.</p></section>
+</main>
+
+<script>
+// El token viaja en el enlace que imprime `hm serve`. Sin él el servidor no responde: esta API
+// lee credenciales y para entornos, y cualquier página abierta en este navegador podría llamarla.
+const token = new URLSearchParams(location.search).get("token") || "";
+const pedir = async (ruta, opciones = {}) => {
+  const separador = ruta.includes("?") ? "&" : "?";
+  const respuesta = await fetch(ruta + separador + "token=" + encodeURIComponent(token), {
+    headers: { "Content-Type": "application/json" }, ...opciones,
+  });
+  return respuesta.json();
+};
+
+const texto = (valor) => (valor === "" || valor == null ? "—" : String(valor));
+let elegido = null;
+let trabajando = false;
+
+const decir = (mensaje) => { document.getElementById("estado").textContent = mensaje; };
+
+async function pintarEntornos() {
+  const respuesta = await pedir("/api/environments");
+  const nav = document.getElementById("entornos");
+
+  if (!respuesta.ok) { nav.innerHTML = `<p class="vacio aviso">${texto(respuesta.error?.message)}</p>`; return; }
+
+  const entornos = respuesta.data.environments || [];
+  if (!entornos.length) { nav.innerHTML = `<p class="vacio">No hay ningún entorno en esta máquina.</p>`; return; }
+
+  nav.innerHTML = entornos.map((entorno) => `
+    <button class="entorno" data-root="${entorno.root}" data-nombre="${entorno.name}"
+            aria-current="${entorno.name === elegido?.nombre}">
+      <div class="fila">
+        <span class="punto ${entorno.orphan ? "orphan" : entorno.status}"></span>
+        <div>
+          <div class="nombre">${entorno.name}</div>
+          <div class="meta">
+            <span>${entorno.containers.running}/${entorno.containers.total} servicios</span>
+            ${entorno.branch ? `<span class="mono">${entorno.branch}</span>` : ""}
+            ${entorno.orphan ? `<span class="aviso">sin directorio</span>` : ""}
+          </div>
+        </div>
+      </div>
+    </button>`).join("");
+
+  nav.querySelectorAll(".entorno").forEach((boton) => {
+    boton.onclick = () => {
+      elegido = { root: boton.dataset.root, nombre: boton.dataset.nombre };
+      pintarEntornos();
+      pintarDetalle();
+    };
+  });
+}
+
+async function pintarDetalle() {
+  if (!elegido) return;
+  const seccion = document.getElementById("detalle");
+
+  if (!elegido.root) {
+    seccion.innerHTML = `<p class="vacio">Este entorno no tiene directorio: sus contenedores siguen ahí pero el proyecto ya no está.</p>`;
+    return;
+  }
+
+  const [proyecto, diagnostico] = await Promise.all([
+    pedir("/api/project?root=" + encodeURIComponent(elegido.root)),
+    pedir("/api/project/doctor?root=" + encodeURIComponent(elegido.root)),
+  ]);
+
+  if (!proyecto.ok) { seccion.innerHTML = `<p class="vacio aviso">${texto(proyecto.error?.message)}</p>`; return; }
+
+  const d = proyecto.data;
+  const urls = Object.entries(d.project.urls).filter(([clave, valor]) => valor && clave !== "mailhog");
+  const hallazgos = (diagnostico.ok ? diagnostico.data.checks : []).filter((h) => h.severity !== "ok");
+
+  seccion.innerHTML = `
+    <h2>${d.project.name}</h2>
+    <table>
+      <tr><th>estado</th><td>${texto(d.project.status)}</td></tr>
+      <tr><th>magento</th><td>${texto(d.magento.version)} · ${texto(d.magento.mode)}</td></tr>
+      <tr><th>xdebug</th><td>${texto(d.tooling.xdebug)}</td></tr>
+      <tr><th>datos</th><td>${d.data.anonymised === "yes" ? "anonimizados el " + d.data.anonymised_at : "sin anonimizar"}</td></tr>
+      <tr><th>raíz</th><td class="mono">${texto(d.project.root)}</td></tr>
+    </table>
+
+    ${urls.length ? `<h2>Direcciones</h2><table>${urls.map(([clave, valor]) =>
+      `<tr><th>${clave}</th><td><a href="${valor}" target="_blank" rel="noreferrer">${valor}</a></td></tr>`).join("")}</table>` : ""}
+
+    <h2>Servicios</h2>
+    <table class="servicios">${(d.services || []).map((servicio) => `
+      <tr><td>${servicio.name}</td><td>${servicio.state}</td><td class="mono">${servicio.image}</td></tr>`).join("")}
+    </table>
+
+    <h2>Diagnóstico</h2>
+    ${hallazgos.length ? hallazgos.map((h) => `
+      <div class="hallazgo ${h.severity}">
+        <span class="marca">${h.severity === "error" ? "✕" : "!"}</span>
+        <span class="id">${h.id}</span>
+        <span>${h.message}${h.action ? `<br><span class="accion-sugerida mono">${h.action}</span>` : ""}</span>
+      </div>`).join("") : `<p class="vacio" style="padding:8px 0">Nada que arreglar.</p>`}
+
+    <div class="acciones">
+      <button class="accion" data-hacer="start">Arrancar</button>
+      <button class="accion" data-hacer="restart">Reiniciar</button>
+      <button class="accion" data-hacer="stop">Parar</button>
+    </div>`;
+
+  seccion.querySelectorAll(".accion").forEach((boton) => {
+    boton.disabled = trabajando;
+    boton.onclick = () => operar(boton.dataset.hacer);
+  });
+}
+
+async function operar(que) {
+  trabajando = true;
+  decir(({ start: "Arrancando", restart: "Reiniciando", stop: "Parando" })[que] + " " + elegido.nombre + "…");
+  document.querySelectorAll(".accion").forEach((b) => (b.disabled = true));
+
+  const respuesta = await pedir("/api/project/" + que, {
+    method: "POST", body: JSON.stringify({ root: elegido.root }),
+  });
+
+  trabajando = false;
+  decir(respuesta.ok ? "" : texto(respuesta.error?.message));
+  await pintarEntornos();
+  await pintarDetalle();
+}
+
+(async () => {
+  const salud = await pedir("/api/health");
+  if (!salud.ok) { decir("El servidor no responde a este token."); return; }
+  document.getElementById("version").textContent = salud.data.version;
+  await pintarEntornos();
+  // Se refresca solo, pero nunca en mitad de una operación: nada peor que una lista que se
+  // recoloca justo cuando estás pulsando algo
+  setInterval(() => { if (!trabajando) pintarEntornos(); }, 4000);
+})();
+</script>
+</body>
+</html>

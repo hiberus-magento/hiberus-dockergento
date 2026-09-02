@@ -106,6 +106,18 @@ both list --json
 assert_equals "$(jq -S 'del(.data)' < "$LAB/shell.out")" "$(jq -S 'del(.data)' < "$LAB/go.out")"
 
 #
+# The tool's own flags are accepted before the command name as well as after it, which is what the
+# shell implementation does. Consuming them only after meant `hm --no-json describe` never reached
+# the Go implementation at all: it fell through to the shell one, silently, and looked exactly
+# like it had worked — including to the tests that were comparing the two.
+#
+test_case "a global flag before the command still reaches the Go implementation"
+assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" --no-json hm-go-version >/dev/null 2>&1; echo $? )"
+
+test_case "and it decides the format, wherever it is written"
+assert_equals "$( cd "$DIR" && "$GO_BINARY" --json describe )" "$( cd "$DIR" && "$GO_BINARY" describe --json )"
+
+#
 # Piped output is being read by a program, and a program reading a table of dashes breaks the
 # first time a column widens. Both implementations answer JSON when nobody is watching.
 #

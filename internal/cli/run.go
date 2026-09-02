@@ -23,66 +23,55 @@ var Version = ""
 // implementation does not have and never will. They exist to see what the Go layer resolved
 // without changing what any real command does.
 func Run(args []string, stdout, stderr io.Writer) int {
-	if len(args) > 0 {
-		switch args[0] {
-		case "hm-go-version":
-			return goVersion(stdout)
-		case "hm-go-project":
-			return project(args[1:], stdout, stderr)
-		}
-	}
-
 	//
 	// Ported commands. Everything else falls through to the shell implementation, and the list
 	// grows one command at a time — each with the tests of the one it replaces, and each checked
 	// against it by tests/integration/go_passthrough_test.sh.
 	//
-	// The global flags are consumed here because the Go side owns the output format now. What is
-	// left is passed to the command, which is why an unknown option still reaches it and is still
-	// a usage error.
+	// The tool's own flags are taken out first, wherever they appear, because the Go side owns
+	// the output format now. What is left is the command and its own arguments, which is why an
+	// option nobody declared still reaches the command and is still a usage error.
 	//
-	if len(args) > 0 {
-		switch args[0] {
+	format, rest := globals(args)
+
+	if len(rest) > 0 {
+		jsonOutput := wanted(format, stdout)
+
+		switch rest[0] {
+		// Two commands the shell implementation does not have and never will. They exist to see
+		// what the Go layer resolved, without changing what any real command does.
+		case "hm-go-version":
+			return goVersion(stdout)
+		case "hm-go-project":
+			return project(rest[1:], stdout, stderr)
 		case "list":
-			jsonOutput, rest := wantsJSON(args[1:], stdout)
-
-			return list(rest, stdout, stderr, jsonOutput)
+			return list(rest[1:], stdout, stderr, jsonOutput)
 		case "describe":
-			jsonOutput, rest := wantsJSON(args[1:], stdout)
-
-			return describe(rest, stdout, stderr, jsonOutput)
+			return describe(rest[1:], stdout, stderr, jsonOutput)
+		case "serve":
+			return serve(rest[1:], stdout, stderr, jsonOutput)
 		case "doctor":
-			jsonOutput, rest := wantsJSON(args[1:], stdout)
-
-			return doctor(rest, stdout, stderr, jsonOutput)
+			return doctor(rest[1:], stdout, stderr, jsonOutput)
 		case "stop":
-			jsonOutput, rest := wantsJSON(args[1:], stdout)
-
-			return stop(rest, stdout, stderr, jsonOutput)
+			return stop(rest[1:], stdout, stderr, jsonOutput)
 		case "logs":
-			jsonOutput, rest := wantsJSON(args[1:], stdout)
-
-			return logs(rest, stdout, stderr, jsonOutput)
+			return logs(rest[1:], stdout, stderr, jsonOutput)
 		case "magento":
-			return magento(args[1:], stdout, stderr, !isTerminal(stdout))
+			return magento(rest[1:], stdout, stderr, jsonOutput)
 		case "composer":
 			// The invocation that rewrites the host's dependency tree stays with the shell
 			// implementation, and only that one
-			if !mirrorsVendor(args[1:]) {
-				return composer(args[1:], stdout, stderr, !isTerminal(stdout))
+			if !mirrorsVendor(rest[1:]) {
+				return composer(rest[1:], stdout, stderr, jsonOutput)
 			}
 		case "exec":
 			// Everything after the command belongs to the command, so the global flags are not
 			// consumed here: `hm exec grep --json` is asking grep for --json
-			return execute(args[1:], stdout, stderr, !isTerminal(stdout))
+			return execute(rest[1:], stdout, stderr, jsonOutput)
 		case "start":
-			jsonOutput, rest := wantsJSON(args[1:], stdout)
-
-			return start(rest, stdout, stderr, jsonOutput)
+			return start(rest[1:], stdout, stderr, jsonOutput)
 		case "restart":
-			jsonOutput, rest := wantsJSON(args[1:], stdout)
-
-			return restart(rest, stdout, stderr, jsonOutput)
+			return restart(rest[1:], stdout, stderr, jsonOutput)
 		}
 	}
 

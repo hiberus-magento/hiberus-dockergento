@@ -52,7 +52,9 @@ func describe(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 }
 
 func describeAsText(description core.Description, stdout io.Writer) {
-	fmt.Fprintf(stdout, "\n%s\n", header(description.Project.Name))
+	// A rule above and below the name, painted as one block with a single reset at the end —
+	// which is how the shell implementation draws it, trailing newline included
+	fmt.Fprint(stdout, header(rule+"\n"+description.Project.Name+"\n"+rule+"\n"))
 
 	fmt.Fprintf(stdout, "\n%s\n", section("Environment"))
 	fmt.Fprintf(stdout, "   %-14s %s\n", "status", orDash(description.Project.Status))

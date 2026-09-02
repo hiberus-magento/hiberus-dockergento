@@ -42,35 +42,6 @@ type fault struct {
 	Hint    string `json:"hint,omitempty"`
 }
 
-// wantsJSON decides the output format the way the shell implementation does: what was asked for
-// wins, and when nothing was asked, a terminal gets text and anything else gets JSON.
-//
-// The default matters more than it looks. A command whose output is piped is being read by a
-// program, and a program reading a table of dashes is a program that breaks the first time a
-// column widens.
-func wantsJSON(args []string, stdout io.Writer) (bool, []string) {
-	remaining := make([]string, 0, len(args))
-	decided := false
-	value := false
-
-	for _, argument := range args {
-		switch argument {
-		case "--json":
-			decided, value = true, true
-		case "--no-json":
-			decided, value = true, false
-		default:
-			remaining = append(remaining, argument)
-		}
-	}
-
-	if decided {
-		return value, remaining
-	}
-
-	return !isTerminal(stdout), remaining
-}
-
 // asRefusal unwraps a refusal, which is the only error the layers below deliberately shape.
 func asRefusal(err error, target *core.Refusal) bool {
 	return errors.As(err, target)

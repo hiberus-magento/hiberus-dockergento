@@ -32,6 +32,10 @@ func paint(code, text string) string {
 	return code + text + "\033[0m"
 }
 
+// rule is what the shell implementation draws a title between: forty equals signs, no more and no
+// fewer, because the two are compared character for character.
+const rule = "========================================"
+
 func header(text string) string  { return paint("\033[1;37m", text) }
 func good(text string) string    { return paint("\033[0;32m", text) }
 func bad(text string) string     { return paint("\033[0;31m", text) }

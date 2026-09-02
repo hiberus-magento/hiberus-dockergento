@@ -563,6 +563,23 @@
         "group": "environment",
         "safety": "caution"
     },
+    "serve": {
+        "description": "Bring up the web dashboard and print the link to open it",
+        "usage": "serve [up|down|status] [--port 8420]",
+        "opts": [
+            {
+                "name": { "short": "p", "long": "port" },
+                "description": "The port it listens on, always on localhost only"
+            },
+            {
+                "name": { "short": "f", "long": "foreground" },
+                "description": "Run it in this terminal instead of in the background"
+            }
+        ],
+        "example": "serve",
+        "group": "tools",
+        "safety": "caution"
+    },
     "set-host": {
         "example": "set-host my-project.local",
         "description": "Set host name in /etc/hosts and core_config_data",
