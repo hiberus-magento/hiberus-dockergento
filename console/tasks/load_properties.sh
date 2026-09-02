@@ -9,8 +9,20 @@ refactor_old_version() {
     local custom_old_properties="$CUSTOM_PROPERTIES_DIR/properties"
 
     if [[ -f "$custom_old_properties" ]]; then
+        #
+        # Merged over whatever properties.json already holds, and not written over it.
+        #
+        # A real migration finds no properties.json and the merge is the conversion. What the
+        # merge protects against is the other case: anything that writes a line into the old file
+        # by accident would otherwise wipe the project's identity on the next command.
+        #
+        local existing="{}"
+        if [ -f "$CUSTOM_PROPERTIES_DIR/properties.json" ]; then
+            existing=$(cat "$CUSTOM_PROPERTIES_DIR/properties.json")
+        fi
+
         cat "$custom_old_properties" | \
-            jq -R -s 'split("\n") 
+            jq -R -s --argjson existing "$existing" 'split("\n") 
                 | map(select(length > 0)) 
                 | map(select(startswith("#") | not)) 
                 | map(sub("^[[:space:]]+"; "")) 
@@ -18,6 +30,7 @@ refactor_old_version() {
                 | map({(.[0]): .[1:] 
                 | join("=")}) 
                 | add
+                | $existing + .
             ' | sed 's/\\\"//g' > "$CUSTOM_PROPERTIES_DIR"/properties.json
         
         if [[ $? == 0 ]]; then

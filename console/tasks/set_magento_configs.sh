@@ -15,8 +15,22 @@ set_current_domain() {
         # Save domian
         DOMAIN=$(awk -F/ '{print $3}' <<< $url)
 
-         # Add domain in properties project file
-        echo "  DOMAIN=\"$DOMAIN\"" >> $DOCKER_CONFIG_DIR/properties
+        #
+        # Merged into properties.json, not appended to the file the old format used.
+        #
+        # That file is not inert: every invocation converts it into properties.json and replaces
+        # what was there. So writing one line into it meant that the next command anybody ran
+        # left the project with a properties.json holding nothing but the domain — no
+        # COMPOSE_PROJECT_NAME, which is the project's identity. The environment it had was
+        # still running, under a name nothing pointed at any more.
+        #
+        local properties="$CUSTOM_PROPERTIES_DIR/properties.json"
+
+        mkdir -p "$CUSTOM_PROPERTIES_DIR"
+        [ -f "$properties" ] || echo "{}" > "$properties"
+
+        jq --arg domain "$DOMAIN" '. + {DOMAIN: $domain}' "$properties" > "$properties.tmp" &&
+            mv "$properties.tmp" "$properties"
     fi
 }
 
