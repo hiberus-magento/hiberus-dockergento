@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
@@ -31,12 +32,7 @@ func doctor(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	if jsonOutput {
-		document, err := json.MarshalIndent(envelope{
-			SchemaVersion: 1,
-			Command:       "doctor",
-			OK:            true,
-			Data:          diagnosis,
-		}, "", "  ")
+		document, err := json.MarshalIndent(contract.Success("doctor", diagnosis), "", "  ")
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 

@@ -1,5 +1,11 @@
 # Migración a Go — dónde estamos
 
+> **El objetivo, para que no se pierda entre tandas:** que no quede ningún comando en shell, que
+> la CLI, la TUI y la web se alimenten de las mismas piezas, que no haya nada duplicado y que la
+> arquitectura hexagonal se sostenga de verdad. El orden entre tandas se optimiza; el destino no
+> se negocia. Lo único que seguirá siendo shell son los comandos que un proyecto añada en
+> `config/hm/commands`, que por eso el puente a bash no desaparece.
+>
 > El documento que se abre al empezar una sesión. Las decisiones están en
 > [docs/research/2.0-arquitectura.md](docs/research/2.0-arquitectura.md); esto es el estado.
 >
@@ -58,7 +64,7 @@ detalle de cada una en `openspec/changes/`.
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web** — *empezada*
   - [x] `hm web`: la API HTTP y la interfaz de navegador, sobre las mismas llamadas que la CLI
   - [ ] MCP en Go
-- [ ] **7 · Tanda 3; la 4 se queda en bash mientras compense**
+- [ ] **7 · Tanda 3 y tanda 4: hasta que no quede ningún comando en shell**
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
@@ -102,7 +108,7 @@ es tanda 3: portarlo ahora sería portar aquello primero.
 ## Los comandos
 
 Tanda 1 son los del día a día; 2 los que tocan estado; 3 el resto; 4 los que orquestan
-herramientas externas y pueden quedarse en shell indefinidamente.
+herramientas externas, que son los últimos por coste-beneficio y no por estar exentos.
 
 | Comando | Área | Tanda | Implementación |
 |---|---|---|---|

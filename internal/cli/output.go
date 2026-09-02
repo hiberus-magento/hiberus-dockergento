@@ -9,38 +9,21 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
-// The exit codes are a contract that callers branch on, and they are the shell implementation's:
-// a command ported to Go that answered differently would break scripts, agents and the tests that
-// check them.
+// The tool's answers and its exit codes live in the engine, because the terminal is not the only
+// door: the HTTP adapter answers with the same documents, and so will MCP.
 const (
-	exitOK      = 0
-	exitError   = 1
-	exitUsage   = 2
-	exitDocker  = 3
-	exitProject = 4
-	exitService = 5
-	exitBlocked = 6
+	exitOK      = contract.ExitOK
+	exitError   = contract.ExitError
+	exitUsage   = contract.ExitUsage
+	exitDocker  = contract.ExitDocker
+	exitProject = contract.ExitProject
+	exitService = contract.ExitService
+	exitBlocked = contract.ExitBlocked
 )
-
-// envelope is the shape every command that reports something answers with. One schema, one
-// version, so a reader can tell a tool that changed from a tool that broke.
-type envelope struct {
-	SchemaVersion int    `json:"schema_version"`
-	Command       string `json:"command"`
-	OK            bool   `json:"ok"`
-	Data          any    `json:"data,omitempty"`
-	Error         *fault `json:"error,omitempty"`
-}
-
-type fault struct {
-	Code    int    `json:"code"`
-	Type    string `json:"type"`
-	Message string `json:"message"`
-	Hint    string `json:"hint,omitempty"`
-}
 
 // asRefusal unwraps a refusal, which is the only error the layers below deliberately shape.
 func asRefusal(err error, target *core.Refusal) bool {
@@ -66,12 +49,7 @@ func isTerminal(stream any) bool {
 // JSON, and with the exit code that says which kind of failure it was.
 func failure(stderr io.Writer, jsonOutput bool, command string, code int, kind, message, hint string) int {
 	if jsonOutput {
-		document, err := json.MarshalIndent(envelope{
-			SchemaVersion: 1,
-			Command:       command,
-			OK:            false,
-			Error:         &fault{Code: code, Type: kind, Message: message, Hint: hint},
-		}, "", "  ")
+		document, err := json.MarshalIndent(contract.Failure(command, code, kind, message, hint), "", "  ")
 		if err == nil {
 			fmt.Fprintf(stderr, "%s\n", document)
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
@@ -35,15 +36,10 @@ func list(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 }
 
 func listAsJSON(environments []core.Environment, stdout, stderr io.Writer) int {
-	document, err := json.MarshalIndent(envelope{
-		SchemaVersion: 1,
-		Command:       "list",
-		OK:            true,
-		Data: map[string]any{
-			"environments": environments,
-			"count":        len(environments),
-		},
-	}, "", "  ")
+	document, err := json.MarshalIndent(contract.Success("list", map[string]any{
+		"environments": environments,
+		"count":        len(environments),
+	}), "", "  ")
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 

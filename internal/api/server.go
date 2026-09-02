@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
@@ -247,30 +248,11 @@ func (s Server) dashboard(writer http.ResponseWriter, request *http.Request) {
 	writer.Write(page) //nolint:errcheck
 }
 
-// envelope is the shape the command line answers with, and this answers with the same one: a
-// reader should not have to know which door it came through.
-type envelope struct {
-	SchemaVersion int    `json:"schema_version"`
-	Command       string `json:"command"`
-	OK            bool   `json:"ok"`
-	Data          any    `json:"data,omitempty"`
-	Error         *fault `json:"error,omitempty"`
-}
-
-type fault struct {
-	Code    int    `json:"code"`
-	Type    string `json:"type"`
-	Message string `json:"message"`
-	Hint    string `json:"hint,omitempty"`
-}
-
 func answer(writer http.ResponseWriter, command string, data any, err error) {
 	writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	if err == nil {
-		write(writer, http.StatusOK, envelope{
-			SchemaVersion: 1, Command: command, OK: true, Data: data,
-		})
+		write(writer, http.StatusOK, contract.Success(command, data))
 
 		return
 	}
@@ -280,23 +262,17 @@ func answer(writer http.ResponseWriter, command string, data any, err error) {
 	// another environment" is something the person reading can act on, and a 500 tells them
 	// nothing except to try again.
 	//
+	status := http.StatusBadRequest
+
 	var refusal core.Refusal
 	if errors.As(err, &refusal) {
-		write(writer, http.StatusConflict, envelope{
-			SchemaVersion: 1, Command: command, OK: false,
-			Error: &fault{Code: refusal.Code, Type: refusal.Kind, Message: refusal.Message, Hint: refusal.Hint},
-		})
-
-		return
+		status = http.StatusConflict
 	}
 
-	write(writer, http.StatusBadRequest, envelope{
-		SchemaVersion: 1, Command: command, OK: false,
-		Error: &fault{Code: 1, Type: "failed", Message: err.Error()},
-	})
+	write(writer, status, contract.FailureFrom(command, err, contract.ExitError, "failed"))
 }
 
-func write(writer http.ResponseWriter, status int, body envelope) {
+func write(writer http.ResponseWriter, status int, body contract.Envelope) {
 	writer.WriteHeader(status)
 	json.NewEncoder(writer).Encode(body) //nolint:errcheck
 }

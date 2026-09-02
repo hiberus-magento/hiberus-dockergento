@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
@@ -29,12 +30,7 @@ func describe(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	if jsonOutput {
-		document, err := json.MarshalIndent(envelope{
-			SchemaVersion: 1,
-			Command:       "describe",
-			OK:            true,
-			Data:          description,
-		}, "", "  ")
+		document, err := json.MarshalIndent(contract.Success("describe", description), "", "  ")
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 

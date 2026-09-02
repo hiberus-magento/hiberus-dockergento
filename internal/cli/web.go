@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/internal/api"
 )
 
@@ -279,9 +280,7 @@ func served(state running, what string, stdout io.Writer, jsonOutput bool) int {
 }
 
 func document(stdout, stderr io.Writer, command string, data any) int {
-	body, err := json.MarshalIndent(envelope{
-		SchemaVersion: 1, Command: command, OK: true, Data: data,
-	}, "", "  ")
+	body, err := json.MarshalIndent(contract.Success(command, data), "", "  ")
 	if err != nil {
 		if stderr != nil {
 			fmt.Fprintln(stderr, err)
