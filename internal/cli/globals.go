@@ -67,7 +67,7 @@ func globals(args []string) (format string, rest []string) {
 // when nobody has decided, a terminal gets text and anything else gets JSON.
 //
 // The middle one matters for a command reached through the shell entry point: it parses the flags
-// itself and exports the answer, so without reading it back `bin/run --no-json serve` would lose
+// itself and exports the answer, so without reading it back `bin/run --no-json web` would lose
 // the format on the way across.
 func wanted(format string, stdout any) bool {
 	if format == "" {

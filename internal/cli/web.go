@@ -35,9 +35,9 @@ func (r running) address() string {
 	return fmt.Sprintf("http://127.0.0.1:%d/?token=%s", r.Port, r.Token)
 }
 
-// serve is the web interface, and it behaves like the proxy on purpose: something you bring up
-// once and forget about, not something that holds a terminal.
-func serve(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+// web is the browser interface, next to `tui` for the terminal one, and it behaves like the proxy
+// on purpose: something you bring up once and forget about, not something that holds a terminal.
+func web(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	action := "up"
 	port := defaultPort
 	foreground := false
@@ -50,61 +50,61 @@ func serve(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			foreground = true
 		case "--port", "-p":
 			if at+1 >= len(args) {
-				return failure(stderr, jsonOutput, "serve", exitUsage, "missing_value",
-					"--port needs a number", binaryName()+" serve --port 8420")
+				return failure(stderr, jsonOutput, "web", exitUsage, "missing_value",
+					"--port needs a number", binaryName()+" web --port 8420")
 			}
 
 			at++
 
 			number, err := strconv.Atoi(args[at])
 			if err != nil {
-				return failure(stderr, jsonOutput, "serve", exitUsage, "invalid_argument",
-					"--port needs a number", binaryName()+" serve --port 8420")
+				return failure(stderr, jsonOutput, "web", exitUsage, "invalid_argument",
+					"--port needs a number", binaryName()+" web --port 8420")
 			}
 
 			port = number
 		default:
-			return failure(stderr, jsonOutput, "serve", exitUsage, "invalid_argument",
+			return failure(stderr, jsonOutput, "web", exitUsage, "invalid_argument",
 				fmt.Sprintf("Unknown option: %s", argument),
-				binaryName()+" serve [up|down|status] [--port 8420]")
+				binaryName()+" web [up|down|status] [--port 8420]")
 		}
 	}
 
 	switch action {
 	case "down":
-		return serveDown(stdout, stderr, jsonOutput)
+		return webDown(stdout, stderr, jsonOutput)
 	case "status":
-		return serveStatus(stdout, jsonOutput)
+		return webStatus(stdout, jsonOutput)
 	}
 
 	if foreground {
-		return serveHere(port, stdout, stderr, jsonOutput)
+		return webHere(port, stdout, stderr, jsonOutput)
 	}
 
-	return serveUp(port, stdout, stderr, jsonOutput)
+	return webUp(port, stdout, stderr, jsonOutput)
 }
 
-// serveHere runs the server in this process, which is what the detached one does once it has been
+// webHere runs the server in this process, which is what the detached one does once it has been
 // started and what somebody debugging it wants.
-func serveHere(port int, stdout, stderr io.Writer, jsonOutput bool) int {
+func webHere(port int, stdout, stderr io.Writer, jsonOutput bool) int {
 	token, err := api.NewToken()
 	if err != nil {
-		return failure(stderr, jsonOutput, "serve", exitError, "no_token", err.Error(), "")
+		return failure(stderr, jsonOutput, "web", exitError, "no_token", err.Error(), "")
 	}
 
 	// Loopback only, and not as a default somebody can widen: this API reads database
 	// credentials and stops environments, and a machine on a shared network is the normal case
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
-		return failure(stderr, jsonOutput, "serve", exitBlocked, "port_taken",
+		return failure(stderr, jsonOutput, "web", exitBlocked, "port_taken",
 			fmt.Sprintf("Port %d is not free: %s", port, err),
-			fmt.Sprintf("%s serve --port %d", binaryName(), port+1))
+			fmt.Sprintf("%s web --port %d", binaryName(), port+1))
 	}
 
 	state := running{PID: os.Getpid(), Port: port, Token: token, Started: time.Now().Format("2006-01-02 15:04")}
 
 	if err := writeState(state); err != nil {
-		return failure(stderr, jsonOutput, "serve", exitError, "state_unwritable", err.Error(), "")
+		return failure(stderr, jsonOutput, "web", exitError, "state_unwritable", err.Error(), "")
 	}
 	defer os.Remove(stateFile()) //nolint:errcheck
 
@@ -113,37 +113,37 @@ func serveHere(port int, stdout, stderr io.Writer, jsonOutput bool) int {
 	fmt.Fprintf(stdout, "%s\n", link(state.address()))
 
 	if err := http.Serve(listener, server.Handler()); err != nil { //nolint:gosec
-		return failure(stderr, jsonOutput, "serve", exitError, "server_stopped", err.Error(), "")
+		return failure(stderr, jsonOutput, "web", exitError, "server_stopped", err.Error(), "")
 	}
 
 	return exitOK
 }
 
-// serveUp starts the server in the background and waits until it answers.
+// webUp starts the server in the background and waits until it answers.
 //
 // Waiting matters: a command that returns before the thing it started is reachable hands somebody
 // a link that fails once and works on the second try, which is worse than being slow.
-func serveUp(port int, stdout, stderr io.Writer, jsonOutput bool) int {
+func webUp(port int, stdout, stderr io.Writer, jsonOutput bool) int {
 	if state, ok := readState(); ok && alive(state.PID) {
 		return served(state, "already running", stdout, jsonOutput)
 	}
 
 	executable, err := os.Executable()
 	if err != nil {
-		return failure(stderr, jsonOutput, "serve", exitError, "no_executable", err.Error(), "")
+		return failure(stderr, jsonOutput, "web", exitError, "no_executable", err.Error(), "")
 	}
 
 	if err := os.MkdirAll(stateDir(), 0o755); err != nil {
-		return failure(stderr, jsonOutput, "serve", exitError, "no_state_dir", err.Error(), "")
+		return failure(stderr, jsonOutput, "web", exitError, "no_state_dir", err.Error(), "")
 	}
 
 	log, err := os.OpenFile(logFile(), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
-		return failure(stderr, jsonOutput, "serve", exitError, "no_log", err.Error(), "")
+		return failure(stderr, jsonOutput, "web", exitError, "no_log", err.Error(), "")
 	}
 	defer log.Close()
 
-	child := exec.Command(executable, "serve", "--foreground", "--port", strconv.Itoa(port))
+	child := exec.Command(executable, "web", "--foreground", "--port", strconv.Itoa(port))
 	child.Stdout = log
 	child.Stderr = log
 	child.Env = os.Environ()
@@ -152,7 +152,7 @@ func serveUp(port int, stdout, stderr io.Writer, jsonOutput bool) int {
 	child.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	if err := child.Start(); err != nil {
-		return failure(stderr, jsonOutput, "serve", exitError, "not_started", err.Error(), "")
+		return failure(stderr, jsonOutput, "web", exitError, "not_started", err.Error(), "")
 	}
 
 	// Waited for in a goroutine: `Wait` blocks until the child exits, and the whole point is that
@@ -162,7 +162,7 @@ func serveUp(port int, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	state, err := waitForServer(child, finished)
 	if err != nil {
-		return failure(stderr, jsonOutput, "serve", exitError, "not_started", err.Error(),
+		return failure(stderr, jsonOutput, "web", exitError, "not_started", err.Error(),
 			"cat "+logFile())
 	}
 
@@ -204,28 +204,28 @@ func answers(state running) bool {
 	return response.StatusCode == http.StatusOK
 }
 
-func serveDown(stdout, stderr io.Writer, jsonOutput bool) int {
+func webDown(stdout, stderr io.Writer, jsonOutput bool) int {
 	state, ok := readState()
 	if !ok || !alive(state.PID) {
 		os.Remove(stateFile()) //nolint:errcheck
 
 		if jsonOutput {
-			return document(stdout, stderr, "serve", map[string]any{"running": false, "stopped": false})
+			return document(stdout, stderr, "web", map[string]any{"running": false, "stopped": false})
 		}
 
-		fmt.Fprintf(stdout, "%s\n", good("The dashboard is not running."))
+		fmt.Fprintf(stdout, "%s\n", good("The web interface is not running."))
 
 		return exitOK
 	}
 
 	if err := syscall.Kill(state.PID, syscall.SIGTERM); err != nil {
-		return failure(stderr, jsonOutput, "serve", exitError, "not_stopped", err.Error(), "")
+		return failure(stderr, jsonOutput, "web", exitError, "not_stopped", err.Error(), "")
 	}
 
 	os.Remove(stateFile()) //nolint:errcheck
 
 	if jsonOutput {
-		return document(stdout, stderr, "serve", map[string]any{"running": false, "stopped": true})
+		return document(stdout, stderr, "web", map[string]any{"running": false, "stopped": true})
 	}
 
 	fmt.Fprintf(stdout, "%s\n", good("Stopped."))
@@ -233,7 +233,7 @@ func serveDown(stdout, stderr io.Writer, jsonOutput bool) int {
 	return exitOK
 }
 
-func serveStatus(stdout io.Writer, jsonOutput bool) int {
+func webStatus(stdout io.Writer, jsonOutput bool) int {
 	state, ok := readState()
 	up := ok && alive(state.PID)
 
@@ -246,17 +246,17 @@ func serveStatus(stdout io.Writer, jsonOutput bool) int {
 			answer["started"] = state.Started
 		}
 
-		return document(stdout, nil, "serve", answer)
+		return document(stdout, nil, "web", answer)
 	}
 
 	if !up {
-		fmt.Fprintf(stdout, "\n%s\n\n", "The dashboard is not running.")
-		fmt.Fprintf(stdout, "  %s\n\n", warning(binaryName()+" serve"))
+		fmt.Fprintf(stdout, "\n%s\n\n", "The web interface is not running.")
+		fmt.Fprintf(stdout, "  %s\n\n", warning(binaryName()+" web"))
 
 		return exitOK
 	}
 
-	fmt.Fprintf(stdout, "\n%s\n\n", header("The dashboard is running"))
+	fmt.Fprintf(stdout, "\n%s\n\n", header("The web interface is running"))
 	fmt.Fprintf(stdout, "   %-10s %s\n", "since", state.Started)
 	fmt.Fprintf(stdout, "   %-10s %s\n\n", "address", link(state.address()))
 
@@ -266,14 +266,14 @@ func serveStatus(stdout io.Writer, jsonOutput bool) int {
 // served prints where it is, which is the only thing anybody wants from this command.
 func served(state running, what string, stdout io.Writer, jsonOutput bool) int {
 	if jsonOutput {
-		return document(stdout, nil, "serve", map[string]any{
+		return document(stdout, nil, "web", map[string]any{
 			"running": true, "port": state.Port, "url": state.address(), "pid": state.PID,
 		})
 	}
 
-	fmt.Fprintf(stdout, "\n%s\n\n", good("The dashboard is "+what+"."))
+	fmt.Fprintf(stdout, "\n%s\n\n", good("The web interface is "+what+"."))
 	fmt.Fprintf(stdout, "   %s\n\n", link(state.address()))
-	fmt.Fprintf(stdout, "   %s\n\n", warning(binaryName()+" serve down   # to stop it"))
+	fmt.Fprintf(stdout, "   %s\n\n", warning(binaryName()+" web down   # to stop it"))
 
 	return exitOK
 }
@@ -306,8 +306,8 @@ func stateDir() string {
 	return filepath.Join(home, ".hm")
 }
 
-func stateFile() string { return filepath.Join(stateDir(), "serve.json") }
-func logFile() string   { return filepath.Join(stateDir(), "serve.log") }
+func stateFile() string { return filepath.Join(stateDir(), "web.json") }
+func logFile() string   { return filepath.Join(stateDir(), "web.log") }
 
 func writeState(state running) error {
 	if err := os.MkdirAll(stateDir(), 0o755); err != nil {

@@ -56,7 +56,7 @@ detalle de cada una en `openspec/changes/`.
 - [ ] **4 · Registro SQLite con las dos topologías + tanda 2**
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web** — *empezada*
-  - [x] `hm serve`: la API HTTP y el panel web, sobre las mismas llamadas que la CLI
+  - [x] `hm web`: la API HTTP y la interfaz de navegador, sobre las mismas llamadas que la CLI
   - [ ] MCP en Go
 - [ ] **7 · Tanda 3; la 4 se queda en bash mientras compense**
 
@@ -150,7 +150,7 @@ herramientas externas y pueden quedarse en shell indefinidamente.
 | `rebuild` | environment | 3 | shell |
 | `restart` | environment | 1 | go |
 | `sequelace` | database | 3 | shell |
-| `serve` | tools | 1 | go |
+| `web` | tools | 1 | go |
 | `set-host` | tools | 3 | shell |
 | `setup` | environment | 2 | shell |
 | `share` | environment | 3 | shell |

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
-# The dashboard: the same answers, through a different door.
+# The web interface: the same answers, through a different door.
 #
-# It behaves like the proxy on purpose — something you bring up once and forget about, not
-# something that holds a terminal. What is tested here is that, and the two rules that stand
+# It sits next to `tui`, one interface for the terminal and one for the browser, and it behaves
+# like the proxy on purpose — something you bring up once and forget about, not something that
+# holds a terminal. What is tested here is that, and the two rules that stand
 # between a page in a browser and this machine's environments.
 #
 set -uo pipefail
@@ -13,7 +14,7 @@ GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 PUERTO=8433
 
-trap '"$GO_BINARY" serve down >/dev/null 2>&1; rm -rf "$LAB"; hm_test_home_cleanup' EXIT
+trap '"$GO_BINARY" web down >/dev/null 2>&1; rm -rf "$LAB"; hm_test_home_cleanup' EXIT
 
 if ! command -v go >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
     echo "  - skipped: go or a Docker daemon is missing"
@@ -32,9 +33,9 @@ export GOCACHE="$LAB/go-build"
 # ---------------------------------------------------------------- it comes up and stays up
 
 test_case "it is not running to begin with"
-assert_equals "false" "$("$GO_BINARY" serve status | jq -r '.data.running')"
+assert_equals "false" "$("$GO_BINARY" web status | jq -r '.data.running')"
 
-"$GO_BINARY" serve --port "$PUERTO" >"$LAB/arranque.json" 2>&1
+"$GO_BINARY" web --port "$PUERTO" >"$LAB/arranque.json" 2>&1
 ARRANQUE=$?
 
 test_case "it starts and says where it is"
@@ -52,13 +53,13 @@ test_case "and it is already answering when the command returns"
 assert_equals "200" "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PUERTO/api/health?token=$TOKEN")"
 
 test_case "status finds it"
-assert_equals "true" "$("$GO_BINARY" serve status | jq -r '.data.running')"
-assert_equals "$PUERTO" "$("$GO_BINARY" serve status | jq -r '.data.port')"
+assert_equals "true" "$("$GO_BINARY" web status | jq -r '.data.running')"
+assert_equals "$PUERTO" "$("$GO_BINARY" web status | jq -r '.data.port')"
 
 test_case "and starting it again does not start a second one"
-PID=$("$GO_BINARY" serve status | jq -r '.data.pid')
-"$GO_BINARY" serve --port "$PUERTO" >/dev/null 2>&1
-assert_equals "$PID" "$("$GO_BINARY" serve status | jq -r '.data.pid')"
+PID=$("$GO_BINARY" web status | jq -r '.data.pid')
+"$GO_BINARY" web --port "$PUERTO" >/dev/null 2>&1
+assert_equals "$PID" "$("$GO_BINARY" web status | jq -r '.data.pid')"
 
 # ---------------------------------------------------------------- the same answers
 
@@ -108,18 +109,18 @@ fi
 # ---------------------------------------------------------------- and it goes away
 
 test_case "down stops it"
-"$GO_BINARY" serve down >/dev/null 2>&1
-assert_equals "false" "$("$GO_BINARY" serve status | jq -r '.data.running')"
+"$GO_BINARY" web down >/dev/null 2>&1
+assert_equals "false" "$("$GO_BINARY" web status | jq -r '.data.running')"
 
 test_case "and the port is free again"
 assert_equals "" "$(lsof -nP -iTCP:"$PUERTO" -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $1}')"
 
 test_case "stopping something that is not running is not a failure"
-"$GO_BINARY" serve down >/dev/null 2>&1
+"$GO_BINARY" web down >/dev/null 2>&1
 assert_equals "0" "$?"
 
 test_case "an option nobody declared is refused with the usage code"
-"$GO_BINARY" serve --tonteria >/dev/null 2>&1
+"$GO_BINARY" web --tonteria >/dev/null 2>&1
 assert_equals "2" "$?"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

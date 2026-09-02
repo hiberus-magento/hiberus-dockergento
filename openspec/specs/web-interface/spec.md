@@ -3,14 +3,14 @@
 ## Purpose
 TBD - created by archiving change web-dashboard. Update Purpose after archive.
 ## Requirements
-### Requirement: Bringing the dashboard up
+### Requirement: Bringing the web interface up
 
-The tool SHALL serve a web interface on this machine, brought up and taken down like the proxy
-rather than held open in a terminal.
+The tool SHALL serve a web interface on this machine — `web`, beside `tui` for the terminal one —
+brought up and taken down like the proxy rather than held open in a terminal.
 
 #### Scenario: Starting it
 
-- **WHEN** the dashboard is brought up
+- **WHEN** the web interface is brought up
 - **THEN** it prints the address to open, and it is already answering
 
 #### Scenario: Asking about it

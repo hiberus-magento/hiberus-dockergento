@@ -84,7 +84,7 @@
 </main>
 
 <script>
-// El token viaja en el enlace que imprime `hm serve`. Sin él el servidor no responde: esta API
+// El token viaja en el enlace que imprime `hm web`. Sin él el servidor no responde: esta API
 // lee credenciales y para entornos, y cualquier página abierta en este navegador podría llamarla.
 const token = new URLSearchParams(location.search).get("token") || "";
 const pedir = async (ruta, opciones = {}) => {

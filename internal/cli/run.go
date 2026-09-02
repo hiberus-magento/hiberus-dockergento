@@ -48,8 +48,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return list(rest[1:], stdout, stderr, jsonOutput)
 		case "describe":
 			return describe(rest[1:], stdout, stderr, jsonOutput)
-		case "serve":
-			return serve(rest[1:], stdout, stderr, jsonOutput)
+		case "web":
+			return web(rest[1:], stdout, stderr, jsonOutput)
 		case "doctor":
 			return doctor(rest[1:], stdout, stderr, jsonOutput)
 		case "stop":
