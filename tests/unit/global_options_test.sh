@@ -67,6 +67,19 @@ test_case "exec is a transparent command"
 is_transparent_command exec && r=yes || r=no
 assert_equals "yes" "$r"
 
+#
+# `-d` takes no argument. Declaring otherwise meant `hm mysql -d -i dump.sql` — the form this tool
+# documents — read `-i` as the argument of `-d`, stopped at the file name, imported nothing and
+# exited 0. The other order was refused outright, so there was no way to ask for it at all.
+#
+test_case "the DEFINER option takes no argument of its own"
+opciones=$(grep -o 'getopts "[^"]*"' "$COMMAND_BIN_DIR/console/commands/mysql.sh" | head -1)
+assert_equals 'getopts ":i:q:da"' "$opciones"
+
+test_case "and the documented order reaches the import"
+leidas=$(bash -c 'while getopts ":i:q:da" o; do printf "%s=%s " "$o" "$OPTARG"; done' -- -d -i /tmp/x.sql)
+assert_equals "d= i=/tmp/x.sql" "$(printf '%s' "$leidas" | sed 's/ $//')"
+
 test_case "mysqldump is a transparent command"
 is_transparent_command mysqldump && r=yes || r=no
 assert_equals "yes" "$r"

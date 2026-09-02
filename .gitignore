@@ -10,3 +10,8 @@ console/hm-completion.bash
 .headroom_wrap_marker.json
 # Local Pi runtime state
 .atl/
+
+# The Go binary, which is built and never committed. The working tree is shared between branches,
+# so a build made on 2.0.0 is sitting here while this one is checked out — and `git add -A` put
+# 95 MB of it into a commit once.
+/bin/hm
