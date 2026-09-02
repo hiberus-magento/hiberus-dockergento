@@ -62,3 +62,59 @@ func (r Runner) Run(id string, command []string, environment []string, out io.Wr
 
 	return inspected.ExitCode, nil
 }
+
+// Feed sends a stream into the command's input and returns its exit code.
+//
+// The dump of a Magento database is measured in gigabytes, so it is written into the connection as
+// it is read rather than assembled anywhere. The write side has to be closed when the stream ends:
+// the client waits for end-of-input and would otherwise sit there for ever.
+func (r Runner) Feed(id string, command []string, in io.Reader, out io.Writer) (int, error) {
+	docker, err := connect()
+	if err != nil {
+		return 0, err
+	}
+	defer docker.Close()
+
+	// No deadline here, unlike a query: importing a real dump takes as long as it takes, and a
+	// timeout would leave a database half replaced
+	ctx := context.Background()
+
+	created, err := docker.ContainerExecCreate(ctx, id, container.ExecOptions{
+		Cmd:          command,
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	attached, err := docker.ContainerExecAttach(ctx, created.ID, container.ExecStartOptions{})
+	if err != nil {
+		return 0, err
+	}
+	defer attached.Close()
+
+	sending := make(chan error, 1)
+
+	go func() {
+		_, err := io.Copy(attached.Conn, in)
+		attached.CloseWrite() //nolint:errcheck
+		sending <- err
+	}()
+
+	if _, err := stdcopy.StdCopy(out, out, attached.Reader); err != nil {
+		return 0, err
+	}
+
+	if err := <-sending; err != nil {
+		return 0, err
+	}
+
+	inspected, err := docker.ContainerExecInspect(ctx, created.ID)
+	if err != nil {
+		return 0, err
+	}
+
+	return inspected.ExitCode, nil
+}

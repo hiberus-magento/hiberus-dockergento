@@ -111,7 +111,7 @@ assert_equals "$SHELL_STATUS" "$GO_STATUS"
 # Only a stdin that is not a terminal counts as a dump, and only when nothing else was asked for:
 # gating on the terminal alone is what once made -q unreachable for anything without one.
 
-printf 'CREATE TABLE prueba (id INT);\nINSERT INTO prueba VALUES (7);\n' > "$LAB/dump.sql"
+printf 'DROP TABLE IF EXISTS prueba;\nCREATE TABLE prueba (id INT);\nINSERT INTO prueba VALUES (7);\n' > "$LAB/dump.sql"
 
 ( cd "$DIR" && "$GO_BINARY" mysql < "$LAB/dump.sql" ) >/dev/null 2>&1
 
@@ -130,13 +130,53 @@ test_case "an option nobody declared is refused with the usage code"
 assert_equals "2" "$GO_STATUS"
 assert_equals "$SHELL_STATUS" "$GO_STATUS"
 
+# ---------------------------------------------------------------- the import
 #
-# The import also cleans DEFINER clauses, optionally anonymises, and then configures Magento for
-# local development. That sequence stays whole with the shell implementation, so the invocation
-# has to reach it.
+# An import is not only an import: it strips the DEFINER clauses, clears the record of the data
+# having been anonymised, optionally anonymises, and then points the store at this machine.
+
 #
-test_case "an import still goes to the shell implementation"
-( cd "$DIR" && "$GO_BINARY" mysql -i "$LAB/dump.sql" >"$LAB/go.out" 2>&1 )
-assert_contains "$(cat "$LAB/go.out")" "Importing the database"
+# `-d` takes no argument, and saying otherwise was not a cosmetic mistake: `hm mysql -d -i dump`
+# — the form this tool documents — read `-i` as the argument of `-d`, stopped at the file name,
+# imported nothing, and exited 0. The other order was refused outright, so there was no way to ask
+# for a DEFINER-cleaned import at all.
+#
+cat > "$LAB/vistas.sql" <<'EOF'
+DROP VIEW IF EXISTS vista;
+DROP TABLE IF EXISTS cosas;
+CREATE TABLE cosas (id INT, nombre VARCHAR(50));
+INSERT INTO cosas VALUES (1, 'uno');
+/*!50001 CREATE*/ /*!50013 DEFINER=`alguien`@`otro-sitio` SQL SECURITY DEFINER*/ /*!50001 VIEW `vista` AS SELECT 1 AS `x` */;
+EOF
+
+for CUAL in "$SHELL_CLI" "$GO_BINARY"; do
+    ( cd "$DIR" && "$CUAL" mysql -q "DROP VIEW IF EXISTS vista; DROP TABLE IF EXISTS cosas;" ) >/dev/null 2>&1
+    ( cd "$DIR" && "$CUAL" mysql -d -i "$LAB/vistas.sql" ) >/dev/null 2>&1
+
+    quien=$(basename "$CUAL")
+
+    test_case "$quien imports the dump when the DEFINER clauses are asked to go"
+    assert_contains "$( cd "$DIR" && "$GO_BINARY" mysql -q "SELECT nombre FROM cosas" 2>&1 )" "uno"
+
+    #
+    # The view is what proves it: with the clause left in, restoring it as another user fails
+    # outright, and with it gone the view belongs to whoever imported.
+    #
+    test_case "and the view no longer belongs to somebody else"
+    assert_contains "$( cd "$DIR" && "$GO_BINARY" mysql -q \
+        "SELECT definer FROM information_schema.views WHERE table_name='vista'" 2>&1 )" "root@"
+done
+
+test_case "an import clears the record of the data having been anonymised"
+mkdir -p "$LAB/estado"
+printf '{"anonymised_at":"2026-01-01 00:00"}\n' > "$LAB/estado/$PROJECT.json"
+( cd "$DIR" && HM_STATE_DIR="$LAB/estado" "$GO_BINARY" mysql -i "$LAB/dump.sql" ) >/dev/null 2>&1
+assert_equals "no" "$([ -f "$LAB/estado/$PROJECT.json" ] && echo yes || echo no)"
+
+test_case "a file that is not there is said, not crashed on"
+( cd "$DIR" && "$GO_BINARY" mysql -i "$LAB/no-existe.sql" >"$LAB/go.out" 2>&1 ); GO_STATUS=$?
+( cd "$DIR" && "$SHELL_CLI" mysql -i "$LAB/no-existe.sql" >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
+assert_contains "$(cat "$LAB/go.out")" "No such file"
+assert_equals "$SHELL_STATUS" "$GO_STATUS"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

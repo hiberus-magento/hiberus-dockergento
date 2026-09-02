@@ -7,6 +7,7 @@ package dockerd
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -69,7 +70,16 @@ func (e Engine) Containers() ([]core.Container, error) {
 			})
 		}
 
+		networks := make([]string, 0, len(item.NetworkSettings.Networks))
+
+		for name := range item.NetworkSettings.Networks {
+			networks = append(networks, name)
+		}
+
+		sort.Strings(networks)
+
 		containers = append(containers, core.Container{
+			Networks:       networks,
 			Mounts:         mounts,
 			Name:           name,
 			Published:      published,

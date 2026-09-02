@@ -74,11 +74,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 				return composer(rest[1:], stdout, stderr, jsonOutput)
 			}
 		case "mysql":
-			// The import also cleans, anonymises and configures Magento afterwards, and that
-			// sequence stays whole with the shell implementation
-			if !importsADump(rest[1:]) {
-				return mysql(rest[1:], stdout, stderr, jsonOutput)
-			}
+			return mysql(rest[1:], stdout, stderr, jsonOutput)
 		case "exec":
 			// Everything after the command belongs to the command, so the global flags are not
 			// consumed here: `hm exec grep --json` is asking grep for --json

@@ -72,7 +72,8 @@ detalle de cada una en `openspec/changes/`.
   - [x] `magento`, `composer` — el baile del vendor en macOS sigue en shell
 - [ ] **4 · Registro SQLite con las dos topologías + tanda 2** — *en marcha*
   - [x] Esquema, slots atómicos e importación de lo que escribió bash
-  - [x] `mysql` — y con él la capacidad de consultar, que necesitan `set_etc_hosts`, `install` y `db`
+  - [x] `mysql` entero, import incluido — y con él consultar, alimentar un contenedor, lanzar uno
+        suelto, el indicador de progreso y preguntar por terminal, que necesita el resto de la tanda
   - [ ] `worktree` — y con él el registro pasa a ser la fuente viva
   - [ ] `db`, `proxy`, `clean`, `setup`, `down`
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
@@ -107,11 +108,6 @@ Lo que cuesta: enlazar el motor de Compose sube el binario publicado de **8,5 MB
 registro en SQLite (Go puro, sin cgo) lo deja en **64,5 MB** y el
 grafo de dependencias de 70 módulos a 426. Es el precio de ADR-009 bis y está aceptado a
 conciencia; el detalle y lo que se compra con ello, en `docs/research/2.0-arquitectura.md`.
-
-`hm mysql -i` sigue en shell: el import no sólo importa —limpia cláusulas DEFINER, opcionalmente
-anonimiza y después configura Magento para desarrollo local, que pregunta por un dominio y escribe
-en el proyecto—. Esa secuencia se queda entera donde está hasta que lo que arrastra esté portado.
-Lo demás de `mysql` (consulta, sesión, volcado por la entrada) va por Go.
 
 `composer install|update|require|remove` sigue en shell **en macOS**: ahí no se ejecuta en el
 contenedor sin más, sino que se copia el `vendor` dentro, corre Composer y se copia el árbol

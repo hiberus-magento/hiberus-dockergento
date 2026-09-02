@@ -38,6 +38,13 @@ func engine(stdout, stderr io.Writer, jsonOutput bool) *dockergento.Engine {
 
 			fmt.Fprint(where, good(message))
 		},
+
+		// The spinner and the question live here for the same reason: the engine has no terminal
+		// and should not learn about one
+		Progress: func(label string) func(bool, string) {
+			return begin(label, stdout, stderr, jsonOutput)
+		},
+		Ask: ask,
 	})
 }
 

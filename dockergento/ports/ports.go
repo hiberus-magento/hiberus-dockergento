@@ -18,6 +18,11 @@ type Properties interface {
 	// file is not an error: it is a directory that is not a project, and the caller decides
 	// what that means.
 	Load(dir string) (map[string]string, error)
+
+	// Set records one property, leaving the rest of the file alone. The file is committed, so
+	// rebuilding it from the keys somebody happened to be thinking about is how a project loses
+	// a setting nobody was looking at.
+	Set(dir, key, value string) error
 }
 
 // VCS answers the questions this tool asks git.
@@ -133,7 +138,12 @@ type Tooling interface {
 
 // DataState is whether this copy of the data has been anonymised, and when.
 type DataState interface {
-	Anonymisation(project string) (string, string)
+	Anonymisation(environment string) (string, string)
+
+	// Record and Clear are the two halves that keep it honest. Everything that replaces the
+	// contents of a database clears it: whatever the new contents are, nobody anonymised them.
+	Record(environment, at string) error
+	Clear(environment string) error
 }
 
 // Orchestrator brings environments up and down, and runs things inside them.
@@ -166,6 +176,19 @@ type Orchestrator interface {
 // whose answer somebody has to read wants the bytes.
 type ContainerRunner interface {
 	Run(container string, command []string, environment []string, out io.Writer) (int, error)
+
+	// Feed sends a stream into the command's input, which is how a dump the size of a Magento
+	// database gets in without ever existing twice on disk.
+	Feed(container string, command []string, in io.Reader, out io.Writer) (int, error)
+}
+
+// OneOff runs a container that is not part of any environment and removes it afterwards.
+//
+// The anonymiser is a tool in its own image, attached to the network the database is on. It is
+// not a service of the project and it must not become one: a container in the compose file is a
+// container somebody has to remember to remove.
+type OneOff interface {
+	Run(image string, command []string, network string, mounts []core.Bind, tty bool) (int, error)
 }
 
 // Legacy runs a command of the shell implementation.

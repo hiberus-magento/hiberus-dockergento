@@ -5,20 +5,19 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/app"
 )
 
-// The database client.
+// The database client: a statement, a dump, or a session.
 //
-// What is here is what the shell implementation does before it reaches the client: refuse when
-// the database is not running, and decide which of the three things is being asked for — a
-// statement, a dump on the input, or a session.
-//
-// What is not here is the import. `-i` also cleans DEFINER clauses, optionally anonymises, and
-// then configures Magento for local development — which prompts for a domain and writes into the
-// project. That sequence stays whole with the shell implementation until the things it depends on
-// are ported.
+// An import is not only an import — it strips the DEFINER clauses, clears the record of the data
+// having been anonymised, optionally anonymises, and then points the store at this machine. That
+// whole sequence is here, because leaving half of it elsewhere is what makes a command mean two
+// different things depending on which implementation ran it.
 func mysql(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	statement := ""
+	options := app.ImportOptions{}
 
 	for at := 0; at < len(args); at++ {
 		switch argument := args[at]; argument {
@@ -29,9 +28,17 @@ func mysql(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 			at++
 			statement = args[at]
-		case "-d", "-a":
-			// They only mean anything with an import, and an import is not handled here. On
-			// their own the shell implementation opens a session, so this does too
+		case "-i":
+			if at+1 >= len(args) {
+				return usageOfMysql(stderr, jsonOutput)
+			}
+
+			at++
+			options.File = expandHome(args[at])
+		case "-d":
+			options.CleanDefiners = true
+		case "-a":
+			options.Anonymise = true
 		default:
 			if strings.HasPrefix(argument, "-") {
 				return usageOfMysql(stderr, jsonOutput)
@@ -44,6 +51,18 @@ func mysql(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	engine := engine(stdout, stderr, jsonOutput)
+
+	if options.File != "" {
+		if _, err := os.Stat(options.File); err != nil {
+			// Not an error the way a broken command is: the shell implementation says so and
+			// stops, which is what somebody who mistyped a path needs
+			fmt.Fprint(stderr, warning(fmt.Sprintf("No such file: %s\n", options.File)))
+
+			return exitOK
+		}
+
+		return report(stderr, jsonOutput, "mysql", engine.Import(here(), options))
+	}
 
 	if statement != "" {
 		status, err := engine.Query(here(), statement, stdout)
@@ -85,14 +104,17 @@ func usageOfMysql(stderr io.Writer, jsonOutput bool) int {
 		"The command is not correct", binaryName()+" mysql -q \"SELECT 1\"")
 }
 
-// importsADump reports whether this invocation is the one that also cleans, anonymises and
-// configures Magento afterwards, which is still the shell implementation's.
-func importsADump(args []string) bool {
-	for _, argument := range args {
-		if argument == "-i" {
-			return true
-		}
+// expandHome takes the tilde the shell did not, because the path arrives as a value and not as a
+// word the shell expanded.
+func expandHome(path string) string {
+	if !strings.HasPrefix(path, "~") {
+		return path
 	}
 
-	return false
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+
+	return home + strings.TrimPrefix(path, "~")
 }

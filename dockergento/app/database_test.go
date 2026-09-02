@@ -14,6 +14,7 @@ type runner struct {
 	command     []string
 	environment []string
 	answer      string
+	fed         string
 	status      int
 }
 
@@ -21,6 +22,15 @@ func (r *runner) Run(container string, command, environment []string, out io.Wri
 	r.container, r.command, r.environment = container, command, environment
 
 	out.Write([]byte(r.answer)) //nolint:errcheck
+
+	return r.status, nil
+}
+
+func (r *runner) Feed(container string, command []string, in io.Reader, out io.Writer) (int, error) {
+	r.container, r.command = container, command
+
+	fed, _ := io.ReadAll(in)
+	r.fed = string(fed)
 
 	return r.status, nil
 }

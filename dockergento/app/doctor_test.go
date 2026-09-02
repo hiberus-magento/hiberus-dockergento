@@ -77,6 +77,9 @@ func (t tools) Xdebug(string) string   { return "unknown" }
 
 type state struct{ at string }
 
+func (state) Record(string, string) error { return nil }
+func (state) Clear(string) error          { return nil }
+
 func (s state) Anonymisation(string) (string, string) {
 	if s.at == "" {
 		return "unknown", ""

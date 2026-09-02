@@ -3,6 +3,7 @@ package fsprops
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -78,4 +79,43 @@ func read(file string) (map[string]string, error) {
 	}
 
 	return properties, nil
+}
+
+// Set records one property, leaving the rest of the file alone.
+//
+// Merged and not rebuilt: the file is committed, so rebuilding it from the keys somebody happened
+// to be thinking about is how a project loses a setting nobody was looking at — which is exactly
+// what happened when a domain read from a database was written through the file format this tool
+// used to have.
+func (r Reader) Set(dir, key, value string) error {
+	file := filepath.Join(dir, "config", "docker", "properties.json")
+
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		return err
+	}
+
+	own := map[string]any{}
+
+	if contents, err := os.ReadFile(file); err == nil {
+		if err := json.Unmarshal(contents, &own); err != nil {
+			return fmt.Errorf("%s is not valid JSON: %w", file, err)
+		}
+	}
+
+	own[key] = value
+
+	document, err := json.MarshalIndent(own, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	// Written beside and moved into place: a half-written properties.json is a project with no
+	// identity, and this runs while somebody is importing a database
+	temporary := file + ".tmp"
+
+	if err := os.WriteFile(temporary, append(document, '\n'), 0o644); err != nil { //nolint:gosec
+		return err
+	}
+
+	return os.Rename(temporary, file)
 }

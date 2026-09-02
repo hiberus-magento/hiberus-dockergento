@@ -36,9 +36,37 @@ func paint(code, text string) string {
 // fewer, because the two are compared character for character.
 const rule = "========================================"
 
+// prompt is a question and the answer it would take if nobody types one.
+//
+// Painted the way the shell implementation paints it, bracket by bracket: the default is printed
+// without the question's colour, which is why this is not three calls to paint.
+func prompt(text, suggestion string) string {
+	asked := paint(blue, text)
+
+	if suggestion == "" || suggestion == "null" {
+		return asked
+	}
+
+	return asked + code(blue) + "[" + code(reset) + suggestion + code(blue) + "] " + code(reset)
+}
+
+const (
+	blue  = "\033[0;34m"
+	reset = "\033[0m"
+)
+
+// code is an escape sequence when anybody is looking, and nothing when not.
+func code(sequence string) string {
+	if !coloured() {
+		return ""
+	}
+
+	return sequence
+}
+
 func header(text string) string  { return paint("\033[1;37m", text) }
 func good(text string) string    { return paint("\033[0;32m", text) }
 func bad(text string) string     { return paint("\033[0;31m", text) }
-func section(text string) string { return paint("\033[0;34m", text) }
+func section(text string) string { return paint(blue, text) }
 func warning(text string) string { return paint("\033[0;33m", text) }
 func link(text string) string    { return paint("\033[34;4m", text) }

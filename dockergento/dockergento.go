@@ -77,6 +77,16 @@ type Options struct {
 	// Forced lifts, for this invocation only, the guardrail that refuses from a worktree with no
 	// environment of its own anything that would recreate or destroy the main checkout's.
 	Forced bool
+
+	// Progress is how an operation long enough to worry about says it is still going, and how it
+	// went. It returns the function that ends the step. The command line draws a spinner; an
+	// HTTP adapter would send events; a caller that does not care leaves it nil.
+	Progress func(label string) func(ok bool, note string)
+
+	// Ask is how a value that cannot be worked out is obtained. The command line reads the
+	// terminal; anything else answers however it likes — which is the reason this is not a
+	// terminal read buried three layers down.
+	Ask func(question, suggestion string) (string, error)
 }
 
 // Engine is the tool.
@@ -290,10 +300,59 @@ func (e *Engine) Feed(dir string) (int, error) {
 		app.Client(), core.ExecOptions{Interactive: true})
 }
 
+// Import replaces the contents of the project's database with a dump, and does what has to happen
+// around that: the DEFINER clauses, the record of the data no longer being anonymised, the
+// anonymiser when it is asked for, and pointing the store at this machine.
+func (e *Engine) Import(dir string, options app.ImportOptions) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	return app.Importer{
+		Database:     e.database(),
+		Orchestrator: e.orchestrator(project),
+		State:        toolinfo.State{Dir: e.options.StateDir},
+		Properties:   e.properties(),
+		OneOff:       dockerd.OneOff{Out: e.options.Stdout},
+		Settings:     filepath.Join(e.options.Root, "data", "local_settings.json"),
+		Progress:     e.options.Progress,
+		Announce:     e.options.Announce,
+		Errors:       e.errors(),
+		Binary:       e.options.Binary,
+	}.Import(project, e.ComposeFiles(project), options)
+}
+
+// Anonymise replaces the personal data of the project's database with data that looks like it.
+func (e *Engine) Anonymise(dir string) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	return app.Importer{
+		Database: e.database(),
+		State:    toolinfo.State{Dir: e.options.StateDir},
+		OneOff:   dockerd.OneOff{Out: e.options.Stdout},
+		Announce: e.options.Announce,
+		Binary:   e.options.Binary,
+	}.Anonymise(project)
+}
+
+// errors is where something else's complaints go.
+func (e *Engine) errors() io.Writer {
+	if e.options.Stderr != nil {
+		return e.options.Stderr
+	}
+
+	return os.Stderr
+}
+
 func (e *Engine) database() app.Database {
 	return app.Database{
 		Engine: dockerd.Engine{Timeout: e.options.Timeout},
 		Runner: dockerd.Runner{},
+		FS:     osfs.FS{},
 		Binary: e.options.Binary,
 	}
 }

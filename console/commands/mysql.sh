@@ -81,7 +81,13 @@ if [[ $# -eq 0 ]] && [ ! -t 0 ]; then
     print_info "Importing database from stdin ...\n"
     docker exec -i $mysql_container bash -c "$db_client"
 else
-    while getopts ":i:q:d:a" options; do
+    #
+    # `-d` and `-a` take no argument. Declaring `d:` meant `hm mysql -d -i dump.sql` — the form
+    # this tool documents — read `-i` as the argument of `-d`, stopped at the file name, imported
+    # nothing and reported success. The other order was refused outright, so there was no way to
+    # ask for a DEFINER-cleaned import at all.
+    #
+    while getopts ":i:q:da" options; do
         case "$options" in
             i)
                 # Import database

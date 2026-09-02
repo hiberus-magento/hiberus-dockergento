@@ -36,9 +36,19 @@ type Container struct {
 	// attributed to the environment causing it instead of reported as "something is listening".
 	Published []string
 
+	// Networks is what it is attached to, which is where anything that has to reach it has to be
+	// attached too.
+	Networks []string
+
 	// Mounts is what is mounted into it, and where. Read from the container rather than from the
 	// configuration on purpose: what matters is what the running container actually has.
 	Mounts []Mount
+}
+
+// Bind is a directory of this machine made visible inside a container.
+type Bind struct {
+	Source string
+	Target string
 }
 
 // Mount is one thing mounted into a container.

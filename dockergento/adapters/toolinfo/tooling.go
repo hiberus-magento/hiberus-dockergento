@@ -169,3 +169,51 @@ func (s State) Anonymisation(project string) (string, string) {
 
 	return "yes", state.AnonymisedAt
 }
+
+// Record writes down that this copy of the data was anonymised.
+func (s State) Record(environment, at string) error {
+	file, err := s.file(environment)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		return err
+	}
+
+	document, err := json.Marshal(map[string]string{"anonymised_at": at})
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(file, append(document, '\n'), 0o644) //nolint:gosec
+}
+
+// Clear is called by everything that replaces the database. Whatever it brought in, nobody
+// anonymised it, and a reassuring "yes" left over from before is worse than no record at all.
+func (s State) Clear(environment string) error {
+	file, err := s.file(environment)
+	if err != nil {
+		return err
+	}
+
+	if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	return nil
+}
+
+func (s State) file(environment string) (string, error) {
+	directory := s.Dir
+	if directory == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+
+		directory = filepath.Join(home, ".hm", "state")
+	}
+
+	return filepath.Join(directory, environment+".json"), nil
+}

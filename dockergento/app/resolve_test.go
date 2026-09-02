@@ -22,11 +22,15 @@ func (p properties) Load(dir string) (map[string]string, error) {
 	return map[string]string{}, nil
 }
 
+func (properties) Set(string, string, string) error { return nil }
+
 type failingProperties struct{}
 
 func (failingProperties) Load(string) (map[string]string, error) {
 	return nil, errors.New("no se puede leer")
 }
+
+func (failingProperties) Set(string, string, string) error { return nil }
 
 type vcs struct {
 	mainRoot   string

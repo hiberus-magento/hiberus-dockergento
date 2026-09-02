@@ -13,6 +13,9 @@ type Database struct {
 	Engine ports.ContainerEngine
 	Runner ports.ContainerRunner
 
+	// FS is what tells a project that has anonymisation rules of its own from one that has not.
+	FS ports.FS
+
 	// Binary is the name the tool was invoked as, for the sentence that says how to start it.
 	Binary string
 }
@@ -49,6 +52,48 @@ func (d Database) Query(project core.Project, statement string, out io.Writer) (
 	return d.Runner.Run(container,
 		[]string{"bash", "-c", client + ` -e "$QUERY"`},
 		[]string{"QUERY=" + statement}, out)
+}
+
+// Shell runs a shell command inside the database container, which is how its own environment is
+// read: the credentials are true there and nowhere else.
+func (d Database) Shell(project core.Project, command string, out io.Writer) (int, error) {
+	container, err := d.container(project)
+	if err != nil {
+		return 0, err
+	}
+
+	return d.Runner.Run(container, []string{"bash", "-c", command}, nil, out)
+}
+
+// Network is the one the database container is attached to, which is where anything that has to
+// reach it has to be attached too.
+func (d Database) Network(container string) (string, error) {
+	containers, err := d.Engine.Containers()
+	if err != nil {
+		return "", err
+	}
+
+	for _, candidate := range containers {
+		if candidate.ID == container && len(candidate.Networks) > 0 {
+			return candidate.Networks[0], nil
+		}
+	}
+
+	return "", fmt.Errorf("the database container is not on any network")
+}
+
+// Feed sends a stream into the database client, which is how a dump gets in.
+//
+// What the client says goes to the caller and is not swallowed: a dump that half applies says why
+// on its error output, and a command that hid that would leave somebody with a database in an
+// unknown state and no reason.
+func (d Database) Feed(project core.Project, dump io.Reader, out io.Writer) (int, error) {
+	container, err := d.container(project)
+	if err != nil {
+		return 0, err
+	}
+
+	return d.Runner.Feed(container, Client(), dump, out)
 }
 
 // container is the one holding this project's database, and refusing when it is not running is
