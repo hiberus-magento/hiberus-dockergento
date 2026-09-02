@@ -21,7 +21,12 @@ import (
 // A question with no suggestion cannot be guessed, so it fails with something actionable instead
 // of hanging — which is what a script or an agent needs, and what the shell implementation does.
 func ask(text, suggestion string) (string, error) {
-	if os.Getenv("HM_NON_INTERACTIVE") != "" || !isTerminal(os.Stdin) {
+	//
+	// Only non-interactive mode skips the question. Not "there is no terminal": an answer piped
+	// in is still an answer, which is what the shell implementation reads and what lets
+	// `printf 'n\n' | hm masquerade` mean no.
+	//
+	if os.Getenv("HM_NON_INTERACTIVE") != "" {
 		if suggestion != "" {
 			return suggestion, nil
 		}

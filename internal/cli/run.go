@@ -73,6 +73,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			if !mirrorsVendor(rest[1:]) {
 				return composer(rest[1:], stdout, stderr, jsonOutput)
 			}
+		case "bash":
+			return shell(rest[1:], stdout, stderr, jsonOutput)
+		case "masquerade":
+			return masquerade(rest[1:], stdout, stderr, jsonOutput)
 		case "mysql":
 			return mysql(rest[1:], stdout, stderr, jsonOutput)
 		case "exec":

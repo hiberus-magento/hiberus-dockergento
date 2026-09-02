@@ -250,6 +250,37 @@ assert_equals "2" "$GO_STATUS"
 assert_equals "$SHELL_STATUS" "$GO_STATUS"
 assert_contains "$(cat "$LAB/go.err")" "create-project"
 
+# ---------------------------------------------------------------- a shell inside
+
+test_case "opening a shell in the php container is the same invocation"
+( cd "$DIR" && echo "id -un" | "$SHELL_CLI" bash >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
+( cd "$DIR" && echo "id -un" | "$GO_BINARY"  bash >"$LAB/go.out" 2>&1 );   GO_STATUS=$?
+assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
+assert_equals "$SHELL_STATUS" "$GO_STATUS"
+
+# ---------------------------------------------------------------- and the one that cannot be undone
+#
+# Anonymising replaces the contents of the database: the previous ones are gone and the way back is
+# importing the dump again. So it asks, and answering anything but yes has to leave the data alone.
+
+#
+# Declining is not a failure. The shell implementation exits 1 here, but not on purpose: the `if`
+# is the last statement in the script and `set -e` turns a false condition into a failing exit. A
+# script asking "did it work" would be told no when the answer is "you said no".
+#
+test_case "anonymising asks first, and no is an answer"
+( cd "$DIR" && printf 'n\n' | "$GO_BINARY" masquerade >"$LAB/go.out" 2>&1 )
+assert_equals "0" "$?"
+assert_equals "" "$(grep -c 'Anonymising' "$LAB/go.out" | grep -v '^0$')"
+
+# An answer piped in is still an answer, which is what the shell implementation reads too
+test_case "and the answer can be piped in"
+assert_contains "$(cat "$LAB/go.out")" "anonymise your database"
+
+test_case "and an option nobody declared is refused with the usage code"
+( cd "$DIR" && "$GO_BINARY" masquerade --tonteria >/dev/null 2>&1 )
+assert_equals "2" "$?"
+
 # ---------------------------------------------------------------- from a worktree
 #
 # A worktree with no environment of its own resolves to the main checkout, which is right for

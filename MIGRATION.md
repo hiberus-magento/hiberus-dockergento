@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 12 de 65 |
+| Comandos en Go | 14 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -134,7 +134,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `ai-init` | ai | 4 | shell |
 | `ai-pull` | ai | 4 | shell |
 | `ai-reset` | ai | 4 | shell |
-| `bash` | tools | 3 | shell |
+| `bash` | tools | 3 | go |
 | `clean` | environment | 2 | shell |
 | `cloud` | tools | 4 | shell |
 | `cloud-login` | tools | 4 | shell |
@@ -160,7 +160,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `list` | environment | 1 | go |
 | `logs` | environment | 1 | go |
 | `magento` | magento | 1 | go |
-| `masquerade` | database | 3 | shell |
+| `masquerade` | database | 3 | go |
 | `mcp` | ai | 3 | shell |
 | `mysql` | database | 3 | go |
 | `mysqldump` | database | 3 | shell |
