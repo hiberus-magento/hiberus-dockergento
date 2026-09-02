@@ -26,6 +26,12 @@ go test ./...                  # los tests de Go
 ./bin/hm hm-go-project         # lo que la capa Go resuelve aquí
 ```
 
+El código está en dos mitades. `dockergento/` es la herramienta como librería —dominio, puertos,
+casos de uso, adaptadores y una fachada— y es pública porque `internal/` es una regla del lenguaje
+que impide importarla desde otro módulo. `internal/cli/` es la terminal, y es lo único privado:
+importa la fachada y los tipos del dominio, y nada más. Ahí es donde entrarán HTTP y MCP, como dos
+puertas más sobre las mismas llamadas.
+
 Lo siguiente por hacer está siempre en la primera fase sin terminar de la lista de abajo, y el
 detalle de cada una en `openspec/changes/`.
 

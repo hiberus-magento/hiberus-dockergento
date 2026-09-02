@@ -4,12 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"time"
 
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/dockerd"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/osfs"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/app"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/core"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
 // list is the first command that stopped going through the shell implementation.
@@ -23,13 +19,7 @@ func list(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			fmt.Sprintf("Unknown option: %s", args[0]), "hm list --help")
 	}
 
-	inventory := app.Inventory{
-		Engine:   dockerd.Engine{Timeout: 10 * time.Second},
-		FS:       osfs.FS{},
-		Branches: osfs.Branches{},
-	}
-
-	environments, err := inventory.Environments()
+	environments, err := engine(stdout, stderr, jsonOutput).Environments()
 	if err != nil {
 		return failure(stderr, jsonOutput, "list", exitDocker, "docker_unavailable",
 			"Docker is not running", "Start Docker and try again")

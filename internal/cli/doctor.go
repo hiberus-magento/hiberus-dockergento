@@ -4,19 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/composecfg"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/dockerd"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/machine"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/magentofiles"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/osfs"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/toolinfo"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/app"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/core"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
 func doctor(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
@@ -35,31 +25,10 @@ func doctor(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	// Outside a project the diagnosis still runs: it answers about the machine, which is the
 	// question somebody has when nothing works anywhere
-	project, err := resolveProject()
-	inProject := err == nil && project.Name != "" &&
-		(osfs.FS{}).Exists(filepath.Join(project.Root, "config", "docker", "properties.json"))
-
-	physician := app.Doctor{
-		Daemon:  dockerd.Daemon{Timeout: 10 * time.Second},
-		Engine:  dockerd.Engine{Timeout: 10 * time.Second},
-		Compose: composecfg.Loader{Environment: environmentFor(project)},
-		Magento: magentofiles.Reader{},
-		Tooling: toolinfo.Reader{Root: hmRoot()},
-		State:   toolinfo.State{Dir: os.Getenv("HM_STATE_DIR")},
-		Machine: machine.Host{},
-		FS:      osfs.FS{},
-
-		Project:      project,
-		InProject:    inProject,
-		ComposeFiles: composeFilesFor(project),
-		Template:     filepath.Join(hmRoot(), "docker-compose", "docker-compose.template.yml"),
-		Platform:     machineName(),
-		Binary:       binaryName(),
-		Profile:      os.Getenv("HM_PROFILE"),
-		Agent:        os.Getenv("HM_AGENT"),
+	diagnosis, err := engine(stdout, stderr, jsonOutput).Diagnose(here(), only)
+	if err != nil {
+		return failure(stderr, jsonOutput, "doctor", exitError, "diagnosis_failed", err.Error(), "")
 	}
-
-	diagnosis := physician.Diagnose(only)
 
 	if jsonOutput {
 		document, err := json.MarshalIndent(envelope{
@@ -121,14 +90,4 @@ func diagnosisAsText(diagnosis core.Diagnosis, stdout io.Writer) {
 	default:
 		fmt.Fprint(stdout, good("  Everything looks good\n\n"))
 	}
-}
-
-// binaryName is what the tool was invoked as, because every action printed is a command the
-// reader is meant to be able to paste.
-func binaryName() string {
-	if name := os.Getenv("COMMAND_BIN_NAME"); name != "" {
-		return name
-	}
-
-	return "hm"
 }

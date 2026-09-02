@@ -4,16 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"runtime"
-	"time"
 
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/composecfg"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/dockerd"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/magentofiles"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/toolinfo"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/app"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/core"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
 func describe(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
@@ -29,23 +21,7 @@ func describe(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 	}
 
-	project, err := resolveProject()
-	if err != nil || project.Name == "" {
-		return failure(stderr, jsonOutput, "describe", exitProject, "project_not_configured",
-			"This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid",
-			"hm setup")
-	}
-
-	describer := app.Describer{
-		Engine:  dockerd.Engine{Timeout: 10 * time.Second},
-		Compose: composecfg.Loader{Environment: environmentFor(project)},
-		Magento: magentofiles.Reader{},
-		Tooling: toolinfo.Reader{Root: hmRoot(), WorkdirPHP: property(project, "WORKDIR_PHP")},
-		State:   toolinfo.State{Dir: os.Getenv("HM_STATE_DIR")},
-		Machine: machineName(),
-	}
-
-	description, err := describer.Describe(project, composeFilesFor(project), withSecrets)
+	description, err := engine(stdout, stderr, jsonOutput).Describe(here(), withSecrets)
 	if err != nil {
 		return failure(stderr, jsonOutput, "describe", exitProject, "project_not_configured",
 			fmt.Sprintf("This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid: %s", err),
@@ -131,12 +107,4 @@ func orUnknown(value string) string {
 	}
 
 	return value
-}
-
-func machineName() string {
-	if runtime.GOOS == "darwin" {
-		return "mac"
-	}
-
-	return runtime.GOOS
 }

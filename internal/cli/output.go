@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/hiberus-magento/hiberus-dockergento/internal/core"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
 // The exit codes are a contract that callers branch on, and they are the shell implementation's:

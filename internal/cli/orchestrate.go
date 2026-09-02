@@ -6,36 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/composecfg"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/composelib"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/dockerd"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/legacy"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/app"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/core"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
-
-// operatorFor wires the everyday operations to the machine.
-func operatorFor(project core.Project, stdout, stderr io.Writer, jsonOutput bool) app.Operator {
-	return app.Operator{
-		Orchestrator: composelib.Orchestrator{Environment: environmentFor(project)},
-		Engine:       dockerd.Engine{},
-		Legacy:       legacy.Runner{},
-		Platform:     machineName(),
-		Binary:       binaryName(),
-		Workdir:      property(project, "WORKDIR_PHP"),
-
-		// In JSON mode stdout carries the document, so anything decorative goes to stderr —
-		// otherwise a program reading the output finds a sentence in the middle of it
-		Announce: func(message string) {
-			where := stdout
-			if jsonOutput {
-				where = stderr
-			}
-
-			fmt.Fprint(where, good(message))
-		},
-	}
-}
 
 func start(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	stopOthers := false
@@ -55,15 +28,12 @@ func start(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 	}
 
-	project, code := projectOr(stderr, jsonOutput, "start")
-	if code != 0 {
+	if _, code := projectOr(stderr, jsonOutput, "start"); code != 0 {
 		return code
 	}
 
-	operator := operatorFor(project, stdout, stderr, jsonOutput)
-
-	return report(stderr, jsonOutput, "start",
-		operator.Start(project, composeFilesFor(project), services, stopOthers, usesProxy(project)))
+	return report(stderr, jsonOutput, "start", engine(stdout, stderr, jsonOutput).
+		Start(here(), dockergento.StartOptions{Services: services, StopOthers: stopOthers}))
 }
 
 func stop(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
@@ -79,15 +49,12 @@ func stop(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 	}
 
-	project, code := projectOr(stderr, jsonOutput, "stop")
-	if code != 0 {
+	if _, code := projectOr(stderr, jsonOutput, "stop"); code != 0 {
 		return code
 	}
 
-	operator := operatorFor(project, stdout, stderr, jsonOutput)
-
-	return report(stderr, jsonOutput, "stop",
-		operator.Stop(project, composeFilesFor(project), services, snapshot))
+	return report(stderr, jsonOutput, "stop", engine(stdout, stderr, jsonOutput).
+		Stop(here(), services, snapshot))
 }
 
 func restart(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
@@ -102,15 +69,12 @@ func restart(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		services = append(services, argument)
 	}
 
-	project, code := projectOr(stderr, jsonOutput, "restart")
-	if code != 0 {
+	if _, code := projectOr(stderr, jsonOutput, "restart"); code != 0 {
 		return code
 	}
 
-	operator := operatorFor(project, stdout, stderr, jsonOutput)
-
-	return report(stderr, jsonOutput, "restart",
-		operator.Restart(project, composeFilesFor(project), services, usesProxy(project)))
+	return report(stderr, jsonOutput, "restart", engine(stdout, stderr, jsonOutput).
+		Restart(here(), services))
 }
 
 // logs writes what the services are saying.
@@ -182,8 +146,6 @@ func logs(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return code
 	}
 
-	files := composeFilesFor(project)
-
 	//
 	// Compose answers a wrong service name with an error about YAML files. The configuration is
 	// already here, so the message can say what this project actually has.
@@ -191,15 +153,13 @@ func logs(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	// Only when a service was named: `hm logs` on its own has nothing to validate.
 	//
 	if len(services) > 0 {
-		if code := checkServices(project, files, services, stderr, jsonOutput, "logs"); code != 0 {
+		if code := checkServices(project, services, stderr, jsonOutput, "logs"); code != 0 {
 			return code
 		}
 	}
 
-	operator := operatorFor(project, stdout, stderr, jsonOutput)
-
-	return report(stderr, jsonOutput, "logs",
-		operator.Orchestrator.Logs(project, files, services, options))
+	return report(stderr, jsonOutput, "logs", engine(stdout, stderr, jsonOutput).
+		Logs(here(), services, options))
 }
 
 // exec runs something inside the php container, which is the one people mean.
@@ -216,15 +176,12 @@ func execute(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			"There is no command to run", binaryName()+" exec ls -lah")
 	}
 
-	project, code := projectOr(stderr, jsonOutput, "exec")
-	if code != 0 {
+	if _, code := projectOr(stderr, jsonOutput, "exec"); code != 0 {
 		return code
 	}
 
-	operator := operatorFor(project, stdout, stderr, jsonOutput)
-
-	status, err := operator.Orchestrator.Exec(project, composeFilesFor(project), phpService,
-		args, terminalOptions(user))
+	status, err := engine(stdout, stderr, jsonOutput).
+		Exec(here(), phpService, args, terminalOptions(user))
 	if status != 0 {
 		return status
 	}
@@ -233,10 +190,9 @@ func execute(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 }
 
 // checkServices refuses a service this project does not have, and says which it does.
-func checkServices(project core.Project, files core.ComposeFiles, wanted []string,
+func checkServices(project core.Project, wanted []string,
 	stderr io.Writer, jsonOutput bool, command string) int {
-	configuration, err := (composecfg.Loader{Environment: environmentFor(project)}).
-		Load(project.Root, project.Name, files.Load)
+	configuration, err := engine(nil, nil, jsonOutput).Configuration(project)
 	if err != nil {
 		return 0
 	}
@@ -259,18 +215,6 @@ func checkServices(project core.Project, files core.ComposeFiles, wanted []strin
 	return 0
 }
 
-// projectOr resolves the project or reports why it could not.
-func projectOr(stderr io.Writer, jsonOutput bool, command string) (core.Project, int) {
-	project, err := resolveProject()
-	if err != nil || project.Name == "" {
-		return core.Project{}, failure(stderr, jsonOutput, command, exitProject, "project_not_configured",
-			"This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid",
-			binaryName()+" setup")
-	}
-
-	return project, 0
-}
-
 // report turns what an operation returned into the exit code its caller branches on.
 func report(stderr io.Writer, jsonOutput bool, command string, err error) int {
 	if err == nil {
@@ -290,24 +234,6 @@ func contains(values []string, wanted string) bool {
 		if value == wanted {
 			return true
 		}
-	}
-
-	return false
-}
-
-// usesProxy reports whether this project is routed through the one proxy on the machine.
-//
-// Never for a branch environment: it does not carry the proxy overlay — that overlay claims the
-// main environment's address — so starting the proxy for it would achieve nothing, and could
-// refuse the start outright when another environment happens to hold port 80.
-func usesProxy(project core.Project) bool {
-	return project.Worktree == nil && truthy(property(project, "USE_PROXY"))
-}
-
-func truthy(value string) bool {
-	switch strings.ToLower(value) {
-	case "true", "yes", "1":
-		return true
 	}
 
 	return false

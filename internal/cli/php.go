@@ -6,7 +6,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/hiberus-magento/hiberus-dockergento/internal/core"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
 // The service everything PHP runs in. Named once: three commands mean the same container by it.
@@ -56,10 +56,8 @@ func composer(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 // inside runs a command in the php container and answers with that command's own exit code.
 func inside(project core.Project, command []string, user string,
 	stdout, stderr io.Writer, jsonOutput bool, name string) int {
-	operator := operatorFor(project, stdout, stderr, jsonOutput)
-
-	status, err := operator.Orchestrator.Exec(project, composeFilesFor(project), phpService,
-		command, terminalOptions(user))
+	status, err := engine(stdout, stderr, jsonOutput).
+		Exec(project.Root, phpService, command, terminalOptions(user))
 	if status != 0 {
 		return status
 	}

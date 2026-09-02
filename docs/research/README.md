@@ -9,6 +9,7 @@ implementada**.
 | **[backlog.md](backlog.md)** | **Lista consolidada de ítems candidatos, con IDs, esfuerzo, dependencias y criterios de aceptación** | **Vivo — es el documento del que se elige** |
 | [git-worktrees.md](git-worktrees.md) | Trabajo en paralelo con git worktrees y varios agentes: diagnóstico con evidencias, estado del arte y estrategia por niveles de entorno | Propuesta, con PoC pendiente |
 | [ddev-warden-feature-mining.md](ddev-warden-feature-mining.md) | Funcionalidades de DDEV y Warden que merece la pena incorporar a Dockergento | Catálogo priorizado |
+| [gentle-ai-engram-mining.md](gentle-ai-engram-mining.md) | Patrones de herramientas CLI en Go (gentle-ai, engram) aplicables a la migración a Go: distribución, instalador, release, y qué **no** copiar de su arquitectura | Catálogo priorizado — para la 2.0 |
 | [ai-features.md](ai-features.md) | Qué incorporar a Dockergento por el lado de la IA: modo agente, MCP, verificación, datos seguros | Catálogo priorizado |
 | [terminal-ux.md](terminal-ux.md) | Interfaz de terminal y experiencia de uso: colores, preguntas, ayuda, progreso y la base del TUI | Propuesta |
 | [tui-landscape.md](tui-landscape.md) | Cómo se hace un TUI en Bash: qué han resuelto bashtop y fff, qué alternativas hay (fzf, gum, dialog), y las seis reglas de render que salieron de medir el nuestro | **Implementado** — las reglas están en `console/tasks/tui_frame.sh` |

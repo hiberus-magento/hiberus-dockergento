@@ -8,12 +8,6 @@ import (
 	"io"
 	"os"
 	"runtime/debug"
-
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/fsprops"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/gitvcs"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/hmstate"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/adapters/legacy"
-	"github.com/hiberus-magento/hiberus-dockergento/internal/app"
 )
 
 // Version is stamped at build time. Empty means a build nobody released.
@@ -29,8 +23,6 @@ var Version = ""
 // implementation does not have and never will. They exist to see what the Go layer resolved
 // without changing what any real command does.
 func Run(args []string, stdout, stderr io.Writer) int {
-	runner := legacy.Runner{}
-
 	if len(args) > 0 {
 		switch args[0] {
 		case "hm-go-version":
@@ -94,7 +86,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	code, err := runner.Run(args)
+	code, err := engine(stdout, stderr, false).Shell(args)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s\n", err)
 
@@ -148,13 +140,7 @@ func project(args []string, stdout, stderr io.Writer) int {
 		directory = args[0]
 	}
 
-	resolver := app.Resolver{
-		Properties: fsprops.Reader{},
-		VCS:        gitvcs.Git{},
-		Registry:   registry{},
-	}
-
-	resolved, err := resolver.Resolve(directory)
+	resolved, err := engine(stdout, stderr, false).Resolve(directory)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s\n", err)
 
@@ -179,6 +165,3 @@ func project(args []string, stdout, stderr io.Writer) int {
 
 	return 0
 }
-
-// registry is where branch environments are recorded, outside any checkout.
-type registry = hmstate.Registry
