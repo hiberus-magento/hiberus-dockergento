@@ -64,3 +64,41 @@ func run(dir string, args ...string) (string, error) {
 
 	return string(output), err
 }
+
+// Dirty reports whether a working directory has changes nobody has committed.
+func (Git) Dirty(dir string) bool {
+	command := exec.Command("git", "status", "--porcelain")
+	command.Dir = dir
+
+	output, err := command.Output()
+	if err != nil {
+		return false
+	}
+
+	return strings.TrimSpace(string(output)) != ""
+}
+
+// RemoveWorktree takes a linked worktree away.
+//
+// git's own refusal is repeated rather than worked around: it declines while there are
+// uncommitted changes, and that is the right answer.
+func (Git) RemoveWorktree(root, path string, force bool) error {
+	arguments := []string{"worktree", "remove"}
+	if force {
+		arguments = append(arguments, "--force")
+	}
+
+	command := exec.Command("git", append(arguments, path)...) //nolint:gosec
+	command.Dir = root
+
+	return command.Run()
+}
+
+// Prune clears the administrative entry a directory somebody deleted by hand leaves behind. git
+// refuses to reuse the name until it is gone.
+func (Git) Prune(root string) error {
+	command := exec.Command("git", "worktree", "prune")
+	command.Dir = root
+
+	return command.Run()
+}

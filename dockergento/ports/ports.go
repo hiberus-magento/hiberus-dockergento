@@ -30,6 +30,16 @@ type VCS interface {
 	// Resolve reports the main checkout of the repository containing dir, and whether dir is a
 	// linked worktree of it. A directory outside a repository is not an error either.
 	Resolve(dir string) (mainRoot string, isWorktree bool, worktreeName string, err error)
+
+	// Dirty reports whether a working directory has changes nobody has committed. Containers and
+	// databases can be rebuilt in seconds; uncommitted code cannot be rebuilt at all.
+	Dirty(dir string) bool
+
+	// RemoveWorktree takes a linked worktree away, and Prune clears the administrative entry a
+	// directory somebody deleted by hand leaves behind — git refuses to reuse the name until it
+	// is gone.
+	RemoveWorktree(root, path string, force bool) error
+	Prune(root string) error
 }
 
 // Registry is where branch environments are recorded, outside the checkout: properties.json is a
@@ -38,6 +48,15 @@ type Registry interface {
 	// Worktree returns the registration of a branch environment, or nil when there is none.
 	// A worktree with no registration is the case the guardrails refuse.
 	Worktree(parent, name string) (*core.Worktree, error)
+
+	// Worktrees is every branch environment of a project.
+	Worktrees(parent string) ([]core.Worktree, error)
+
+	// Forget removes a registration and the overlay beside it.
+	Forget(parent, name string) error
+
+	// Overlay is the compose file that carries a branch environment's profile and routing.
+	Overlay(parent, name string) string
 }
 
 // ContainerEngine is the Docker daemon.
@@ -155,6 +174,10 @@ type DataState interface {
 type Orchestrator interface {
 	// Up creates and starts what is missing and leaves alone what already matches.
 	Up(project core.Project, files core.ComposeFiles, services []string) error
+
+	// Down removes an environment. With volumes, its data goes too — which is the whole point
+	// when the environment being removed is a branch's.
+	Down(project core.Project, files core.ComposeFiles, volumes bool) error
 
 	// Stop stops without removing: an everyday operation that has to be quick and keep the data.
 	Stop(project core.Project, files core.ComposeFiles, services []string) error

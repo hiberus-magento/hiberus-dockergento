@@ -74,7 +74,9 @@ detalle de cada una en `openspec/changes/`.
   - [x] Esquema, slots atómicos e importación de lo que escribió bash
   - [x] `mysql` entero, import incluido — y con él consultar, alimentar un contenedor, lanzar uno
         suelto, el indicador de progreso y preguntar por terminal, que necesita el resto de la tanda
-  - [ ] `worktree` — y con él el registro pasa a ser la fuente viva
+  - [~] `worktree` — `list` y `remove` portados; `add` sigue en shell. Los tres leen y escriben
+        las mismas registraciones, así que no hay momento en que discrepen
+  - [ ] el registro pasa a ser la fuente viva (cambiar el adaptador de JSON a SQLite, de una vez)
   - [~] `db` — la mitad de plantillas (`freeze`, `templates`, `clone`, `drop`), que es de la que
         depende `worktree`; las instantáneas siguen en shell
   - [ ] `proxy`, `clean`, `setup`, `down`

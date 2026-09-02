@@ -404,6 +404,64 @@ func (e *Engine) resolved(dir string) (core.Project, core.Compose, error) {
 	return project, configuration, nil
 }
 
+//
+// Branch environments: a git worktree with an environment of its own.
+//
+
+// Worktrees is every branch environment of this project, with what is actually running.
+func (e *Engine) Worktrees(dir string) (string, []app.Listed, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return "", nil, err
+	}
+
+	parent := e.parentOf(project)
+
+	listed, err := e.worktrees().List(parent)
+
+	return parent, listed, err
+}
+
+// RemoveWorktree takes a branch environment away: its containers, its data, its worktree and its
+// registration.
+func (e *Engine) RemoveWorktree(dir, name string, force, interactive bool) (string, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return "", err
+	}
+
+	// The overlay a branch environment is built from is the parent's registration of it, so the
+	// files to take down are that environment's own
+	files := e.ComposeFiles(project)
+	files.Load = append([]string{files.Load[0], files.Load[1]},
+		e.registry().Overlay(e.parentOf(project), name))
+
+	return e.worktrees().Remove(e.parentOf(project), project.Root, name, files, force, interactive)
+}
+
+// parentOf is the project a branch environment belongs to, which from the main checkout is simply
+// this one.
+func (e *Engine) parentOf(project core.Project) string {
+	if project.Worktree != nil {
+		return project.Worktree.Parent
+	}
+
+	return project.Name
+}
+
+func (e *Engine) worktrees() app.Worktrees {
+	return app.Worktrees{
+		Registry:     e.registry(),
+		Engine:       dockerd.Engine{Timeout: e.options.Timeout},
+		VCS:          gitvcs.Git{},
+		FS:           osfs.FS{},
+		Orchestrator: e.orchestrator(core.Project{}),
+		Announce:     e.options.Announce,
+		Ask:          e.options.Ask,
+		Binary:       e.options.Binary,
+	}
+}
+
 func (e *Engine) templates(project core.Project) app.Templates {
 	return app.Templates{
 		Volumes:      dockerd.Volumes{},

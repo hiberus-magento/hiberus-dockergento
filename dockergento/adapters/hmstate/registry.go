@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -84,4 +86,51 @@ func (r Registry) home() string {
 	}
 
 	return filepath.Join(home, ".hm", "worktrees")
+}
+
+// Worktrees is every branch environment of a project.
+func (r Registry) Worktrees(parent string) ([]core.Worktree, error) {
+	entries, err := os.ReadDir(filepath.Join(r.home(), parent))
+	if err != nil {
+		return []core.Worktree{}, nil
+	}
+
+	worktrees := []core.Worktree{}
+
+	for _, entry := range entries {
+		name := strings.TrimSuffix(entry.Name(), ".json")
+		if entry.IsDir() || name == entry.Name() {
+			continue
+		}
+
+		worktree, err := r.Worktree(parent, name)
+		if err != nil || worktree == nil {
+			continue
+		}
+
+		worktrees = append(worktrees, *worktree)
+	}
+
+	sort.Slice(worktrees, func(a, b int) bool { return worktrees[a].Name < worktrees[b].Name })
+
+	return worktrees, nil
+}
+
+// Forget removes a registration and the overlay beside it.
+//
+// Both, because they are one fact in two files: an overlay with no registration is a compose file
+// nothing loads, and a registration with no overlay is an environment that cannot be built.
+func (r Registry) Forget(parent, name string) error {
+	if err := os.Remove(filepath.Join(r.home(), parent, name+".json")); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if err := os.Remove(r.Overlay(parent, name)); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	// Only when it is empty, which is what tells the last worktree of a project from the others
+	os.Remove(filepath.Join(r.home(), parent)) //nolint:errcheck
+
+	return nil
 }

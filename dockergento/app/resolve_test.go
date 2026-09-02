@@ -38,6 +38,10 @@ type vcs struct {
 	name       string
 }
 
+func (vcs) Dirty(string) bool                         { return false }
+func (vcs) RemoveWorktree(string, string, bool) error { return nil }
+func (vcs) Prune(string) error                        { return nil }
+
 func (v vcs) Resolve(dir string) (string, bool, string, error) {
 	if v.mainRoot == "" {
 		return dir, false, "", nil
@@ -51,6 +55,10 @@ type registry struct {
 }
 
 func (r registry) Worktree(string, string) (*core.Worktree, error) { return r.worktree, nil }
+
+func (registry) Worktrees(string) ([]core.Worktree, error) { return nil, nil }
+func (registry) Forget(string, string) error               { return nil }
+func (registry) Overlay(string, string) string             { return "" }
 
 func TestMainCheckoutTakesItsOwnProperties(t *testing.T) {
 	resolver := Resolver{

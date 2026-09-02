@@ -86,6 +86,24 @@ func (o Orchestrator) Stop(project core.Project, files core.ComposeFiles, servic
 	})
 }
 
+// Down removes an environment: its containers, its networks and, when asked, its data.
+//
+// With the volumes is what a branch environment wants when it goes: the database it was given was
+// a copy, and leaving it behind is how a machine fills up with the data of branches nobody works
+// on any more.
+func (o Orchestrator) Down(project core.Project, files core.ComposeFiles, volumes bool) error {
+	service, loaded, err := o.open(project, files)
+	if err != nil {
+		return err
+	}
+
+	return service.Down(context.Background(), loaded.Name, api.DownOptions{
+		Project:       loaded,
+		Volumes:       volumes,
+		RemoveOrphans: true,
+	})
+}
+
 // Logs writes the logs of the services named, with Compose's own consumer.
 //
 // Its own and not one of ours: the prefix width, the colour each service is given and the way a
