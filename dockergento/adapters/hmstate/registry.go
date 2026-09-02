@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -23,6 +24,11 @@ type Registry struct {
 }
 
 type registration struct {
+	// Parent is redundant — it is the directory the file sits in — and it is written anyway,
+	// because the shell implementation writes it and a record the two disagree about is a record
+	// somebody will one day read with the wrong one.
+	Parent  string `json:"parent,omitempty"`
+	Created string `json:"created,omitempty"`
 	Path    string `json:"path"`
 	Branch  string `json:"branch"`
 	Profile string `json:"profile"`
@@ -133,4 +139,54 @@ func (r Registry) Forget(parent, name string) error {
 	os.Remove(filepath.Join(r.home(), parent)) //nolint:errcheck
 
 	return nil
+}
+
+// Save writes a registration.
+//
+// Written beside and moved into place: a half-written registration is a branch environment that
+// resolves to nothing, and this runs while other agents are reading the same directory.
+func (r Registry) Save(parent string, worktree core.Worktree) error {
+	directory := filepath.Join(r.home(), parent)
+
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		return err
+	}
+
+	vendor := "own"
+	if worktree.SharedVendor {
+		vendor = "shared"
+	}
+
+	document, err := json.MarshalIndent(registration{
+		Parent:  parent,
+		Path:    worktree.Path,
+		Branch:  worktree.Branch,
+		Profile: worktree.Profile,
+		Domain:  worktree.Domain,
+		Project: worktree.Project,
+		Vendor:  vendor,
+		Created: time.Now().Format("2006-01-02 15:04"),
+	}, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	file := filepath.Join(directory, worktree.Name+".json")
+	temporary := file + ".tmp"
+
+	if err := os.WriteFile(temporary, append(document, '\n'), 0o644); err != nil { //nolint:gosec
+		return err
+	}
+
+	return os.Rename(temporary, file)
+}
+
+// WriteOverlay writes the compose file that turns the project's configuration into this branch's
+// environment.
+func (r Registry) WriteOverlay(parent, name, contents string) error {
+	if err := os.MkdirAll(filepath.Join(r.home(), parent), 0o755); err != nil {
+		return err
+	}
+
+	return os.WriteFile(r.Overlay(parent, name), []byte(contents), 0o644) //nolint:gosec
 }

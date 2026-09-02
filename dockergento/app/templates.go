@@ -326,6 +326,15 @@ func (t Templates) Drop(project core.Project, address string, force, interactive
 // Both come from the resolved configuration rather than from a name built here: the project name
 // can be overridden, the volume can be renamed in an overlay, and a guess that is right for most
 // projects is the kind of thing that destroys the data of the rest.
+// CopyVolume copies one volume over another with the given image, which is how a branch
+// environment on macOS gets the code: there the code lives in a named volume and nothing on this
+// filesystem can be mounted into it.
+func (t Templates) CopyVolume(from, to, image string) error { return t.copy(from, to, image) }
+
+// DataDirectory is the volume compose will mount as the database's data directory, and the image
+// it will run.
+func DataDirectory(configuration core.Compose) (string, string) { return dataDirectory(configuration) }
+
 func dataDirectory(configuration core.Compose) (string, string) {
 	volume := configuration.Volumes["dbdata"]
 

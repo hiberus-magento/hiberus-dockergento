@@ -449,6 +449,206 @@ func (e *Engine) parentOf(project core.Project) string {
 	return project.Name
 }
 
+// AddWorktree gives a branch an environment of its own.
+//
+// Everything that can be refused is refused before anything is created: half a branch environment
+// — a worktree with no registration, a registration with no overlay — is the state nothing else in
+// this tool knows how to talk about.
+func (e *Engine) AddWorktree(dir string, options app.AddOptions) (app.Added, error) {
+	project, configuration, err := e.resolved(dir)
+	if err != nil {
+		return app.Added{}, err
+	}
+
+	worktrees := e.worktrees()
+
+	plan, err := worktrees.Prepare(project, e.UsesProxy(project), options)
+	if err != nil {
+		return app.Added{}, err
+	}
+
+	//
+	// Two environments answering on one address is not something the proxy refuses: the routers
+	// have different names, so it accepts both and the routing is simply ambiguous.
+	//
+	if e.addressTaken(plan.Domain) {
+		return app.Added{}, core.Refusal{
+			Kind: "address_taken", Code: 2,
+			Message: "Something is already routed at " + plan.Domain,
+			Hint:    e.options.Binary + " proxy status",
+		}
+	}
+
+	services := make([]string, 0, len(configuration.Services))
+	for _, service := range configuration.Services {
+		services = append(services, service.Name)
+	}
+
+	plan, err = worktrees.Create(project, plan, services, e.Property(project, "WORKDIR_PHP"))
+	if err != nil {
+		return app.Added{}, err
+	}
+
+	e.settle(project, plan, options)
+
+	return app.Added{
+		Name: plan.Name, Branch: plan.Branch(), Profile: plan.Profile,
+		Path: plan.Path, Project: plan.Project, URL: "https://" + plan.Domain,
+	}, nil
+}
+
+// settle is everything after the environment exists: the dependencies, the address, the data and
+// starting it.
+//
+// None of it fails the command. By this point the worktree is created and registered, and a
+// failure here leaves something somebody can look at and fix — where returning an error would
+// leave it created, registered, and reported as not having happened.
+func (e *Engine) settle(project core.Project, plan app.Plan, options app.AddOptions) {
+	e.shareDependencies(project, plan)
+
+	if !(machine.Host{}).ResolvesLocally(plan.Domain) {
+		e.say(plan.Domain + " does not resolve yet\n")
+	}
+
+	e.cloneInto(project, plan)
+
+	if !options.Start {
+		return
+	}
+
+	e.say("Starting " + plan.Project + "...\n")
+	e.Start(plan.Path, StartOptions{}) //nolint:errcheck
+
+	e.anonymiseBranch(plan, options)
+}
+
+// shareDependencies gives the branch what it needs to run without installing it again.
+//
+// On macOS the code lives in a named volume, so the volume is copied: nothing on this filesystem
+// can be mounted into it. On Linux the main checkout's dependencies are mounted read-only, and
+// that decision was already taken when the overlay was written — what is left here is saying so,
+// or saying why not.
+func (e *Engine) shareDependencies(project core.Project, plan app.Plan) {
+	if Platform() == "mac" {
+		source := project.Name + "_workspace"
+
+		if !(dockerd.Volumes{}).Exists(source) {
+			e.say("The main environment has no code volume yet; this one starts empty\n")
+
+			return
+		}
+
+		e.say("Copying the code volume...\n")
+
+		if _, image := configuredDatabase(e, project); image != "" {
+			if err := e.templates(project).CopyVolume(source, plan.Project+"_workspace", image); err != nil {
+				e.say("The code volume could not be copied\n")
+			}
+		}
+
+		return
+	}
+
+	if plan.SharedVendor {
+		e.say("Dependencies are read from the main checkout; nothing was copied.\n")
+
+		return
+	}
+
+	//
+	// The branch changed its dependencies, so sharing them would be a lie. That is the honest
+	// price of having changed them.
+	//
+	e.say("This branch's composer.lock differs from the main checkout's\n")
+	e.say("  Install its dependencies there before using it: cd " + plan.Path +
+		" && " + e.options.Binary + " composer install\n")
+}
+
+// cloneInto gives the branch its data.
+//
+// With no template it is not invented: a branch environment sharing the main database would not be
+// an isolated environment at all, and a `setup:upgrade` on the branch would land on everybody.
+func (e *Engine) cloneInto(project core.Project, plan app.Plan) {
+	if !(dockerd.Volumes{}).Exists(core.TemplateVolume(project.Name, "base")) {
+		e.say("This project has no database template, so the environment starts empty\n")
+		e.say("  Freeze one with " + e.options.Binary + " db freeze\n")
+
+		return
+	}
+
+	e.say("Cloning the database...\n")
+
+	if _, err := e.Clone(plan.Path, core.TemplateAddress(project.Name, "base"), true); err != nil {
+		e.say("The database could not be cloned; the environment starts empty\n")
+	}
+}
+
+// anonymiseBranch is why the agent profile exists at all.
+//
+// An environment called `agent` is one an agent works in, and what an agent reads goes to a model,
+// over a network, outside the company. A development database is a copy of production: real names,
+// addresses, emails and orders. So this is the moment — the data has just been cloned and nobody
+// is waiting on it.
+//
+// A default and not a rule: reproducing a bug that only happens with one customer's order history
+// is a real thing people do, and it is their data and their decision.
+func (e *Engine) anonymiseBranch(plan app.Plan, options app.AddOptions) {
+	if plan.Profile != "agent" {
+		return
+	}
+
+	if !options.Anonymise {
+		e.say("Not anonymised, as asked. This database holds whatever the original held.\n")
+
+		return
+	}
+
+	e.say("Anonymising the branch environment's database...\n")
+
+	if err := e.Anonymise(plan.Path); err != nil {
+		// Reported, not swallowed: an environment that was supposed to be anonymised and is not
+		// is exactly the situation this feature exists to prevent
+		e.say("The database could not be anonymised. It holds whatever the original held; run " +
+			e.options.Binary + " masquerade from " + plan.Path + " before letting an agent read it.\n")
+
+		return
+	}
+
+	e.say("Anonymised.\n")
+}
+
+// addressTaken reports whether the one proxy on this machine is already routing that name.
+func (e *Engine) addressTaken(domain string) bool {
+	containers, err := (dockerd.Engine{Timeout: e.options.Timeout}).Containers()
+	if err != nil {
+		return false
+	}
+
+	for _, container := range containers {
+		if container.Running && container.Routes(domain) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (e *Engine) say(message string) {
+	if e.options.Announce != nil {
+		e.options.Announce(message)
+	}
+}
+
+// configuredDatabase is the volume and the image a project's database uses.
+func configuredDatabase(e *Engine, project core.Project) (string, string) {
+	configuration, err := e.Configuration(project)
+	if err != nil {
+		return "", ""
+	}
+
+	return app.DataDirectory(configuration)
+}
+
 func (e *Engine) worktrees() app.Worktrees {
 	return app.Worktrees{
 		Registry:     e.registry(),
@@ -456,9 +656,22 @@ func (e *Engine) worktrees() app.Worktrees {
 		VCS:          gitvcs.Git{},
 		FS:           osfs.FS{},
 		Orchestrator: e.orchestrator(core.Project{}),
-		Announce:     e.options.Announce,
-		Ask:          e.options.Ask,
-		Binary:       e.options.Binary,
+		Platform:     Platform(),
+
+		// The same lock the shell implementation takes, so that two agents — one of each —
+		// creating a branch environment at the same moment take turns instead of both believing
+		// they own the name
+		Lock: func() (func(), error) {
+			lock, err := hmstate.Take("worktrees")
+			if err != nil {
+				return nil, err
+			}
+
+			return lock.Release, nil
+		},
+		Announce: e.options.Announce,
+		Ask:      e.options.Ask,
+		Binary:   e.options.Binary,
 	}
 }
 

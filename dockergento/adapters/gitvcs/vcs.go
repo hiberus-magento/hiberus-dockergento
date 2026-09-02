@@ -102,3 +102,30 @@ func (Git) Prune(root string) error {
 
 	return command.Run()
 }
+
+// AddWorktree creates a linked worktree, on an existing branch or on a new one.
+//
+// Which of the two is decided by asking git rather than by trying and reading the error: `worktree
+// add -b` on a branch that exists fails, and `worktree add` on one that does not creates a
+// detached head, which is not what anybody asked for.
+func (g Git) AddWorktree(root, path, branch string) (string, error) {
+	arguments := []string{"worktree", "add", path, branch}
+
+	if !g.hasBranch(root, branch) {
+		arguments = []string{"worktree", "add", "-b", branch, path}
+	}
+
+	command := exec.Command("git", arguments...) //nolint:gosec
+	command.Dir = root
+
+	output, err := command.CombinedOutput()
+
+	return strings.TrimSpace(string(output)), err
+}
+
+func (Git) hasBranch(root, branch string) bool {
+	command := exec.Command("git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
+	command.Dir = root
+
+	return command.Run() == nil
+}

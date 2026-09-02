@@ -79,6 +79,7 @@ func (e Engine) Containers() ([]core.Container, error) {
 		sort.Strings(networks)
 
 		containers = append(containers, core.Container{
+			Labels:         item.Labels,
 			Networks:       networks,
 			Mounts:         mounts,
 			Name:           name,

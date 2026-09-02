@@ -9,10 +9,10 @@ import (
 
 // Branch environments.
 //
-// `list` and `remove` are here; `add` is still the shell implementation's. They read and write the
-// same registrations, so there is no moment where the two disagree — what one writes the other
-// sees, which is the only way a command can be ported one half at a time.
-var worktreeSubcommands = map[string]bool{"list": true, "remove": true}
+// All three are here now, which is what lets the registry become the live source: while one half
+// wrote JSON and the other read SQLite there would be a branch environment `add` created that
+// nothing else could see.
+var worktreeSubcommands = map[string]bool{"list": true, "remove": true, "add": true}
 
 func worktree(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	if len(args) == 0 {
@@ -20,6 +20,8 @@ func worktree(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	switch args[0] {
+	case "add":
+		return worktreeAdd(args[1:], stdout, stderr, jsonOutput)
 	case "list":
 		return worktreeList(stdout, stderr, jsonOutput)
 	case "remove":

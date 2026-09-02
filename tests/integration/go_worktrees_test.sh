@@ -129,10 +129,72 @@ assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -r '.d
 assert_equals "no" "$([ -f "$HM_WORKTREE_DIR/$PROJECT/verde.yml" ] && echo yes || echo no)"
 assert_equals "no" "$([ -d "$LAB/rama-verde" ] && echo yes || echo no)"
 
-# ---------------------------------------------------------------- and the half that is not ported
+# ---------------------------------------------------------------- creating one
+#
+# What matters is not that it works but that it writes the same things: another agent, or the
+# shell implementation, has to be able to read what this one left.
 
-test_case "add still reaches the shell implementation"
-( cd "$DIR" && "$GO_BINARY" worktree add >"$LAB/go.out" 2>&1 )
-assert_contains "$(cat "$LAB/go.out")" "branch"
+for CASO in "" "--profile=inventado rama" "--tonteria" "una otra"; do
+    ( cd "$DIR" && "$SHELL_CLI" worktree add $CASO >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
+    ( cd "$DIR" && "$GO_BINARY"  worktree add $CASO >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+
+    test_case "adding with '${CASO:-no branch}' is refused the same way"
+    assert_equals "$SHELL_STATUS" "$GO_STATUS"
+    assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
+done
+
+#
+# A branch environment is reached by name, which needs the global proxy: without it every one of
+# them would publish its own ports, which is the collision the proxy was built to end.
+#
+printf '{"MAGENTO_DIR": "./src", "DOMAIN": "ramas.test", "COMPOSE_PROJECT_NAME": "%s"}\n' "$PROJECT" \
+    > "$DIR/config/docker/properties.json"
+
+( cd "$DIR" && "$SHELL_CLI" worktree add sinproxy >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
+( cd "$DIR" && "$GO_BINARY"  worktree add sinproxy >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+
+test_case "without the proxy it is refused, the same way"
+assert_equals "6" "$GO_STATUS"
+assert_equals "$SHELL_STATUS" "$GO_STATUS"
+assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
+
+printf '{"MAGENTO_DIR": "./src", "DOMAIN": "ramas.test", "COMPOSE_PROJECT_NAME": "%s", "USE_PROXY": "true"}\n' "$PROJECT" \
+    > "$DIR/config/docker/properties.json"
+
+reiniciar() {
+    ( cd "$DIR" && git worktree remove --force "$LAB/$PROJECT-worktrees/rojo" &&
+      git worktree prune ) >/dev/null 2>&1
+    rm -rf "$LAB/$PROJECT-worktrees" "$HM_WORKTREE_DIR/$PROJECT"
+}
+
+reiniciar
+( cd "$DIR" && "$SHELL_CLI" worktree add rojo --no-start ) >/dev/null 2>&1
+cp "$HM_WORKTREE_DIR/$PROJECT/rojo.json" "$LAB/registro-shell.json" 2>/dev/null
+cp "$HM_WORKTREE_DIR/$PROJECT/rojo.yml"  "$LAB/overlay-shell.yml"  2>/dev/null
+
+reiniciar
+( cd "$DIR" && "$GO_BINARY" worktree add rojo --no-start ) >/dev/null 2>&1
+
+test_case "the registration is the one the shell implementation writes"
+assert_equals "$(jq -S 'del(.created)' < "$LAB/registro-shell.json")" \
+              "$(jq -S 'del(.created)' < "$HM_WORKTREE_DIR/$PROJECT/rojo.json")"
+
+#
+# The overlay is where a mistake is invisible until something is running: a service written twice
+# is not a merge — the last one wins and the earlier block disappears without a word.
+#
+test_case "and so is the overlay, character for character"
+assert_equals "$(cat "$LAB/overlay-shell.yml")" "$(cat "$HM_WORKTREE_DIR/$PROJECT/rojo.yml")"
+
+test_case "and the worktree is on disk, on its own branch"
+assert_equals "yes" "$([ -d "$LAB/$PROJECT-worktrees/rojo" ] && echo yes || echo no)"
+assert_equals "rojo" "$(git -C "$LAB/$PROJECT-worktrees/rojo" rev-parse --abbrev-ref HEAD)"
+
+test_case "a name that is already taken is refused rather than resolved"
+( cd "$DIR" && "$GO_BINARY" worktree add rojo >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
+assert_equals "2" "$GO_STATUS"
+assert_equals "already_registered" "$(jq -r '.error.type' < "$LAB/go.err")"
+
+reiniciar
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

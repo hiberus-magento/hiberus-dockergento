@@ -1,5 +1,7 @@
 package core
 
+import "strings"
+
 // Container is one Docker container, seen through the labels this tool stamps on the ones it
 // creates.
 //
@@ -40,6 +42,10 @@ type Container struct {
 	// attached too.
 	Networks []string
 
+	// Labels is everything stamped on it, which is how a container that claims an address at the
+	// proxy is told from one that does not.
+	Labels map[string]string
+
 	// Mounts is what is mounted into it, and where. Read from the container rather than from the
 	// configuration on purpose: what matters is what the running container actually has.
 	Mounts []Mount
@@ -79,6 +85,24 @@ type Listener struct {
 	// Process is empty when the tool that listed the port does not name it, and the message says
 	// "processes on the host" rather than inventing one.
 	Process string
+}
+
+// Routes reports whether this container claims that name at the proxy.
+//
+// Read from the label rather than asked of the proxy's own API: a container that is up carries
+// what it claims, and two containers claiming one rule is not something the router refuses — the
+// routers have different names, so it accepts both and the routing is simply ambiguous.
+func (c Container) Routes(domain string) bool {
+	rule := "Host(`" + domain + "`)"
+
+	for key, value := range c.Labels {
+		if strings.HasPrefix(key, "traefik.http.routers.") && strings.HasSuffix(key, ".rule") &&
+			value == rule {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Key is the name the container's environment is known by.

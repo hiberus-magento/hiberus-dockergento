@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 14 de 65 |
+| Comandos en Go | 15 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -41,7 +41,7 @@ capa Go no tiene dónde mirarse. Cada una muere en un sitio concreto:
 | | qué enseña | desaparece cuando |
 |---|---|---|
 | `hm _binary` | qué build del binario corre | se porte `version`, y pase a ser un campo suyo |
-| `hm _registry` | lo que guarda el registro | se porte `worktree`, y pase a `hm worktree list` |
+| `hm _registry` | lo que guarda el registro | el registro sea la fuente viva, y `hm worktree list` lo enseñe |
 
 El código está en dos mitades. `dockergento/` es la herramienta como librería —dominio, puertos,
 casos de uso, adaptadores y una fachada— y es pública porque `internal/` es una regla del lenguaje
@@ -74,9 +74,10 @@ detalle de cada una en `openspec/changes/`.
   - [x] Esquema, slots atómicos e importación de lo que escribió bash
   - [x] `mysql` entero, import incluido — y con él consultar, alimentar un contenedor, lanzar uno
         suelto, el indicador de progreso y preguntar por terminal, que necesita el resto de la tanda
-  - [~] `worktree` — `list` y `remove` portados; `add` sigue en shell. Los tres leen y escriben
-        las mismas registraciones, así que no hay momento en que discrepen
-  - [ ] el registro pasa a ser la fuente viva (cambiar el adaptador de JSON a SQLite, de una vez)
+  - [x] `worktree` entero — `add`, `list` y `remove`. La registración y el overlay que escribe son
+        byte a byte los de bash, comprobado
+  - [ ] el registro pasa a ser la fuente viva: cambiar el adaptador de JSON a SQLite de una vez,
+        que ya se puede porque los tres subcomandos de `worktree` son de la misma implementación
   - [~] `db` — la mitad de plantillas (`freeze`, `templates`, `clone`, `drop`), que es de la que
         depende `worktree`; las instantáneas siguen en shell
   - [ ] `proxy`, `clean`, `setup`, `down`
@@ -202,7 +203,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `varnish-on` | tools | 3 | shell |
 | `verify` | tools | 3 | shell |
 | `version` | versions | 3 | shell |
-| `worktree` | environment | 2 | shell |
+| `worktree` | environment | 2 | go |
 
 ## Cómo se porta un comando
 

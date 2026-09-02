@@ -19,6 +19,7 @@ type filesystem struct{ present map[string]bool }
 func (f filesystem) IsDir(path string) bool  { return f.present[path] }
 func (f filesystem) Exists(path string) bool { return f.present[path] }
 func (f filesystem) Read(string) string      { return "" }
+func (f filesystem) MkdirAll(string) error   { return nil }
 
 type branches struct{ names map[string]string }
 

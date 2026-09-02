@@ -40,6 +40,10 @@ type VCS interface {
 	// is gone.
 	RemoveWorktree(root, path string, force bool) error
 	Prune(root string) error
+
+	// AddWorktree creates a linked worktree, on an existing branch or on a new one, and gives
+	// back what git said when it could not.
+	AddWorktree(root, path, branch string) (string, error)
 }
 
 // Registry is where branch environments are recorded, outside the checkout: properties.json is a
@@ -55,8 +59,13 @@ type Registry interface {
 	// Forget removes a registration and the overlay beside it.
 	Forget(parent, name string) error
 
-	// Overlay is the compose file that carries a branch environment's profile and routing.
+	// Overlay is the compose file that carries a branch environment's profile and routing, and
+	// WriteOverlay writes it.
 	Overlay(parent, name string) string
+	WriteOverlay(parent, name, contents string) error
+
+	// Save records a branch environment.
+	Save(parent string, worktree core.Worktree) error
 }
 
 // ContainerEngine is the Docker daemon.
@@ -127,6 +136,9 @@ type FS interface {
 
 	// Read returns a file's contents, empty when there are none to read.
 	Read(path string) string
+
+	// MkdirAll makes a directory and whatever is missing above it.
+	MkdirAll(path string) error
 }
 
 // Branches reports the branch checked out in a working directory.

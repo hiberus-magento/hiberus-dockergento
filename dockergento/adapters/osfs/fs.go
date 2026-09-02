@@ -35,6 +35,9 @@ func (FS) Read(path string) string {
 	return string(contents)
 }
 
+// MkdirAll makes a directory and whatever is missing above it.
+func (FS) MkdirAll(path string) error { return os.MkdirAll(path, 0o755) }
+
 // Branches reports the branch checked out in a directory.
 type Branches struct{}
 
