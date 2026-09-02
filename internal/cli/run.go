@@ -44,6 +44,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return goVersion(stdout)
 		case "hm-go-project":
 			return project(rest[1:], stdout, stderr)
+		case "hm-go-registry":
+			return registryState(stdout, stderr)
 		case "list":
 			return list(rest[1:], stdout, stderr, jsonOutput)
 		case "describe":

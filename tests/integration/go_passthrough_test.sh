@@ -227,6 +227,29 @@ assert_equals "$DIR" "$(printf '%s' "$resolved" | jq -r '.root')"
 test_case "a project that has not chosen a topology is classic"
 assert_equals "classic" "$(printf '%s' "$resolved" | jq -r '.topology')"
 
+#
+# The registry, while the commands that will own it are still shell. It imports what those commands
+# wrote, so the two can be compared before anything is switched over.
+#
+test_case "the registry can be looked at, and brings across what bash wrote"
+CASA=$(mktemp -d)
+mkdir -p "$CASA/.hm/worktrees/tienda" "$CASA/.hm/state"
+printf '{"path":"/code/a","branch":"rama","profile":"agent","domain":"a.test","project":"tienda-a","vendor":"shared"}\n' \
+    > "$CASA/.hm/worktrees/tienda/a.json"
+printf '{"anonymised_at":"2026-08-02 11:00"}\n' > "$CASA/.hm/state/tienda-a.json"
+registro=$( HOME="$CASA" "$GO_BINARY" hm-go-registry )
+assert_equals "1" "$(printf '%s' "$registro" | jq -r '.data.imported.worktrees')"
+assert_equals "shared" "$(printf '%s' "$registro" | jq -r 'if .data.projects[0].worktrees[0].shared_vendor then "shared" else "own" end')"
+
+test_case "and the data of a branch answers for itself, not for its parent"
+assert_equals "yes" "$(printf '%s' "$registro" | jq -r '.data.projects[0].worktrees[0].anonymised')"
+assert_equals "unknown" "$(printf '%s' "$registro" | jq -r '.data.projects[0].anonymised')"
+
+test_case "importing twice brings nothing twice"
+HOME="$CASA" "$GO_BINARY" hm-go-registry >/dev/null 2>&1
+assert_equals "1" "$( HOME="$CASA" "$GO_BINARY" hm-go-registry | jq -r '.data.projects[0].worktrees | length' )"
+rm -rf "$CASA"
+
 test_case "the binary says which build it is, which the shell one cannot"
 assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" hm-go-version >/dev/null 2>&1; echo $?)"
 

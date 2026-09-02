@@ -59,7 +59,11 @@ detalle de cada una en `openspec/changes/`.
   - [x] `doctor` — diecisiete comprobaciones, cinco a Docker y cuatro a la máquina
   - [x] `start`, `stop`, `restart`, `logs`, `exec` — Compose como librería (ADR-009 bis)
   - [x] `magento`, `composer` — el baile del vendor en macOS sigue en shell
-- [ ] **4 · Registro SQLite con las dos topologías + tanda 2**
+- [ ] **4 · Registro SQLite con las dos topologías + tanda 2** — *en marcha*
+  - [x] Esquema, slots atómicos e importación de lo que escribió bash (`hm-go-registry`)
+  - [ ] `mysql` — desbloquea los pasos de Linux de `post-start`, `install` y medio `db`
+  - [ ] `worktree` — y con él el registro pasa a ser la fuente viva
+  - [ ] `db`, `proxy`, `clean`, `setup`, `down`
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web** — *empezada*
   - [x] `hm web`: la API HTTP y la interfaz de navegador, sobre las mismas llamadas que la CLI
@@ -88,7 +92,8 @@ son 1,7 ms contra 58 ms, y las preguntas independientes —la rama de cada entor
 git, la de compose, el exec de xdebug— se hacen a la vez en lugar de en fila. Eso último es lo que
 bash no puede hacer.
 
-Lo que cuesta: enlazar el motor de Compose sube el binario publicado de **8,5 MB a 60,6 MB** y el
+Lo que cuesta: enlazar el motor de Compose sube el binario publicado de **8,5 MB a 60,6 MB**, y el
+registro en SQLite (Go puro, sin cgo) lo deja en **64,5 MB** y el
 grafo de dependencias de 70 módulos a 426. Es el precio de ADR-009 bis y está aceptado a
 conciencia; el detalle y lo que se compra con ello, en `docs/research/2.0-arquitectura.md`.
 
