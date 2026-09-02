@@ -41,13 +41,31 @@ mkdir -p "$DIR/config/docker" "$DIR/src"
 
 # A grace period of one second: the point of the fixture is the orchestration, not waiting for
 # alpine to notice a signal it ignores
+#
+# The labels the tool stamps are in the fixture on purpose. Without them the comparison of what
+# the two implementations create proves less than it looks: they are part of the service
+# definition, so they are part of the configuration hash, and an implementation that left them
+# empty would recreate the other's containers on every command — which is exactly what happened
+# and what no test saw.
+#
 cat > "$DIR/docker-compose.yml" <<'EOF'
+x-hm-labels: &hm-labels
+  hm.project: "${HM_PROJECT:-}"
+  hm.root: "${HM_ROOT:-}"
+  hm.worktree: "${HM_WORKTREE:-}"
+  hm.profile: "${HM_PROFILE:-full}"
+  hm.magento: "${HM_MAGENTO:-}"
+  hm.version: "${HM_VERSION:-}"
+  hm.agent: "${HM_AGENT:-}"
+
 services:
   phpfpm:
+    labels: *hm-labels
     image: alpine:latest
     command: sh -c "echo listo phpfpm; sleep 900"
     stop_grace_period: 1s
   nginx:
+    labels: *hm-labels
     image: alpine:latest
     command: sh -c "echo listo nginx; sleep 900"
     stop_grace_period: 1s
@@ -99,6 +117,30 @@ assert_equals "0" "$recreados"
 
 test_case "the version label says which Compose actually ran"
 assert_contains "$(etiqueta com.docker.compose.version)" "2."
+
+#
+# The tool's own labels, which is how its inventory tells an environment it made from one somebody
+# started by hand. An environment created without them reads as one made before they existed.
+#
+nuestras() {
+    docker inspect "$(docker ps -aq \
+        -f "label=com.docker.compose.project=$PROJECT" \
+        -f "label=com.docker.compose.service=nginx")" \
+        --format '{{json .Config.Labels}}' 2>/dev/null | jq -S 'with_entries(select(.key|startswith("hm.")))'
+}
+
+docker compose -p "$PROJECT" down >/dev/null 2>&1
+( cd "$DIR" && "$SHELL_CLI" start ) >/dev/null 2>&1
+ETIQUETAS_SHELL=$(nuestras)
+
+docker compose -p "$PROJECT" down >/dev/null 2>&1
+( cd "$DIR" && "$GO_BINARY" start ) >/dev/null 2>&1
+
+test_case "and the tool stamps its own labels, the same ones"
+assert_equals "$ETIQUETAS_SHELL" "$(nuestras)"
+
+test_case "the project it belongs to among them"
+assert_equals "$PROJECT" "$(nuestras | jq -r '."hm.project"')"
 
 # ---------------------------------------------------------------- a change is picked up
 #
@@ -207,5 +249,39 @@ test_case "creating a project through Composer is refused, with the usage code"
 assert_equals "2" "$GO_STATUS"
 assert_equals "$SHELL_STATUS" "$GO_STATUS"
 assert_contains "$(cat "$LAB/go.err")" "create-project"
+
+# ---------------------------------------------------------------- from a worktree
+#
+# A worktree with no environment of its own resolves to the main checkout, which is right for
+# reading and catastrophic for anything that recreates or destroys one. The shell implementation
+# refused it from the start; porting start, stop and restart lost that, and no test ran from a
+# worktree to notice.
+
+RAMA="$LAB/rama"
+( cd "$DIR" && git init -q . && git add -A &&
+  git -c user.email=t@t -c user.name=t commit -qm inicial &&
+  git worktree add -q "$RAMA" -b rama ) >/dev/null 2>&1
+
+if [ -d "$RAMA" ]; then
+    for QUE in start stop restart; do
+        ( cd "$RAMA" && "$SHELL_CLI" "$QUE" >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
+        ( cd "$RAMA" && "$GO_BINARY"  "$QUE" >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+
+        test_case "$QUE from a worktree with no environment is refused, the same way"
+        assert_equals "6" "$GO_STATUS"
+        assert_equals "$SHELL_STATUS" "$GO_STATUS"
+        assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
+    done
+
+    #
+    # Forced is a decision about one invocation: there is no variable and no file that turns the
+    # guardrail off for good.
+    #
+    test_case "and --force lifts it, in both"
+    ( cd "$RAMA" && "$SHELL_CLI" --force stop >/dev/null 2>&1 ); SHELL_STATUS=$?
+    ( cd "$RAMA" && "$GO_BINARY"  --force stop >/dev/null 2>&1 ); GO_STATUS=$?
+    assert_equals "0" "$GO_STATUS"
+    assert_equals "$SHELL_STATUS" "$GO_STATUS"
+fi
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

@@ -72,6 +72,10 @@ type Options struct {
 	// Announce is how the steps that take a while say what they are doing. The CLI paints them;
 	// an HTTP adapter would send them; a caller that does not care leaves it nil.
 	Announce func(string)
+
+	// Forced lifts, for this invocation only, the guardrail that refuses from a worktree with no
+	// environment of its own anything that would recreate or destroy the main checkout's.
+	Forced bool
 }
 
 // Engine is the tool.
@@ -190,7 +194,7 @@ func (e *Engine) Start(dir string, options StartOptions) error {
 		return err
 	}
 
-	return e.operator(project).Start(project, e.ComposeFiles(project),
+	return e.creating(project).Start(project, e.ComposeFiles(project),
 		options.Services, options.StopOthers, e.UsesProxy(project))
 }
 
@@ -212,7 +216,7 @@ func (e *Engine) Restart(dir string, services []string) error {
 		return err
 	}
 
-	return e.operator(project).Restart(project, e.ComposeFiles(project), services, e.UsesProxy(project))
+	return e.creating(project).Restart(project, e.ComposeFiles(project), services, e.UsesProxy(project))
 }
 
 // Logs writes what the services are saying to the engine's output, until it is interrupted or
@@ -333,8 +337,45 @@ func (e *Engine) Environment(project core.Project) map[string]string {
 		environment[key] = value
 	}
 
+	//
+	// What the compose files stamp on every container they create, and the reason it is here
+	// rather than in whatever called us: an environment created without them looks, to this
+	// tool's own inventory, like one made before the labels existed — no project, no worktree,
+	// no version. It also changes the configuration hash, so the two implementations would
+	// recreate each other's containers.
+	//
 	environment["COMPOSE_PROJECT_NAME"] = project.Name
+	environment["HM_PROJECT"] = project.Name
 	environment["HM_ROOT"] = project.Root
+	environment["HM_WORKTREE"] = ""
+	environment["HM_PROFILE"] = "full"
+	environment["HM_AGENT"] = ""
+
+	if project.Worktree != nil {
+		environment["HM_WORKTREE"] = project.Worktree.Name
+		environment["HM_PROFILE"] = project.Worktree.Profile
+
+		// An environment on the agent profile is an environment an agent works in, and the label
+		// is what lets the diagnosis ask about its data
+		if project.Worktree.Profile == "agent" {
+			environment["HM_AGENT"] = "true"
+		}
+	}
+
+	return environment
+}
+
+// CreationEnvironment is the same plus the two labels that cost something to resolve.
+//
+// Only for the operations that create containers. `git describe` and reading the Magento version
+// out of a composer.lock are about 130 ms together, and paying that on every read would give back
+// most of what porting the read commands bought.
+func (e *Engine) CreationEnvironment(project core.Project) map[string]string {
+	environment := e.Environment(project)
+
+	tooling := toolinfo.Reader{Root: e.options.Root}
+	environment["HM_VERSION"] = tooling.Version()
+	environment["HM_MAGENTO"] = magentofiles.Reader{}.Version(project.Root, project.MagentoDir)
 
 	return environment
 }
@@ -366,6 +407,14 @@ func Platform() string {
 	return runtime.GOOS
 }
 
+// creating is an operator whose orchestrator stamps the labels a container is created with.
+func (e *Engine) creating(project core.Project) app.Operator {
+	operator := e.operator(project)
+	operator.Orchestrator = e.orchestratorWith(e.CreationEnvironment(project))
+
+	return operator
+}
+
 func (e *Engine) operator(project core.Project) app.Operator {
 	return app.Operator{
 		Orchestrator: e.orchestrator(project),
@@ -375,12 +424,17 @@ func (e *Engine) operator(project core.Project) app.Operator {
 		Platform:     runtime.GOOS,
 		Binary:       e.options.Binary,
 		Workdir:      e.Property(project, "WORKDIR_PHP"),
+		Forced:       e.options.Forced,
 	}
 }
 
 func (e *Engine) orchestrator(project core.Project) composelib.Orchestrator {
+	return e.orchestratorWith(e.Environment(project))
+}
+
+func (e *Engine) orchestratorWith(environment map[string]string) composelib.Orchestrator {
 	return composelib.Orchestrator{
-		Environment: e.Environment(project),
+		Environment: environment,
 		Stdin:       e.options.Stdin,
 		Stdout:      e.options.Stdout,
 		Stderr:      e.options.Stderr,

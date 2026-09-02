@@ -32,6 +32,17 @@ go test ./...                  # los tests de Go
 ./bin/hm hm-go-project         # lo que la capa Go resuelve aquí
 ```
 
+**El andamio, y cuándo se cae.** Hay dos entradas que no son comandos —no salen en `--help` ni
+están en `command_descriptions.json`, y llevan guion bajo porque es lo que ese fichero ya usa para
+las claves que no son comandos—. Existen porque, mientras la disciplina sea paridad byte a byte,
+un comando portado no puede reportar nada que el de bash no reporte, así que lo que sólo sabe la
+capa Go no tiene dónde mirarse. Cada una muere en un sitio concreto:
+
+| | qué enseña | desaparece cuando |
+|---|---|---|
+| `hm _binary` | qué build del binario corre | se porte `version`, y pase a ser un campo suyo |
+| `hm _registry` | lo que guarda el registro | se porte `worktree`, y pase a `hm worktree list` |
+
 El código está en dos mitades. `dockergento/` es la herramienta como librería —dominio, puertos,
 casos de uso, adaptadores y una fachada— y es pública porque `internal/` es una regla del lenguaje
 que impide importarla desde otro módulo. `internal/cli/` es la terminal, y es lo único privado:
@@ -60,7 +71,7 @@ detalle de cada una en `openspec/changes/`.
   - [x] `start`, `stop`, `restart`, `logs`, `exec` — Compose como librería (ADR-009 bis)
   - [x] `magento`, `composer` — el baile del vendor en macOS sigue en shell
 - [ ] **4 · Registro SQLite con las dos topologías + tanda 2** — *en marcha*
-  - [x] Esquema, slots atómicos e importación de lo que escribió bash (`hm-go-registry`)
+  - [x] Esquema, slots atómicos e importación de lo que escribió bash
   - [ ] `mysql` — desbloquea los pasos de Linux de `post-start`, `install` y medio `db`
   - [ ] `worktree` — y con él el registro pasa a ser la fuente viva
   - [ ] `db`, `proxy`, `clean`, `setup`, `down`

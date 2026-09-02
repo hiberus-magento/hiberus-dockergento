@@ -45,6 +45,14 @@ type Project struct {
 	// a main checkout, and for a worktree that has no environment — which is a different thing,
 	// and the difference is what keeps the second from destroying the first.
 	Worktree *Worktree
+
+	// InWorktree is true when the command was run from a git worktree, registered or not.
+	//
+	// Both facts are needed and they are not the same one. A worktree with no registration
+	// resolves to the main checkout, which is correct for reading and catastrophic for anything
+	// that recreates an environment: it would take the main checkout's environment down from a
+	// branch nobody meant to touch.
+	InWorktree bool
 }
 
 // Worktree is a branch environment: a second working directory of the same repository with its

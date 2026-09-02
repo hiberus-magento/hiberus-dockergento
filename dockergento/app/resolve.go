@@ -45,6 +45,7 @@ func (r Resolver) Resolve(dir string) (core.Project, error) {
 	}
 
 	project := projectFrom(root, properties)
+	project.InWorktree = isWorktree
 
 	if !isWorktree {
 		return project, nil
@@ -70,6 +71,7 @@ func (r Resolver) Resolve(dir string) (core.Project, error) {
 	// environment is built on.
 	//
 	registered := projectFrom(dir, mustLoad(r.Properties, dir, properties))
+	registered.InWorktree = true
 	registered.Name = worktree.Project
 	registered.Domain = worktree.Domain
 	registered.Worktree = worktree

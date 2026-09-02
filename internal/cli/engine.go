@@ -24,6 +24,10 @@ func engine(stdout, stderr io.Writer, jsonOutput bool) *dockergento.Engine {
 		Binary:   binaryName(),
 		StateDir: os.Getenv("HM_STATE_DIR"),
 
+		// --force is a decision about one invocation, which is why it is read from the
+		// environment the flag set and never from a file
+		Forced: os.Getenv("HM_FORCE") == "1",
+
 		// In JSON mode stdout carries the document, so anything decorative goes to stderr:
 		// otherwise a program reading the output finds a sentence in the middle of it
 		Announce: func(message string) {

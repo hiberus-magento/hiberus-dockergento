@@ -26,6 +26,10 @@ type Operator struct {
 	// Workdir is where the code lives inside the container, which is what the dependencies are
 	// looked for under.
 	Workdir string
+
+	// Forced lifts the guardrail that refuses, from a worktree with no environment of its own,
+	// anything that would recreate or destroy the main checkout's.
+	Forced bool
 }
 
 // The name of the one proxy on the machine, and the ports it listens on.
@@ -40,6 +44,10 @@ var proxyPorts = []string{"80", "443"}
 // started for it, and the dependencies are checked for being a bind mount — which on macOS is
 // what makes Magento's modules invisible to itself.
 func (o Operator) Start(project core.Project, files core.ComposeFiles, services []string, stopOthers, usesProxy bool) error {
+	if err := o.refuseFromAnUnregisteredWorktree(project, "start"); err != nil {
+		return err
+	}
+
 	if stopOthers {
 		if _, err := o.Legacy.Run([]string{"docker-stop-all"}); err != nil {
 			return err
@@ -180,6 +188,10 @@ func (o Operator) checkDependenciesAreNotBound(project core.Project) error {
 // Stopping is an everyday, quick operation, so the copy is asked for rather than taken: a `stop`
 // that sometimes takes a minute because it is dumping a database would be an unpleasant surprise.
 func (o Operator) Stop(project core.Project, files core.ComposeFiles, services []string, snapshot bool) error {
+	if err := o.refuseFromAnUnregisteredWorktree(project, "stop"); err != nil {
+		return err
+	}
+
 	if snapshot {
 		code, err := o.Legacy.Run([]string{"db", "snapshot"})
 
@@ -205,11 +217,40 @@ func (o Operator) Stop(project core.Project, files core.ComposeFiles, services [
 // change to be running afterwards, and the shell implementation gave them that by running its own
 // stop and its own start. Being faster at the wrong thing is not an improvement.
 func (o Operator) Restart(project core.Project, files core.ComposeFiles, services []string, usesProxy bool) error {
+	if err := o.refuseFromAnUnregisteredWorktree(project, "restart"); err != nil {
+		return err
+	}
+
 	if err := o.Stop(project, files, services, false); err != nil {
 		return err
 	}
 
 	return o.Start(project, files, services, false, usesProxy)
+}
+
+// refuseFromAnUnregisteredWorktree stops a branch from taking down the environment of the checkout
+// it came from.
+//
+// A worktree with no registration of its own resolves to the main checkout — which is right for
+// reading, and is exactly why anything that recreates or destroys an environment must not run
+// there. Somebody standing in a branch does not expect `stop` to stop the environment they left
+// running in the main one.
+//
+// Forced is a decision, not a setting: it applies to the one invocation and there is no variable
+// and no file that turns the guardrail off for good.
+func (o Operator) refuseFromAnUnregisteredWorktree(project core.Project, command string) error {
+	if !project.InWorktree || project.Worktree != nil || o.Forced {
+		return nil
+	}
+
+	return core.Refusal{
+		Kind: "blocked_in_worktree",
+		Code: 6,
+		Message: fmt.Sprintf(
+			"'%s' is refused from a worktree: it would recreate or destroy the environment of %s with the mounts of this worktree",
+			command, project.Root),
+		Hint: fmt.Sprintf("Run it from %s, or repeat with --force", project.Root),
+	}
 }
 
 func (o Operator) announce(message string) {

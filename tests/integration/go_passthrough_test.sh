@@ -112,7 +112,7 @@ assert_equals "$(jq -S 'del(.data)' < "$LAB/shell.out")" "$(jq -S 'del(.data)' <
 # like it had worked — including to the tests that were comparing the two.
 #
 test_case "a global flag before the command still reaches the Go implementation"
-assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" --no-json hm-go-version >/dev/null 2>&1; echo $? )"
+assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" --no-json _binary >/dev/null 2>&1; echo $? )"
 
 test_case "and it decides the format, wherever it is written"
 assert_equals "$( cd "$DIR" && "$GO_BINARY" --json describe )" "$( cd "$DIR" && "$GO_BINARY" describe --json )"
@@ -215,17 +215,19 @@ assert_contains "$(cat "$LAB/go.err")$(cat "$LAB/go.out")" "$(head -c 40 "$LAB/s
 # The two implementations answer the same question separately, and a test compares them. That is
 # how a command gets ported without anybody reading both.
 
+#
+# Resolution used to have a diagnostic of its own. It does not need one any more: describe,
+# doctor, start and logs all go through the same resolver and every one of them is compared
+# against the shell implementation, which is a stronger check than a command nobody runs.
+#
 test_case "the Go layer resolves the same project as the shell one"
-resolved=$( cd "$DIR" && "$GO_BINARY" hm-go-project )
-assert_equals "$PROJECT" "$(printf '%s' "$resolved" | jq -r '.name')"
-assert_equals "go.test" "$(printf '%s' "$resolved" | jq -r '.domain')"
-assert_equals "./src" "$(printf '%s' "$resolved" | jq -r '.magento_dir')"
+resolved=$( cd "$DIR" && "$GO_BINARY" describe --json )
+assert_equals "$PROJECT" "$(printf '%s' "$resolved" | jq -r '.data.project.name')"
+assert_equals "go.test" "$(printf '%s' "$resolved" | jq -r '.data.project.domain')"
+assert_equals "./src" "$(printf '%s' "$resolved" | jq -r '.data.paths.magento_dir')"
 
 test_case "and the same root"
-assert_equals "$DIR" "$(printf '%s' "$resolved" | jq -r '.root')"
-
-test_case "a project that has not chosen a topology is classic"
-assert_equals "classic" "$(printf '%s' "$resolved" | jq -r '.topology')"
+assert_equals "$DIR" "$(printf '%s' "$resolved" | jq -r '.data.project.root')"
 
 #
 # The registry, while the commands that will own it are still shell. It imports what those commands
@@ -237,7 +239,7 @@ mkdir -p "$CASA/.hm/worktrees/tienda" "$CASA/.hm/state"
 printf '{"path":"/code/a","branch":"rama","profile":"agent","domain":"a.test","project":"tienda-a","vendor":"shared"}\n' \
     > "$CASA/.hm/worktrees/tienda/a.json"
 printf '{"anonymised_at":"2026-08-02 11:00"}\n' > "$CASA/.hm/state/tienda-a.json"
-registro=$( HOME="$CASA" "$GO_BINARY" hm-go-registry )
+registro=$( HOME="$CASA" "$GO_BINARY" _registry )
 assert_equals "1" "$(printf '%s' "$registro" | jq -r '.data.imported.worktrees')"
 assert_equals "shared" "$(printf '%s' "$registro" | jq -r 'if .data.projects[0].worktrees[0].shared_vendor then "shared" else "own" end')"
 
@@ -246,12 +248,12 @@ assert_equals "yes" "$(printf '%s' "$registro" | jq -r '.data.projects[0].worktr
 assert_equals "unknown" "$(printf '%s' "$registro" | jq -r '.data.projects[0].anonymised')"
 
 test_case "importing twice brings nothing twice"
-HOME="$CASA" "$GO_BINARY" hm-go-registry >/dev/null 2>&1
-assert_equals "1" "$( HOME="$CASA" "$GO_BINARY" hm-go-registry | jq -r '.data.projects[0].worktrees | length' )"
+HOME="$CASA" "$GO_BINARY" _registry >/dev/null 2>&1
+assert_equals "1" "$( HOME="$CASA" "$GO_BINARY" _registry | jq -r '.data.projects[0].worktrees | length' )"
 rm -rf "$CASA"
 
 test_case "the binary says which build it is, which the shell one cannot"
-assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" hm-go-version >/dev/null 2>&1; echo $?)"
+assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" _binary >/dev/null 2>&1; echo $?)"
 
 # ---------------------------------------------------------------- installed shape
 #

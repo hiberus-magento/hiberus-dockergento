@@ -3,10 +3,8 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"runtime/debug"
 )
 
@@ -38,13 +36,22 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		jsonOutput := wanted(format, stdout)
 
 		switch rest[0] {
-		// Two commands the shell implementation does not have and never will. They exist to see
-		// what the Go layer resolved, without changing what any real command does.
-		case "hm-go-version":
+		//
+		// Scaffolding, and marked as such: the underscore is what this tool already uses in
+		// `data/command_descriptions.json` for keys that are not commands, and these are not
+		// commands. They are not in the help, not in the command list, and they exist for one
+		// reason — while the discipline is byte-for-byte parity with the shell implementation,
+		// a ported command cannot report anything the shell one does not, so what only the Go
+		// layer knows has nowhere else to be looked at.
+		//
+		// Each has a condition for disappearing, written down in MIGRATION.md:
+		//
+		//   _binary    goes into `hm version` when `version` is ported
+		//   _registry  goes into `hm worktree list` when `worktree` is ported
+		//
+		case "_binary":
 			return goVersion(stdout)
-		case "hm-go-project":
-			return project(rest[1:], stdout, stderr)
-		case "hm-go-registry":
+		case "_registry":
 			return registryState(stdout, stderr)
 		case "list":
 			return list(rest[1:], stdout, stderr, jsonOutput)
@@ -110,49 +117,6 @@ func goVersion(stdout io.Writer) int {
 	if revision != "" {
 		fmt.Fprintf(stdout, "%s\n", revision)
 	}
-
-	return 0
-}
-
-// project prints what the Go layer resolved, as JSON.
-//
-// It is how the resolution is checked against the shell implementation's, command by command, as
-// each one is ported: two answers to the same question, compared by a test rather than by
-// somebody reading both.
-func project(args []string, stdout, stderr io.Writer) int {
-	directory, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(stderr, "%s\n", err)
-
-		return 3
-	}
-
-	if len(args) > 0 {
-		directory = args[0]
-	}
-
-	resolved, err := engine(stdout, stderr, false).Resolve(directory)
-	if err != nil {
-		fmt.Fprintf(stderr, "%s\n", err)
-
-		return 4
-	}
-
-	document, err := json.MarshalIndent(map[string]any{
-		"name":        resolved.Name,
-		"root":        resolved.Root,
-		"domain":      resolved.Domain,
-		"magento_dir": resolved.MagentoDir,
-		"topology":    string(resolved.Topology),
-		"worktree":    resolved.Worktree,
-	}, "", "  ")
-	if err != nil {
-		fmt.Fprintf(stderr, "%s\n", err)
-
-		return 3
-	}
-
-	fmt.Fprintf(stdout, "%s\n", document)
 
 	return 0
 }

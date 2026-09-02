@@ -274,3 +274,93 @@ func TestTheEnvironmentIsUpBeforeAnyOfThatIsTried(t *testing.T) {
 		t.Fatalf("pero el entorno ya está en marcha: %v", orchestration.upCalls)
 	}
 }
+
+//
+// A worktree with no environment of its own resolves to the main checkout, which is right for
+// reading and catastrophic for anything that recreates or destroys one: somebody standing in a
+// branch does not expect `stop` to stop the environment they left running in the main checkout.
+//
+// The shell implementation refused this from the start. Porting start, stop and restart lost it,
+// and nothing said so — no test ran from a worktree.
+//
+
+func enUnWorktreeSinRegistrar() core.Project {
+	return core.Project{Name: "tienda", Root: "/code/tienda", InWorktree: true}
+}
+
+func TestUnaRamaSinEntornoNoPuedeArrancarElDelPrincipal(t *testing.T) {
+	orchestration, legacy := &orchestrator{}, &shell{}
+	operator := operatorWith(nil, orchestration, legacy)
+
+	refusal := refusalOf(t, operator.Start(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, nil, false, false))
+
+	if refusal.Code != 6 || refusal.Kind != "blocked_in_worktree" {
+		t.Fatalf("es una negativa a propósito, con su código: %+v", refusal)
+	}
+
+	if !strings.Contains(refusal.Message, "/code/tienda") {
+		t.Fatalf("tiene que decir de qué entorno habla: %q", refusal.Message)
+	}
+
+	if len(orchestration.upCalls) != 0 {
+		t.Fatal("y no arrancar nada")
+	}
+}
+
+func TestNiPararloNiReiniciarlo(t *testing.T) {
+	for _, hacer := range []string{"stop", "restart"} {
+		orchestration, legacy := &orchestrator{}, &shell{}
+		operator := operatorWith(nil, orchestration, legacy)
+
+		var err error
+
+		switch hacer {
+		case "stop":
+			err = operator.Stop(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, nil, false)
+		case "restart":
+			err = operator.Restart(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, nil, false)
+		}
+
+		if refusal := refusalOf(t, err); refusal.Code != 6 {
+			t.Fatalf("%s tenía que negarse: %+v", hacer, refusal)
+		}
+
+		if len(orchestration.stopCalls) != 0 {
+			t.Fatalf("%s no debería haber tocado nada", hacer)
+		}
+	}
+}
+
+func TestUnaRamaConEntornoPropioHaceLoQueQuiere(t *testing.T) {
+	// Tiene sus contenedores, sus volúmenes y sus montajes: no hay nada de lo que proteger al
+	// principal
+	orchestration, legacy := &orchestrator{}, &shell{}
+	operator := operatorWith(nil, orchestration, legacy)
+
+	proyecto := enUnWorktreeSinRegistrar()
+	proyecto.Worktree = &core.Worktree{Name: "rama", Parent: "tienda"}
+
+	if err := operator.Start(proyecto, core.ComposeFiles{}, nil, false, false); err != nil {
+		t.Fatalf("un entorno de rama arranca el suyo: %v", err)
+	}
+}
+
+func TestForzarLoLevantaParaUnaInvocacion(t *testing.T) {
+	// Es una decisión, no un ajuste: no hay variable ni fichero que apague la guarda para siempre
+	orchestration, legacy := &orchestrator{}, &shell{}
+	operator := operatorWith(nil, orchestration, legacy)
+	operator.Forced = true
+
+	if err := operator.Start(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, nil, false, false); err != nil {
+		t.Fatalf("con --force pasa: %v", err)
+	}
+}
+
+func TestFueraDeUnWorktreeNoHayNadaQueGuardar(t *testing.T) {
+	orchestration, legacy := &orchestrator{}, &shell{}
+	operator := operatorWith(nil, orchestration, legacy)
+
+	if err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false); err != nil {
+		t.Fatalf("un checkout normal arranca lo suyo: %v", err)
+	}
+}
