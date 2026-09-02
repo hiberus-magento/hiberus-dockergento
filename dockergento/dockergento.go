@@ -348,6 +348,76 @@ func (e *Engine) errors() io.Writer {
 	return os.Stderr
 }
 
+//
+// Templates: the data directory of a database, frozen and cloned as files. Seconds instead of the
+// tens of minutes an import of the same data costs, which is what makes an environment per branch
+// affordable at all.
+//
+
+// Templates is every one on this machine, whichever project made it.
+func (e *Engine) Templates() ([]core.Template, error) { return e.templates(core.Project{}).List() }
+
+// Freeze copies this project's data directory into a template.
+func (e *Engine) Freeze(dir string, options app.FreezeOptions) (core.Template, error) {
+	project, configuration, err := e.resolved(dir)
+	if err != nil {
+		return core.Template{}, err
+	}
+
+	return e.templates(project).Freeze(project, e.ComposeFiles(project), configuration, options)
+}
+
+// Clone builds this project's data directory from a template.
+func (e *Engine) Clone(dir, address string, force bool) (core.Template, error) {
+	project, configuration, err := e.resolved(dir)
+	if err != nil {
+		return core.Template{}, err
+	}
+
+	return e.templates(project).Clone(project, configuration, address, force)
+}
+
+// Drop deletes a template.
+func (e *Engine) Drop(dir, address string, force, interactive bool) (core.Template, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return core.Template{}, err
+	}
+
+	return e.templates(project).Drop(project, address, force, interactive)
+}
+
+// resolved is the project and the configuration it is built from, which the template operations
+// both need — the volume they act on and the image that does the copying come from there and are
+// never guessed.
+func (e *Engine) resolved(dir string) (core.Project, core.Compose, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return core.Project{}, core.Compose{}, err
+	}
+
+	configuration, err := e.Configuration(project)
+	if err != nil {
+		return core.Project{}, core.Compose{}, err
+	}
+
+	return project, configuration, nil
+}
+
+func (e *Engine) templates(project core.Project) app.Templates {
+	return app.Templates{
+		Volumes:      dockerd.Volumes{},
+		OneOff:       dockerd.OneOff{Out: e.options.Stdout},
+		Engine:       dockerd.Engine{Timeout: e.options.Timeout},
+		Orchestrator: e.orchestrator(project),
+		State:        toolinfo.State{Dir: e.options.StateDir},
+		Progress:     e.options.Progress,
+		Announce:     e.options.Announce,
+		Ask:          e.options.Ask,
+		Binary:       e.options.Binary,
+	}
+}
+
 func (e *Engine) database() app.Database {
 	return app.Database{
 		Engine: dockerd.Engine{Timeout: e.options.Timeout},

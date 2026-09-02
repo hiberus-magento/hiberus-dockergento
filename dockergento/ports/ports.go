@@ -189,6 +189,33 @@ type ContainerRunner interface {
 // container somebody has to remember to remove.
 type OneOff interface {
 	Run(image string, command []string, network string, mounts []core.Bind, tty bool) (int, error)
+
+	// Volumes is the same thing with volumes attached instead of directories of this machine,
+	// and its output captured. It is how a data directory is measured and copied: on macOS the
+	// volume lives in a virtual machine and its mountpoint does not exist on this filesystem, so
+	// there is nothing to look at from outside.
+	Volumes(image string, command []string, mounts map[string]string, out io.Writer) (int, error)
+}
+
+// VolumeStore is the Docker volumes on this machine.
+type VolumeStore interface {
+	// Labelled returns every volume carrying a label, with the labels it carries.
+	Labelled(label string) ([]map[string]string, error)
+
+	// Exists reports whether a volume is there.
+	Exists(name string) bool
+
+	// Labels of one volume.
+	Labels(name string) map[string]string
+
+	// Create makes one with the labels given, and Remove takes it away.
+	Create(name string, labels map[string]string) error
+	Remove(name string) error
+
+	// Users are the containers holding a volume, of any state. A stopped container still holds
+	// one, which is why removing it is refused, and saying so beforehand is better than relaying
+	// Docker's own wording.
+	Users(name string) ([]string, error)
 }
 
 // Legacy runs a command of the shell implementation.

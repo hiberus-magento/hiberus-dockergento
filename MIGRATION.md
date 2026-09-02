@@ -75,7 +75,9 @@ detalle de cada una en `openspec/changes/`.
   - [x] `mysql` entero, import incluido — y con él consultar, alimentar un contenedor, lanzar uno
         suelto, el indicador de progreso y preguntar por terminal, que necesita el resto de la tanda
   - [ ] `worktree` — y con él el registro pasa a ser la fuente viva
-  - [ ] `db`, `proxy`, `clean`, `setup`, `down`
+  - [~] `db` — la mitad de plantillas (`freeze`, `templates`, `clone`, `drop`), que es de la que
+        depende `worktree`; las instantáneas siguen en shell
+  - [ ] `proxy`, `clean`, `setup`, `down`
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web** — *empezada*
   - [x] `hm web`: la API HTTP y la interfaz de navegador, sobre las mismas llamadas que la CLI
@@ -108,6 +110,11 @@ Lo que cuesta: enlazar el motor de Compose sube el binario publicado de **8,5 MB
 registro en SQLite (Go puro, sin cgo) lo deja en **64,5 MB** y el
 grafo de dependencias de 70 módulos a 426. Es el precio de ADR-009 bis y está aceptado a
 conciencia; el detalle y lo que se compra con ello, en `docs/research/2.0-arquitectura.md`.
+
+`db` son dos familias que comparten nombre: **instantáneas** (volcados en fichero, para guardar) y
+**plantillas** (copias byte a byte del directorio de datos en un volumen, para levantar entornos en
+segundos). Las plantillas van por Go; las instantáneas siguen en shell. La frontera está entre dos
+operaciones independientes, no por la mitad de una.
 
 `composer install|update|require|remove` sigue en shell **en macOS**: ahí no se ejecuta en el
 contenedor sin más, sino que se copia el `vendor` dentro, corre Composer y se copia el árbol

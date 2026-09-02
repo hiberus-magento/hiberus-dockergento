@@ -73,6 +73,13 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			if !mirrorsVendor(rest[1:]) {
 				return composer(rest[1:], stdout, stderr, jsonOutput)
 			}
+		case "db":
+			// Two families that share a name. The templates are here; the snapshots are still
+			// the shell implementation's, and the boundary is between independent operations
+			// rather than down the middle of one
+			if len(rest) > 1 && templateSubcommands[rest[1]] {
+				return db(rest[1:], stdout, stderr, jsonOutput)
+			}
 		case "bash":
 			return shell(rest[1:], stdout, stderr, jsonOutput)
 		case "masquerade":
