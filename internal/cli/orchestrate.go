@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -219,6 +220,17 @@ func checkServices(project core.Project, wanted []string,
 func report(stderr io.Writer, jsonOutput bool, command string, err error) int {
 	if err == nil {
 		return exitOK
+	}
+
+	//
+	// Aborting a question is not a failure of the command, and it is not an answer either: it is
+	// the person saying they are not going to answer. Said the way a shell says it, with the code
+	// a shell uses, and without a document — there is nothing to report.
+	//
+	if errors.Is(err, errNothingChosen) {
+		fmt.Fprint(stderr, "\nNothing was chosen.\n")
+
+		return exitInterrupted
 	}
 
 	var refusal core.Refusal

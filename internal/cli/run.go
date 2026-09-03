@@ -98,6 +98,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			// Everything after the command belongs to the command, so the global flags are not
 			// consumed here: `hm exec grep --json` is asking grep for --json
 			return execute(rest[1:], stdout, stderr, jsonOutput)
+		case "down":
+			return down(rest[1:], stdout, stderr, jsonOutput)
 		case "start":
 			return start(rest[1:], stdout, stderr, jsonOutput)
 		case "restart":

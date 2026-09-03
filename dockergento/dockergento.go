@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -89,6 +90,12 @@ type Options struct {
 	// terminal; anything else answers however it likes — which is the reason this is not a
 	// terminal read buried three layers down.
 	Ask func(question, suggestion string) (string, error)
+
+	// Choose is the same for a question with a fixed set of answers. It is separate from Ask
+	// because it is a different question: a list has no default to fall back to, and how it is
+	// offered — a list to move through, a set of buttons, a field in a request — is the
+	// adapter's business and not this one's.
+	Choose func(question string, options []string) (string, error)
 }
 
 // Engine is the tool.
@@ -220,6 +227,43 @@ func (e *Engine) Stop(dir string, services []string, snapshot bool) error {
 	}
 
 	return e.operator(project).Stop(project, e.ComposeFiles(project), services, snapshot)
+}
+
+// Down removes the environment and answers what happened: it was destroyed, it was copied first
+// and then destroyed, or somebody said no and nothing was.
+func (e *Engine) Down(dir string, options core.DownOptions, interactive bool) (string, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return "", err
+	}
+
+	return e.operator(project).Down(project, e.ComposeFiles(project), options,
+		e.presentVolumes(project), interactive)
+}
+
+// presentVolumes is the project's own volumes that are actually there.
+//
+// Asked of Docker rather than of the file: naming a volume that was already removed would make
+// the warning read as though more were at stake than there is, and the whole point of the warning
+// is that it is exact.
+func (e *Engine) presentVolumes(project core.Project) []string {
+	configuration, err := e.Configuration(project)
+	if err != nil {
+		return nil
+	}
+
+	volumes := dockerd.Volumes{}
+	present := []string{}
+
+	for _, name := range configuration.Volumes {
+		if volumes.Exists(name) {
+			present = append(present, name)
+		}
+	}
+
+	sort.Strings(present)
+
+	return present
 }
 
 // Restart is a stop and a start, so that a change to the configuration is running afterwards.
@@ -1109,7 +1153,21 @@ func (e *Engine) operator(project core.Project) app.Operator {
 		Binary:       e.options.Binary,
 		Workdir:      e.Property(project, "WORKDIR_PHP"),
 		Forced:       e.options.Forced,
+		Choose:       e.options.Choose,
+		Snapshots:    e.snapshotsFor(project),
 	}
+}
+
+// snapshotsFor is the copy-taker the lifecycle commands offer, or nothing when there is no project
+// to copy.
+func (e *Engine) snapshotsFor(project core.Project) *app.Snapshots {
+	if project.Name == "" {
+		return nil
+	}
+
+	taking := e.snapshots(project)
+
+	return &taking
 }
 
 func (e *Engine) orchestrator(project core.Project) composelib.Orchestrator {

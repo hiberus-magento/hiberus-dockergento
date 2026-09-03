@@ -30,6 +30,15 @@ type Operator struct {
 	// Forced lifts the guardrail that refuses, from a worktree with no environment of its own,
 	// anything that would recreate or destroy the main checkout's.
 	Forced bool
+
+	// Choose is how a question with a fixed set of answers is put. Nil means there is nobody to
+	// ask, which is not the same as somebody answering: it is the case where the answer has to be
+	// what the flags already said.
+	Choose func(question string, options []string) (string, error)
+
+	// Snapshots takes the copy that `stop` and `down` offer before doing something that cannot be
+	// undone.
+	Snapshots *Snapshots
 }
 
 // The name of the one proxy on the machine, and the ports it listens on.
@@ -193,11 +202,11 @@ func (o Operator) Stop(project core.Project, files core.ComposeFiles, services [
 	}
 
 	if snapshot {
-		code, err := o.Legacy.Run([]string{"db", "snapshot"})
+		err := o.snapshot(project)
 
 		// Not stopping on failure is the point: a stopped environment and no copy, after asking
 		// for one, is the worst of the three possible outcomes
-		if err != nil || code != 0 {
+		if err != nil {
 			return core.Refusal{
 				Kind:    "snapshot_failed",
 				Code:    1,
@@ -279,4 +288,97 @@ func overlaps(mount, needle string) bool {
 	return mount == needle ||
 		strings.HasPrefix(needle, mount+"/") ||
 		strings.HasPrefix(mount, needle+"/")
+}
+
+// Down removes the environment, and answers what happened.
+//
+// Without its volumes this destroys nothing that cannot be rebuilt, and it is the one-line
+// pass-through it always was. With them it deletes the database: one letter of difference, no
+// warning and no way back. An environment on this machine was lost exactly that way, which is why
+// it says which volumes, offers to save a copy first, and takes no for an answer.
+func (o Operator) Down(project core.Project, files core.ComposeFiles, options core.DownOptions,
+	volumes []string, interactive bool) (string, error) {
+	if err := o.refuseFromAnUnregisteredWorktree(project, "down"); err != nil {
+		return "", err
+	}
+
+	// Nothing to lose: no volumes going, or none of them there any more, or nobody to ask
+	if !options.Volumes || len(volumes) == 0 || !interactive || o.Choose == nil {
+		return "destroyed", o.Orchestrator.Down(project, files, options)
+	}
+
+	//
+	// Three answers, not two. Saving first is offered first because it is the one nobody regrets,
+	// and taking the copy automatically would leave a pile of them in the projects that are
+	// destroyed on purpose several times a day.
+	//
+	const (
+		saveFirst = "Save a database snapshot, then destroy"
+		destroy   = "Destroy without saving"
+		cancel    = "Cancel"
+	)
+
+	o.say(fmt.Sprintf("\nThis deletes the volumes of '%s', and the database with them:\n\n",
+		project.Name))
+
+	for _, volume := range volumes {
+		o.say("  " + volume + "\n")
+	}
+
+	o.say("\n")
+
+	answer, err := o.Choose("What should happen?", []string{saveFirst, destroy, cancel})
+	if err != nil {
+		return "", err
+	}
+
+	switch answer {
+	case saveFirst:
+		if o.Snapshots == nil {
+			return "", core.Refusal{
+				Kind:    "snapshot_failed",
+				Code:    1,
+				Message: "The snapshot failed, so nothing was destroyed",
+				Hint:    o.Binary + " down -v   # to destroy anyway",
+			}
+		}
+
+		// Not destroying on failure is the point: an environment gone and no copy, after asking
+		// for one, is the worst of the three possible outcomes
+		if _, err := o.Snapshots.Take(project, "", false); err != nil {
+			return "", core.Refusal{
+				Kind:    "snapshot_failed",
+				Code:    1,
+				Message: "The snapshot failed, so nothing was destroyed",
+				Hint:    o.Binary + " down -v   # to destroy anyway",
+			}
+		}
+
+		return "saved", o.Orchestrator.Down(project, files, options)
+	case destroy:
+		return "destroyed", o.Orchestrator.Down(project, files, options)
+	}
+
+	return "", nil
+}
+
+// snapshot takes the copy the caller asked for.
+//
+// Directly rather than through the shell implementation, which is what this did while snapshots
+// were still there: one implementation of a copy, and one place where what it writes is decided.
+func (o Operator) snapshot(project core.Project) error {
+	if o.Snapshots == nil {
+		return fmt.Errorf("snapshots are not available here")
+	}
+
+	_, err := o.Snapshots.Take(project, "", false)
+
+	return err
+}
+
+// say is how this talks to whoever is watching, when there is anybody.
+func (o Operator) say(message string) {
+	if o.Announce != nil {
+		o.Announce(message)
+	}
 }

@@ -45,6 +45,15 @@ func isTerminal(stream any) bool {
 	return term.IsTerminal(int(file.Fd()))
 }
 
+// exitInterrupted is what aborting a question means, and it is the code a shell uses for it.
+const exitInterrupted = 130
+
+// refusal is an error shaped the way the layers below shape theirs, so that something the command
+// line decided is reported exactly like something the engine decided.
+func refusal(kind string, code int, message, hint string) error {
+	return core.Refusal{Kind: kind, Code: code, Message: message, Hint: hint}
+}
+
 // failure reports an error the way the contract says: on stderr, structured when the output is
 // JSON, and with the exit code that says which kind of failure it was.
 func failure(stderr io.Writer, jsonOutput bool, command string, code int, kind, message, hint string) int {

@@ -89,7 +89,11 @@ detalle de cada una en `openspec/changes/`.
         `worktree`, y las instantáneas (`snapshot`, `list`, `restore`, `remove`, `clear`), de las
         que depende `down`. Lo único que sigue en shell es el texto de uso
   - [x] `clean` — y con él ya nadie más escribe registraciones desde bash
-  - [ ] `proxy`, `setup`, `down`
+  - [x] `down` — y con él el selector: la lista por la que se mueve uno, con `fzf` si está
+        instalado, con las flechas si se puede dibujar, y numerada donde no. Es la pieza que
+        necesitan también `setup` y los asistentes, y ahora `stop --snapshot` toma la copia
+        directamente en vez de pasar por el shell para hacerlo
+  - [ ] `proxy`, `setup`
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web** — *empezada*
   - [x] `hm web`: la API HTTP y la interfaz de navegador, sobre las mismas llamadas que la CLI

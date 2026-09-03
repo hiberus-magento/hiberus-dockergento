@@ -198,9 +198,9 @@ type Orchestrator interface {
 	// Up creates and starts what is missing and leaves alone what already matches.
 	Up(project core.Project, files core.ComposeFiles, services []string) error
 
-	// Down removes an environment. With volumes, its data goes too — which is the whole point
-	// when the environment being removed is a branch's.
-	Down(project core.Project, files core.ComposeFiles, volumes bool) error
+	// Down removes an environment, doing what Compose's own `down` does and no more: what is
+	// removed beyond the containers and the networks is what the caller asked for.
+	Down(project core.Project, files core.ComposeFiles, options core.DownOptions) error
 
 	// Stop stops without removing: an everyday operation that has to be quick and keep the data.
 	Stop(project core.Project, files core.ComposeFiles, services []string) error

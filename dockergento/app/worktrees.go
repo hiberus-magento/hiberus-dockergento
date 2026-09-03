@@ -150,7 +150,9 @@ func (w Worktrees) Remove(parent, root, name string, files core.ComposeFiles,
 	if w.FS.IsDir(worktree.Path) {
 		environment := core.Project{Name: worktree.Project, Root: worktree.Path}
 
-		w.Orchestrator.Down(environment, files, true) //nolint:errcheck
+		// With its volumes and its orphans: the environment is being erased, not stopped
+		w.Orchestrator.Down(environment, files, //nolint:errcheck
+			core.DownOptions{Volumes: true, RemoveOrphans: true})
 	}
 
 	w.VCS.RemoveWorktree(root, worktree.Path, force) //nolint:errcheck

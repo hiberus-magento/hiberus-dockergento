@@ -15,6 +15,8 @@
 package composelib
 
 import (
+	"time"
+
 	"context"
 	"fmt"
 	"os"
@@ -90,18 +92,28 @@ func (o Orchestrator) Stop(project core.Project, files core.ComposeFiles, servic
 //
 // With the volumes is what a branch environment wants when it goes: the database it was given was
 // a copy, and leaving it behind is how a machine fills up with the data of branches nobody works
-// on any more.
-func (o Orchestrator) Down(project core.Project, files core.ComposeFiles, volumes bool) error {
+// on any more. For `down` it is what the person typed, and nothing more than that: this is
+// Compose's own command, and removing orphans nobody asked about is removing containers nobody
+// mentioned.
+func (o Orchestrator) Down(project core.Project, files core.ComposeFiles, options core.DownOptions) error {
 	service, loaded, err := o.open(project, files)
 	if err != nil {
 		return err
 	}
 
-	return service.Down(context.Background(), loaded.Name, api.DownOptions{
+	down := api.DownOptions{
 		Project:       loaded,
-		Volumes:       volumes,
-		RemoveOrphans: true,
-	})
+		Volumes:       options.Volumes,
+		RemoveOrphans: options.RemoveOrphans,
+		Images:        options.Images,
+	}
+
+	if options.Timeout != nil {
+		grace := time.Duration(*options.Timeout) * time.Second
+		down.Timeout = &grace
+	}
+
+	return service.Down(context.Background(), loaded.Name, down)
 }
 
 // Logs writes the logs of the services named, with Compose's own consumer.

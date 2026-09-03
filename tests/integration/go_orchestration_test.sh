@@ -294,7 +294,9 @@ RAMA="$LAB/rama"
   git worktree add -q "$RAMA" -b rama ) >/dev/null 2>&1
 
 if [ -d "$RAMA" ]; then
-    for QUE in start stop restart; do
+    # `down` belongs in this list more than any of them: from a worktree with no environment of
+    # its own it would be destroying the main checkout's
+    for QUE in start stop restart down; do
         ( cd "$RAMA" && "$SHELL_CLI" "$QUE" >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
         ( cd "$RAMA" && "$GO_BINARY"  "$QUE" >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
 

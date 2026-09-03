@@ -36,3 +36,23 @@ type ExecOptions struct {
 	// quoting bug waiting for the right query.
 	Environment []string
 }
+
+// DownOptions is what removing an environment was asked to remove.
+//
+// Compose's own `down` takes exactly these, and so does this: a flag it does not understand is a
+// usage error here rather than a complaint from somewhere deeper.
+type DownOptions struct {
+	// Volumes deletes the data with the containers. It is one letter on the command line and it
+	// is the only thing here that cannot be rebuilt.
+	Volumes bool
+
+	// RemoveOrphans takes containers of this project that the file no longer describes.
+	RemoveOrphans bool
+
+	// Images is "all" or "local", or empty for none.
+	Images string
+
+	// Timeout is how long a container is given to stop before it is killed, in seconds. Nil means
+	// Compose's own default.
+	Timeout *int
+}

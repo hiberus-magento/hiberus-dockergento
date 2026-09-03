@@ -69,4 +69,7 @@ func good(text string) string    { return paint("\033[0;32m", text) }
 func bad(text string) string     { return paint("\033[0;31m", text) }
 func section(text string) string { return paint(blue, text) }
 func warning(text string) string { return paint("\033[0;33m", text) }
-func link(text string) string    { return paint("\033[34;4m", text) }
+
+// table is what a menu's options are painted in, which is the one place this colour is used.
+func table(text string) string { return paint("\033[0;36m", text) }
+func link(text string) string  { return paint("\033[34;4m", text) }

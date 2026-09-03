@@ -11,7 +11,7 @@ import (
 type orchestrator struct {
 	upCalls   [][]string
 	stopCalls [][]string
-	downCalls []bool
+	downCalls []core.DownOptions
 	err       error
 }
 
@@ -27,8 +27,8 @@ func (o *orchestrator) Stop(_ core.Project, _ core.ComposeFiles, services []stri
 	return o.err
 }
 
-func (o *orchestrator) Down(_ core.Project, _ core.ComposeFiles, volumes bool) error {
-	o.downCalls = append(o.downCalls, volumes)
+func (o *orchestrator) Down(_ core.Project, _ core.ComposeFiles, options core.DownOptions) error {
+	o.downCalls = append(o.downCalls, options)
 
 	return o.err
 }

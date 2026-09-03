@@ -42,7 +42,8 @@ func engine(stdout, stderr io.Writer, jsonOutput bool) *dockergento.Engine {
 		Progress: func(label string) func(bool, string) {
 			return begin(label, stdout, stderr, jsonOutput)
 		},
-		Ask: ask,
+		Ask:    ask,
+		Choose: choose,
 	})
 }
 
