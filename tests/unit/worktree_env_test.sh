@@ -9,6 +9,11 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 export HM_WORKTREE_DIR="$WORK/registry"
+
+# The registry is a database beside the state directory, so that goes to the same throwaway root:
+# without this a test would register environments in the one this machine actually uses
+export HM_STATE_DIR="${HM_WORKTREE_DIR%/*}/estado"
+mkdir -p "$HM_STATE_DIR"
 COMMAND_BIN_NAME="hm"
 source "$TASKS_DIR/worktree_env.sh"
 
@@ -63,6 +68,29 @@ assert_equals "shop-feature-x" "$WORKTREE_PROJECT"
 
 test_case "it is registered outside the checkout"
 assert_equals "0" "$([ -f "$WORK/registry/shop/feature-x.json" ] && echo 0 || echo 1)"
+
+#
+# When the binary ran this, it read the registry — a database this cannot open — and handed the
+# registration over. Nothing on disk is consulted then, and that is the point: it is the only way a
+# bridged command run from a branch environment arrives at that environment.
+#
+test_case "a registration handed over by the binary is used as it is"
+HM_REGISTERED="shop/handed" HM_REGISTERED_PATH="/code/handed"
+HM_REGISTERED_BRANCH="rama" HM_REGISTERED_PROFILE="lite"
+HM_REGISTERED_DOMAIN="handed.shop.test" HM_REGISTERED_PROJECT="shop-handed"
+HM_REGISTERED_VENDOR="shared"
+
+hm_worktree_load "shop" "handed"
+assert_equals "/code/handed" "$WORKTREE_PATH"
+assert_equals "shop-handed" "$WORKTREE_PROJECT"
+assert_equals "shared" "$WORKTREE_VENDOR"
+
+test_case "and it is not used for anybody else"
+hm_worktree_load "shop" "otra" 2>/dev/null && r=found || r=none
+assert_equals "none" "$r"
+
+unset HM_REGISTERED HM_REGISTERED_PATH HM_REGISTERED_BRANCH HM_REGISTERED_PROFILE \
+      HM_REGISTERED_DOMAIN HM_REGISTERED_PROJECT HM_REGISTERED_VENDOR
 
 test_case "the project's environments can be listed"
 hm_worktree_save "shop" "hotfix" "/code/shop-worktrees/hotfix" "hotfix" "lite" "hotfix.shop.test" "shop-hotfix"

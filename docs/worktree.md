@@ -23,9 +23,11 @@ This gives it one.
 ## What `add` does
 
 1. Creates the git worktree (and the branch, if it does not exist yet).
-2. Registers it in `~/.hm/worktrees/<project>/<name>.json` — **outside the checkout**, because
+2. Registers it in `~/.hm/hm.db` — **outside the checkout**, because
    `config/docker/properties.json` is a committed file and writing the worktree's project name
-   there would travel in somebody's commit.
+   there would travel in somebody's commit. Registrations written by earlier versions, in
+   `~/.hm/worktrees/<project>/<name>.json`, are read and brought in the first time anything asks:
+   there is nothing to migrate.
 3. Writes the compose overlay that expresses its profile and its routing.
 4. Gives it dependencies without installing them again.
 5. Clones the database from a [template](db.md#templates-the-same-data-without-the-import).

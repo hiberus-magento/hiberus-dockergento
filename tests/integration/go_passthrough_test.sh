@@ -230,8 +230,8 @@ test_case "and the same root"
 assert_equals "$DIR" "$(printf '%s' "$resolved" | jq -r '.data.project.root')"
 
 #
-# The registry, while the commands that will own it are still shell. It imports what those commands
-# wrote, so the two can be compared before anything is switched over.
+# The registry. There is no import step to run any more: what earlier versions wrote is read on the
+# way in, every time, which is why looking at it is enough to see it.
 #
 test_case "the registry can be looked at, and brings across what bash wrote"
 CASA=$(mktemp -d)
@@ -240,7 +240,7 @@ printf '{"path":"/code/a","branch":"rama","profile":"agent","domain":"a.test","p
     > "$CASA/.hm/worktrees/tienda/a.json"
 printf '{"anonymised_at":"2026-08-02 11:00"}\n' > "$CASA/.hm/state/tienda-a.json"
 registro=$( HOME="$CASA" "$GO_BINARY" _registry )
-assert_equals "1" "$(printf '%s' "$registro" | jq -r '.data.imported.worktrees')"
+assert_equals "a" "$(printf '%s' "$registro" | jq -r '.data.projects[0].worktrees[0].name')"
 assert_equals "shared" "$(printf '%s' "$registro" | jq -r 'if .data.projects[0].worktrees[0].shared_vendor then "shared" else "own" end')"
 
 test_case "and the data of a branch answers for itself, not for its parent"

@@ -2,9 +2,12 @@
 #
 # Branch environments: listing them and taking them away.
 #
-# `add` is still the shell implementation's. All three read and write the same registrations, so
-# there is no moment where the two disagree — what one writes the other sees, which is the only
-# way a command gets ported one half at a time.
+# There is one implementation now: the shell entry point delegates to the binary, which is what let
+# the registry stop being a directory of small files. So nothing here compares two answers — there
+# is only one — and every assertion is about what the command does.
+#
+# The comparisons that used to be here did their job: they are in the history, and they are why
+# the registration and the overlay this writes are the ones the shell implementation wrote.
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
@@ -46,27 +49,53 @@ export HM_WORKTREE_DIR="$LAB/registro"
 mkdir -p "$HM_WORKTREE_DIR/$PROJECT"
 
 #
+# The registry is a database beside the state directory, so this has to point somewhere throwaway
+# too: a test that registers branch environments in the database the machine actually uses would
+# leave them there, and they would be listed by every later command.
+#
+export HM_STATE_DIR="$LAB/estado"
+mkdir -p "$HM_STATE_DIR"
+
+#
 # The registration written by hand, in the shape the shell implementation writes it. That is the
 # point of this test: what `add` writes, the ported half has to read.
 #
 registrar() {
+    mkdir -p "$HM_WORKTREE_DIR/$PROJECT"
     ( cd "$DIR" && git worktree add -q "$LAB/rama-$1" -b "$1" ) >/dev/null 2>&1
     printf '{"path":"%s","branch":"%s","profile":"agent","domain":"%s.ramas.test","project":"%s-%s","created":"2026-09-02 10:00","vendor":"own"}\n' \
         "$LAB/rama-$1" "$1" "$1" "$PROJECT" "$1" > "$HM_WORKTREE_DIR/$PROJECT/$1.json"
     printf 'services: {}\n' > "$HM_WORKTREE_DIR/$PROJECT/$1.yml"
 }
 
+#
+# The registry is a database now, so a fixture cannot be built by writing files into a directory
+# and taken apart by deleting them. What the old directory holds is drained on the way in, which is
+# what makes writing one there a way to set the scene; taking it apart goes through the command.
+#
+olvidar() {
+    ( cd "$DIR" && "$GO_BINARY" --yes --force worktree remove "$1" ) >/dev/null 2>&1
+    rm -f "$HM_WORKTREE_DIR/$PROJECT/$1".*
+}
+
 registrar azul
 
 # ---------------------------------------------------------------- listing
 
-test_case "the ported half reads what the shell one wrote"
+#
+# What the shell implementation wrote is drained on the way in rather than abandoned: a machine
+# with branch environments in it keeps them.
+#
+test_case "a registration the old implementation wrote is still found"
+assert_equals "azul" "$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -r '.data.worktrees[0].name' )"
+
+#
+# The entry point people type is still `hm`, and it has to arrive at the same place: the shell
+# implementation of this command is a delegator now, which is what makes one registry possible.
+#
+test_case "and the shell entry point reaches the same answer"
 assert_equals "$( cd "$DIR" && "$SHELL_CLI" worktree list --json | jq -S . )" \
               "$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -S . )"
-
-test_case "including the table a person reads"
-assert_equals "$( cd "$DIR" && "$SHELL_CLI" --no-json worktree list 2>&1 )" \
-              "$( cd "$DIR" && "$GO_BINARY" --no-json worktree list 2>&1 )"
 
 #
 # A directory somebody deleted by hand leaves a registration behind. Saying "stopped" about it
@@ -74,28 +103,31 @@ assert_equals "$( cd "$DIR" && "$SHELL_CLI" --no-json worktree list 2>&1 )" \
 #
 rm -rf "$LAB/rama-azul"
 
-test_case "a worktree whose directory is gone is reported as missing, in both"
-assert_equals "$( cd "$DIR" && "$SHELL_CLI" worktree list --json | jq -r '.data.worktrees[0].state' )" \
-              "$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -r '.data.worktrees[0].state' )"
+test_case "a worktree whose directory is gone is reported as missing"
 assert_equals "missing" "$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -r '.data.worktrees[0].state' )"
 
 ( cd "$DIR" && git worktree prune ) >/dev/null 2>&1
-rm -f "$HM_WORKTREE_DIR/$PROJECT"/azul.*
+( cd "$DIR" && "$GO_BINARY" --yes --force worktree remove azul ) >/dev/null 2>&1
 
-test_case "with none registered, both say so the same way"
-assert_equals "$( cd "$DIR" && "$SHELL_CLI" --no-json worktree list 2>&1 )" \
-              "$( cd "$DIR" && "$GO_BINARY" --no-json worktree list 2>&1 )"
+#
+# Removing has to clear both: the row, and the file the old implementation wrote. Leaving the file
+# would bring the environment back on the next listing, because that file is read on the way in.
+#
+test_case "removing clears the registration and what the old directory held"
+assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -r '.data.worktrees | length' )"
+assert_equals "no" "$([ -f "$HM_WORKTREE_DIR/$PROJECT/azul.json" ] && echo yes || echo no)"
+
+test_case "with none registered it says so, and how to make one"
+assert_contains "$( cd "$DIR" && "$GO_BINARY" --no-json worktree list 2>&1 )" "No branch environments"
 
 # ---------------------------------------------------------------- the refusals
 
 for CASO in "noexiste" ""; do
-    ( cd "$DIR" && "$SHELL_CLI" worktree remove $CASO >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
-    ( cd "$DIR" && "$GO_BINARY"  worktree remove $CASO >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+    ( cd "$DIR" && "$GO_BINARY" worktree remove $CASO >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
 
-    test_case "removing '${CASO:-nothing}' is refused the same way"
+    test_case "removing '${CASO:-nothing}' is refused with the usage code"
     assert_equals "2" "$GO_STATUS"
-    assert_equals "$SHELL_STATUS" "$GO_STATUS"
-    assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
+    assert_contains "$(jq -r '.error.hint' < "$LAB/go.err")" "worktree list"
 done
 
 #
@@ -105,27 +137,27 @@ done
 registrar verde
 echo "sin guardar" > "$LAB/rama-verde/pendiente.txt"
 
-( cd "$DIR" && "$SHELL_CLI" worktree remove verde >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
-( cd "$DIR" && "$GO_BINARY"  worktree remove verde >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+( cd "$DIR" && "$GO_BINARY" worktree remove verde >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
 
-test_case "a worktree with uncommitted changes is refused, the same way"
+test_case "a worktree with uncommitted changes is refused"
 assert_equals "6" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
-assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
+assert_equals "uncommitted_changes" "$(jq -r '.error.type' < "$LAB/go.err")"
 
 rm -f "$LAB/rama-verde/pendiente.txt"
 
 # ---------------------------------------------------------------- and taking one away
 
+antes=$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -r '.data.worktrees | length' )
+
 test_case "answering anything else leaves it alone"
 ( cd "$DIR" && printf 'otra-cosa\n' | "$GO_BINARY" --no-json worktree remove verde >/dev/null 2>&1 )
-assert_equals "1" "$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -r '.data.worktrees | length' )"
+assert_equals "$antes" "$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -r '.data.worktrees | length' )"
 
 ( cd "$DIR" && "$GO_BINARY" --yes --no-json worktree remove verde >"$LAB/go.out" 2>&1 )
 
 test_case "and removing it takes the registration, the overlay and the worktree"
 assert_contains "$(cat "$LAB/go.out")" "Removed"
-assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -r '.data.worktrees | length' )"
+assert_not_contains "$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -r '.data.worktrees[].name' )" "verde"
 assert_equals "no" "$([ -f "$HM_WORKTREE_DIR/$PROJECT/verde.yml" ] && echo yes || echo no)"
 assert_equals "no" "$([ -d "$LAB/rama-verde" ] && echo yes || echo no)"
 
@@ -135,12 +167,10 @@ assert_equals "no" "$([ -d "$LAB/rama-verde" ] && echo yes || echo no)"
 # shell implementation, has to be able to read what this one left.
 
 for CASO in "" "--profile=inventado rama" "--tonteria" "una otra"; do
-    ( cd "$DIR" && "$SHELL_CLI" worktree add $CASO >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
-    ( cd "$DIR" && "$GO_BINARY"  worktree add $CASO >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+    ( cd "$DIR" && "$GO_BINARY" worktree add $CASO >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
 
-    test_case "adding with '${CASO:-no branch}' is refused the same way"
-    assert_equals "$SHELL_STATUS" "$GO_STATUS"
-    assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
+    test_case "adding with '${CASO:-no branch}' is refused with the usage code"
+    assert_equals "2" "$GO_STATUS"
 done
 
 #
@@ -150,41 +180,40 @@ done
 printf '{"MAGENTO_DIR": "./src", "DOMAIN": "ramas.test", "COMPOSE_PROJECT_NAME": "%s"}\n' "$PROJECT" \
     > "$DIR/config/docker/properties.json"
 
-( cd "$DIR" && "$SHELL_CLI" worktree add sinproxy >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
-( cd "$DIR" && "$GO_BINARY"  worktree add sinproxy >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+( cd "$DIR" && "$GO_BINARY" worktree add sinproxy >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
 
-test_case "without the proxy it is refused, the same way"
+test_case "without the proxy it is refused"
 assert_equals "6" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
-assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
+assert_equals "proxy_required" "$(jq -r '.error.type' < "$LAB/go.err")"
 
 printf '{"MAGENTO_DIR": "./src", "DOMAIN": "ramas.test", "COMPOSE_PROJECT_NAME": "%s", "USE_PROXY": "true"}\n' "$PROJECT" \
     > "$DIR/config/docker/properties.json"
 
 reiniciar() {
+    olvidar rojo
     ( cd "$DIR" && git worktree remove --force "$LAB/$PROJECT-worktrees/rojo" &&
       git worktree prune ) >/dev/null 2>&1
-    rm -rf "$LAB/$PROJECT-worktrees" "$HM_WORKTREE_DIR/$PROJECT"
+    rm -rf "$LAB/$PROJECT-worktrees"
 }
-
-reiniciar
-( cd "$DIR" && "$SHELL_CLI" worktree add rojo --no-start ) >/dev/null 2>&1
-cp "$HM_WORKTREE_DIR/$PROJECT/rojo.json" "$LAB/registro-shell.json" 2>/dev/null
-cp "$HM_WORKTREE_DIR/$PROJECT/rojo.yml"  "$LAB/overlay-shell.yml"  2>/dev/null
 
 reiniciar
 ( cd "$DIR" && "$GO_BINARY" worktree add rojo --no-start ) >/dev/null 2>&1
 
-test_case "the registration is the one the shell implementation writes"
-assert_equals "$(jq -S 'del(.created)' < "$LAB/registro-shell.json")" \
-              "$(jq -S 'del(.created)' < "$HM_WORKTREE_DIR/$PROJECT/rojo.json")"
+#
+# The registration is in the database now, and the overlay is still a file: a compose file is
+# something Docker reads, and one in a database is one nothing can load.
+#
+test_case "the registration is recorded, and not as a file any more"
+assert_equals "rojo" "$( cd "$DIR" && "$GO_BINARY" worktree list --json | jq -r '.data.worktrees[0].name' )"
+assert_equals "no" "$([ -f "$HM_WORKTREE_DIR/$PROJECT/rojo.json" ] && echo yes || echo no)"
 
 #
 # The overlay is where a mistake is invisible until something is running: a service written twice
 # is not a merge — the last one wins and the earlier block disappears without a word.
 #
-test_case "and so is the overlay, character for character"
-assert_equals "$(cat "$LAB/overlay-shell.yml")" "$(cat "$HM_WORKTREE_DIR/$PROJECT/rojo.yml")"
+test_case "and the overlay is written where compose can load it"
+assert_contains "$(cat "$HM_WORKTREE_DIR/$PROJECT/rojo.yml")" "$PROJECT-rojo"
+assert_contains "$(cat "$HM_WORKTREE_DIR/$PROJECT/rojo.yml")" "services:"
 
 test_case "and the worktree is on disk, on its own branch"
 assert_equals "yes" "$([ -d "$LAB/$PROJECT-worktrees/rojo" ] && echo yes || echo no)"

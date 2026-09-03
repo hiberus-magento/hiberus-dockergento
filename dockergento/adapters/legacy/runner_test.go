@@ -94,3 +94,47 @@ func TestTheEnvironmentPointsItSomewhereElse(t *testing.T) {
 		t.Fatalf("debería usar el entorno: %q, %v", located, err)
 	}
 }
+
+// The registration is what makes a bridged command run from a branch environment stay in it: the
+// shell half cannot read the registry, so it is handed what the registry said.
+func TestTheRegistrationArrives(t *testing.T) {
+	root := shellTree(t, "#!/bin/sh\nprintf '%s\\n' \"$HM_REGISTERED\" > \"$0.env\"\n")
+
+	handed := []string{"HM_REGISTERED=tienda/rama", "HM_REGISTERED_PROJECT=tienda-rama"}
+
+	if _, err := (Runner{Root: root, Registration: handed}).Run([]string{"setup"}); err != nil {
+		t.Fatalf("no debería fallar: %v", err)
+	}
+
+	given, err := os.ReadFile(filepath.Join(root, "bin", "run.env"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(given) != "tienda/rama\n" {
+		t.Fatalf("la registración llegó distinta: %q", given)
+	}
+}
+
+// And one inherited from an outer invocation does not survive beside it. Two entries for the same
+// name in one environment is a question of whose reading wins, and this is not a question worth
+// having: the answer would be a branch environment's identity used in the main checkout.
+func TestAnInheritedRegistrationIsNotCarriedOver(t *testing.T) {
+	root := shellTree(t, "#!/bin/sh\nprintf '%s\\n' \"$HM_REGISTERED\" > \"$0.env\"\n")
+
+	t.Setenv("HM_REGISTERED", "otra/vieja")
+	t.Setenv("HM_REGISTERED_PROJECT", "otra-vieja")
+
+	if _, err := (Runner{Root: root}).Run([]string{"setup"}); err != nil {
+		t.Fatalf("no debería fallar: %v", err)
+	}
+
+	given, err := os.ReadFile(filepath.Join(root, "bin", "run.env"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(given) != "\n" {
+		t.Fatalf("no debería quedar nada de la de fuera: %q", given)
+	}
+}

@@ -41,7 +41,7 @@ capa Go no tiene dónde mirarse. Cada una muere en un sitio concreto:
 | | qué enseña | desaparece cuando |
 |---|---|---|
 | `hm _binary` | qué build del binario corre | se porte `version`, y pase a ser un campo suyo |
-| `hm _registry` | lo que guarda el registro | el registro sea la fuente viva, y `hm worktree list` lo enseñe |
+| `hm _registry` | lo que guarda el registro | nada en shell necesite leerlo: hoy es también por donde lo lee `bin/run` |
 
 El código está en dos mitades. `dockergento/` es la herramienta como librería —dominio, puertos,
 casos de uso, adaptadores y una fachada— y es pública porque `internal/` es una regla del lenguaje
@@ -76,11 +76,18 @@ detalle de cada una en `openspec/changes/`.
         suelto, el indicador de progreso y preguntar por terminal, que necesita el resto de la tanda
   - [x] `worktree` entero — `add`, `list` y `remove`. La registración y el overlay que escribe son
         byte a byte los de bash, comprobado
-  - [ ] el registro pasa a ser la fuente viva: cambiar el adaptador de JSON a SQLite de una vez,
-        que ya se puede porque los tres subcomandos de `worktree` son de la misma implementación
+  - [x] el registro es la fuente viva. `console/commands/worktree.sh` pasó a delegar en el binario,
+        así que bash ya no escribe registraciones y el adaptador pudo cambiar de golpe. Lo que
+        escribió la 1.x se arrastra al leer y se borra al olvidar el worktree: una máquina con
+        ramas montadas las conserva, y nada queda diciendo algo que ya no es verdad. El overlay
+        sigue siendo un fichero, porque un compose en una base de datos no lo carga nadie. La
+        mitad de bash no puede abrir la base de datos, así que el binario le entrega la
+        registración al puentear, y el punto de entrada de shell lanzado a solas se la pide: un
+        comando puenteado desde una rama que no encontrase registración resolvería al entorno
+        principal, que es justo lo que WT-01 existe para impedir
   - [~] `db` — la mitad de plantillas (`freeze`, `templates`, `clone`, `drop`), que es de la que
         depende `worktree`; las instantáneas siguen en shell
-  - [x] `clean` — y con él ya nadie más escribe registraciones desde bash salvo `worktree.sh`
+  - [x] `clean` — y con él ya nadie más escribe registraciones desde bash
   - [ ] `proxy`, `setup`, `down`
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web** — *empezada*

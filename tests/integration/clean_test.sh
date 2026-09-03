@@ -80,6 +80,11 @@ docker volume create --label hm.template=base --label "hm.project=$ALIVE" \
 # and nothing else deletes it: `hm worktree remove` needs the directory to still be there.
 #
 export HM_WORKTREE_DIR="$LAB/worktrees"
+
+# The registry is a database beside the state directory, so that goes to the same throwaway root:
+# without this a test would register environments in the one this machine actually uses
+export HM_STATE_DIR="${HM_WORKTREE_DIR%/*}/estado"
+mkdir -p "$HM_STATE_DIR"
 mkdir -p "$HM_WORKTREE_DIR/padre"
 cat > "$HM_WORKTREE_DIR/padre/rama-muerta.json" <<JSON
 {"path": "$LAB/no-existe", "branch": "feature/x", "profile": "agent",

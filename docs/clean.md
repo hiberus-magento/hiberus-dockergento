@@ -30,7 +30,7 @@ the distinction `docker system prune` cannot make, and the reason this command e
 [`hm worktree remove`](worktree.md) is the tidy way to get rid of one, and it needs the directory
 to still be there. When somebody removes the worktree with git, or deletes the folder, the
 containers and volumes are collected by the rule above — they carry `hm.root` — but the
-registration in `~/.hm/worktrees` is left over, and nothing else deletes it. It shows in
+registration is left over, and nothing else deletes it. It shows in
 `hm worktree list` as `missing` for ever, and it refuses the name if that branch environment is
 ever wanted back.
 

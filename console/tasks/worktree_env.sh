@@ -76,7 +76,54 @@ hm_worktree_is_registered() {
 # and WORKTREE_CREATED in the current shell, for the reason the rest of the resolvers do: read
 # through `$(...)` only one of the six could come back.
 #
+# There are two ways in. When the binary ran this, it read the registry — which is a database it
+# owns and this cannot open — and handed the registration over in the environment. That is the
+# normal path, and it is authoritative: no file is consulted.
+#
+# The files below are the other way in, and they are still the registry on a machine with no
+# binary. What is not supported is mixing them: with a binary installed, a registration written by
+# hand into ~/.hm/worktrees is read once, brought into the database and then removed.
+#
 hm_worktree_load() {
+    if [ "${HM_REGISTERED:-}" == "$1/$2" ]; then
+        WORKTREE_PATH="$HM_REGISTERED_PATH"
+        WORKTREE_BRANCH="$HM_REGISTERED_BRANCH"
+        WORKTREE_PROFILE="$HM_REGISTERED_PROFILE"
+        WORKTREE_DOMAIN="$HM_REGISTERED_DOMAIN"
+        WORKTREE_PROJECT="$HM_REGISTERED_PROJECT"
+        WORKTREE_CREATED=""
+        WORKTREE_VENDOR="$HM_REGISTERED_VENDOR"
+
+        [ -n "$WORKTREE_PATH" ]
+
+        return
+    fi
+
+    #
+    # Asking the binary. This is the path taken when the shell entry point is run directly on a
+    # machine that has a binary: the registry is its database, and a registration it holds is one
+    # no file here can show. Getting this wrong is not a missing environment — it is the main
+    # environment's mounts repointed at a branch and its database dropped, which is WT-01.
+    #
+    local binary="${COMMAND_BIN_DIR:-}/bin/hm"
+
+    if [ -x "$binary" ]; then
+        local held
+        held=$("$binary" _registry 2>/dev/null | jq -r --arg parent "$1" --arg name "$2" \
+            '.data.projects[]? | select(.name == $parent) | .worktrees[]? | select(.name == $name)
+             | [.path, .branch, .profile, .domain, .environment, "",
+                (if .shared_vendor then "shared" else "own" end)] | join("\u001f")' 2>/dev/null)
+
+        if [ -n "$held" ]; then
+            IFS=$'\037' read -r WORKTREE_PATH WORKTREE_BRANCH WORKTREE_PROFILE \
+                WORKTREE_DOMAIN WORKTREE_PROJECT WORKTREE_CREATED WORKTREE_VENDOR <<< "$held"
+
+            [ -n "$WORKTREE_PATH" ]
+
+            return
+        fi
+    fi
+
     local record
     record=$(hm_worktree_record "$1" "$2")
 
@@ -97,6 +144,17 @@ hm_worktree_load() {
     [ -n "$WORKTREE_PATH" ]
 }
 
+#
+# Listing and writing stay on the files, and only `hm_worktree_load` above asks the binary.
+#
+# That is not an oversight. Loading has to be right because getting it wrong resolves a branch to
+# the main environment, which destroys it. The other three are reached only by the shell
+# implementations of `clean` and `worktree add`, and both of those are ported — with a binary
+# installed, nothing arrives here through them. Without one, the files are the registry and this is
+# already right. What is left is somebody running `bin/run clean` directly on a machine that has a
+# binary: it finds no registrations to forget, which under-reports rather than deleting something
+# it should not.
+#
 hm_worktree_names() {
     local home file base
     home=$(hm_worktree_home "$1")

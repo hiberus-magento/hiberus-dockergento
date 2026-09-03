@@ -30,9 +30,11 @@ import (
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/machine"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/magentofiles"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/osfs"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/registry"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/toolinfo"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/app"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
 )
 
 // Options is what an engine needs to know about where it is running.
@@ -649,6 +651,67 @@ func configuredDatabase(e *Engine, project core.Project) (string, string) {
 	return app.DataDirectory(configuration)
 }
 
+// RegistryState is what the registry holds, for looking at it.
+//
+// Through the engine's own registry and not a second one opened here: a diagnostic that reads a
+// different database from the one the commands use is a diagnostic that lies.
+func (e *Engine) RegistryState() (map[string]any, error) {
+	held := map[string]any{}
+	listed := []any{}
+
+	parents, err := e.registry().Parents()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, parent := range parents {
+		worktrees, err := e.registry().Worktrees(parent)
+		if err != nil {
+			return nil, err
+		}
+
+		branches := []any{}
+
+		for _, worktree := range worktrees {
+			state, at := toolinfo.State{Dir: e.options.StateDir}.Anonymisation(worktree.Project)
+
+			var slot *core.Allocation
+
+			// Only where there is one to have: a classic project hands out no slots, and the
+			// registry that can be asked is the one backed by a store
+			if allocating, ok := e.registry().(interface {
+				Allocation(string, string) (*core.Allocation, error)
+			}); ok {
+				slot, _ = allocating.Allocation(parent, worktree.Name)
+			}
+
+			branches = append(branches, map[string]any{
+				"allocation": slot,
+				"name":       worktree.Name, "environment": worktree.Project,
+				"branch": worktree.Branch, "profile": worktree.Profile,
+				"shared_vendor": worktree.SharedVendor,
+				"anonymised":    state, "anonymised_at": at,
+
+				// The path and the address are here because the shell implementation reads
+				// this: it cannot open the database, and a bridged command run from a branch
+				// environment has to arrive at that environment and not at the main one
+				"path": worktree.Path, "domain": worktree.Domain,
+			})
+		}
+
+		state, at := toolinfo.State{Dir: e.options.StateDir}.Anonymisation(parent)
+
+		listed = append(listed, map[string]any{
+			"name": parent, "worktrees": branches,
+			"anonymised": state, "anonymised_at": at,
+		})
+	}
+
+	held["projects"] = listed
+
+	return held, nil
+}
+
 //
 // Collecting what abandoned environments left behind.
 //
@@ -750,8 +813,41 @@ func (e *Engine) Configuration(project core.Project) (core.Compose, error) {
 
 // Shell runs a command of the shell implementation, for what is not ported and for the commands a
 // project adds of its own.
-func (e *Engine) Shell(args []string) (int, error) {
-	return legacy.Runner{Root: e.options.ShellRoot}.Run(args)
+//
+// The directory is where the command was run, which is what decides whether it is being run from a
+// branch environment.
+func (e *Engine) Shell(dir string, args []string) (int, error) {
+	return legacy.Runner{Root: e.options.ShellRoot, Registration: e.registration(dir)}.Run(args)
+}
+
+// registration is what the shell implementation would have read from the registry, for the branch
+// environment this is being run from.
+//
+// Nothing at all is the answer everywhere else, and it is the answer whenever anything is unclear:
+// resolution that fails, a directory that is not a project, a worktree with no registration. A
+// wrong one here would be worse than none, because the shell implementation trusts it.
+func (e *Engine) registration(dir string) []string {
+	project, err := e.Resolve(dir)
+	if err != nil || !project.IsWorktree() {
+		return nil
+	}
+
+	worktree := project.Worktree
+	vendor := "own"
+
+	if worktree.SharedVendor {
+		vendor = "shared"
+	}
+
+	return []string{
+		"HM_REGISTERED=" + worktree.Parent + "/" + worktree.Name,
+		"HM_REGISTERED_PATH=" + worktree.Path,
+		"HM_REGISTERED_BRANCH=" + worktree.Branch,
+		"HM_REGISTERED_PROFILE=" + worktree.Profile,
+		"HM_REGISTERED_DOMAIN=" + worktree.Domain,
+		"HM_REGISTERED_PROJECT=" + worktree.Project,
+		"HM_REGISTERED_VENDOR=" + vendor,
+	}
 }
 
 // ComposeFiles is what a project is built from.
@@ -949,8 +1045,59 @@ func (e *Engine) properties() fsprops.Reader {
 	return fsprops.Reader{Defaults: filepath.Join(e.options.Root, "data", "properties.json")}
 }
 
-func (e *Engine) registry() hmstate.Registry {
-	return hmstate.Registry{Dir: e.options.WorktreeDir}
+// registry is where branch environments are recorded.
+//
+// SQLite now, and not a directory of small JSON files, for the two things that directory could not
+// do: hand out a slot atomically, and remove a worktree and its allocation in one breath. It only
+// became possible once every subcommand of `worktree` was one implementation — while one half
+// wrote files and the other read a database, a branch environment created was one nothing else
+// could see.
+//
+// What that directory still holds is drained on the way in and removed when its worktree is
+// forgotten, so a machine with branch environments in it keeps them.
+func (e *Engine) registry() ports.Registry {
+	store, err := registry.Open(e.databaseFile())
+	if err != nil {
+		// A registry that cannot be opened is not a reason to answer nothing: the old directory
+		// still holds what the shell implementation wrote, and reading it is better than failing
+		return hmstate.Registry{Dir: e.options.WorktreeDir}
+	}
+
+	return registry.Registrations{
+		Store:  store,
+		Legacy: registry.Legacy{Dir: e.worktreeDir()},
+	}
+}
+
+// databaseFile is where the registry lives, beside everything else this machine records.
+func (e *Engine) databaseFile() string {
+	if e.options.StateDir != "" {
+		return filepath.Join(filepath.Dir(e.options.StateDir), "hm.db")
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "hm.db")
+	}
+
+	return filepath.Join(home, ".hm", "hm.db")
+}
+
+func (e *Engine) worktreeDir() string {
+	if e.options.WorktreeDir != "" {
+		return e.options.WorktreeDir
+	}
+
+	if dir := os.Getenv("HM_WORKTREE_DIR"); dir != "" {
+		return dir
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(home, ".hm", "worktrees")
 }
 
 // installedRoot is the tool's own directory, worked out from the running executable.

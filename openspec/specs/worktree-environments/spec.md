@@ -12,9 +12,8 @@ file changes.
 #### Scenario: Adding a worktree for a branch
 
 - **WHEN** the user runs `hm worktree add feature-x` from the main checkout
-- **THEN** a git worktree for that branch is created, registered under
-  `~/.hm/worktrees/<project>/feature-x.json` with its path, profile, branch and compose project
-  name, and no file inside the repository is modified
+- **THEN** a git worktree for that branch is created, registered outside the checkout with its
+  path, profile, branch and compose project name, and no file inside the repository is modified
 
 #### Scenario: The project is not routed through the proxy
 

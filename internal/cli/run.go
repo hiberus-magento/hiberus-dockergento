@@ -106,7 +106,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	code, err := engine(stdout, stderr, false).Shell(args)
+	code, err := engine(stdout, stderr, false).Shell(here(), args)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s\n", err)
 

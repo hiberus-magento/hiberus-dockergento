@@ -130,3 +130,17 @@ func TestABranchEnvironmentTakesItsOwnOverlayAndNotTheProxys(t *testing.T) {
 		t.Fatalf("y sí lleva el suyo, que vive fuera del checkout: %v", files.Load)
 	}
 }
+
+// Everywhere else nothing is handed over. A registration that does not apply is worse than none,
+// because the shell half trusts what it is given.
+func TestNothingIsHandedOverOutsideABranchEnvironment(t *testing.T) {
+	project := proyecto(t, `{"COMPOSE_PROJECT_NAME": "tienda"}`)
+
+	if handed := motor(t).registration(project.Root); len(handed) != 0 {
+		t.Fatalf("no se entrega nada desde un checkout principal: %v", handed)
+	}
+
+	if handed := motor(t).registration(filepath.Join(project.Root, "no", "existe")); len(handed) != 0 {
+		t.Fatalf("ni desde un directorio que no es un proyecto: %v", handed)
+	}
+}

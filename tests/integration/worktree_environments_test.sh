@@ -28,8 +28,31 @@ if ! docker info >/dev/null 2>&1; then
     exit 0
 fi
 
-# Registrations go to a throwaway root: a test has no business writing in ~/.hm
+# Registrations go to a throwaway root: a test has no business writing in ~/.hm — the registry is
+# a database beside the state directory, so that has to be redirected as well
 export HM_WORKTREE_DIR="$LAB/registry"
+export HM_STATE_DIR="$LAB/estado"
+mkdir -p "$HM_STATE_DIR"
+
+#
+# The registration is a row now, so the test asks for it rather than looking for a file.
+#
+registrada() {
+    ( cd "$MAIN" && "$HM" worktree list --json 2>/dev/null | jq -r '.data.worktrees[].name' ) |
+        grep -qx "$1" && echo 0 || echo 1
+}
+
+#
+# Changing what a registration says, without a command that does it: the old directory is read on
+# the way in, so a file written there updates the row and is then taken back out of the way.
+#
+reescribir_vendor() {
+    mkdir -p "$HM_WORKTREE_DIR/$PROJECT"
+    printf '{"path":"%s","branch":"feature/x","profile":"agent","domain":"feature-x.shop.test","project":"%s-feature-x","vendor":"%s"}\n' \
+        "$TREE" "$PROJECT" "$1" > "$HM_WORKTREE_DIR/$PROJECT/feature-x.json"
+    ( cd "$MAIN" && "$HM" worktree list --json ) >/dev/null 2>&1
+    rm -f "$HM_WORKTREE_DIR/$PROJECT/feature-x.json"
+}
 
 if ! docker network inspect hm-gateway >/dev/null 2>&1; then
     docker network create hm-gateway >/dev/null 2>&1 && NETWORK_CREATED=true
@@ -94,6 +117,20 @@ hm_in() {
     return 0
 }
 
+#
+# The same, through the binary. It is the entry point people have installed, and for anything not
+# ported it resolves the project itself and then hands the registration to the shell half — which
+# cannot read the registry, because the registry is the binary's database.
+#
+binario_en() {
+    local dir="$1"; shift
+    ( cd "$dir" && "$COMMAND_BIN_DIR/bin/hm" "$@" >"$LAB/out" 2>"$LAB/err" )
+    STATUS=$?
+    STDOUT=$(cat "$LAB/out")
+    STDERR=$(cat "$LAB/err")
+    return 0
+}
+
 make_project "$PROJECT" "true"
 make_project "$BARE" "false"
 
@@ -115,8 +152,11 @@ assert_contains "$STDERR" "lite agent full" "it lists the profiles that exist"
 hm_in "$MAIN" worktree add feature/x --profile=agent --no-start
 assert_equals "0" "$STATUS" "a branch environment is created"
 
-assert_equals "0" "$([ -f "$HM_WORKTREE_DIR/$PROJECT/feature-x.json" ] && echo 0 || echo 1)" \
+assert_equals "0" "$(registrada feature-x)" \
     "it is registered outside the checkout"
+
+assert_equals "0" "$([ -f "$HM_WORKTREE_DIR/$PROJECT/feature-x.yml" ] && echo 0 || echo 1)" \
+    "and its overlay is a file, because that is what Docker loads"
 
 assert_equals "0" "$([ -d "$TREE" ] && echo 0 || echo 1)" \
     "the worktree exists on disk"
@@ -204,13 +244,7 @@ assert_equals "0" \
 # dependencies are shared — which is what the Linux path writes.
 #
 test_case "Composer refuses to write to dependencies that are somebody else's"
-python3 - "$HM_WORKTREE_DIR/$PROJECT/feature-x.json" <<'INNER'
-import json, sys, pathlib
-p = pathlib.Path(sys.argv[1])
-d = json.loads(p.read_text())
-d["vendor"] = "shared"
-p.write_text(json.dumps(d))
-INNER
+reescribir_vendor shared
 hm_in "$TREE" composer install
 assert_equals "6" "$STATUS"
 assert_contains "$STDERR" "dependencies"
@@ -222,13 +256,34 @@ test_case "while the rest of Composer is untouched"
 hm_in "$TREE" composer --version
 assert_equals "0" "$([ "$STATUS" != "6" ] && echo 0 || echo 1)"
 
-python3 - "$HM_WORKTREE_DIR/$PROJECT/feature-x.json" <<'INNER'
-import json, sys, pathlib
-p = pathlib.Path(sys.argv[1])
-d = json.loads(p.read_text())
-d["vendor"] = "own"
-p.write_text(json.dumps(d))
-INNER
+reescribir_vendor own
+
+#
+# Bridged from the branch environment, through the binary: it has to arrive at the branch's own
+# project. Arriving at the main one is not a missing environment — it is the main environment's
+# mounts repointed at this checkout and its database dropped by the next `setup:upgrade`.
+#
+test_case "a bridged command run from a branch environment stays in it"
+binario_en "$TREE" docker-compose config --format json
+assert_equals "0" "$STATUS"
+assert_equals "$PROJECT-feature-x" "$(printf '%s' "$STDOUT" | jq -r '.name')"
+
+#
+# And it arrives by being handed over rather than by being looked up again. Shown against a shell
+# tree that does nothing but print what it was given: the answer above would be right either way,
+# because the shell half can also ask for it, and "right either way" is how a path stops working
+# without any test noticing.
+#
+test_case "and the registration is handed to it, not looked up again"
+mkdir -p "$LAB/fake/bin" "$LAB/fake/console"
+printf '#!/usr/bin/env bash
+printf "%%s\\n" "$HM_REGISTERED" "$HM_REGISTERED_PROJECT"
+' \
+    > "$LAB/fake/bin/run"
+chmod +x "$LAB/fake/bin/run"
+( cd "$TREE" && HM_LEGACY_ROOT="$LAB/fake" "$COMMAND_BIN_DIR/bin/hm" docker-compose config >"$LAB/out" 2>&1 )
+assert_equals "$PROJECT/feature-x" "$(sed -n 1p "$LAB/out")"
+assert_equals "$PROJECT-feature-x" "$(sed -n 2p "$LAB/out")"
 
 # ---------------------------------------------------------------- the guardrails
 
@@ -267,8 +322,10 @@ rm -f "$TREE/scratch.txt"
 
 hm_in "$MAIN" worktree remove feature-x --force
 assert_equals "0" "$STATUS" "a branch environment can be removed"
-assert_equals "1" "$([ -f "$HM_WORKTREE_DIR/$PROJECT/feature-x.json" ] && echo 0 || echo 1)" \
+assert_equals "1" "$(registrada feature-x)" \
     "the registration is gone"
+assert_equals "1" "$([ -f "$HM_WORKTREE_DIR/$PROJECT/feature-x.yml" ] && echo 0 || echo 1)" \
+    "and the overlay with it"
 assert_equals "1" "$([ -d "$TREE" ] && echo 0 || echo 1)" \
     "and so is the worktree"
 

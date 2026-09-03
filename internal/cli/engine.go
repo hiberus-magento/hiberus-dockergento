@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento"
-	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/registry"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -86,76 +84,17 @@ func binaryName() string {
 	return "hm"
 }
 
-// registryState prints what the registry holds, importing first what the shell implementation
-// wrote into ~/.hm.
+// registryState prints what the registry holds.
 //
-// One of the `hm-go-*` diagnostics: it exists so the registry can be looked at while the commands
-// that will own it are still shell, and it changes nothing that any real command does.
+// One of the `hm-`prefixed diagnostics: it exists so the registry can be looked at while nothing
+// else shows it, and it changes nothing that any real command does.
 func registryState(stdout, stderr io.Writer) int {
-	home, err := os.UserHomeDir()
+	held, err := engine(stdout, stderr, false).RegistryState()
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 
 		return exitError
 	}
-
-	store, err := registry.Open(filepath.Join(home, ".hm", "hm.db"))
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-
-		return exitError
-	}
-	defer store.Close()
-
-	brought, err := store.Import(filepath.Join(home, ".hm", "worktrees"), filepath.Join(home, ".hm", "state"))
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-
-		return exitError
-	}
-
-	projects, err := store.Projects()
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-
-		return exitError
-	}
-
-	held := map[string]any{"imported": brought, "projects": []any{}}
-	listed := []any{}
-
-	for _, project := range projects {
-		worktrees, err := store.Worktrees(project.Name)
-		if err != nil {
-			fmt.Fprintln(stderr, err)
-
-			return exitError
-		}
-
-		branches := []any{}
-
-		for _, worktree := range worktrees {
-			allocation, _ := store.Allocation(project.Name, worktree.Name)
-			state, at := store.Anonymisation(worktree.Project)
-
-			branches = append(branches, map[string]any{
-				"name": worktree.Name, "environment": worktree.Project,
-				"branch": worktree.Branch, "profile": worktree.Profile,
-				"shared_vendor": worktree.SharedVendor,
-				"allocation":    allocation,
-				"anonymised":    state, "anonymised_at": at,
-			})
-		}
-
-		state, at := store.Anonymisation(project.Name)
-
-		listed = append(listed, map[string]any{
-			"name": project.Name, "root": project.Root, "topology": string(project.Topology),
-			"worktrees": branches, "anonymised": state, "anonymised_at": at,
-		})
-	}
-
-	held["projects"] = listed
 
 	document, err := json.MarshalIndent(contract.Success("registry", held), "", "  ")
 	if err != nil {

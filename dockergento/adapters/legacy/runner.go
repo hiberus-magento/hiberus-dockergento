@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // ErrNotFound is returned when the shell implementation cannot be located.
@@ -19,6 +20,16 @@ var ErrNotFound = errors.New("the shell implementation was not found next to thi
 type Runner struct {
 	// Root is the directory holding bin/run and console/. Empty means: work it out.
 	Root string
+
+	// Registration is what the registry says about the branch environment this is being run
+	// from, as environment entries, or nothing when it is not being run from one.
+	//
+	// It is handed over rather than looked up again because the registry is a database now and
+	// the shell implementation cannot read it. Without this, a bridged command run inside a
+	// branch environment would find no registration and fall back to the main environment —
+	// which is the case WT-01 exists to refuse: the main environment's mounts repointed at
+	// somebody else's checkout, and its database dropped by a `setup:upgrade` meant for a branch.
+	Registration []string
 }
 
 // Run executes the shell CLI with these arguments, wired to this process's terminal, and returns
@@ -37,7 +48,7 @@ func (r Runner) Run(args []string) (int, error) {
 	command.Stdin = os.Stdin
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
-	command.Env = os.Environ()
+	command.Env = append(withoutRegistration(os.Environ()), r.Registration...)
 
 	if err := command.Run(); err != nil {
 		var exit *exec.ExitError
@@ -49,6 +60,25 @@ func (r Runner) Run(args []string) (int, error) {
 	}
 
 	return 0, nil
+}
+
+// withoutRegistration drops any registration inherited from an outer invocation.
+//
+// A bridged command can run the tool again from another directory — the vendor dance does exactly
+// that, from the main checkout — and two entries for the same name in one environment is a
+// question of whose reading wins. Removing the old one leaves no question.
+func withoutRegistration(environment []string) []string {
+	kept := make([]string, 0, len(environment))
+
+	for _, entry := range environment {
+		if strings.HasPrefix(entry, "HM_REGISTERED=") || strings.HasPrefix(entry, "HM_REGISTERED_") {
+			continue
+		}
+
+		kept = append(kept, entry)
+	}
+
+	return kept
 }
 
 // locate finds the shell tree.
