@@ -314,6 +314,44 @@ func (e *Engine) Query(dir, statement string, out io.Writer) (int, error) {
 	return e.database().Query(project, statement, out)
 }
 
+// Dump writes the project's database to a file.
+//
+// The whole thing goes through this process rather than through a shell redirection, which is what
+// lets the two streams be told apart: what the dumper says about itself must not land inside the
+// dump, and a dump with a sentence in the middle of it is not a dump.
+func (e *Engine) Dump(dir, path string) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	if _, err := e.database().Ready(project); err != nil {
+		return err
+	}
+
+	file, err := os.Create(path) //nolint:gosec
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	status, err := e.database().Capture(project, app.Dumper, file, e.options.Stderr)
+	if err != nil {
+		return err
+	}
+
+	if status != 0 {
+		return core.Refusal{
+			Kind:    "dump_failed",
+			Code:    1,
+			Message: "The database could not be dumped",
+			Hint:    e.options.Binary + " logs db",
+		}
+	}
+
+	return nil
+}
+
 // Console opens the database client, attached to whatever terminal there is.
 func (e *Engine) Console(dir string) (int, error) {
 	project, err := e.Resolve(dir)

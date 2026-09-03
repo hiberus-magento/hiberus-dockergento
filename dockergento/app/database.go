@@ -32,6 +32,15 @@ const databaseService = "db"
 const client = `client=$(command -v mariadb || command -v mysql); ` +
 	`"$client" -u"root" -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"`
 
+// Dumper is the export a person asks for by name.
+//
+// Deliberately not the one a snapshot takes: that one is a copy to restore from, so it is
+// consistent and carries the routines, the triggers and the events. This one is what somebody
+// asked to hand to a colleague or load somewhere else, and it skips the triggers because a dump
+// that recreates them fails to load as anybody but the user who defined them.
+const Dumper = `dump=$(command -v mariadb-dump || command -v mysqldump); ` +
+	`"$dump" --skip-triggers -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"`
+
 // Client is the command that opens the database client inside the container.
 func Client() []string { return []string{"bash", "-c", client} }
 

@@ -100,6 +100,22 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return execute(rest[1:], stdout, stderr, jsonOutput)
 		case "down":
 			return down(rest[1:], stdout, stderr, jsonOutput)
+		case "purge":
+			return purge(stdout, stderr, jsonOutput)
+		case "npm":
+			return npm(rest[1:], stdout, stderr, jsonOutput)
+		case "n98-magerun":
+			return magerun(rest[1:], stdout, stderr, jsonOutput)
+		case "test-unit":
+			return tests("unit", rest[1:], stdout, stderr, jsonOutput)
+		case "test-integration":
+			return tests("integration", rest[1:], stdout, stderr, jsonOutput)
+		case "mysqldump":
+			return dump(rest[1:], stdout, stderr, jsonOutput)
+		case "varnish-on":
+			return varnish(true, stdout, stderr, jsonOutput)
+		case "varnish-off":
+			return varnish(false, stdout, stderr, jsonOutput)
 		case "setup":
 			return setup(rest[1:], stdout, stderr, jsonOutput)
 		case "proxy":

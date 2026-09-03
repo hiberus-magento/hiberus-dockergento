@@ -63,14 +63,14 @@ detalle de cada una en `openspec/changes/`.
   - [x] CI que compila, formatea, pasa `vet`, los tests de Go y la suite unitaria de bash
   - [x] Distribución: `goreleaser` y binarios para darwin/linux, amd64/arm64
   - [x] Instalación: `hm` es el binario, con vuelta al shell si no se puede descargar
-- [ ] **3 · Adaptador de Docker (SDK) + tanda 1** — *en marcha*, donde gana todo el equipo
+- [x] **3 · Adaptador de Docker (SDK) + tanda 1** — donde gana todo el equipo
   - [x] Adaptador del demonio por SDK, resolviendo el socket desde el contexto de Docker
   - [x] `list` — el primero: sólo lectura, puro Docker, salida idéntica byte a byte
   - [x] `describe` — el más usado y el de contrato más rico
   - [x] `doctor` — diecisiete comprobaciones, cinco a Docker y cuatro a la máquina
   - [x] `start`, `stop`, `restart`, `logs`, `exec` — Compose como librería (ADR-009 bis)
   - [x] `magento`, `composer` — el baile del vendor en macOS sigue en shell
-- [ ] **4 · Registro SQLite con las dos topologías + tanda 2** — *en marcha*
+- [x] **4 · Registro SQLite con las dos topologías + tanda 2**
   - [x] Esquema, slots atómicos e importación de lo que escribió bash
   - [x] `mysql` entero, import incluido — y con él consultar, alimentar un contenedor, lanzar uno
         suelto, el indicador de progreso y preguntar por terminal, que necesita el resto de la tanda
@@ -103,7 +103,10 @@ detalle de cada una en `openspec/changes/`.
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web** — *empezada*
   - [x] `hm web`: la API HTTP y la interfaz de navegador, sobre las mismas llamadas que la CLI
   - [ ] MCP en Go
-- [ ] **7 · Tanda 3 y tanda 4: hasta que no quede ningún comando en shell**
+- [ ] **7 · Tanda 3 y tanda 4: hasta que no quede ningún comando en shell** — *empezada*
+  - [x] Los envoltorios: `purge`, `npm`, `n98-magerun`, `test-unit`, `test-integration`,
+        `mysqldump`, `varnish-on` y `varnish-off`. Todos son una cosa ejecutada en un contenedor, y
+        lo que no podían era diferir entre sí en cómo llegan a él
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
