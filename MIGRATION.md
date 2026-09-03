@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 16 de 65 |
+| Comandos en Go | 30 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -186,9 +186,10 @@ operaciones independientes, no por la mitad de una.
 
 `composer install|update|require|remove` sigue en shell **en macOS**: ahí no se ejecuta en el
 contenedor sin más, sino que se copia el `vendor` dentro, corre Composer y se copia el árbol
-entero de vuelta encima del host —borrando su `vendor` por el camino—. Depende de
-`copy-to-container`, que no está portado, y no es cosa de portar a medias. Todo lo demás de
-`composer` y `magento` va por Go en las dos plataformas.
+entero de vuelta encima del host —borrando su `vendor` por el camino—. La razón es
+`mirrorsVendor` (`internal/cli/php.go:98`): en darwin esas cuatro invocaciones son una secuencia
+de copiar, ejecutar y copiar de vuelta, no una sola llamada, y no es cosa de portar a medias.
+Todo lo demás de `composer` y `magento` va por Go en las dos plataformas.
 
 `start` y `restart` van por Go **en las dos plataformas**. Lo que en Linux hay que hacer después
 —igualar los ids de usuario y grupo del contenedor con los del host, y escribir los dominios del
@@ -216,8 +217,8 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `compatibility` | tools | 4 | shell |
 | `composer` | magento | 1 | go |
 | `config-env` | tools | 3 | shell |
-| `copy-from-container` | files | 3 | shell |
-| `copy-to-container` | files | 3 | shell |
+| `copy-from-container` | files | 3 | go |
+| `copy-to-container` | files | 3 | go |
 | `create-project` | tools | 3 | shell |
 | `db` | database | 2 | shell |
 | `dbeaver` | database | 3 | shell |
@@ -227,7 +228,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `docker-compose` | tools | 3 | shell |
 | `docker-stop-all` | tools | 3 | shell |
 | `doctor` | environment | 1 | go |
-| `down` | environment | 2 | shell |
+| `down` | environment | 2 | go |
 | `exec` | tools | 1 | go |
 | `grunt` | magento | 4 | shell |
 | `install` | magento | 3 | shell |
@@ -238,36 +239,36 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `masquerade` | database | 3 | go |
 | `mcp` | ai | 3 | shell |
 | `mysql` | database | 3 | go |
-| `mysqldump` | database | 3 | shell |
-| `n98-magerun` | magento | 3 | shell |
-| `npm` | magento | 3 | shell |
+| `mysqldump` | database | 3 | go |
+| `n98-magerun` | magento | 3 | go |
+| `npm` | magento | 3 | go |
 | `post-start` | environment | 3 | shell |
 | `permissions` | ai | 3 | shell |
 | `proxy` | environment | 2 | shell |
-| `purge` | magento | 3 | shell |
+| `purge` | magento | 3 | go |
 | `rebuild` | environment | 3 | shell |
 | `restart` | environment | 1 | go |
 | `sequelace` | database | 3 | shell |
 | `web` | tools | 1 | go |
-| `set-host` | tools | 3 | shell |
-| `setup` | environment | 2 | shell |
+| `set-host` | tools | 3 | go |
+| `setup` | environment | 2 | go |
 | `share` | environment | 3 | shell |
 | `ssl` | tools | 4 | shell |
 | `start` | environment | 1 | go |
 | `stop` | environment | 1 | go |
 | `switch` | versions | 3 | shell |
 | `tableplus` | database | 3 | shell |
-| `test-integration` | magento | 3 | shell |
-| `test-unit` | magento | 3 | shell |
+| `test-integration` | magento | 3 | go |
+| `test-unit` | magento | 3 | go |
 | `transfer-db` | database | 4 | shell |
 | `transfer-media` | files | 4 | shell |
 | `tui` | environment | 3 | shell |
 | `tunnel` | environment | 3 | shell |
 | `update` | versions | 3 | shell |
-| `varnish-off` | tools | 3 | shell |
-| `varnish-on` | tools | 3 | shell |
+| `varnish-off` | tools | 3 | go |
+| `varnish-on` | tools | 3 | go |
 | `verify` | tools | 3 | shell |
-| `version` | versions | 3 | shell |
+| `version` | versions | 3 | go |
 | `worktree` | environment | 2 | go |
 
 ## Cómo se porta un comando
@@ -278,5 +279,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 4. Se porta el test de integración del shell, que pasa a ejecutar el binario.
 5. Se marca aquí, en la tabla y en el contador de arriba.
 
-El test `tests/unit/migration_status_test.sh` comprueba que esta tabla no miente: que están todos
-los comandos y que lo marcado como Go existe de verdad en el árbol de Go.
+El test `tests/unit/migration_status_test.sh` comprueba que esta tabla no miente en ninguna
+dirección: que están todos los comandos y que lo marcado como Go existe de verdad en el árbol
+de Go, y también al revés — que todo lo que el router ya resuelve está marcado `go` aquí, con la
+única excepción fijada de `db` y `proxy`, que sólo están portados a medias.
