@@ -96,7 +96,9 @@ detalle de cada una en `openspec/changes/`.
   - [x] `proxy` — arriba, abajo y estado, con el mismo fichero de compose byte a byte y las rutas
         leídas de la API del propio Traefik. Con él, arrancar el proxy para un proyecto que lo
         necesita deja de pasar por el shell
-  - [ ] `setup`
+  - [x] `setup` — las preguntas, las propiedades y los ficheros de compose que genera, incluido el
+        overlay del proxy byte a byte. La instalación que viene después sigue siendo del shell,
+        comando a comando: tres de ellos aún no están portados
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web** — *empezada*
   - [x] `hm web`: la API HTTP y la interfaz de navegador, sobre las mismas llamadas que la CLI

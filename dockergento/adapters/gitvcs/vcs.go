@@ -129,3 +129,36 @@ func (Git) hasBranch(root, branch string) bool {
 
 	return command.Run() == nil
 }
+
+// Tracked is the repository's top-level entries, each named once.
+//
+// The top level and not the whole tree: what this decides is what has to be mounted, and mounting
+// a directory covers everything under it.
+func (Git) Tracked(dir string) ([]string, error) {
+	listed, err := run(dir, "ls-files")
+	if err != nil {
+		return nil, err
+	}
+
+	seen := map[string]bool{}
+	entries := []string{}
+
+	for _, line := range strings.Split(listed, "\n") {
+		if line == "" {
+			continue
+		}
+
+		if at := strings.Index(line, "/"); at >= 0 {
+			line = line[:at]
+		}
+
+		if seen[line] {
+			continue
+		}
+
+		seen[line] = true
+		entries = append(entries, line)
+	}
+
+	return entries, nil
+}

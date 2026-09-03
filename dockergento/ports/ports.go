@@ -31,6 +31,10 @@ type VCS interface {
 	// linked worktree of it. A directory outside a repository is not an error either.
 	Resolve(dir string) (mainRoot string, isWorktree bool, worktreeName string, err error)
 
+	// Tracked is the repository's own top-level entries, which is what decides what has to be
+	// mounted into a container that does not see the checkout.
+	Tracked(dir string) ([]string, error)
+
 	// Dirty reports whether a working directory has changes nobody has committed. Containers and
 	// databases can be rebuilt in seconds; uncommitted code cannot be rebuilt at all.
 	Dirty(dir string) bool

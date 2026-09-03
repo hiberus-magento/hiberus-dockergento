@@ -424,6 +424,30 @@ func (e *Engine) Clone(dir, address string, force bool) (core.Template, error) {
 	return e.templates(project).Clone(project, configuration, address, force)
 }
 
+// Setup creates a project's environment: what its containers are called, what address it answers
+// on, where its code lives, and the compose files that follow from those.
+func (e *Engine) Setup(dir string, options core.SetupOptions, interactive bool) error {
+	return e.setup().Run(dir, options, interactive)
+}
+
+func (e *Engine) setup() app.Setup {
+	return app.Setup{
+		Properties: e.properties(),
+		FS:         osfs.FS{},
+		VCS:        gitvcs.Git{},
+		Tooling:    toolinfo.Reader{Root: e.options.Root},
+		Magento:    magentofiles.Reader{},
+		Legacy:     legacy.Runner{Root: e.options.ShellRoot},
+		Proxy:      e.proxyFor(),
+		Root:       e.options.Root,
+		Platform:   Platform(),
+		Ask:        e.options.Ask,
+		Choose:     e.options.Choose,
+		Announce:   e.options.Announce,
+		Binary:     e.options.Binary,
+	}
+}
+
 //
 // The global proxy: one router on the machine, so several projects can be up at once.
 //

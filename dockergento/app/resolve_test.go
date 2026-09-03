@@ -39,6 +39,7 @@ type vcs struct {
 }
 
 func (vcs) Dirty(string) bool                                  { return false }
+func (vcs) Tracked(string) ([]string, error)                   { return nil, nil }
 func (vcs) RemoveWorktree(string, string, bool) error          { return nil }
 func (vcs) Prune(string) error                                 { return nil }
 func (vcs) AddWorktree(string, string, string) (string, error) { return "", nil }
