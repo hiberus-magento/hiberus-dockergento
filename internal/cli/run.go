@@ -83,9 +83,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 				return worktree(rest[1:], stdout, stderr, jsonOutput)
 			}
 		case "db":
-			// Two families that share a name. The templates are here; the snapshots are still
-			// the shell implementation's, and the boundary is between independent operations
-			// rather than down the middle of one
+			// Both families of it. What is left over goes to the shell implementation, which is
+			// where the usage text and an unknown subcommand are still answered
 			if len(rest) > 1 && templateSubcommands[rest[1]] {
 				return db(rest[1:], stdout, stderr, jsonOutput)
 			}

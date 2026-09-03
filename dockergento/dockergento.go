@@ -379,6 +379,65 @@ func (e *Engine) Clone(dir, address string, force bool) (core.Template, error) {
 	return e.templates(project).Clone(project, configuration, address, force)
 }
 
+//
+// Snapshots: named copies of a project's database, as dumps in a file.
+//
+
+// TakeSnapshot saves the database as a named copy.
+func (e *Engine) TakeSnapshot(dir, name string, forced bool) (core.Snapshot, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return core.Snapshot{}, err
+	}
+
+	return e.snapshots(project).Take(project, name, forced)
+}
+
+// Snapshots is every copy of this project.
+func (e *Engine) Snapshots(dir string) (core.Project, []core.Snapshot, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return project, nil, err
+	}
+
+	found, err := e.snapshots(project).List(project)
+
+	return project, found, err
+}
+
+// RestoreSnapshot replaces the database with a copy, and answers whether it happened: a person who
+// did not confirm asked for nothing to happen, which is not an error.
+func (e *Engine) RestoreSnapshot(dir, name string, interactive bool) (core.Project, bool, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return project, false, err
+	}
+
+	done, err := e.snapshots(project).Restore(project, name, interactive)
+
+	return project, done, err
+}
+
+// RemoveSnapshot deletes one copy by name.
+func (e *Engine) RemoveSnapshot(dir, name string) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	return e.snapshots(project).Remove(project, name)
+}
+
+// ClearSnapshots deletes every copy of this project, or of every project on this machine.
+func (e *Engine) ClearSnapshots(dir string, all, interactive bool) (app.Cleared, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return app.Cleared{}, err
+	}
+
+	return e.snapshots(project).Clear(project, all, interactive)
+}
+
 // Drop deletes a template.
 func (e *Engine) Drop(dir, address string, force, interactive bool) (core.Template, error) {
 	project, err := e.Resolve(dir)
@@ -773,6 +832,35 @@ func (e *Engine) templates(project core.Project) app.Templates {
 		Ask:          e.options.Ask,
 		Binary:       e.options.Binary,
 	}
+}
+
+func (e *Engine) snapshots(project core.Project) app.Snapshots {
+	return app.Snapshots{
+		Database: e.database(),
+		State:    toolinfo.State{Dir: e.options.StateDir},
+		Dir:      e.snapshotDir(),
+		Version:  magentofiles.Reader{}.Version(project.Root, project.MagentoDir),
+		Progress: e.options.Progress,
+		Ask:      e.options.Ask,
+		Errors:   e.options.Stderr,
+		Binary:   e.options.Binary,
+	}
+}
+
+// snapshotDir is where the copies live: beside the cache and outside every project, because
+// `config/docker` is committed and a copy inside the environment would not survive the one moment
+// it is needed.
+func (e *Engine) snapshotDir() string {
+	if dir := os.Getenv("HM_SNAPSHOT_DIR"); dir != "" {
+		return dir
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "hm-snapshots")
+	}
+
+	return filepath.Join(home, ".hm", "snapshots")
 }
 
 func (e *Engine) database() app.Database {

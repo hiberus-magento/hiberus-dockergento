@@ -65,6 +65,17 @@ func (d Database) Shell(project core.Project, command string, out io.Writer) (in
 	return d.Runner.Run(container, []string{"bash", "-c", command}, nil, out)
 }
 
+// Capture runs a shell command inside the database container and keeps its output apart from its
+// complaints, which is what writing a copy to a file requires.
+func (d Database) Capture(project core.Project, command string, out, errors io.Writer) (int, error) {
+	container, err := d.container(project)
+	if err != nil {
+		return 0, err
+	}
+
+	return d.Runner.Capture(container, []string{"bash", "-c", command}, out, errors)
+}
+
 // Network is the one the database container is attached to, which is where anything that has to
 // reach it has to be attached too.
 func (d Database) Network(container string) (string, error) {

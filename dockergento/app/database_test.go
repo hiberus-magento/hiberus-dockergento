@@ -15,6 +15,7 @@ type runner struct {
 	environment []string
 	answer      string
 	fed         string
+	complaint   string
 	status      int
 }
 
@@ -22,6 +23,17 @@ func (r *runner) Run(container string, command, environment []string, out io.Wri
 	r.container, r.command, r.environment = container, command, environment
 
 	out.Write([]byte(r.answer)) //nolint:errcheck
+
+	return r.status, nil
+}
+
+// Capture keeps the two streams apart, which is the whole reason it exists: what is written to
+// the error stream must not end up inside a copy being written to a file.
+func (r *runner) Capture(container string, command []string, out, errors io.Writer) (int, error) {
+	r.container, r.command = container, command
+
+	out.Write([]byte(r.answer))       //nolint:errcheck
+	errors.Write([]byte(r.complaint)) //nolint:errcheck
 
 	return r.status, nil
 }

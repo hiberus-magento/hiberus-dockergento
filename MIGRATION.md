@@ -85,8 +85,9 @@ detalle de cada una en `openspec/changes/`.
         registración al puentear, y el punto de entrada de shell lanzado a solas se la pide: un
         comando puenteado desde una rama que no encontrase registración resolvería al entorno
         principal, que es justo lo que WT-01 existe para impedir
-  - [~] `db` — la mitad de plantillas (`freeze`, `templates`, `clone`, `drop`), que es de la que
-        depende `worktree`; las instantáneas siguen en shell
+  - [x] `db` entero — las plantillas (`freeze`, `templates`, `clone`, `drop`), de las que depende
+        `worktree`, y las instantáneas (`snapshot`, `list`, `restore`, `remove`, `clear`), de las
+        que depende `down`. Lo único que sigue en shell es el texto de uso
   - [x] `clean` — y con él ya nadie más escribe registraciones desde bash
   - [ ] `proxy`, `setup`, `down`
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes

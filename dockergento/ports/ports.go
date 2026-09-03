@@ -226,6 +226,15 @@ type ContainerRunner interface {
 	// Feed sends a stream into the command's input, which is how a dump the size of a Magento
 	// database gets in without ever existing twice on disk.
 	Feed(container string, command []string, in io.Reader, out io.Writer) (int, error)
+
+	// Capture is the same as Run for a command whose output is being kept rather than read: the
+	// two streams are separated, and there is no deadline.
+	//
+	// Both differences are the same case. A dump is the output, so a warning written to the
+	// error stream would end up inside the copy — and a copy with a sentence in the middle of it
+	// is not a copy. And it takes as long as it takes: a deadline that made sense for a query
+	// would cut a real database's dump off in the middle and leave a file that looks finished.
+	Capture(container string, command []string, out, errors io.Writer) (int, error)
 }
 
 // OneOff runs a container that is not part of any environment and removes it afterwards.

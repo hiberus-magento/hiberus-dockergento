@@ -63,6 +63,48 @@ func (r Runner) Run(id string, command []string, environment []string, out io.Wr
 	return inspected.ExitCode, nil
 }
 
+// Capture runs a command whose output is being kept, and returns its exit code.
+//
+// Two things separate it from Run, and they are the same case: what the command writes to its
+// error stream must not land in the output, because the output is a file being written; and there
+// is no deadline, because a dump of a real database takes minutes and a cut-off one looks
+// finished.
+func (r Runner) Capture(id string, command []string, out, errors io.Writer) (int, error) {
+	docker, err := connect()
+	if err != nil {
+		return 0, err
+	}
+	defer docker.Close()
+
+	ctx := context.Background()
+
+	created, err := docker.ContainerExecCreate(ctx, id, container.ExecOptions{
+		Cmd:          command,
+		AttachStdout: true,
+		AttachStderr: true,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	attached, err := docker.ContainerExecAttach(ctx, created.ID, container.ExecStartOptions{})
+	if err != nil {
+		return 0, err
+	}
+	defer attached.Close()
+
+	if _, err := stdcopy.StdCopy(out, errors, attached.Reader); err != nil {
+		return 0, err
+	}
+
+	inspected, err := docker.ContainerExecInspect(ctx, created.ID)
+	if err != nil {
+		return 0, err
+	}
+
+	return inspected.ExitCode, nil
+}
+
 // Feed sends a stream into the command's input and returns its exit code.
 //
 // The dump of a Magento database is measured in gigabytes, so it is written into the connection as
