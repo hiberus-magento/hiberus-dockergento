@@ -69,7 +69,7 @@ func refusalOf(t *testing.T, err error) core.Refusal {
 
 	var refusal core.Refusal
 	if !errors.As(err, &refusal) {
-		t.Fatalf("se esperaba una negativa con motivo y código, y llegó: %v", err)
+		t.Fatalf("error = %v, want a refusal with a reason and a code", err)
 	}
 
 	return refusal
@@ -80,11 +80,11 @@ func TestTheProxyIsStartedForAProjectThatNeedsIt(t *testing.T) {
 	operator := operatorWith(nil, orchestration, legacy)
 
 	if err := operator.Start(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, false, true); err != nil {
-		t.Fatalf("arranque fallido: %v", err)
+		t.Fatalf("Start = %v, want no error", err)
 	}
 
 	if len(legacy.ran) != 1 || strings.Join(legacy.ran[0], " ") != "proxy up" {
-		t.Fatalf("nadie debería tener que acordarse de levantar el proxy: %v", legacy.ran)
+		t.Fatalf("asked of the shell half = %v, want the proxy started without being asked", legacy.ran)
 	}
 }
 
@@ -93,11 +93,11 @@ func TestAProxyAlreadyRunningIsLeftAlone(t *testing.T) {
 	operator := operatorWith([]core.Container{{Name: "hm-proxy", Running: true}}, orchestration, legacy)
 
 	if err := operator.Start(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, false, true); err != nil {
-		t.Fatalf("arranque fallido: %v", err)
+		t.Fatalf("Start = %v, want no error", err)
 	}
 
 	if len(legacy.ran) != 0 {
-		t.Fatalf("el proxy ya estaba en marcha: %v", legacy.ran)
+		t.Fatalf("asked of the shell half = %v, want nothing where the proxy is already running", legacy.ran)
 	}
 }
 
@@ -112,15 +112,15 @@ func TestSomethingElseHoldingThePortIsNamed(t *testing.T) {
 	refusal := refusalOf(t, operator.Start(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, false, true))
 
 	if refusal.Code != 6 {
-		t.Fatalf("una negativa a propósito tiene su propio código, y llegó %d", refusal.Code)
+		t.Fatalf("refusal code = %d, want the one for a deliberate refusal", refusal.Code)
 	}
 
 	if !strings.Contains(refusal.Message, "otra-tienda-nginx-1") {
-		t.Fatalf("el mensaje tiene que nombrar al culpable: %q", refusal.Message)
+		t.Fatalf("message = %q, want it to name what is in the way", refusal.Message)
 	}
 
 	if len(orchestration.upCalls) != 0 {
-		t.Fatalf("no se arranca nada cuando el puerto que hace falta está cogido")
+		t.Fatalf("the environment was started with the port taken, want nothing started")
 	}
 }
 
@@ -140,11 +140,11 @@ func TestDependenciesBoundFromTheHostAreRefused(t *testing.T) {
 		core.Project{Name: "shop", MagentoDir: "."}, core.ComposeFiles{}, nil, false, false))
 
 	if !strings.Contains(refusal.Message, "/var/www/html/vendor") {
-		t.Fatalf("el mensaje tiene que decir qué montaje es: %q", refusal.Message)
+		t.Fatalf("message = %q, want it to name the mount", refusal.Message)
 	}
 
 	if refusal.Hint != "hm rebuild" {
-		t.Fatalf("y qué hacer con él: %q", refusal.Hint)
+		t.Fatalf("hint = %q, want it to say what to do", refusal.Hint)
 	}
 }
 
@@ -156,7 +156,7 @@ func TestAVolumeForTheDependenciesIsFine(t *testing.T) {
 	}}, orchestration, legacy)
 
 	if err := operator.Start(core.Project{Name: "shop", MagentoDir: "."}, core.ComposeFiles{}, nil, false, false); err != nil {
-		t.Fatalf("un volumen con nombre es exactamente lo que se quiere: %v", err)
+		t.Fatalf("start with a named volume = %v, want no refusal", err)
 	}
 }
 
@@ -171,7 +171,7 @@ func TestNamingAServiceDoesNotDragInTheWholeCheck(t *testing.T) {
 
 	err := operator.Start(core.Project{Name: "shop", MagentoDir: "."}, core.ComposeFiles{}, []string{"db"}, false, false)
 	if err != nil {
-		t.Fatalf("se pidió un servicio, no el entorno entero: %v", err)
+		t.Fatalf("start of one service = %v, want no refusal about the rest", err)
 	}
 }
 
@@ -184,11 +184,11 @@ func TestAFailedSnapshotLeavesTheEnvironmentRunning(t *testing.T) {
 	refusal := refusalOf(t, operator.Stop(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, true))
 
 	if refusal.Kind != "snapshot_failed" {
-		t.Fatalf("motivo equivocado: %q", refusal.Kind)
+		t.Fatalf("refusal kind = %q, want the one for a copy that failed", refusal.Kind)
 	}
 
 	if len(orchestration.stopCalls) != 0 {
-		t.Fatalf("no se para nada si la copia que se pidió no se hizo")
+		t.Fatalf("the environment was stopped after the copy failed, want it left running")
 	}
 }
 
@@ -197,15 +197,15 @@ func TestStoppingWithoutACopyDoesNotAskForOne(t *testing.T) {
 	operator := operatorWith(nil, orchestration, legacy)
 
 	if err := operator.Stop(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, false); err != nil {
-		t.Fatalf("parada fallida: %v", err)
+		t.Fatalf("Stop = %v, want no error", err)
 	}
 
 	if len(legacy.ran) != 0 {
-		t.Fatalf("un `stop` que a veces tarda un minuto es una sorpresa desagradable: %v", legacy.ran)
+		t.Fatalf("asked of the shell half = %v, want no copy nobody asked for", legacy.ran)
 	}
 
 	if len(orchestration.stopCalls) != 1 {
-		t.Fatalf("y tiene que parar: %v", orchestration.stopCalls)
+		t.Fatalf("stop calls = %v, want one", orchestration.stopCalls)
 	}
 }
 
@@ -218,15 +218,15 @@ func TestRestartingIsAStopAndAStart(t *testing.T) {
 	operator := operatorWith(nil, orchestration, legacy)
 
 	if err := operator.Restart(core.Project{Name: "shop"}, core.ComposeFiles{}, []string{"phpfpm"}, false); err != nil {
-		t.Fatalf("reinicio fallido: %v", err)
+		t.Fatalf("Restart = %v, want no error", err)
 	}
 
 	if len(orchestration.stopCalls) != 1 || len(orchestration.upCalls) != 1 {
-		t.Fatalf("un reinicio es una parada y un arranque: %v / %v", orchestration.stopCalls, orchestration.upCalls)
+		t.Fatalf("restart = %v stops and %v ups, want one of each", orchestration.stopCalls, orchestration.upCalls)
 	}
 
 	if orchestration.upCalls[0][0] != "phpfpm" {
-		t.Fatalf("y sobre el servicio que se pidió: %v", orchestration.upCalls[0])
+		t.Fatalf("services started = %v, want the one that was asked for", orchestration.upCalls[0])
 	}
 }
 
@@ -242,11 +242,11 @@ func TestLinuxIsHandedBackWhatIsNotPortedYet(t *testing.T) {
 	operator.Platform = "linux"
 
 	if err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false); err != nil {
-		t.Fatalf("arranque fallido: %v", err)
+		t.Fatalf("Start = %v, want no error", err)
 	}
 
 	if len(legacy.ran) != 1 || strings.Join(legacy.ran[0], " ") != "post-start" {
-		t.Fatalf("en Linux hay que igualar los ids y escribir el /etc/hosts del contenedor: %v", legacy.ran)
+		t.Fatalf("asked of the shell half on linux = %v, want the ids and the container hosts file", legacy.ran)
 	}
 }
 
@@ -256,11 +256,11 @@ func TestMacOSIsNotEvenAsked(t *testing.T) {
 	operator := operatorWith(nil, orchestration, legacy)
 
 	if err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false); err != nil {
-		t.Fatalf("arranque fallido: %v", err)
+		t.Fatalf("Start = %v, want no error", err)
 	}
 
 	if len(legacy.ran) != 0 {
-		t.Fatalf("en macOS no hay nada que hacer después: %v", legacy.ran)
+		t.Fatalf("asked of the shell half on macOS = %v, want nothing", legacy.ran)
 	}
 }
 
@@ -274,11 +274,11 @@ func TestTheEnvironmentIsUpBeforeAnyOfThatIsTried(t *testing.T) {
 	err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false)
 
 	if err == nil {
-		t.Fatal("un fallo después de arrancar sigue siendo un fallo")
+		t.Fatal("a failure after starting = nil, want it carried out")
 	}
 
 	if len(orchestration.upCalls) != 1 {
-		t.Fatalf("pero el entorno ya está en marcha: %v", orchestration.upCalls)
+		t.Fatalf("up calls = %v, want the environment started before the step that failed", orchestration.upCalls)
 	}
 }
 
@@ -302,15 +302,15 @@ func TestUnaRamaSinEntornoNoPuedeArrancarElDelPrincipal(t *testing.T) {
 	refusal := refusalOf(t, operator.Start(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, nil, false, false))
 
 	if refusal.Code != 6 || refusal.Kind != "blocked_in_worktree" {
-		t.Fatalf("es una negativa a propósito, con su código: %+v", refusal)
+		t.Fatalf("refusal = %+v, want a deliberate one with its code", refusal)
 	}
 
 	if !strings.Contains(refusal.Message, "/code/tienda") {
-		t.Fatalf("tiene que decir de qué entorno habla: %q", refusal.Message)
+		t.Fatalf("message = %q, want it to say which environment", refusal.Message)
 	}
 
 	if len(orchestration.upCalls) != 0 {
-		t.Fatal("y no arrancar nada")
+		t.Fatal("something was started, want nothing")
 	}
 }
 
@@ -329,11 +329,11 @@ func TestNiPararloNiReiniciarlo(t *testing.T) {
 		}
 
 		if refusal := refusalOf(t, err); refusal.Code != 6 {
-			t.Fatalf("%s tenía que negarse: %+v", hacer, refusal)
+			t.Fatalf("%s = %+v, want a refusal", hacer, refusal)
 		}
 
 		if len(orchestration.stopCalls) != 0 {
-			t.Fatalf("%s no debería haber tocado nada", hacer)
+			t.Fatalf("%s touched the environment, want nothing touched", hacer)
 		}
 	}
 }
@@ -348,7 +348,7 @@ func TestUnaRamaConEntornoPropioHaceLoQueQuiere(t *testing.T) {
 	proyecto.Worktree = &core.Worktree{Name: "rama", Parent: "tienda"}
 
 	if err := operator.Start(proyecto, core.ComposeFiles{}, nil, false, false); err != nil {
-		t.Fatalf("un entorno de rama arranca el suyo: %v", err)
+		t.Fatalf("start from a registered branch environment = %v, want no refusal", err)
 	}
 }
 
@@ -359,7 +359,7 @@ func TestForzarLoLevantaParaUnaInvocacion(t *testing.T) {
 	operator.Forced = true
 
 	if err := operator.Start(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, nil, false, false); err != nil {
-		t.Fatalf("con --force pasa: %v", err)
+		t.Fatalf("start with --force = %v, want no refusal", err)
 	}
 }
 
@@ -368,6 +368,6 @@ func TestFueraDeUnWorktreeNoHayNadaQueGuardar(t *testing.T) {
 	operator := operatorWith(nil, orchestration, legacy)
 
 	if err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false); err != nil {
-		t.Fatalf("un checkout normal arranca lo suyo: %v", err)
+		t.Fatalf("start from a main checkout = %v, want no refusal", err)
 	}
 }

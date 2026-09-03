@@ -14,7 +14,7 @@ func abierto(t *testing.T) *Store {
 
 	store, err := Open(filepath.Join(t.TempDir(), "registro", "hm.db"))
 	if err != nil {
-		t.Fatalf("no se pudo abrir el registro: %v", err)
+		t.Fatalf("Open = %v, want no error", err)
 	}
 
 	t.Cleanup(func() { store.Close() })
@@ -37,11 +37,11 @@ func TestUnaRamaSinRegistrarNoEsUnError(t *testing.T) {
 	// prestada la identidad del principal, y de esa distinción dependen las negativas
 	registrada, err := abierto(t).Worktree("tienda", "no-existe")
 	if err != nil {
-		t.Fatalf("preguntar por lo que no hay no es un fallo: %v", err)
+		t.Fatalf("asking about a registration that is not there = %v, want no error", err)
 	}
 
 	if registrada != nil {
-		t.Fatalf("no debería haber nada: %+v", registrada)
+		t.Fatalf("registration = %+v, want none", registrada)
 	}
 }
 
@@ -49,20 +49,20 @@ func TestRegistrarYLeerUnaRama(t *testing.T) {
 	store := abierto(t)
 
 	if err := store.Register(core.Project{Name: "tienda", Root: "/code/tienda"}, rama("azul")); err != nil {
-		t.Fatalf("registro fallido: %v", err)
+		t.Fatalf("Register = %v, want no error", err)
 	}
 
 	registrada, err := store.Worktree("tienda", "azul")
 	if err != nil || registrada == nil {
-		t.Fatalf("no se recuperó: %v", err)
+		t.Fatalf("Worktree = %v, want no error", err)
 	}
 
 	if registrada.Project != "tienda-azul" || registrada.Domain != "azul.tienda.test" {
-		t.Fatalf("el nombre y la dirección salen del registro, no se derivan: %+v", registrada)
+		t.Fatalf("registration = %+v, want the name and address it recorded", registrada)
 	}
 
 	if registrada.Parent != "tienda" {
-		t.Fatalf("tiene que saber de quién es hija: %q", registrada.Parent)
+		t.Fatalf("parent = %q, want the project it belongs to", registrada.Parent)
 	}
 }
 
@@ -78,16 +78,16 @@ func TestRegistrarDosVecesActualizaEnVezDeDuplicar(t *testing.T) {
 	segunda.SharedVendor = true
 
 	if err := store.Register(proyecto, segunda); err != nil {
-		t.Fatalf("segundo registro fallido: %v", err)
+		t.Fatalf("registering it again = %v, want no error", err)
 	}
 
 	ramas, err := store.Worktrees("tienda")
 	if err != nil || len(ramas) != 1 {
-		t.Fatalf("una rama, no dos: %v %+v", err, ramas)
+		t.Fatalf("worktrees = %+v (%v), want one", ramas, err)
 	}
 
 	if ramas[0].Branch != "otra-rama" || !ramas[0].SharedVendor {
-		t.Fatalf("tenía que quedarse con lo último: %+v", ramas[0])
+		t.Fatalf("registration = %+v, want the values from the second time", ramas[0])
 	}
 }
 
@@ -103,7 +103,7 @@ func TestDosEntornosNoPuedenLlamarseIgual(t *testing.T) {
 	store.Register(core.Project{Name: "tienda"}, uno) //nolint:errcheck
 
 	if err := store.Register(core.Project{Name: "tienda"}, otro); err == nil {
-		t.Fatal("el registro tenía que rechazarlo")
+		t.Fatal("registering a name already taken = nil, want a refusal")
 	}
 }
 
@@ -112,12 +112,12 @@ func TestOlvidarUnaRama(t *testing.T) {
 	store.Register(core.Project{Name: "tienda"}, rama("azul")) //nolint:errcheck
 
 	if err := store.Forget("tienda", "azul"); err != nil {
-		t.Fatalf("no se pudo olvidar: %v", err)
+		t.Fatalf("Forget = %v, want no error", err)
 	}
 
 	registrada, _ := store.Worktree("tienda", "azul")
 	if registrada != nil {
-		t.Fatalf("seguía ahí: %+v", registrada)
+		t.Fatalf("registration after forgetting = %+v, want none", registrada)
 	}
 }
 
@@ -129,11 +129,11 @@ func TestElPrimerSlotEsElCero(t *testing.T) {
 
 	reparto, err := store.Allocate("tienda", "azul")
 	if err != nil {
-		t.Fatalf("reparto fallido: %v", err)
+		t.Fatalf("Allocate = %v, want no error", err)
 	}
 
 	if reparto.Slot != 0 || reparto.Schema != "m2_azul" {
-		t.Fatalf("el primero es el cero: %+v", reparto)
+		t.Fatalf("first allocation = %+v, want slot 0", reparto)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestPedirDosVecesDaLoMismo(t *testing.T) {
 	segundo, err := store.Allocate("tienda", "azul")
 
 	if err != nil || primero.Slot != segundo.Slot {
-		t.Fatalf("un reparto es de quien lo tiene: %v %d %d", err, primero.Slot, segundo.Slot)
+		t.Fatalf("asking twice = slots %d and %d (%v), want the same one", primero.Slot, segundo.Slot, err)
 	}
 }
 
@@ -160,18 +160,18 @@ func TestElSlotSeReutilizaCuandoLaRamaSeVa(t *testing.T) {
 	}
 
 	if err := store.Forget("tienda", "verde"); err != nil {
-		t.Fatalf("no se pudo olvidar: %v", err)
+		t.Fatalf("Forget = %v, want no error", err)
 	}
 
 	store.Register(proyecto, rama("nueva")) //nolint:errcheck
 
 	reparto, err := store.Allocate("tienda", "nueva")
 	if err != nil {
-		t.Fatalf("reparto fallido: %v", err)
+		t.Fatalf("Allocate = %v, want no error", err)
 	}
 
 	if reparto.Slot != 1 {
-		t.Fatalf("el hueco que dejó 'verde' era el 1, y dio el %d", reparto.Slot)
+		t.Fatalf("slot after one was freed = %d, want the free one, 1", reparto.Slot)
 	}
 }
 
@@ -184,11 +184,11 @@ func TestOlvidarUnaRamaSeLlevaSuReparto(t *testing.T) {
 
 	reparto, err := store.Allocation("tienda", "azul")
 	if err != nil {
-		t.Fatalf("consulta fallida: %v", err)
+		t.Fatalf("Allocation = %v, want no error", err)
 	}
 
 	if reparto != nil {
-		t.Fatalf("una rama que ya no está no puede tener schema: %+v", reparto)
+		t.Fatalf("allocation of a worktree that is gone = %+v, want none", reparto)
 	}
 }
 
@@ -232,18 +232,18 @@ func TestDosAgentesALaVezNoRecibenElMismoSlot(t *testing.T) {
 
 	for i, reparto := range repartos {
 		if fallos[i] != nil {
-			t.Fatalf("reparto %d fallido: %v", i, fallos[i])
+			t.Fatalf("allocation %d = %v, want no error", i, fallos[i])
 		}
 
 		if antes, repetido := vistos[reparto.Slot]; repetido {
-			t.Fatalf("el slot %d se dio a %q y a %q", reparto.Slot, antes, nombreDe(i))
+			t.Fatalf("slot %d went to %q and to %q, want one each", reparto.Slot, antes, nombreDe(i))
 		}
 
 		vistos[reparto.Slot] = nombreDe(i)
 	}
 
 	if len(vistos) != cuantos {
-		t.Fatalf("doce ramas, doce slots, y salieron %d", len(vistos))
+		t.Fatalf("slots handed to twelve worktrees = %d, want 12", len(vistos))
 	}
 }
 
@@ -256,7 +256,7 @@ func TestLoQueNadieHaTocadoNoEstaAnonimizado(t *testing.T) {
 	estado, cuando := abierto(t).Anonymisation("tienda")
 
 	if estado != "unknown" || cuando != "" {
-		t.Fatalf("sin registro no hay garantía: %q %q", estado, cuando)
+		t.Fatalf("anonymisation with nothing recorded = %q, %q, want unknown", estado, cuando)
 	}
 }
 
@@ -266,7 +266,7 @@ func TestSeApuntaYSeBorra(t *testing.T) {
 	store.RecordAnonymisation("tienda", "2026-09-02 12:00") //nolint:errcheck
 
 	if estado, cuando := store.Anonymisation("tienda"); estado != "yes" || cuando == "" {
-		t.Fatalf("tenía que estar apuntado: %q %q", estado, cuando)
+		t.Fatalf("anonymisation = %q, %q, want what was recorded", estado, cuando)
 	}
 
 	// Todo lo que reemplaza la base de datos lo borra: un "sí" heredado de antes de una
@@ -274,7 +274,7 @@ func TestSeApuntaYSeBorra(t *testing.T) {
 	store.ClearAnonymisation("tienda") //nolint:errcheck
 
 	if estado, _ := store.Anonymisation("tienda"); estado != "unknown" {
-		t.Fatalf("después de reemplazar los datos no hay garantía: %q", estado)
+		t.Fatalf("anonymisation after the data was replaced = %q, want unknown", estado)
 	}
 }
 
@@ -285,7 +285,7 @@ func TestCadaEntornoResponsePorSusDatos(t *testing.T) {
 	store.RecordAnonymisation("tienda", "2026-09-02 12:00") //nolint:errcheck
 
 	if estado, _ := store.Anonymisation("tienda-azul"); estado != "unknown" {
-		t.Fatalf("la rama no hereda la garantía del principal: %q", estado)
+		t.Fatalf("anonymisation of a branch = %q, want it not inherited from the main one", estado)
 	}
 }
 
@@ -311,20 +311,20 @@ func TestTraerseLoQueEscribioBash(t *testing.T) {
 
 	traido, err := store.Import(filepath.Join(casa, "worktrees"), estado)
 	if err != nil {
-		t.Fatalf("importación fallida: %v", err)
+		t.Fatalf("Import = %v, want no error", err)
 	}
 
 	if traido.Worktrees != 1 || traido.States != 1 {
-		t.Fatalf("una rama y un estado: %+v", traido)
+		t.Fatalf("imported = %+v, want one worktree and one state", traido)
 	}
 
 	registrada, _ := store.Worktree("tienda", "azul")
 	if registrada == nil || !registrada.SharedVendor || registrada.Domain != "azul.tienda.test" {
-		t.Fatalf("no llegó entera: %+v", registrada)
+		t.Fatalf("registration = %+v, want everything it recorded", registrada)
 	}
 
 	if cual, _ := store.Anonymisation("tienda"); cual != "yes" {
-		t.Fatalf("el estado de los datos también viene: %q", cual)
+		t.Fatalf("anonymisation = %q, want it imported too", cual)
 	}
 }
 
@@ -342,7 +342,7 @@ func TestImportarDosVecesNoDuplica(t *testing.T) {
 
 	ramas, _ := store.Worktrees("tienda")
 	if len(ramas) != 1 {
-		t.Fatalf("dos importaciones, una rama: %+v", ramas)
+		t.Fatalf("worktrees after importing twice = %+v, want one", ramas)
 	}
 }
 
@@ -359,7 +359,7 @@ func TestUnRegistroIlegibleNoSeLlevaALosDemas(t *testing.T) {
 	traido, _ := store.Import(filepath.Join(casa, "worktrees"), filepath.Join(casa, "state"))
 
 	if traido.Worktrees != 1 {
-		t.Fatalf("una ilegible no es motivo para dejar atrás las otras: %+v", traido)
+		t.Fatalf("imported with one unreadable = %+v, want the others brought in", traido)
 	}
 }
 
@@ -370,7 +370,7 @@ func TestAbrirDosVecesNoRompeNada(t *testing.T) {
 
 	primero, err := Open(ruta)
 	if err != nil {
-		t.Fatalf("primera apertura fallida: %v", err)
+		t.Fatalf("opening it = %v, want no error", err)
 	}
 
 	primero.Register(core.Project{Name: "tienda"}, rama("azul")) //nolint:errcheck
@@ -378,12 +378,12 @@ func TestAbrirDosVecesNoRompeNada(t *testing.T) {
 
 	segundo, err := Open(ruta)
 	if err != nil {
-		t.Fatalf("segunda apertura fallida: %v", err)
+		t.Fatalf("opening it again = %v, want no error", err)
 	}
 	defer segundo.Close()
 
 	registrada, _ := segundo.Worktree("tienda", "azul")
 	if registrada == nil {
-		t.Fatal("lo escrito antes tenía que seguir ahí")
+		t.Fatal("what was written before = gone, want it still there")
 	}
 }

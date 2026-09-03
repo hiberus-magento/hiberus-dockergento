@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -23,8 +24,8 @@ type Project struct {
 	Root string
 }
 
-// Compose is the file a project runs on, for a test that wants a particular one.
-type Compose struct {
+// Definition is what a project is made of, for a test that wants a particular one.
+type Definition struct {
 	// Services is the body of the compose file, without the `services:` key.
 	Services string
 
@@ -37,8 +38,15 @@ type Compose struct {
 // The three files are what every project of this tool has: the compose file and the two machine
 // overlays, which are copies of it here because what varies between them is not what these tests
 // are about.
-func NewProject(t *testing.T, name string, compose Compose) Project {
+func NewProject(t *testing.T, name string, definition Definition) Project {
 	t.Helper()
+
+	//
+	// The name is the test's, not the caller's alone. These run in parallel and a compose project
+	// name is what Docker keys containers, networks and volumes by: two tests sharing one would be
+	// two tests fighting over the same containers, which fails whichever of them was slower.
+	//
+	name = name + "-" + slug(t.Name())
 
 	root := filepath.Join(t.TempDir(), name)
 
@@ -46,7 +54,7 @@ func NewProject(t *testing.T, name string, compose Compose) Project {
 		t.Fatal(err)
 	}
 
-	services := compose.Services
+	services := definition.Services
 	if services == "" {
 		services = defaultServices
 	}
@@ -69,7 +77,7 @@ func NewProject(t *testing.T, name string, compose Compose) Project {
 		"COMPOSE_PROJECT_NAME": name,
 	}
 
-	for key, value := range compose.Properties {
+	for key, value := range definition.Properties {
 		properties[key] = value
 	}
 
@@ -102,6 +110,28 @@ const defaultServices = `  phpfpm:
     working_dir: /var/www/html
     command: ["sleep", "600"]
 `
+
+// slug turns a test's name into something a compose project name may contain.
+func slug(name string) string {
+	kept := strings.Builder{}
+
+	for _, character := range strings.ToLower(name) {
+		switch {
+		case character >= 'a' && character <= 'z', character >= '0' && character <= '9':
+			kept.WriteRune(character)
+		case character == '-', character == '_':
+			kept.WriteRune('-')
+		}
+	}
+
+	// Long enough to be unique between neighbours and short enough to read in `docker ps`
+	trimmed := kept.String()
+	if len(trimmed) > 24 {
+		trimmed = trimmed[len(trimmed)-24:]
+	}
+
+	return strings.Trim(trimmed, "-")
+}
 
 // Committed makes the project a git repository with everything in it committed, which is what a
 // worktree needs to exist at all.

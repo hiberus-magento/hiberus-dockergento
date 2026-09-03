@@ -12,41 +12,41 @@ const fichero = `127.0.0.1 localhost
 // like ours.
 func TestOnlyWhatThisToolAddedIsRemoved(t *testing.T) {
 	if !HostsAdded(fichero, "mia.test", "hm") {
-		t.Fatal("la entrada con marca es nuestra")
+		t.Fatal("HostsAdded(marked entry) = false, want true")
 	}
 
 	if HostsAdded(fichero, "escrita-a-mano.test", "hm") {
-		t.Fatal("una escrita a mano no lo es")
+		t.Fatal("HostsAdded(hand-written entry) = true, want false")
 	}
 
 	sin := WithoutHost(fichero, "escrita-a-mano.test", "hm")
 	if !HostsHas(sin, "escrita-a-mano.test") {
-		t.Fatalf("y no se borra:\n%s", sin)
+		t.Fatalf("file without the hand-written entry = %q, want it kept", sin)
 	}
 
 	sin = WithoutHost(fichero, "mia.test", "hm")
 	if HostsHas(sin, "mia.test") {
-		t.Fatalf("la nuestra sí:\n%s", sin)
+		t.Fatalf("file with our entry removed = %q, want it gone", sin)
 	}
 
 	if !HostsHas(sin, "localhost") || !HostsHas(sin, "escrita-a-mano.test") {
-		t.Fatalf("y el resto del fichero se queda como estaba:\n%s", sin)
+		t.Fatalf("file after removing ours = %q, want the rest of it untouched", sin)
 	}
 }
 
 // A second line for a name that already resolves is one more line nobody can attribute.
 func TestNothingIsAddedTwice(t *testing.T) {
 	if WithHost(fichero, "mia.test", "hm") != fichero {
-		t.Fatal("no se añade lo que ya está")
+		t.Fatal("WithHost(name already there) changed the file, want it left alone")
 	}
 
 	if WithHost(fichero, "escrita-a-mano.test", "hm") != fichero {
-		t.Fatal("ni siquiera cuando la escribió otro")
+		t.Fatal("WithHost(name somebody else wrote) changed the file, want it left alone")
 	}
 
 	con := WithHost(fichero, "nueva.test", "hm")
 	if !HostsAdded(con, "nueva.test", "hm") {
-		t.Fatalf("y la que falta se añade con su marca:\n%s", con)
+		t.Fatalf("file with a new entry = %q, want it added with the marker", con)
 	}
 }
 
@@ -54,11 +54,11 @@ func TestNothingIsAddedTwice(t *testing.T) {
 // field is made of rather than by where it is.
 func TestAnAddressIsNotAName(t *testing.T) {
 	if HostsHas("127.0.0.1 uno.test", "127.0.0.1") {
-		t.Fatal("una dirección no es un nombre")
+		t.Fatal("HostsHas(file, an address) = true, want false")
 	}
 
 	if !HostsHas("0.0.0.0 ::1 dos.test", "dos.test") {
-		t.Fatal("y el nombre después de dos direcciones sí lo es")
+		t.Fatal("HostsHas(file, a name after two addresses) = false, want true")
 	}
 }
 
@@ -67,6 +67,6 @@ func TestTheEntryIsItsOwnLine(t *testing.T) {
 	con := WithHost("127.0.0.1 localhost", "nueva.test", "hm")
 
 	if !HostsHas(con, "localhost") || !HostsHas(con, "nueva.test") {
-		t.Fatalf("las dos líneas están:\n%s", con)
+		t.Fatalf("file = %q, want both lines in it", con)
 	}
 }

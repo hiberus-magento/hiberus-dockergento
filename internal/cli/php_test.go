@@ -19,7 +19,7 @@ func TestTheInvocationsThatRewriteTheHostsTree(t *testing.T) {
 
 	for _, subcomando := range []string{"install", "update", "require", "remove"} {
 		if !mirrorsVendor([]string{subcomando}) {
-			t.Errorf("`composer %s` reescribe el vendor del host", subcomando)
+			t.Errorf("writesDependencies(%q) = false, want true", subcomando)
 		}
 	}
 }
@@ -27,7 +27,7 @@ func TestTheInvocationsThatRewriteTheHostsTree(t *testing.T) {
 func TestEverythingElseRunsInTheContainer(t *testing.T) {
 	for _, subcomando := range [][]string{{"show"}, {"dump-autoload"}, {"--version"}, {}} {
 		if mirrorsVendor(subcomando) {
-			t.Errorf("`composer %v` no toca el vendor del host", subcomando)
+			t.Errorf("writesDependencies(%q) = true, want false", subcomando)
 		}
 	}
 }
@@ -36,14 +36,14 @@ func TestOnlyTheFourWriteDependencies(t *testing.T) {
 	// The same list decides the refusal in a worktree that reads somebody else's dependencies,
 	// on either platform
 	if !writesDependencies([]string{"require", "vendor/paquete"}) {
-		t.Error("`require` escribe dependencias")
+		t.Error("mirrorsVendor(require) = false, want true")
 	}
 
 	if writesDependencies([]string{"show"}) {
-		t.Error("`show` no escribe nada")
+		t.Error("mirrorsVendor(show) = true, want false")
 	}
 
 	if writesDependencies(nil) {
-		t.Error("sin subcomando no se escribe nada")
+		t.Error("mirrorsVendor(no subcommand) = true, want false")
 	}
 }

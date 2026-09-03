@@ -30,7 +30,7 @@ func TestArgumentsArriveUntouched(t *testing.T) {
 	root := shellTree(t, "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$0.args\"\n")
 
 	if _, err := (Runner{Root: root}).Run([]string{"magento", "cache:flush", "--json"}); err != nil {
-		t.Fatalf("no debería fallar: %v", err)
+		t.Fatalf("= %v, want no error", err)
 	}
 
 	arguments, err := os.ReadFile(filepath.Join(root, "bin", "run.args"))
@@ -39,7 +39,7 @@ func TestArgumentsArriveUntouched(t *testing.T) {
 	}
 
 	if string(arguments) != "magento\ncache:flush\n--json\n" {
-		t.Fatalf("los argumentos llegaron distintos: %q", arguments)
+		t.Fatalf("arguments = %q, want them untouched", arguments)
 	}
 }
 
@@ -50,11 +50,11 @@ func TestTheExitCodeIsTheOneTheShellGave(t *testing.T) {
 
 	code, err := (Runner{Root: root}).Run([]string{"down"})
 	if err != nil {
-		t.Fatalf("un código de salida no es un error del proceso: %v", err)
+		t.Fatalf("error = %v, want an exit code and no error of our own", err)
 	}
 
 	if code != 6 {
-		t.Fatalf("código inesperado: %d", code)
+		t.Fatalf("exit code = %d, want the shell implementation's own", code)
 	}
 }
 
@@ -63,7 +63,7 @@ func TestSuccessIsZero(t *testing.T) {
 
 	code, _ := (Runner{Root: root}).Run([]string{"list"})
 	if code != 0 {
-		t.Fatalf("código inesperado: %d", code)
+		t.Fatalf("exit code = %d, want the shell implementation's own", code)
 	}
 }
 
@@ -71,7 +71,7 @@ func TestAMissingShellTreeIsReportedRatherThanGuessed(t *testing.T) {
 	root := t.TempDir()
 
 	if _, err := (Runner{Root: filepath.Join(root, "no-existe")}).Run([]string{"list"}); err == nil {
-		t.Fatal("debería decir que no lo encuentra")
+		t.Fatal("a missing shell tree = nil, want it said")
 	}
 }
 
@@ -81,7 +81,7 @@ func TestTheOverrideWinsOverEverythingElse(t *testing.T) {
 
 	located, err := (Runner{Root: root}).locate()
 	if err != nil || located != root {
-		t.Fatalf("el campo debería ganar al entorno: %q, %v", located, err)
+		t.Fatalf("located = %q (%v), want the field to win over the environment", located, err)
 	}
 }
 
@@ -91,7 +91,7 @@ func TestTheEnvironmentPointsItSomewhereElse(t *testing.T) {
 
 	located, err := (Runner{}).locate()
 	if err != nil || located != root {
-		t.Fatalf("debería usar el entorno: %q, %v", located, err)
+		t.Fatalf("located = %q (%v), want the environment used", located, err)
 	}
 }
 
@@ -103,7 +103,7 @@ func TestTheRegistrationArrives(t *testing.T) {
 	handed := []string{"HM_REGISTERED=tienda/rama", "HM_REGISTERED_PROJECT=tienda-rama"}
 
 	if _, err := (Runner{Root: root, Registration: handed}).Run([]string{"setup"}); err != nil {
-		t.Fatalf("no debería fallar: %v", err)
+		t.Fatalf("= %v, want no error", err)
 	}
 
 	given, err := os.ReadFile(filepath.Join(root, "bin", "run.env"))
@@ -112,7 +112,7 @@ func TestTheRegistrationArrives(t *testing.T) {
 	}
 
 	if string(given) != "tienda/rama\n" {
-		t.Fatalf("la registración llegó distinta: %q", given)
+		t.Fatalf("registration handed over = %q, want the one it was given", given)
 	}
 }
 
@@ -126,7 +126,7 @@ func TestAnInheritedRegistrationIsNotCarriedOver(t *testing.T) {
 	t.Setenv("HM_REGISTERED_PROJECT", "otra-vieja")
 
 	if _, err := (Runner{Root: root}).Run([]string{"setup"}); err != nil {
-		t.Fatalf("no debería fallar: %v", err)
+		t.Fatalf("= %v, want no error", err)
 	}
 
 	given, err := os.ReadFile(filepath.Join(root, "bin", "run.env"))
@@ -135,6 +135,6 @@ func TestAnInheritedRegistrationIsNotCarriedOver(t *testing.T) {
 	}
 
 	if string(given) != "\n" {
-		t.Fatalf("no debería quedar nada de la de fuera: %q", given)
+		t.Fatalf("registration = %q, want nothing carried over from outside", given)
 	}
 }

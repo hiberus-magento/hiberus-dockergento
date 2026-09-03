@@ -44,7 +44,7 @@ func TestAComplaintDoesNotEndUpInsideTheCopy(t *testing.T) {
 
 	taken, err := snapshots.Take(project, "antes", false)
 	if err != nil {
-		t.Fatalf("no debería fallar: %v", err)
+		t.Fatalf("Take = %v, want no error", err)
 	}
 
 	file, err := os.Open(taken.Path)
@@ -55,7 +55,7 @@ func TestAComplaintDoesNotEndUpInsideTheCopy(t *testing.T) {
 
 	contents, err := gzip.NewReader(file)
 	if err != nil {
-		t.Fatalf("la copia no es un fichero comprimido: %v", err)
+		t.Fatalf("reading the copy = %v, want a gzip file", err)
 	}
 
 	written, err := io.ReadAll(contents)
@@ -64,16 +64,16 @@ func TestAComplaintDoesNotEndUpInsideTheCopy(t *testing.T) {
 	}
 
 	if strings.Contains(string(written), "Warning") {
-		t.Fatalf("la queja del volcador acabó dentro de la copia:\n%s", written)
+		t.Fatalf("copy = %q, want the dumper's complaint outside it", written)
 	}
 
 	if !strings.Contains(string(written), "CREATE TABLE") {
-		t.Fatalf("y el volcado sí tiene que estar:\n%s", written)
+		t.Fatalf("copy = %q, want the dump in it", written)
 	}
 
 	// The header says what it is, which is what makes a file found a year later readable
 	if !strings.Contains(string(written), "-- hm snapshot: antes") {
-		t.Fatalf("falta la cabecera:\n%s", written)
+		t.Fatalf("copy = %q, want a header saying what it is", written)
 	}
 }
 
@@ -84,7 +84,7 @@ func TestAFailedCopyLeavesNothingBehind(t *testing.T) {
 	snapshots, project := copias(t, corredor)
 
 	if _, err := snapshots.Take(project, "antes", false); err == nil {
-		t.Fatal("un volcado que falla no es una copia")
+		t.Fatal("Take(a dump that failed) = nil, want an error")
 	}
 
 	found, err := filepath.Glob(filepath.Join(snapshots.Dir, "*", "*"))
@@ -93,6 +93,6 @@ func TestAFailedCopyLeavesNothingBehind(t *testing.T) {
 	}
 
 	if len(found) != 0 {
-		t.Fatalf("no debería quedar nada: %v", found)
+		t.Fatalf("files left behind = %v, want none", found)
 	}
 }

@@ -10,7 +10,7 @@ func TestAVirtualMachineTooSmallForOneStack(t *testing.T) {
 	verdict := VMMemoryVerdict(2*gigabyte, 48*gigabyte)
 
 	if verdict != "small" {
-		t.Fatalf("con 2 GB no cabe un stack entero, y el veredicto fue %q", verdict)
+		t.Fatalf("verdict for 2 GB = %q, want it to say a full stack does not fit", verdict)
 	}
 }
 
@@ -20,7 +20,7 @@ func TestALaptopWithPlentyAndAVirtualMachineWithout(t *testing.T) {
 	verdict := VMMemoryVerdict(6*gigabyte, 48*gigabyte)
 
 	if verdict != "cramped" {
-		t.Fatalf("6 GB de 48 es una VM estrecha, y el veredicto fue %q", verdict)
+		t.Fatalf("verdict for 6 GB of 48 = %q, want it to say the VM is the narrow part", verdict)
 	}
 }
 
@@ -30,13 +30,13 @@ func TestASmallMachineIsNotCramped(t *testing.T) {
 	verdict := VMMemoryVerdict(6*gigabyte, 8*gigabyte)
 
 	if verdict != "fine" {
-		t.Fatalf("6 GB de 8 es lo que hay, y el veredicto fue %q", verdict)
+		t.Fatalf("verdict for 6 GB of 8 = %q, want it to say that is what the machine has", verdict)
 	}
 }
 
 func TestNoAnswerIsNotABadAnswer(t *testing.T) {
 	if verdict := VMMemoryVerdict(0, 48*gigabyte); verdict != "unknown" {
-		t.Fatalf("sin dato no hay veredicto, y devolvió %q", verdict)
+		t.Fatalf("verdict with nothing measured = %q, want none", verdict)
 	}
 }
 
@@ -44,11 +44,11 @@ func TestHowManyEnvironmentsFit(t *testing.T) {
 	// Measured on the machine this was written on: eight environments in a 5.9 GiB virtual
 	// machine, at about 550 MB each
 	if fit := EnvironmentsThatFit(6 * gigabyte); fit != 9 {
-		t.Fatalf("en 6 GB caben 9 entornos, y dijo %d", fit)
+		t.Fatalf("environments that fit in 6 GB = %d, want 9", fit)
 	}
 
 	if fit := EnvironmentsThatFit(gigabyte / 2); fit != 0 {
-		t.Fatalf("no puede caber un número negativo de entornos: %d", fit)
+		t.Fatalf("environments that fit = %d, want not less than zero", fit)
 	}
 }
 
@@ -56,11 +56,11 @@ func TestGigabytesAreRoundedNotTruncated(t *testing.T) {
 	// 6.2 GB reported as "5" is the kind of small lie that makes somebody check the number
 	// somewhere else and stop trusting the rest
 	if rounded := Gigabytes(6*gigabyte + gigabyte/5); rounded != 6 {
-		t.Fatalf("6,2 GB son 6 GB, y dijo %d", rounded)
+		t.Fatalf("6.2 GB rounded = %d, want 6", rounded)
 	}
 
 	if rounded := Gigabytes(5*gigabyte + 3*gigabyte/4); rounded != 6 {
-		t.Fatalf("5,75 GB redondean a 6, y dijo %d", rounded)
+		t.Fatalf("5.75 GB rounded = %d, want 6", rounded)
 	}
 }
 
@@ -80,7 +80,7 @@ func TestComparingVersions(t *testing.T) {
 
 	for _, one := range cases {
 		if got := VersionAtLeast(one.version, one.target); got != one.atLeast {
-			t.Errorf("%q >= %q debería ser %v", one.version, one.target, one.atLeast)
+			t.Errorf("atLeast(%q, %q) = %v, want %v", one.version, one.target, !one.atLeast, one.atLeast)
 		}
 	}
 }
@@ -97,6 +97,6 @@ func TestTheSummaryCountsWhatWasFound(t *testing.T) {
 
 	if diagnosis.Summary.Total != 4 || diagnosis.Summary.OK != 1 ||
 		diagnosis.Summary.Warnings != 1 || diagnosis.Summary.Errors != 2 {
-		t.Fatalf("el resumen no cuadra: %+v", diagnosis.Summary)
+		t.Fatalf("summary = %+v, want the counts to add up", diagnosis.Summary)
 	}
 }

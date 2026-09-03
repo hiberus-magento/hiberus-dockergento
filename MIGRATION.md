@@ -69,6 +69,26 @@ sus entradas son funciones de bash.
 como cobertura que desaparece. Las de Go van primero, porque son segundos y no tiene sentido
 enterarse de que fallan después de veinte minutos de Docker.
 
+### Cómo se escriben
+
+Las convenciones son las de la comunidad de Go, no unas nuestras:
+
+- **Tablas con subpruebas.** Un mapa de casos con nombre y un `t.Run` por caso. El nombre del caso
+  es la clave, así que el fallo dice cuál falló sin leer el código, y `-run` ejecuta uno solo. El
+  mapa además se recorre en orden aleatorio, lo que impide que un caso dependa del anterior.
+- **`got` antes de `want`,** nombrando la entrada: `Slug("Feature/X") = "feature-x", want "feature-x"`.
+  En inglés, como el resto del código.
+- **`t.Errorf` por defecto y `t.Fatalf` sólo cuando lo que viene después no tiene sentido.** Una
+  prueba que se para en el primer fallo esconde los otros tres.
+- **`t.Helper()`** en los ayudantes, **`t.Cleanup`** en vez de `defer`, **`t.TempDir()`** para lo
+  que se escribe. `t.Setenv` **no** se puede usar en pruebas paralelas: afecta a todo el proceso.
+  Por eso las e2e pasan el entorno explícito en cada invocación en vez de exportarlo.
+- **`cmp.Diff`** para comparar cosas compuestas, en vez de campo a campo.
+- **Lo lento se salta con `-short`** además de saltarse solo si no hay demonio: `go test -short ./...`
+  es la respuesta rápida en cualquier máquina.
+- Sin librerías de aserciones: se compara con Go, que es lo que recomienda la guía de estilo de
+  Google y lo que hace que un fallo diga algo.
+
 ## Fases
 
 - [x] **0 · Estabilizar la 1.x.** Concurrencia, colisiones, `vendor` montado, cachés que no

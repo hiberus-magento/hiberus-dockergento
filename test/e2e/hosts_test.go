@@ -27,53 +27,59 @@ func hosts(t *testing.T, contents string) (*e2e.Session, e2e.Project) {
 	session := e2e.New(t)
 	session.Writes(t, session.HostsFile, contents)
 
-	return session, e2e.NewProject(t, "hm-e2e-hosts", e2e.Compose{})
+	return session, e2e.NewProject(t, "hm-e2e-hosts", e2e.Definition{})
 }
 
-func TestAnEntryIsAddedWithAMarkerSayingWhoAddedIt(t *testing.T) {
+func TestSetHostAddsAnEntry(t *testing.T) {
 	t.Parallel()
 
 	session, project := hosts(t, "127.0.0.1 localhost\n255.255.255.255 broadcasthost\n")
 
-	result := session.Run(t, project.Root, "--no-json", "set-host", "tienda.invalid", "--no-database")
+	got := session.Run(t, project.Root, "--no-json", "set-host", "tienda.invalid", "--no-database")
 
-	if result.Code != 0 {
-		t.Fatalf("salió con %d: %s", result.Code, result.Output())
+	if got.Code != 0 {
+		t.Fatalf("set-host tienda.invalid = %d, want 0\n%s", got.Code, got.Output())
 	}
 
 	written := session.Reads(session.HostsFile)
 
-	if !strings.Contains(written, "tienda.invalid") || !strings.Contains(written, "# added by") {
-		t.Fatalf("la entrada no está, o no dice quién la puso:\n%s", written)
-	}
+	for _, want := range []string{
+		"tienda.invalid",
 
-	// What was already in the file is somebody else's, including the lines every machine has
-	if !strings.Contains(written, "127.0.0.1 localhost") ||
-		!strings.Contains(written, "broadcasthost") {
-		t.Fatalf("y lo que ya estaba se queda:\n%s", written)
+		// The marker is the whole point of it: an entry with nothing to say where it came from
+		// accumulates for as long as the machine lives and nobody dares delete one
+		"# added by",
+
+		// And what was already in the file is somebody else's
+		"127.0.0.1 localhost",
+		"broadcasthost",
+	} {
+		if !strings.Contains(written, want) {
+			t.Errorf("hosts file = %q, want it to contain %q", written, want)
+		}
 	}
 }
 
 // A second line for a name that already resolves is one more line nobody can attribute.
-func TestNothingIsAddedTwice(t *testing.T) {
+func TestSetHostAddsNothingTwice(t *testing.T) {
 	t.Parallel()
 
 	session, project := hosts(t, "")
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		session.Run(t, project.Root, "--no-json", "set-host", "tienda.invalid", "--no-database")
 	}
 
 	written := session.Reads(session.HostsFile)
 
-	if count := strings.Count(written, "tienda.invalid"); count != 1 {
-		t.Fatalf("se escribió %d veces:\n%s", count, written)
+	if got := strings.Count(written, "tienda.invalid"); got != 1 {
+		t.Errorf("entries for tienda.invalid = %d, want 1\n%s", got, written)
 	}
 }
 
 // `https://shop.invalid/` is a name with punctuation around it, and what goes in a hosts file is
 // the name.
-func TestADomainTypedAsAURLIsWrittenAsAName(t *testing.T) {
+func TestSetHostWritesANameAndNotAURL(t *testing.T) {
 	t.Parallel()
 
 	session, project := hosts(t, "")
@@ -82,114 +88,129 @@ func TestADomainTypedAsAURLIsWrittenAsAName(t *testing.T) {
 
 	written := session.Reads(session.HostsFile)
 
-	if !strings.Contains(written, " otra.invalid ") || strings.Contains(written, "https://") {
-		t.Fatalf("se escribió la URL en vez del nombre:\n%s", written)
+	if !strings.Contains(written, " otra.invalid ") {
+		t.Errorf("hosts file = %q, want it to contain the name otra.invalid", written)
+	}
+
+	if strings.Contains(written, "https://") {
+		t.Errorf("hosts file = %q, want no scheme in it", written)
 	}
 }
 
-//
 // A line somebody wrote by hand has no marker, so it is not this tool's to delete. That is the
 // whole reason the marker exists.
-//
-func TestOnlyWhatThisToolAddedIsRemoved(t *testing.T) {
+func TestSetHostRemovesOnlyWhatItAdded(t *testing.T) {
 	t.Parallel()
 
 	session, project := hosts(t, "127.0.0.1 localhost\n127.0.0.1 escrita-a-mano.invalid\n")
-
 	session.Run(t, project.Root, "--no-json", "set-host", "tienda.invalid", "--no-database")
 
-	result := session.Run(t, project.Root, "--no-json", "set-host", "--remove",
-		"escrita-a-mano.invalid")
+	t.Run("one it did not add", func(t *testing.T) {
+		got := session.Run(t, project.Root, "--no-json", "set-host", "--remove",
+			"escrita-a-mano.invalid")
 
-	if !strings.Contains(session.Reads(session.HostsFile), "escrita-a-mano.invalid") {
-		t.Fatalf("una entrada ajena no se borra:\n%s", session.Reads(session.HostsFile))
-	}
+		if written := session.Reads(session.HostsFile); !strings.Contains(written, "escrita-a-mano.invalid") {
+			t.Errorf("hosts file = %q, want the hand-written entry left in it", written)
+		}
 
-	if !strings.Contains(result.Output(), "no entry") {
-		t.Fatalf("y se dice por qué: %s", result.Output())
-	}
+		if !strings.Contains(got.Output(), "no entry") {
+			t.Errorf("set-host --remove escrita-a-mano.invalid said %q, want it to say there is no entry",
+				got.Output())
+		}
+	})
 
-	session.Run(t, project.Root, "--no-json", "set-host", "--remove", "tienda.invalid")
+	t.Run("one it did add", func(t *testing.T) {
+		session.Run(t, project.Root, "--no-json", "set-host", "--remove", "tienda.invalid")
 
-	written := session.Reads(session.HostsFile)
+		written := session.Reads(session.HostsFile)
 
-	if strings.Contains(written, "tienda.invalid") {
-		t.Fatalf("la nuestra sí se borra:\n%s", written)
-	}
+		if strings.Contains(written, "tienda.invalid") {
+			t.Errorf("hosts file = %q, want its own entry gone", written)
+		}
 
-	if !strings.Contains(written, "127.0.0.1 localhost") ||
-		!strings.Contains(written, "escrita-a-mano.invalid") {
-		t.Fatalf("y el resto del fichero queda exactamente como estaba:\n%s", written)
-	}
+		for _, want := range []string{"127.0.0.1 localhost", "escrita-a-mano.invalid"} {
+			if !strings.Contains(written, want) {
+				t.Errorf("hosts file = %q, want %q still in it", written, want)
+			}
+		}
+	})
 }
 
-func TestRemovingNothingInParticularIsARefusal(t *testing.T) {
+func TestSetHostRefusals(t *testing.T) {
 	t.Parallel()
 
 	session, project := hosts(t, "")
 
-	if result := session.Run(t, project.Root, "set-host", "--remove"); result.Code != 2 {
-		t.Fatalf("salió con %d: %s", result.Code, result.Output())
+	cases := map[string]struct {
+		args []string
+		want int
+	}{
+		"removing nothing in particular": {args: []string{"set-host", "--remove"}, want: 2},
+		"an option nobody declared":      {args: []string{"set-host", "--tonteria"}, want: 2},
+	}
+
+	for name, one := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := session.Run(t, project.Root, one.args...); got.Code != one.want {
+				t.Errorf("%v = %d, want %d\n%s", one.args, got.Code, one.want, got.Output())
+			}
+		})
 	}
 }
 
-//
 // A wildcard resolver for the TLD — ours, or one the machine already had — makes the entry
 // pointless, and the entry is what costs a password prompt and stays for ever. `localhost` resolves
 // on every machine there is, which is what makes it the case to check.
-//
-func TestANameThatAlreadyResolvesHereIsLeftAlone(t *testing.T) {
+func TestSetHostLeavesAloneWhatAlreadyResolves(t *testing.T) {
 	t.Parallel()
 
 	session, project := hosts(t, "")
 
-	result := session.Run(t, project.Root, "--no-json", "set-host", "localhost", "--no-database")
+	got := session.Run(t, project.Root, "--no-json", "set-host", "localhost", "--no-database")
 
 	if written := session.Reads(session.HostsFile); written != "" {
-		t.Fatalf("no se escribe nada:\n%s", written)
+		t.Errorf("hosts file = %q, want it untouched", written)
 	}
 
-	if !strings.Contains(result.Output(), "already resolves") {
-		t.Fatalf("y se dice: %s", result.Output())
+	if !strings.Contains(got.Output(), "already resolves") {
+		t.Errorf("set-host localhost said %q, want it to say the name already resolves", got.Output())
 	}
 }
 
-//
 // The base URLs are a different thing that fails differently: one needs the system password and
 // touches a file every program reads, and the other is a row in the project's database.
-//
-func TestTheBaseURLsAreWrittenToTheDatabase(t *testing.T) {
+func TestSetHostWritesTheBaseURLs(t *testing.T) {
 	t.Parallel()
 
 	session, project := hosts(t, "")
 
 	// A shell tree that installs nothing and writes down what it was asked to do: what has to be
 	// right here is that Magento is asked for the right thing, not that Magento answers
-	recorder := e2e.Recorder(t, session)
+	asked := e2e.Recorder(t, session)
 
 	session.Run(t, project.Root, "--no-json", "set-host", "tienda.invalid")
 
-	asked := recorder()
-
-	for _, wanted := range []string{
+	for _, want := range []string{
 		"magento config:set web/secure/base_url https://tienda.invalid/",
 		"magento config:set web/unsecure/base_url https://tienda.invalid/",
 	} {
-		if !strings.Contains(asked, wanted) {
-			t.Fatalf("falta %q en:\n%s", wanted, asked)
+		if got := asked(); !strings.Contains(got, want) {
+			t.Errorf("asked of the shell half = %q, want it to contain %q", got, want)
 		}
 	}
 }
 
-func TestWithNoDatabaseNothingIsAskedOfMagento(t *testing.T) {
+func TestSetHostAsksNothingOfMagentoWhenToldNotTo(t *testing.T) {
 	t.Parallel()
 
 	session, project := hosts(t, "")
-	recorder := e2e.Recorder(t, session)
+	asked := e2e.Recorder(t, session)
 
 	session.Run(t, project.Root, "--no-json", "set-host", "tienda.invalid", "--no-database")
 
-	if asked := recorder(); asked != "" {
-		t.Fatalf("no se pide nada:\n%s", asked)
+	if got := asked(); got != "" {
+		t.Errorf("asked of the shell half = %q, want nothing", got)
 	}
 }

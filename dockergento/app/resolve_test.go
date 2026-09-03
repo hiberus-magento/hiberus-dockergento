@@ -74,15 +74,15 @@ func TestMainCheckoutTakesItsOwnProperties(t *testing.T) {
 
 	project, err := resolver.Resolve("/code/shop")
 	if err != nil {
-		t.Fatalf("resolución fallida: %v", err)
+		t.Fatalf("Resolve = %v, want no error", err)
 	}
 
 	if project.Name != "shop" || project.Domain != "shop.test" || project.Root != "/code/shop" {
-		t.Fatalf("proyecto inesperado: %+v", project)
+		t.Fatalf("project = %+v, want the one on disk", project)
 	}
 
 	if project.IsWorktree() {
-		t.Fatal("un checkout principal no es un worktree")
+		t.Fatal("main checkout reads as a worktree, want it not to")
 	}
 }
 
@@ -98,15 +98,15 @@ func TestWorktreeWithoutEnvironmentResolvesAgainstTheMainCheckout(t *testing.T) 
 
 	project, err := resolver.Resolve("/code/shop-worktrees/feature-x")
 	if err != nil {
-		t.Fatalf("resolución fallida: %v", err)
+		t.Fatalf("Resolve = %v, want no error", err)
 	}
 
 	if project.Root != "/code/shop" || project.Name != "shop" {
-		t.Fatalf("debería resolver contra el principal: %+v", project)
+		t.Fatalf("project = %+v, want it resolved against the main checkout", project)
 	}
 
 	if project.IsWorktree() {
-		t.Fatal("sin registro no es un entorno de rama")
+		t.Fatal("an unregistered worktree reads as a branch environment, want it not to")
 	}
 }
 
@@ -124,27 +124,27 @@ func TestRegisteredWorktreeResolvesAgainstItself(t *testing.T) {
 
 	project, err := resolver.Resolve("/code/shop-worktrees/feature-x")
 	if err != nil {
-		t.Fatalf("resolución fallida: %v", err)
+		t.Fatalf("Resolve = %v, want no error", err)
 	}
 
 	if project.Root != "/code/shop-worktrees/feature-x" {
-		t.Fatalf("la raíz debería ser el worktree: %s", project.Root)
+		t.Fatalf("root = %q, want the worktree's own", project.Root)
 	}
 
 	if project.MagentoDir != "./src" {
-		t.Fatalf("las properties deberían ser las suyas, no las del padre: %s", project.MagentoDir)
+		t.Fatalf("magento dir = %q, want the worktree's own and not the parent's", project.MagentoDir)
 	}
 
 	if project.Name != "shop-feature-x" {
-		t.Fatalf("nombre de proyecto inesperado: %s", project.Name)
+		t.Fatalf("project name = %q, want the registered one", project.Name)
 	}
 
 	if project.Domain != "feature-x.shop.test" {
-		t.Fatalf("dirección inesperada: %s", project.Domain)
+		t.Fatalf("domain = %q, want the registered one", project.Domain)
 	}
 
 	if project.Worktree.Parent != "shop" {
-		t.Fatalf("debería recordar de quién viene: %s", project.Worktree.Parent)
+		t.Fatalf("parent = %q, want the checkout it was made from", project.Worktree.Parent)
 	}
 }
 
@@ -159,11 +159,11 @@ func TestUnreadablePropertiesFallBackRatherThanFail(t *testing.T) {
 
 	project, err := resolver.Resolve("/code/shop-worktrees/feature-x")
 	if err != nil {
-		t.Fatalf("resolución fallida: %v", err)
+		t.Fatalf("Resolve = %v, want no error", err)
 	}
 
 	if project.MagentoDir != "." {
-		t.Fatalf("debería caer en las del padre: %s", project.MagentoDir)
+		t.Fatalf("magento dir = %q, want the parent's where the worktree has none", project.MagentoDir)
 	}
 }
 
@@ -174,11 +174,11 @@ func TestADirectoryThatIsNotAProjectIsNotAnError(t *testing.T) {
 
 	project, err := resolver.Resolve("/tmp/cualquiera")
 	if err != nil {
-		t.Fatalf("no debería fallar: %v", err)
+		t.Fatalf("Take = %v, want no error", err)
 	}
 
 	if project.Name != "" || project.MagentoDir != "." {
-		t.Fatalf("proyecto inesperado: %+v", project)
+		t.Fatalf("project = %+v, want the one on disk", project)
 	}
 }
 
@@ -191,14 +191,14 @@ func TestATopologyIsClassicUnlessItSaysOtherwise(t *testing.T) {
 
 	project, _ := resolver.Resolve("/code/shop")
 	if project.Topology != core.Orchestrated {
-		t.Fatalf("topología inesperada: %s", project.Topology)
+		t.Fatalf("topology = %q, want the declared one", project.Topology)
 	}
 
 	resolver.Properties = properties{"/code/shop": {}}
 	project, _ = resolver.Resolve("/code/shop")
 
 	if project.Topology != core.Classic {
-		t.Fatalf("por defecto es clásica: %s", project.Topology)
+		t.Fatalf("topology with none declared = %q, want classic", project.Topology)
 	}
 }
 
@@ -206,6 +206,6 @@ func TestAFailureReadingTheMainPropertiesIsReported(t *testing.T) {
 	resolver := Resolver{Properties: failingProperties{}, VCS: vcs{}, Registry: registry{}}
 
 	if _, err := resolver.Resolve("/code/shop"); err == nil {
-		t.Fatal("un fallo de lectura no puede pasar en silencio")
+		t.Fatal("a read that failed = nil, want the error carried out")
 	}
 }

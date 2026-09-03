@@ -15,7 +15,7 @@ func TestUnaRamaSeConvierteEnAlgoUsable(t *testing.T) {
 
 	for rama, esperado := range casos {
 		if Slug(rama) != esperado {
-			t.Errorf("%q tenía que dar %q y dio %q", rama, esperado, Slug(rama))
+			t.Errorf("Slug(%q) = %q, want %q", rama, Slug(rama), esperado)
 		}
 	}
 }
@@ -24,29 +24,29 @@ func TestDosRamasDistintasPuedenReducirseAlMismoNombre(t *testing.T) {
 	// Y por eso el comando lo rechaza en vez de inventar un nombre: aquí el nombre decide qué
 	// contenedores, qué volúmenes y qué base de datos se usan
 	if Slug("feature/x") != Slug("Feature_X") {
-		t.Fatal("son el mismo nombre, y el comando tiene que darse cuenta")
+		t.Fatal("two branches slugged to different names, want the collision to show")
 	}
 }
 
 func TestUnaRamaQueNoDejaNada(t *testing.T) {
 	if Slug("///") != "" {
-		t.Fatalf("no queda nada usable: %q", Slug("///"))
+		t.Fatalf("Slug(\"///\") = %q, want nothing usable", Slug("///"))
 	}
 }
 
 func TestLosPerfiles(t *testing.T) {
 	if _, ok := ProfileKeeps("inventado"); ok {
-		t.Fatal("un perfil que no existe no existe")
+		t.Fatal("ProfileKeeps(a profile that is not one) succeeded, want a refusal")
 	}
 
 	keeps, ok := ProfileKeeps("agent")
 	if !ok || len(keeps) != 5 {
-		t.Fatalf("el perfil de agente lleva php, nginx, base, búsqueda y redis: %v", keeps)
+		t.Fatalf("ProfileKeeps(agent) = %v, want php, nginx, db, search and redis", keeps)
 	}
 
 	keeps, ok = ProfileKeeps("full")
 	if !ok || len(keeps) != 0 {
-		t.Fatalf("`full` es todo lo que el proyecto tenga: %v", keeps)
+		t.Fatalf("ProfileKeeps(full) = %v, want nothing, which means everything", keeps)
 	}
 }
 
@@ -54,11 +54,11 @@ func TestPorDondeSeLlegaACadaPerfil(t *testing.T) {
 	// `full` lleva Varnish delante; los demás llegan directos a nginx
 	servicio, puerto := WebService("full")
 	if servicio != "varnish" || puerto != "6081" {
-		t.Fatalf("con todo el stack se entra por Varnish: %s:%s", servicio, puerto)
+		t.Fatalf("WebService(full) = %s:%s, want varnish", servicio, puerto)
 	}
 
 	servicio, _ = WebService("agent")
 	if servicio != "nginx" {
-		t.Fatalf("sin Varnish se entra por nginx: %s", servicio)
+		t.Fatalf("WebService(a profile without varnish) = %s, want nginx", servicio)
 	}
 }

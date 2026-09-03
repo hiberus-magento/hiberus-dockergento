@@ -36,15 +36,15 @@ func TestTheProjectIsReadOverTheDefaults(t *testing.T) {
 	}
 
 	if properties["MAGENTO_DIR"] != "./src" {
-		t.Fatalf("el proyecto manda: %q", properties["MAGENTO_DIR"])
+		t.Fatalf("MAGENTO_DIR = %q, want the project's over the default", properties["MAGENTO_DIR"])
 	}
 
 	if properties["WORKDIR_PHP"] != "/var/www/html" {
-		t.Fatalf("lo que el proyecto no dice sale de los valores por defecto: %q", properties["WORKDIR_PHP"])
+		t.Fatalf("WORKDIR_PHP = %q, want the default where the project says nothing", properties["WORKDIR_PHP"])
 	}
 
 	if properties["COMPOSE_PROJECT_NAME"] != "shop" {
-		t.Fatalf("nombre inesperado: %q", properties["COMPOSE_PROJECT_NAME"])
+		t.Fatalf("COMPOSE_PROJECT_NAME = %q, want the project's", properties["COMPOSE_PROJECT_NAME"])
 	}
 }
 
@@ -62,7 +62,7 @@ func TestADirectoryWithNoPropertiesIsNotAProject(t *testing.T) {
 	}
 
 	if len(properties) != 0 {
-		t.Fatalf("no debería parecer un proyecto: %v", properties)
+		t.Fatalf("properties of a directory that is not a project = %v, want none", properties)
 	}
 }
 
@@ -79,11 +79,11 @@ func TestOnlyStringsAreRead(t *testing.T) {
 	}
 
 	if properties["DOMAIN"] != "shop.test" {
-		t.Fatalf("dominio inesperado: %q", properties["DOMAIN"])
+		t.Fatalf("DOMAIN = %q, want the one written down", properties["DOMAIN"])
 	}
 
 	if _, ok := properties["USE_PROXY"]; ok {
-		t.Fatal("un booleano no es una property")
+		t.Fatal("a boolean was read as a property, want it left out")
 	}
 }
 
@@ -92,6 +92,6 @@ func TestBrokenJSONIsAnErrorAndNotAnEmptyProject(t *testing.T) {
 	write(t, filepath.Join(root, "config", "docker", "properties.json"), `{no es json`)
 
 	if _, err := (Reader{}).Load(root); err == nil {
-		t.Fatal("debería decir que no puede leerlo")
+		t.Fatal("unreadable file = nil, want it said")
 	}
 }

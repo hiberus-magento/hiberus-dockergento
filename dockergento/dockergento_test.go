@@ -24,17 +24,17 @@ func proyecto(t *testing.T, properties string, files ...string) core.Project {
 	root := t.TempDir()
 
 	if err := os.MkdirAll(filepath.Join(root, "config", "docker"), 0o755); err != nil {
-		t.Fatalf("no se pudo crear el proyecto: %v", err)
+		t.Fatalf("creating the project = %v, want no error", err)
 	}
 
 	if err := os.WriteFile(filepath.Join(root, "config", "docker", "properties.json"),
 		[]byte(properties), 0o644); err != nil {
-		t.Fatalf("no se pudieron escribir las propiedades: %v", err)
+		t.Fatalf("writing the properties = %v, want no error", err)
 	}
 
 	for _, file := range files {
 		if err := os.WriteFile(filepath.Join(root, file), []byte("services: {}\n"), 0o644); err != nil {
-			t.Fatalf("no se pudo escribir %s: %v", file, err)
+			t.Fatalf("writing %s = %v, want no error", file, err)
 		}
 	}
 
@@ -64,11 +64,11 @@ func TestAProjectThatDoesNotUseTheProxy(t *testing.T) {
 	files := motor(t).ComposeFiles(project)
 
 	if len(files.Load) != 2 {
-		t.Fatalf("sin proxy son dos ficheros, y salieron %d: %v", len(files.Load), files.Load)
+		t.Fatalf("files to load without the proxy = %d (%v), want 2", len(files.Load), files.Load)
 	}
 
 	if has(files.Load, "docker-compose.proxy.yml") {
-		t.Fatal("no hay overlay de proxy que cargar")
+		t.Fatal("the proxy overlay is loaded, want it left out")
 	}
 }
 
@@ -79,7 +79,7 @@ func TestAProjectRoutedThroughTheProxy(t *testing.T) {
 	files := motor(t).ComposeFiles(project)
 
 	if !has(files.Load, "docker-compose.proxy.yml") {
-		t.Fatalf("el overlay del proxy quita los puertos publicados: sin él el proyecto miente: %v", files.Load)
+		t.Fatalf("files to load = %v, want the proxy overlay among them", files.Load)
 	}
 }
 
@@ -89,7 +89,7 @@ func TestTheOverlayIsLoadedBecauseItIsThereAndNotBecauseOfAFlag(t *testing.T) {
 	project := proyecto(t, `{"COMPOSE_PROJECT_NAME": "tienda", "USE_PROXY": "true"}`)
 
 	if has(motor(t).ComposeFiles(project).Load, "docker-compose.proxy.yml") {
-		t.Fatal("no se puede cargar un fichero que no existe")
+		t.Fatal("a file that is not there is loaded, want it left out")
 	}
 }
 
@@ -102,7 +102,7 @@ func TestWhatADescriptionReportsIsWhatTheProjectDeclares(t *testing.T) {
 	files := motor(t).ComposeFiles(project)
 
 	if len(files.Declared) != 2 || has(files.Declared, "docker-compose.proxy.yml") {
-		t.Fatalf("se declaran dos ficheros, no tres: %v", files.Declared)
+		t.Fatalf("declared files = %v, want the two the project declares", files.Declared)
 	}
 }
 
@@ -113,7 +113,7 @@ func TestABranchEnvironmentTakesItsOwnOverlayAndNotTheProxys(t *testing.T) {
 	t.Setenv("HM_WORKTREE_DIR", registrations)
 
 	if err := os.MkdirAll(filepath.Join(registrations, "tienda"), 0o755); err != nil {
-		t.Fatalf("no se pudo crear el registro: %v", err)
+		t.Fatalf("creating the registry = %v, want no error", err)
 	}
 
 	project := proyecto(t, `{"COMPOSE_PROJECT_NAME": "tienda", "USE_PROXY": "true"}`,
@@ -123,11 +123,11 @@ func TestABranchEnvironmentTakesItsOwnOverlayAndNotTheProxys(t *testing.T) {
 	files := motor(t).ComposeFiles(project)
 
 	if has(files.Load, "docker-compose.proxy.yml") {
-		t.Fatalf("un entorno de rama no va por el proxy del principal: %v", files.Load)
+		t.Fatalf("files to load = %v, want the main environment's proxy overlay left out", files.Load)
 	}
 
 	if !has(files.Load, "rama.yml") {
-		t.Fatalf("y sí lleva el suyo, que vive fuera del checkout: %v", files.Load)
+		t.Fatalf("files to load = %v, want the branch's own overlay among them", files.Load)
 	}
 }
 
@@ -137,10 +137,10 @@ func TestNothingIsHandedOverOutsideABranchEnvironment(t *testing.T) {
 	project := proyecto(t, `{"COMPOSE_PROJECT_NAME": "tienda"}`)
 
 	if handed := motor(t).registration(project.Root); len(handed) != 0 {
-		t.Fatalf("no se entrega nada desde un checkout principal: %v", handed)
+		t.Fatalf("handed over from a main checkout = %v, want nothing", handed)
 	}
 
 	if handed := motor(t).registration(filepath.Join(project.Root, "no", "existe")); len(handed) != 0 {
-		t.Fatalf("ni desde un directorio que no es un proyecto: %v", handed)
+		t.Fatalf("handed over from a directory that is not a project = %v, want nothing", handed)
 	}
 }

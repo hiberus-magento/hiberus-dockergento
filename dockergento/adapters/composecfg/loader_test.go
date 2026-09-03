@@ -55,7 +55,7 @@ func TestTheConfigurationIsWhatComposeSaysItIs(t *testing.T) {
 
 	loaded, err := Loader{}.Load(root, "lab", []string{"docker-compose.yml", "docker-compose.dev.mac.yml"})
 	if err != nil {
-		t.Fatalf("no se pudo leer: %v", err)
+		t.Fatalf("Load = %v, want no error", err)
 	}
 
 	command := exec.Command("docker", "compose",
@@ -82,34 +82,34 @@ func TestTheConfigurationIsWhatComposeSaysItIs(t *testing.T) {
 	}
 
 	if err := json.Unmarshal(output, &reference); err != nil {
-		t.Fatalf("no se pudo leer la referencia: %v", err)
+		t.Fatalf("loading the reference = %v, want no error", err)
 	}
 
 	if loaded.Name != reference.Name {
-		t.Fatalf("nombre distinto: %q contra %q", loaded.Name, reference.Name)
+		t.Fatalf("name = %q, want %q", loaded.Name, reference.Name)
 	}
 
 	if len(loaded.Services) != len(reference.Services) {
-		t.Fatalf("%d servicios contra %d", len(loaded.Services), len(reference.Services))
+		t.Fatalf("services = %d, want %d", len(loaded.Services), len(reference.Services))
 	}
 
 	for _, service := range loaded.Services {
 		expected, ok := reference.Services[service.Name]
 		if !ok {
-			t.Fatalf("servicio que Compose no ve: %s", service.Name)
+			t.Fatalf("service %s = ours only, want one Compose sees too", service.Name)
 		}
 
 		if service.Image != expected.Image {
-			t.Fatalf("%s: imagen %q contra %q", service.Name, service.Image, expected.Image)
+			t.Fatalf("%s image = %q, want %q", service.Name, service.Image, expected.Image)
 		}
 
 		if len(service.Ports) != len(expected.Ports) {
-			t.Fatalf("%s: %d puertos contra %d", service.Name, len(service.Ports), len(expected.Ports))
+			t.Fatalf("%s ports = %d, want %d", service.Name, len(service.Ports), len(expected.Ports))
 		}
 
 		for at, port := range service.Ports {
 			if port.Published != expected.Ports[at].Published {
-				t.Fatalf("%s: publicado %q contra %q", service.Name, port.Published, expected.Ports[at].Published)
+				t.Fatalf("%s published = %q, want %q", service.Name, port.Published, expected.Ports[at].Published)
 			}
 		}
 
@@ -119,7 +119,7 @@ func TestTheConfigurationIsWhatComposeSaysItIs(t *testing.T) {
 			}
 
 			if service.Environment[key] != *value {
-				t.Fatalf("%s: %s=%q contra %q", service.Name, key, service.Environment[key], *value)
+				t.Fatalf("%s %s = %q, want %q", service.Name, key, service.Environment[key], *value)
 			}
 		}
 	}
@@ -133,17 +133,17 @@ func TestAMissingFileIsSkippedRatherThanFatal(t *testing.T) {
 	loaded, err := Loader{}.Load(root, "lab",
 		[]string{"docker-compose.yml", "docker-compose.dev.linux.yml"})
 	if err != nil {
-		t.Fatalf("no debería fallar: %v", err)
+		t.Fatalf("= %v, want no error", err)
 	}
 
 	if len(loaded.Services) != 3 {
-		t.Fatalf("servicios inesperados: %d", len(loaded.Services))
+		t.Fatalf("services = %d, want the ones declared", len(loaded.Services))
 	}
 }
 
 func TestNoFilesAtAllIsAnError(t *testing.T) {
 	if _, err := (Loader{}).Load(t.TempDir(), "lab", []string{"no-existe.yml"}); err == nil {
-		t.Fatal("sin ficheros no hay proyecto")
+		t.Fatal("loading with no files = nil, want an error")
 	}
 }
 
@@ -158,7 +158,7 @@ func TestServicesComeOutInTheSameOrderEveryTime(t *testing.T) {
 		}
 
 		if loaded.Services[0].Name != "db" || loaded.Services[2].Name != "phpfpm" {
-			t.Fatalf("orden inesperado: %s, %s", loaded.Services[0].Name, loaded.Services[2].Name)
+			t.Fatalf("order = %s ... %s, want them sorted", loaded.Services[0].Name, loaded.Services[2].Name)
 		}
 	}
 }

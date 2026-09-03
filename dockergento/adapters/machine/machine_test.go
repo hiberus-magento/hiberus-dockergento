@@ -15,21 +15,21 @@ nginx      4321 somebody    6u  IPv4 0x1234567890abcded      0t0  TCP *:8080 (LI
 	listeners := fromLsof(output)
 
 	if len(listeners) != 3 {
-		t.Fatalf("tres puertos escuchando, y leyó %d", len(listeners))
+		t.Fatalf("listeners = %d, want 3", len(listeners))
 	}
 
 	if listeners[0].Port != "80" || listeners[0].Process != "com.docke" {
-		t.Fatalf("el primero es el 80 y lo tiene Docker: %+v", listeners[0])
+		t.Fatalf("first listener = %+v, want port 80 held by Docker", listeners[0])
 	}
 
 	if listeners[1].Port != "3306" {
-		t.Fatalf("una dirección concreta también es un puerto ocupado: %+v", listeners[1])
+		t.Fatalf("listener on a specific address = %+v, want it counted as taken", listeners[1])
 	}
 }
 
 func TestTheHeaderIsNotAListener(t *testing.T) {
 	if listeners := fromLsof("COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME\n"); len(listeners) != 0 {
-		t.Fatalf("la cabecera no ocupa ningún puerto: %+v", listeners)
+		t.Fatalf("listeners = %+v, want the header line left out", listeners)
 	}
 }
 
@@ -42,16 +42,16 @@ LISTEN 0      511             [::]:443            [::]:*
 	listeners := fromSS(output)
 
 	if len(listeners) != 2 {
-		t.Fatalf("dos puertos escuchando, y leyó %d", len(listeners))
+		t.Fatalf("listeners = %d, want 2", len(listeners))
 	}
 
 	// `ss` names no process, and inventing one is worse than saying nothing: the message falls
 	// back to "processes on the host", which is true
 	if listeners[0].Port != "80" || listeners[0].Process != "" {
-		t.Fatalf("de ss no sale ningún nombre de proceso: %+v", listeners[0])
+		t.Fatalf("process name from ss = %+v, want none invented", listeners[0])
 	}
 
 	if listeners[1].Port != "443" {
-		t.Fatalf("una dirección IPv6 también es un puerto ocupado: %+v", listeners[1])
+		t.Fatalf("listener on an IPv6 address = %+v, want it counted as taken", listeners[1])
 	}
 }

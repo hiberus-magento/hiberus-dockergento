@@ -46,7 +46,7 @@ func TestNoKeyIsWrittenTwice(t *testing.T) {
 
 		key := strings.TrimSpace(line)
 		if seen[key] {
-			t.Fatalf("la clave %q se escribe dos veces", key)
+			t.Fatalf("key %q is written twice, want once", key)
 		}
 
 		seen[key] = true

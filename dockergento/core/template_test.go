@@ -7,12 +7,12 @@ func TestUnaDireccionDeDosMitades(t *testing.T) {
 	// levantar un entorno a partir de los datos de un compañero
 	proyecto, nombre := ParseTemplate("base", "tienda")
 	if proyecto != "tienda" || nombre != "base" {
-		t.Fatalf("sin barra, es de este proyecto: %q %q", proyecto, nombre)
+		t.Fatalf("ParseTemplate(name) = %q, %q, want this project and the name", proyecto, nombre)
 	}
 
 	proyecto, nombre = ParseTemplate("otra/base", "tienda")
 	if proyecto != "otra" || nombre != "base" {
-		t.Fatalf("con barra, es del que dice: %q %q", proyecto, nombre)
+		t.Fatalf("ParseTemplate(project/name) = %q, %q, want the project it names", proyecto, nombre)
 	}
 }
 
@@ -24,13 +24,13 @@ func TestElNombreAcabaEnUnVolumen(t *testing.T) {
 
 	for _, nombre := range validos {
 		if !ValidTemplateName(nombre) {
-			t.Errorf("%q tendría que valer", nombre)
+			t.Errorf("ValidTemplateName(%q) = false, want true", nombre)
 		}
 	}
 
 	for _, nombre := range invalidos {
 		if ValidTemplateName(nombre) {
-			t.Errorf("%q no tendría que valer", nombre)
+			t.Errorf("ValidTemplateName(%q) = true, want false", nombre)
 		}
 	}
 }
@@ -38,7 +38,7 @@ func TestElNombreAcabaEnUnVolumen(t *testing.T) {
 func TestElVolumenLlevaProyectoYNombre(t *testing.T) {
 	// Dos proyectos con una plantilla llamada igual son dos plantillas
 	if TemplateVolume("tienda", "base") == TemplateVolume("otra", "base") {
-		t.Fatal("dos proyectos no pueden compartir el volumen de su plantilla")
+		t.Fatal("two projects derived the same template volume, want one each")
 	}
 }
 
@@ -54,7 +54,7 @@ func TestElTamanoSeLeeDeUnVistazo(t *testing.T) {
 
 	for bytes, esperado := range casos {
 		if HumanSize(bytes) != esperado {
-			t.Errorf("%d bytes son %q y salió %q", bytes, esperado, HumanSize(bytes))
+			t.Errorf("HumanSize(%d) = %q, want %q", bytes, HumanSize(bytes), esperado)
 		}
 	}
 }

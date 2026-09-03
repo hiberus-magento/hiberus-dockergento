@@ -22,7 +22,7 @@ func TestCadaServicioSeEscribeUnaVez(t *testing.T) {
 
 	for _, servicio := range servicios {
 		if veces := strings.Count(escrito, "\n  "+servicio+":"); veces > 1 {
-			t.Errorf("%q aparece %d veces", servicio, veces)
+			t.Errorf("service %q appears %d times, want 1", servicio, veces)
 		}
 	}
 }
@@ -31,11 +31,11 @@ func TestElPerfilQuitaLoQueNoLleva(t *testing.T) {
 	escrito := overlay("agent", []string{"phpfpm", "nginx", "varnish", "rabbitmq"}, nil)
 
 	if !strings.Contains(escrito, "varnish: !reset null") {
-		t.Fatalf("el perfil de agente no lleva Varnish:\n%s", escrito)
+		t.Fatalf("overlay = %q, want varnish removed by the agent profile", escrito)
 	}
 
 	if strings.Contains(escrito, "rabbitmq:\n    ports") {
-		t.Fatal("ni la cola de mensajes")
+		t.Fatal("overlay keeps the message queue, want the agent profile to remove it")
 	}
 }
 
@@ -45,7 +45,7 @@ func TestNadiePublicaPuertos(t *testing.T) {
 	escrito := overlay("agent", []string{"phpfpm", "nginx"}, nil)
 
 	if strings.Count(escrito, "ports: !reset []") != 2 {
-		t.Fatalf("los dos servicios que quedan tienen que dejar de publicar:\n%s", escrito)
+		t.Fatalf("overlay = %q, want the services it keeps to stop publishing", escrito)
 	}
 }
 
@@ -53,12 +53,12 @@ func TestSoloElServicioWebLlevaElRouter(t *testing.T) {
 	escrito := overlay("agent", []string{"phpfpm", "nginx"}, nil)
 
 	if strings.Count(escrito, "traefik.http.routers.tienda-azul.rule") != 1 {
-		t.Fatalf("un router y sólo uno:\n%s", escrito)
+		t.Fatalf("overlay = %q, want exactly one router", escrito)
 	}
 
 	// Dos contenedores reclamando una regla es un router que responde con cualquiera de los dos
 	if !strings.Contains(escrito, "Host(`azul.tienda.test`)") {
-		t.Fatalf("y en la dirección de esta rama:\n%s", escrito)
+		t.Fatalf("overlay = %q, want the router on this branch's address", escrito)
 	}
 }
 
@@ -68,7 +68,7 @@ func TestUnPerfilSinWebNoAnunciaDireccion(t *testing.T) {
 	escrito := overlay("lite", []string{"phpfpm", "nginx"}, nil)
 
 	if strings.Contains(escrito, "traefik.http.routers") {
-		t.Fatalf("sin servicio web no hay router:\n%s", escrito)
+		t.Fatalf("overlay = %q, want no router where there is no web service", escrito)
 	}
 }
 
@@ -76,7 +76,7 @@ func TestConVarnishSeEntraPorVarnish(t *testing.T) {
 	escrito := overlay("full", []string{"phpfpm", "nginx", "varnish"}, nil)
 
 	if !strings.Contains(escrito, "loadbalancer.server.port: \"6081\"") {
-		t.Fatalf("con todo el stack se entra por Varnish:\n%s", escrito)
+		t.Fatalf("overlay = %q, want varnish routed with the full stack", escrito)
 	}
 }
 
@@ -88,11 +88,11 @@ func TestLasDependenciasSeMontanSoloEnPhp(t *testing.T) {
 	php := escrito[strings.Index(escrito, "  phpfpm:"):strings.Index(escrito, "  nginx:")]
 
 	if !strings.Contains(php, "vendor:ro") {
-		t.Fatalf("el montaje va en php:\n%s", escrito)
+		t.Fatalf("overlay = %q, want the mounts on the php service", escrito)
 	}
 
 	if strings.Count(escrito, "vendor:ro") != 1 {
-		t.Fatalf("y sólo ahí:\n%s", escrito)
+		t.Fatalf("overlay = %q, want the mounts on the php service and nowhere else", escrito)
 	}
 }
 
@@ -100,7 +100,7 @@ func TestLaRedDelProxyEsExterna(t *testing.T) {
 	escrito := overlay("agent", []string{"phpfpm", "nginx"}, nil)
 
 	if !strings.Contains(escrito, "networks:\n  hm-proxy:\n    external: true") {
-		t.Fatalf("la red del proxy la crea el proxy, no esto:\n%s", escrito)
+		t.Fatalf("overlay = %q, want the proxy network declared external", escrito)
 	}
 }
 
@@ -113,11 +113,11 @@ func TestEsYamlPlausible(t *testing.T) {
 	for _, linea := range strings.Split(escrito, "\n") {
 		if strings.Count(linea, ":") > 0 && strings.Contains(linea, "- /code/a") &&
 			strings.Contains(linea, "nginx") {
-			t.Fatalf("dos cosas en una línea:\n%s", escrito)
+			t.Fatalf("overlay = %q, want one thing per line", escrito)
 		}
 	}
 
 	if !strings.Contains(escrito, "\n  nginx:\n") {
-		t.Fatalf("nginx tiene que empezar en su propia línea:\n%s", escrito)
+		t.Fatalf("overlay = %q, want nginx to start on a line of its own", escrito)
 	}
 }

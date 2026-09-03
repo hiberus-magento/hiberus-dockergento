@@ -7,8 +7,10 @@ require (
 	github.com/docker/cli v28.5.1+incompatible
 	github.com/docker/compose/v2 v2.40.3
 	github.com/docker/docker v28.5.1+incompatible
+	github.com/google/go-cmp v0.7.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/term v0.45.0
+	modernc.org/sqlite v1.58.0
 )
 
 require (
@@ -85,7 +87,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -197,7 +198,6 @@ require (
 	modernc.org/libc v1.75.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
-	modernc.org/sqlite v1.58.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect

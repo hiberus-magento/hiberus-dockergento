@@ -41,7 +41,7 @@ func TestTheEnvironmentWinsWhenItSaysSomething(t *testing.T) {
 	t.Setenv("DOCKER_HOST", "tcp://127.0.0.1:2375")
 
 	if host := Endpoint(); host != "tcp://127.0.0.1:2375" {
-		t.Fatalf("endpoint inesperado: %s", host)
+		t.Fatalf("endpoint = %q, want the one the context names", host)
 	}
 }
 
@@ -50,7 +50,7 @@ func TestOtherwiseItComesFromTheCurrentContext(t *testing.T) {
 	t.Setenv("DOCKER_CONFIG", contextStore(t, "colima", "unix:///home/colima.sock"))
 
 	if host := Endpoint(); host != "unix:///home/colima.sock" {
-		t.Fatalf("endpoint inesperado: %s", host)
+		t.Fatalf("endpoint = %q, want the one the context names", host)
 	}
 }
 
@@ -60,7 +60,7 @@ func TestAContextNamedByTheEnvironmentIsUsed(t *testing.T) {
 	t.Setenv("DOCKER_CONTEXT", "otro")
 
 	if host := Endpoint(); host != "unix:///home/otro.sock" {
-		t.Fatalf("endpoint inesperado: %s", host)
+		t.Fatalf("endpoint = %q, want the one the context names", host)
 	}
 }
 
@@ -72,7 +72,7 @@ func TestTheDefaultContextResolvesToNothing(t *testing.T) {
 	t.Setenv("DOCKER_CONTEXT", "default")
 
 	if host := Endpoint(); host != "" {
-		t.Fatalf("no debería resolver nada: %s", host)
+		t.Fatalf("endpoint = %q, want none", host)
 	}
 }
 
@@ -82,7 +82,7 @@ func TestAMachineWithNoConfigurationResolvesToNothing(t *testing.T) {
 	t.Setenv("DOCKER_CONFIG", t.TempDir())
 
 	if host := Endpoint(); host != "" {
-		t.Fatalf("no debería inventarse un socket: %s", host)
+		t.Fatalf("endpoint = %q, want no invented socket", host)
 	}
 }
 
@@ -92,6 +92,6 @@ func TestAContextThatIsNotInTheStoreResolvesToNothing(t *testing.T) {
 	t.Setenv("DOCKER_CONTEXT", "no-existe")
 
 	if host := Endpoint(); host != "" {
-		t.Fatalf("no debería inventárselo: %s", host)
+		t.Fatalf("endpoint = %q, want nothing invented", host)
 	}
 }

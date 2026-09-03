@@ -18,7 +18,7 @@ func limpiado(t *testing.T, volcado string) string {
 
 	limpio, err := io.ReadAll(withoutDefiners(strings.NewReader(volcado)))
 	if err != nil {
-		t.Fatalf("no se pudo limpiar: %v", err)
+		t.Fatalf("stripping the definers = %v, want no error", err)
 	}
 
 	return string(limpio)
@@ -32,11 +32,11 @@ func TestLaClausulaSeQuitaYElComentarioSeQueda(t *testing.T) {
 	limpio := limpiado(t, linea)
 
 	if strings.Contains(limpio, "alguien") {
-		t.Fatalf("el usuario ajeno tenía que desaparecer: %q", limpio)
+		t.Fatalf("stripped dump = %q, want the definer gone", limpio)
 	}
 
 	if !strings.Contains(limpio, "VIEW `vista`") {
-		t.Fatalf("y la vista tenía que quedarse: %q", limpio)
+		t.Fatalf("stripped dump = %q, want the view kept", limpio)
 	}
 }
 
@@ -44,7 +44,7 @@ func TestLoQueNoTieneClausulaNoSeToca(t *testing.T) {
 	volcado := "CREATE TABLE cosas (id INT);\nINSERT INTO cosas VALUES (1);\n"
 
 	if limpiado(t, volcado) != volcado {
-		t.Fatalf("un volcado sin cláusulas sale como entró: %q", limpiado(t, volcado))
+		t.Fatalf("a dump with no definers = %q, want it unchanged", limpiado(t, volcado))
 	}
 }
 
@@ -53,7 +53,7 @@ func TestUnVolcadoGrandeNoRompeElLector(t *testing.T) {
 	larga := "INSERT INTO cosas VALUES ('" + strings.Repeat("x", 2*1024*1024) + "');"
 
 	if len(limpiado(t, larga)) < len(larga) {
-		t.Fatal("la línea larga se quedó por el camino")
+		t.Fatal("a line longer than the buffer was lost, want it carried through")
 	}
 }
 
@@ -73,7 +73,7 @@ func TestElDominioSaleDeLaDireccion(t *testing.T) {
 
 	for respuesta, esperado := range casos {
 		if hostOf(respuesta) != esperado {
-			t.Errorf("de %q se esperaba %q y salió %q", respuesta, esperado, hostOf(respuesta))
+			t.Errorf("hostOf(%q) = %q, want %q", respuesta, hostOf(respuesta), esperado)
 		}
 	}
 }

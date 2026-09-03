@@ -16,24 +16,24 @@ func TestDevNullIsNotATerminal(t *testing.T) {
 	defer nowhere.Close()
 
 	if isTerminal(nowhere) {
-		t.Fatal("/dev/null no es un terminal, por mucho que sea un dispositivo de caracteres")
+		t.Fatal("isTerminal(/dev/null) = true, want false")
 	}
 }
 
 func TestAPlainFileIsNotATerminal(t *testing.T) {
 	file, err := os.CreateTemp(t.TempDir(), "salida")
 	if err != nil {
-		t.Fatalf("no se pudo crear el fichero: %v", err)
+		t.Fatalf("creating the file = %v, want no error", err)
 	}
 	defer file.Close()
 
 	if isTerminal(file) {
-		t.Fatal("un fichero corriente tampoco lo es")
+		t.Fatal("isTerminal(an ordinary file) = true, want false")
 	}
 }
 
 func TestSomethingThatIsNotAFileIsNotATerminal(t *testing.T) {
 	if isTerminal(nil) {
-		t.Fatal("sin fichero no hay terminal")
+		t.Fatal("isTerminal(not a file) = true, want false")
 	}
 }

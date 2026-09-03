@@ -18,9 +18,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 //
@@ -60,7 +63,7 @@ func Binary(t *testing.T) string {
 		build.Dir = root
 
 		if output, err := build.CombinedOutput(); err != nil {
-			buildError = fmt.Errorf("no se pudo construir el binario: %v\n%s", err, output)
+			buildError = fmt.Errorf("building the binary: %v\n%s", err, output)
 
 			return
 		}
@@ -69,7 +72,7 @@ func Binary(t *testing.T) string {
 	})
 
 	if buildError != nil {
-		t.Skipf("saltada: %v", buildError)
+		t.Skipf("skipping: %v", buildError)
 	}
 
 	return binary
@@ -90,7 +93,7 @@ func repositoryRoot() (string, error) {
 		here = filepath.Dir(here)
 	}
 
-	return "", fmt.Errorf("no se encontró la raíz del módulo")
+	return "", fmt.Errorf("no go.mod above the test's directory")
 }
 
 //
@@ -147,27 +150,7 @@ func (s *Session) With(entries ...string) *Session {
 func (s *Session) Run(t *testing.T, dir string, args ...string) Result {
 	t.Helper()
 
-	command := exec.Command(Binary(t), args...)
-	command.Dir = dir
-	command.Env = append(os.Environ(), s.environment()...)
-
-	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	command.Stdout, command.Stderr = stdout, stderr
-
-	err := command.Run()
-
-	result := Result{Stdout: stdout.String(), Stderr: stderr.String()}
-
-	var exit *exec.ExitError
-	if err != nil {
-		if !asExit(err, &exit) {
-			t.Fatalf("no se pudo ejecutar %v: %v", args, err)
-		}
-
-		result.Code = exit.ExitCode()
-	}
-
-	return result
+	return s.run(t, exec.Command(Binary(t), args...), dir, "")
 }
 
 // Reads a file of this session's machine, or the empty string when there is none.
@@ -252,22 +235,38 @@ func JSON(t *testing.T, output string) map[string]any {
 	document := map[string]any{}
 
 	if err := json.Unmarshal([]byte(output), &document); err != nil {
-		t.Fatalf("no es un documento: %v\n%s", err, output)
+		t.Fatalf("output is not a document: %v\n%s", err, output)
 	}
 
 	return document
 }
 
-// Field is one value out of a document, addressed as `data.project.name`.
+// Field is one value out of a document, addressed as `data.project.name` — and a number is an
+// index, so `data.worktrees.0.name` is the first one's.
 func Field(t *testing.T, output, path string) any {
 	t.Helper()
 
 	current := any(JSON(t, output))
 
 	for _, step := range strings.Split(path, ".") {
+		if at, err := strconv.Atoi(step); err == nil {
+			listed, ok := current.([]any)
+			if !ok {
+				t.Fatalf("%s: %s is not a list", path, step)
+			}
+
+			if at >= len(listed) {
+				return nil
+			}
+
+			current = listed[at]
+
+			continue
+		}
+
 		holder, ok := current.(map[string]any)
 		if !ok {
-			t.Fatalf("%s: %s no es un objeto", path, step)
+			t.Fatalf("%s: %s is not an object", path, step)
 		}
 
 		current, ok = holder[step]
@@ -277,6 +276,16 @@ func Field(t *testing.T, output, path string) any {
 	}
 
 	return current
+}
+
+// Difference is what separates two documents, or nothing when they say the same thing.
+//
+// For the comparisons where one blob against another says nothing: a document has an order its
+// producer chose, and what a failure has to show is the field that differs, not two pages of JSON.
+func Difference(t *testing.T, got, want string) string {
+	t.Helper()
+
+	return cmp.Diff(JSON(t, want), JSON(t, got))
 }
 
 // String is Field as text, which is what most assertions compare.
@@ -326,4 +335,55 @@ func Recorder(t *testing.T, session *Session) func() string {
 	session.With("HM_LEGACY_ROOT=" + tree)
 
 	return func() string { return session.Reads(log) }
+}
+
+// RunShell runs the shell entry point instead of the binary.
+//
+// For the one thing worth checking about it: that `bin/run <command>` arrives where `hm <command>`
+// arrives. It is a delegator for everything ported, and a delegator that stopped delegating would
+// be a second implementation nobody is testing.
+func (s *Session) RunShell(t *testing.T, dir string, args ...string) Result {
+	t.Helper()
+
+	root, err := repositoryRoot()
+	if err != nil {
+		t.Fatalf("finding the repository root: %v", err)
+	}
+
+	return s.run(t, exec.Command(filepath.Join(root, "bin", "run"), args...), dir, "")
+}
+
+// RunWithInput answers whatever the command asks, which is how a question is tested.
+func (s *Session) RunWithInput(t *testing.T, input, dir string, args ...string) Result {
+	t.Helper()
+
+	return s.run(t, exec.Command(Binary(t), args...), dir, input)
+}
+
+func (s *Session) run(t *testing.T, command *exec.Cmd, dir, input string) Result {
+	t.Helper()
+
+	command.Dir = dir
+	command.Env = append(os.Environ(), s.environment()...)
+
+	if input != "" {
+		command.Stdin = strings.NewReader(input)
+	}
+
+	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+	command.Stdout, command.Stderr = stdout, stderr
+
+	err := command.Run()
+	result := Result{Stdout: stdout.String(), Stderr: stderr.String()}
+
+	var exit *exec.ExitError
+	if err != nil {
+		if !asExit(err, &exit) {
+			t.Fatalf("running the tool: %v", err)
+		}
+
+		result.Code = exit.ExitCode()
+	}
+
+	return result
 }

@@ -125,17 +125,17 @@ func TestTheReportIsInTheSameOrderEveryTime(t *testing.T) {
 	second := doctorFor(true).Diagnose("")
 
 	if len(first.Checks) != len(second.Checks) {
-		t.Fatalf("dos diagnósticos del mismo proyecto con distinto número de líneas")
+		t.Fatalf("two diagnoses of one project have different lengths, want the same")
 	}
 
 	for at := range first.Checks {
 		if first.Checks[at].ID != second.Checks[at].ID {
-			t.Fatalf("en la posición %d salió %q y luego %q", at, first.Checks[at].ID, second.Checks[at].ID)
+			t.Fatalf("check %d = %q then %q, want the same order both times", at, first.Checks[at].ID, second.Checks[at].ID)
 		}
 	}
 
 	if first.Checks[0].ID != "docker-daemon" {
-		t.Fatalf("lo primero que hay que saber es si Docker responde, y salió %q", first.Checks[0].ID)
+		t.Fatalf("first check = %q, want whether Docker answers", first.Checks[0].ID)
 	}
 }
 
@@ -146,12 +146,12 @@ func TestOutsideAProjectOnlyTheMachineIsDiagnosed(t *testing.T) {
 
 	for _, finding := range diagnosis.Checks {
 		if finding.Scope == "project" {
-			t.Fatalf("fuera de un proyecto no debería haber comprobaciones de proyecto: %q", finding.ID)
+			t.Fatalf("check %q ran outside a project, want only the machine's", finding.ID)
 		}
 	}
 
 	if len(findingsFor(diagnosis, "docker-daemon")) != 1 {
-		t.Fatalf("las comprobaciones de la máquina siguen corriendo fuera de un proyecto")
+		t.Fatalf("machine checks outside a project = none, want them to run")
 	}
 }
 
@@ -159,7 +159,7 @@ func TestOnlyOneCheck(t *testing.T) {
 	diagnosis := doctorFor(true).Diagnose("ports")
 
 	if len(diagnosis.Checks) != 1 || diagnosis.Checks[0].ID != "ports" {
-		t.Fatalf("--only debería dejar una sola comprobación, y dejó %d", len(diagnosis.Checks))
+		t.Fatalf("checks with --only = %d, want 1", len(diagnosis.Checks))
 	}
 }
 
@@ -171,15 +171,15 @@ func TestACheckThatHangsDoesNotTakeTheDiagnosisWithIt(t *testing.T) {
 	diagnosis := physician.Diagnose("docker-daemon")
 
 	if len(diagnosis.Checks) != 1 {
-		t.Fatalf("la comprobación colgada debería reportarse igual, y salieron %d líneas", len(diagnosis.Checks))
+		t.Fatalf("checks with one hanging = %d, want it reported like the rest", len(diagnosis.Checks))
 	}
 
 	if !strings.Contains(diagnosis.Checks[0].Message, "timed out") {
-		t.Fatalf("una comprobación abandonada tiene que decirlo: %q", diagnosis.Checks[0].Message)
+		t.Fatalf("message of an abandoned check = %q, want it to say so", diagnosis.Checks[0].Message)
 	}
 
 	if diagnosis.Checks[0].Severity != core.SeverityWarning {
-		t.Fatalf("no saber no es un fallo, es un aviso")
+		t.Fatalf("severity of not knowing = failure, want a warning")
 	}
 }
 
@@ -209,17 +209,17 @@ func TestAPortHeldByAnotherEnvironmentNamesIt(t *testing.T) {
 	found := findingsFor(physician.Diagnose("ports"), "ports")
 
 	if len(found) != 1 {
-		t.Fatalf("dos puertos del mismo culpable son una línea, y salieron %d", len(found))
+		t.Fatalf("findings for two ports held by one thing = %d, want 1", len(found))
 	}
 
 	if found[0].Severity != core.SeverityError {
-		t.Fatalf("un puerto ocupado impide arrancar: %q", found[0].Severity)
+		t.Fatalf("severity of a port that is taken = %q, want it to stop a start", found[0].Severity)
 	}
 
 	// Lexicographic, which is the order `jq unique` produced and therefore the order already in
 	// everybody's output — not the order somebody would choose
 	if !strings.Contains(found[0].Message, "443, 80") || !strings.Contains(found[0].Message, "otra-tienda") {
-		t.Fatalf("el mensaje tiene que nombrar los puertos y el entorno: %q", found[0].Message)
+		t.Fatalf("message = %q, want it to name the ports and the environment", found[0].Message)
 	}
 }
 
@@ -236,7 +236,7 @@ func TestOurOwnPortsAreNotAConflict(t *testing.T) {
 	found := findingsFor(physician.Diagnose("ports"), "ports")
 
 	if len(found) != 1 || found[0].Severity != core.SeverityOK {
-		t.Fatalf("el propio entorno escuchando en su puerto no es un conflicto: %+v", found)
+		t.Fatalf("findings = %+v, want none where the environment holds its own port", found)
 	}
 }
 
@@ -252,7 +252,7 @@ func TestAPortHeldByTheHostWithNoNameSaysSo(t *testing.T) {
 	found := findingsFor(physician.Diagnose("ports"), "ports")
 
 	if len(found) != 1 || !strings.Contains(found[0].Message, "processes on the host") {
-		t.Fatalf("sin nombre de proceso el mensaje no puede inventarse uno: %+v", found)
+		t.Fatalf("findings = %+v, want no invented process name", found)
 	}
 }
 
@@ -266,7 +266,7 @@ func TestWithNothingToLookWithNothingIsClaimed(t *testing.T) {
 	found := findingsFor(physician.Diagnose("ports"), "ports")
 
 	if len(found) != 1 || found[0].Severity != core.SeverityWarning {
-		t.Fatalf("una comprobación que no puede mirar no puede decir que todo está libre: %+v", found)
+		t.Fatalf("findings = %+v, want a check that cannot look to say so", found)
 	}
 }
 
@@ -277,7 +277,7 @@ func TestAnAgentEnvironmentWithDataNobodyAnonymised(t *testing.T) {
 	found := findingsFor(physician.Diagnose("anonymised"), "anonymised")
 
 	if len(found) != 1 || found[0].Severity != core.SeverityError {
-		t.Fatalf("en un entorno de agente esto es cumplimiento, no orden: %+v", found)
+		t.Fatalf("findings in an agent environment = %+v, want it treated as compliance", found)
 	}
 }
 
@@ -285,7 +285,7 @@ func TestTheSameQuestionOfADeveloperCopyIsNotAFailure(t *testing.T) {
 	found := findingsFor(doctorFor(true).Diagnose("anonymised"), "anonymised")
 
 	if len(found) != 1 || found[0].Severity != core.SeverityOK {
-		t.Fatalf("preguntárselo a todo el mundo sería un aviso que nadie lee: %+v", found)
+		t.Fatalf("findings outside an agent environment = %+v, want none", found)
 	}
 }
 
@@ -305,6 +305,6 @@ func TestTheContextFingerprintIsTheShellOnes(t *testing.T) {
 	shared := physician.gather()
 
 	if fingerprint := physician.fingerprint(shared); fingerprint != "7a0329048d77eff6ce9873e3f8c8fef7" {
-		t.Fatalf("la huella tiene que coincidir con la que escribió la versión bash, y salió %q", fingerprint)
+		t.Fatalf("fingerprint = %q, want the one the shell implementation wrote", fingerprint)
 	}
 }

@@ -71,15 +71,15 @@ func TestLaConsultaLlegaAlContenedorDeEsteProyecto(t *testing.T) {
 	var salida bytes.Buffer
 
 	if _, err := db.Query(core.Project{Name: "tienda"}, "SELECT 1", &salida); err != nil {
-		t.Fatalf("consulta fallida: %v", err)
+		t.Fatalf("Query = %v, want no error", err)
 	}
 
 	if corredor.container != "abc123" {
-		t.Fatalf("fue al contenedor equivocado: %q", corredor.container)
+		t.Fatalf("container = %q, want this project's db", corredor.container)
 	}
 
 	if salida.String() != "1\n" {
-		t.Fatalf("la respuesta se devuelve tal cual: %q", salida.String())
+		t.Fatalf("answer = %q, want what the client said, unchanged", salida.String())
 	}
 }
 
@@ -94,12 +94,12 @@ func TestLaSentenciaViajaEnElEntornoYNoEnElComando(t *testing.T) {
 	db.Query(core.Project{Name: "tienda"}, sentencia, &bytes.Buffer{}) //nolint:errcheck
 
 	if len(corredor.environment) != 1 || corredor.environment[0] != "QUERY="+sentencia {
-		t.Fatalf("la sentencia tiene que ir en el entorno: %v", corredor.environment)
+		t.Fatalf("environment = %v, want the statement carried in it", corredor.environment)
 	}
 
 	for _, parte := range corredor.command {
 		if strings.Contains(parte, "comillas") {
-			t.Fatalf("y no en el comando: %v", corredor.command)
+			t.Fatalf("command = %v, want the statement not in it", corredor.command)
 		}
 	}
 }
@@ -115,7 +115,7 @@ func TestElClienteSeResuelveDentroDelContenedor(t *testing.T) {
 	entero := strings.Join(corredor.command, " ")
 
 	if !strings.Contains(entero, "command -v mariadb") || !strings.Contains(entero, "command -v mysql") {
-		t.Fatalf("tiene que probar los dos nombres: %q", entero)
+		t.Fatalf("command = %q, want it to try both client names", entero)
 	}
 }
 
@@ -128,7 +128,7 @@ func TestSinBaseDeDatosArribaSeDiceAsi(t *testing.T) {
 	refusal := refusalOf(t, err)
 
 	if refusal.Code != 5 || refusal.Hint != "hm start db" {
-		t.Fatalf("con su código y con qué hacer: %+v", refusal)
+		t.Fatalf("refusal = %+v, want a code and something to do", refusal)
 	}
 }
 
@@ -138,10 +138,10 @@ func TestElCodigoDeSalidaEsElDeLaConsulta(t *testing.T) {
 
 	status, err := db.Query(core.Project{Name: "tienda"}, "SELECT * FROM no_existe", &bytes.Buffer{})
 	if err != nil {
-		t.Fatalf("una consulta que falla no es un fallo de la herramienta: %v", err)
+		t.Fatalf("Query(a statement that fails) = %v, want no error of our own", err)
 	}
 
 	if status != 1 {
-		t.Fatalf("el código es el del cliente: %d", status)
+		t.Fatalf("status = %d, want the client's own", status)
 	}
 }

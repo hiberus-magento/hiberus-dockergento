@@ -13,7 +13,7 @@ func TestCadaRamaTieneSuPropioSchema(t *testing.T) {
 		reparto := AllocationFor(nombre, 0)
 
 		if antes, repetido := vistos[reparto.Schema]; repetido {
-			t.Fatalf("%q y %q comparten el schema %q", antes, nombre, reparto.Schema)
+			t.Fatalf("schema of %q = %q, want it to differ from %q's", nombre, reparto.Schema, antes)
 		}
 
 		vistos[reparto.Schema] = nombre
@@ -30,7 +30,7 @@ func TestLasTresBasesDeRedisNoSePisan(t *testing.T) {
 
 		for _, db := range []int{reparto.CacheDB, reparto.PageCacheDB, reparto.SessionDB} {
 			if antes, repetida := usadas[db]; repetida {
-				t.Fatalf("la base %d es del slot %d y también del %d", db, antes, slot)
+				t.Fatalf("Redis database %d belongs to slot %d and to %d, want one slot each", db, antes, slot)
 			}
 
 			usadas[db] = slot
@@ -38,7 +38,7 @@ func TestLasTresBasesDeRedisNoSePisan(t *testing.T) {
 	}
 
 	if len(usadas) != MaxSlots*3 {
-		t.Fatalf("tres bases por slot: %d", len(usadas))
+		t.Fatalf("Redis databases handed out = %d, want three per slot", len(usadas))
 	}
 }
 
@@ -46,7 +46,7 @@ func TestNoSeSalenDeLoQueRedisTiene(t *testing.T) {
 	ultimo := AllocationFor("rama", MaxSlots-1)
 
 	if ultimo.SessionDB >= RedisDatabases {
-		t.Fatalf("la base %d no existe en un Redis con %d", ultimo.SessionDB, RedisDatabases)
+		t.Fatalf("session database = %d, want less than the %d a Redis has", ultimo.SessionDB, RedisDatabases)
 	}
 }
 
@@ -55,7 +55,7 @@ func TestElSchemaEsUnNombreQueMariaDBAcepta(t *testing.T) {
 	reparto := AllocationFor("feature-algo-largo", 0)
 
 	if reparto.Schema != "m2_feature_algo_largo" {
-		t.Fatalf("los guiones no valen en un schema: %q", reparto.Schema)
+		t.Fatalf("schema = %q, want no dashes in it", reparto.Schema)
 	}
 }
 
@@ -63,6 +63,6 @@ func TestQuedarseSinSlotsSeExplica(t *testing.T) {
 	err := ErrNoSlots{Project: "tienda"}
 
 	if err.Error() == "" {
-		t.Fatal("una negativa sin motivo no sirve de nada")
+		t.Fatal("refusal with no reason, want one somebody can act on")
 	}
 }

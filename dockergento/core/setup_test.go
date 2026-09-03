@@ -10,21 +10,21 @@ import "testing"
 func TestTheWordsWardenUsesAreNotUnknownOptions(t *testing.T) {
 	options, err := ParseSetup([]string{"--clean-install", "--db-dump=/x.sql"}, "hm")
 	if err != nil {
-		t.Fatalf("no debería fallar: %v", err)
+		t.Fatalf("ParseSetup(warden spellings) = %v, want no error", err)
 	}
 
 	if !options.Install || options.Dump != "/x.sql" {
-		t.Fatalf("se leyó %+v", options)
+		t.Fatalf("ParseSetup(--clean-install --db-dump=/x.sql) = %+v, want install and the dump", options)
 	}
 }
 
 func TestAnOptionNobodyDeclaredIsRefused(t *testing.T) {
 	if _, err := ParseSetup([]string{"--tonteria"}, "hm"); err == nil {
-		t.Fatal("una opción que no existe no se acepta")
+		t.Fatal("ParseSetup(--tonteria) = nil, want a refusal")
 	}
 
 	if _, err := ParseSetup([]string{"algo"}, "hm"); err == nil {
-		t.Fatal("ni un argumento suelto")
+		t.Fatal("ParseSetup(a loose argument) = nil, want a refusal")
 	}
 }
 
@@ -57,7 +57,7 @@ func TestTheNameComposeWouldGive(t *testing.T) {
 		"/code/...":       "",
 	} {
 		if got := DeriveProjectName(dir); got != wanted {
-			t.Fatalf("%q: se deriva %q y hace falta %q", dir, got, wanted)
+			t.Fatalf("DeriveProjectName(%q) = %q, want %q", dir, got, wanted)
 		}
 	}
 }
@@ -65,11 +65,11 @@ func TestTheNameComposeWouldGive(t *testing.T) {
 // A value with a colon is an image somebody named; anything else is a version of one of ours.
 func TestWhichImageAServiceRuns(t *testing.T) {
 	if got := ServiceImage("php", "8.3-bookworm"); got != "hiberusmagento/php:8.3-bookworm" {
-		t.Fatalf("se resolvió %q", got)
+		t.Fatalf("ServiceImage(php, 8.3-bookworm) = %q, want hiberusmagento/php:8.3-bookworm", got)
 	}
 
 	if got := ServiceImage("nginx", "hiberusmagento/nginx:1.18"); got != "hiberusmagento/nginx:1.18" {
-		t.Fatalf("una imagen ya nombrada se deja: %q", got)
+		t.Fatalf("ServiceImage(nginx, an image somebody named) = %q, want it unchanged", got)
 	}
 }
 
@@ -77,11 +77,11 @@ func TestWhichImageAServiceRuns(t *testing.T) {
 // will fail to pull.
 func TestAMailCatcherWithNoImageIsRefused(t *testing.T) {
 	if _, err := RenderCompose("<mail_service>", map[string]string{"php": "8.3"}, "mailpit"); err == nil {
-		t.Fatal("sin imagen no se puede escribir el fichero")
+		t.Fatal("RenderCompose(mail catcher with no image) = nil, want a refusal")
 	}
 
 	if _, err := RenderCompose("x", map[string]string{}, "paloma"); err == nil {
-		t.Fatal("y un servicio que no existe tampoco")
+		t.Fatal("RenderCompose(a mail catcher that is not one) = nil, want a refusal")
 	}
 }
 
@@ -94,6 +94,6 @@ func TestWhatIsAlreadyMountedIsNotMountedAgain(t *testing.T) {
 		map[string]bool{"pub": true}, existing)
 
 	if mounts != "- ./patches.json:/var/www/html/patches.json:delegated\n" {
-		t.Fatalf("se montó %q", mounts)
+		t.Fatalf("BindMounts(what the template already mounts) = %q, want only what it does not", mounts)
 	}
 }

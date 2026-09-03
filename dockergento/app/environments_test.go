@@ -48,22 +48,22 @@ func TestContainersAreGroupedIntoEnvironments(t *testing.T) {
 	}
 
 	if len(environments) != 1 {
-		t.Fatalf("un proyecto es un entorno: %d", len(environments))
+		t.Fatalf("environments = %d, want 1", len(environments))
 	}
 
 	environment := environments[0]
 
 	if environment.Containers.Total != 3 || environment.Containers.Running != 2 {
-		t.Fatalf("cuenta inesperada: %+v", environment.Containers)
+		t.Fatalf("containers = %+v, want the ones this project has", environment.Containers)
 	}
 
 	// Half up is its own state, not a rounding of the other two: it is where people get stuck
 	if environment.Status != "partial" {
-		t.Fatalf("estado inesperado: %s", environment.Status)
+		t.Fatalf("status = %q, want it to say what is running", environment.Status)
 	}
 
 	if environment.Branch != "main" {
-		t.Fatalf("rama inesperada: %s", environment.Branch)
+		t.Fatalf("branch = %q, want the one its containers carry", environment.Branch)
 	}
 }
 
@@ -77,7 +77,7 @@ func TestStatusIsRunningStoppedOrPartial(t *testing.T) {
 		{1, 3, "partial"},
 	} {
 		if got := statusOf(this.running, this.total); got != this.expected {
-			t.Fatalf("%d/%d debería ser %s, no %s", this.running, this.total, this.expected, got)
+			t.Fatalf("status of %d running out of %d = %s, want %s", this.running, this.total, got, this.expected)
 		}
 	}
 }
@@ -92,12 +92,12 @@ func TestAnEnvironmentWhoseDirectoryIsGoneIsAnOrphan(t *testing.T) {
 	environments, _ := inventory.Environments()
 
 	if !environments[0].Orphan {
-		t.Fatal("un directorio que no está es un huérfano")
+		t.Fatal("environment whose directory is gone = not orphaned, want orphaned")
 	}
 
 	// And nobody asked git about a directory that is not there
 	if environments[0].Branch != "" {
-		t.Fatalf("no debería haber rama: %s", environments[0].Branch)
+		t.Fatalf("branch = %q, want none", environments[0].Branch)
 	}
 }
 
@@ -112,15 +112,15 @@ func TestAProjectWithoutOurLabelsStillCountsIfItHasPHP(t *testing.T) {
 	environments, _ := inventory.Environments()
 
 	if len(environments) != 1 {
-		t.Fatalf("debería contarse: %d", len(environments))
+		t.Fatalf("environments = %d, want the one that is there counted", len(environments))
 	}
 
 	if environments[0].HasMetadata {
-		t.Fatal("pero sin decir que lleva nuestras etiquetas")
+		t.Fatal("environment reads as ours, want it to say it is not")
 	}
 
 	if environments[0].Root != "/code/viejo" {
-		t.Fatalf("la raíz sale de la de compose: %s", environments[0].Root)
+		t.Fatalf("root = %q, want the one compose recorded", environments[0].Root)
 	}
 }
 
@@ -134,7 +134,7 @@ func TestSomethingElseEntirelyIsNotAnEnvironment(t *testing.T) {
 	environments, _ := inventory.Environments()
 
 	if len(environments) != 0 {
-		t.Fatalf("no es nuestro: %+v", environments)
+		t.Fatalf("environments = %+v, want a container that is not ours left out", environments)
 	}
 }
 
@@ -143,7 +143,7 @@ func TestAContainerWithNoProjectAtAllIsSkipped(t *testing.T) {
 
 	environments, _ := inventory.Environments()
 	if len(environments) != 0 {
-		t.Fatalf("sin nombre no hay entorno: %+v", environments)
+		t.Fatalf("environments = %+v, want a container with no project left out", environments)
 	}
 }
 
@@ -158,7 +158,7 @@ func TestALabelMissingOnOneContainerDoesNotEraseIt(t *testing.T) {
 	environments, _ := inventory.Environments()
 
 	if environments[0].Root != "/code/shop" || environments[0].Worktree != "feature-x" {
-		t.Fatalf("se perdió una etiqueta: %+v", environments[0])
+		t.Fatalf("environment = %+v, want every label it carries", environments[0])
 	}
 }
 
@@ -174,7 +174,7 @@ func TestTheOrderIsTheSameEverywhere(t *testing.T) {
 	environments, _ := inventory.Environments()
 
 	if environments[0].Name != "magento-demo" {
-		t.Fatalf("orden inesperado: %s antes que %s", environments[0].Name, environments[1].Name)
+		t.Fatalf("order = %s then %s, want them the other way round", environments[0].Name, environments[1].Name)
 	}
 }
 
@@ -182,6 +182,6 @@ func TestADaemonThatCannotBeReachedIsReported(t *testing.T) {
 	inventory := Inventory{Engine: engine{err: errors.New("sin demonio")}, FS: filesystem{}, Branches: branches{}}
 
 	if _, err := inventory.Environments(); err == nil {
-		t.Fatal("debería propagarse")
+		t.Fatal("the engine's failure = nil, want it carried out")
 	}
 }

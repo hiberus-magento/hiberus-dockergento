@@ -13,15 +13,15 @@ import (
 func TestMovingWrapsAtBothEnds(t *testing.T) {
 	// Somebody at the last option pressing down means the first one, not a beep
 	if at := move(2, 1, 3); at != 0 {
-		t.Fatalf("bajar desde la última vuelve a la primera, no a %d", at)
+		t.Fatalf("move(last, down) = %d, want 0", at)
 	}
 
 	if at := move(0, -1, 3); at != 2 {
-		t.Fatalf("subir desde la primera vuelve a la última, no a %d", at)
+		t.Fatalf("move(first, up) = %d, want the last", at)
 	}
 
 	if at := move(0, 1, 3); at != 1 {
-		t.Fatalf("y en medio se mueve una: %d", at)
+		t.Fatalf("move(0, down) = %d, want 1", at)
 	}
 }
 
@@ -29,7 +29,7 @@ func TestMovingWrapsAtBothEnds(t *testing.T) {
 // decides what that means.
 func TestMovingThroughNothing(t *testing.T) {
 	if at := move(0, 1, 0); at != 0 {
-		t.Fatalf("una lista vacía no se mueve: %d", at)
+		t.Fatalf("move(0, down, nothing) = %d, want 0", at)
 	}
 }
 
@@ -51,7 +51,7 @@ func TestTheChosenOneIsMarked(t *testing.T) {
 // chosen, and for a destructive question that is the wrong branch.
 func TestChoosingFromNothing(t *testing.T) {
 	if _, err := choose("¿qué?", nil); err != errNothingChosen {
-		t.Fatalf("una pregunta sin respuestas no se puede responder: %v", err)
+		t.Fatalf("choose(no options) = %v, want errNothingChosen", err)
 	}
 }
 
@@ -62,11 +62,11 @@ func TestANonInteractiveRunIsRefusedRatherThanGuessed(t *testing.T) {
 
 	_, err := choose("What should happen?", []string{"a", "b"})
 	if err == nil {
-		t.Fatal("no se puede elegir sin nadie a quien preguntar")
+		t.Fatal("choose in non-interactive mode = nil, want a refusal")
 	}
 
 	if err == errNothingChosen {
-		t.Fatal("y decirlo es distinto de que no se haya elegido nada")
+		t.Fatal("choose in non-interactive mode = errNothingChosen, want a refusal that says why")
 	}
 }
 
@@ -76,14 +76,14 @@ func TestAnAbortedQuestionIsNotAFailure(t *testing.T) {
 	stderr := &strings.Builder{}
 
 	if code := report(stderr, true, "down", errNothingChosen); code != exitInterrupted {
-		t.Fatalf("abortar una pregunta sale con 130, no con %d", code)
+		t.Fatalf("report(errNothingChosen) = %d, want 130", code)
 	}
 
 	if !strings.Contains(stderr.String(), "Nothing was chosen") {
-		t.Fatalf("y se dice: %q", stderr.String())
+		t.Fatalf("stderr = %q, want it to say nothing was chosen", stderr.String())
 	}
 
 	if strings.Contains(stderr.String(), "{") {
-		t.Fatalf("sin documento, ni en modo JSON: %q", stderr.String())
+		t.Fatalf("stderr = %q, want no document, not even in JSON mode", stderr.String())
 	}
 }
