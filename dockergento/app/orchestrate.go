@@ -39,6 +39,9 @@ type Operator struct {
 	// Snapshots takes the copy that `stop` and `down` offer before doing something that cannot be
 	// undone.
 	Snapshots *Snapshots
+
+	// Proxy is the one router on the machine, started for a project that is routed through it.
+	Proxy *Proxy
 }
 
 // The name of the one proxy on the machine, and the ports it listens on.
@@ -116,23 +119,13 @@ func (o Operator) ensureProxy() error {
 		return err
 	}
 
-	holder := ""
-
 	for _, container := range containers {
-		if !container.Running {
-			continue
-		}
-
-		if container.Name == proxyContainer {
+		if container.Running && container.Name == proxyContainer {
 			return nil
-		}
-
-		if holder == "" && holdsAny(container.Published, proxyPorts) {
-			holder = container.Name
 		}
 	}
 
-	if holder != "" {
+	if holder := holderOf(containers, proxyPorts); holder != "" {
 		return core.Refusal{
 			Kind:    "ports_taken",
 			Code:    6,
@@ -143,7 +136,13 @@ func (o Operator) ensureProxy() error {
 
 	o.announce("Starting the global proxy\n")
 
-	_, err = o.Legacy.Run([]string{"proxy", "up"})
+	if o.Proxy == nil {
+		_, err = o.Legacy.Run([]string{"proxy", "up"})
+
+		return err
+	}
+
+	_, err = o.Proxy.Up()
 
 	return err
 }
@@ -278,6 +277,27 @@ func holdsAny(published, wanted []string) bool {
 	}
 
 	return false
+}
+
+// holderOf is the container in the way, asked port by port in the order given.
+//
+// The order is not a detail: with a full stack up, one container holds 80 and another holds 443,
+// and the sentence names one of them. Asking about 80 first is what the shell implementation does,
+// and the two have to name the same one or the same situation reads as two different problems.
+func holderOf(containers []core.Container, ports []string) string {
+	for _, port := range ports {
+		for _, container := range containers {
+			if !container.Running || container.Name == core.ProxyContainer {
+				continue
+			}
+
+			if holdsAny(container.Published, []string{port}) {
+				return container.Name
+			}
+		}
+	}
+
+	return ""
 }
 
 // overlaps reports whether two container paths are the same place, or one inside the other.

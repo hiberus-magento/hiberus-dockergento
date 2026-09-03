@@ -93,7 +93,10 @@ detalle de cada una en `openspec/changes/`.
         instalado, con las flechas si se puede dibujar, y numerada donde no. Es la pieza que
         necesitan también `setup` y los asistentes, y ahora `stop --snapshot` toma la copia
         directamente en vez de pasar por el shell para hacerlo
-  - [ ] `proxy`, `setup`
+  - [x] `proxy` — arriba, abajo y estado, con el mismo fichero de compose byte a byte y las rutas
+        leídas de la API del propio Traefik. Con él, arrancar el proxy para un proyecto que lo
+        necesita deja de pasar por el shell
+  - [ ] `setup`
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web** — *empezada*
   - [x] `hm web`: la API HTTP y la interfaz de navegador, sobre las mismas llamadas que la CLI

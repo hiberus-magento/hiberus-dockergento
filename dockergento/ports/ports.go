@@ -277,6 +277,12 @@ type VolumeStore interface {
 	Users(name string) ([]string, error)
 }
 
+// NetworkStore is the shared network the proxy routes through.
+type NetworkStore interface {
+	Exists(name string) bool
+	Ensure(name string) error
+}
+
 // Legacy runs a command of the shell implementation.
 //
 // It exists because the migration is a strangler and not a rewrite: what has not been ported yet

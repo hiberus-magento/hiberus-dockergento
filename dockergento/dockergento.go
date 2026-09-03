@@ -33,6 +33,7 @@ import (
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/osfs"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/registry"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/toolinfo"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/traefik"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/app"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
@@ -421,6 +422,50 @@ func (e *Engine) Clone(dir, address string, force bool) (core.Template, error) {
 	}
 
 	return e.templates(project).Clone(project, configuration, address, force)
+}
+
+//
+// The global proxy: one router on the machine, so several projects can be up at once.
+//
+
+// ProxyUp starts it, and says whether it had to.
+func (e *Engine) ProxyUp() (bool, error) { return e.proxy().Up() }
+
+// ProxyDown stops it, and says whether it had to.
+func (e *Engine) ProxyDown() (bool, error) { return e.proxy().Down() }
+
+// ProxyStatus is whether it is running and what it is routing.
+func (e *Engine) ProxyStatus() (core.ProxyState, error) { return e.proxy().Status() }
+
+// Certify tells the proxy which certificate serves a domain.
+func (e *Engine) Certify(domain string) error { return e.proxy().Certify(domain) }
+
+func (e *Engine) proxy() app.Proxy {
+	return app.Proxy{
+		Engine:       dockerd.Engine{Timeout: e.options.Timeout},
+		Networks:     dockerd.Networks{},
+		Orchestrator: e.orchestratorWith(nil),
+		Tooling:      toolinfo.Reader{Root: e.options.Root},
+		Routes:       traefik.API{}.Routes,
+		Dir:          e.proxyDir(),
+		Announce:     e.options.Announce,
+		Binary:       e.options.Binary,
+	}
+}
+
+// proxyDir is where the proxy's own compose file and certificates live: beside everything else
+// this machine keeps, and outside every project, because it belongs to none of them.
+func (e *Engine) proxyDir() string {
+	if dir := os.Getenv("HM_PROXY_DIR"); dir != "" {
+		return dir
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "hm-proxy")
+	}
+
+	return filepath.Join(home, ".hm", "proxy")
 }
 
 //
@@ -1155,7 +1200,15 @@ func (e *Engine) operator(project core.Project) app.Operator {
 		Forced:       e.options.Forced,
 		Choose:       e.options.Choose,
 		Snapshots:    e.snapshotsFor(project),
+		Proxy:        e.proxyFor(),
 	}
+}
+
+// proxyFor is the machine's router, which a project routed through it needs started.
+func (e *Engine) proxyFor() *app.Proxy {
+	routing := e.proxy()
+
+	return &routing
 }
 
 // snapshotsFor is the copy-taker the lifecycle commands offer, or nothing when there is no project
