@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 #
 # Test runner. Usage:
-#   tests/run.sh            all suites
-#   tests/run.sh unit       only unit suites
-#   tests/run.sh <file>     a single suite
+#   tests/run.sh            everything: the Go suites and the shell ones
+#   tests/run.sh unit       only the shell unit suites
+#   tests/run.sh <file>     a single shell suite
+#   tests/run.sh --shell    only the shell suites
+#
+# Two suites, and the balance between them moves. What is written in Go is tested in Go — the
+# packages underneath and, in test/e2e, the built binary run the way somebody runs it. What is
+# still shell is tested in shell, and its suite goes when the command does.
+#
+# Both are reported, so that a test moving from one to the other does not read as coverage
+# disappearing.
 #
 set -uo pipefail
 
@@ -46,6 +54,28 @@ export HM_CACHE_DIR
 target="${1:-}"
 suites=()
 
+#
+# The Go suites first: they are seconds, and there is no reason to find out that the package tests
+# fail after twenty minutes of Docker.
+#
+go_failed=false
+
+if [ "$target" == "" ] && command -v go >/dev/null 2>&1; then
+    printf '\n\033[1;37mgo test ./...\033[0m\n'
+
+    go_output=$( cd "$PROJECT_ROOT" && go test ./... 2>&1 )
+    go_status=$?
+
+    if [ "$go_status" -eq 0 ]; then
+        printf '  \033[0;32m✓\033[0m %s packages passed\n' "$(printf '%s' "$go_output" | grep -cE '^ok')"
+    else
+        printf '%s\n' "$go_output" | grep -vE '^(ok|\?)'
+        go_failed=true
+    fi
+fi
+
+[ "$target" == "--shell" ] && target=""
+
 if [ -n "$target" ] && [ -f "$target" ]; then
     suites=("$target")
 elif [ -n "$target" ] && [ -d "$TESTS_DIR/$target" ]; then
@@ -77,6 +107,12 @@ for suite in "${suites[@]}"; do
 done
 
 printf '\n\033[1;37m────────────────────────────\033[0m\n'
+
+if $go_failed; then
+    printf '\033[0;31mthe Go suites failed\033[0m\n'
+    exit 1
+fi
+
 if [ "$total_failed" -eq 0 ] && [ ${#failed_suites[@]} -eq 0 ]; then
     printf '\033[0;32m%s assertions passed\033[0m\n' "$total_run"
     exit 0
