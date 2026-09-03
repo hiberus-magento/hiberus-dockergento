@@ -119,6 +119,36 @@ func fromSS(output string) []core.Listener {
 	return listeners
 }
 
+// MarkedHosts are the entries this tool put in /etc/hosts, by the domain each one names.
+//
+// Found by the marker it writes beside them. Before that marker existed there was no way to tell
+// its own entries from anybody else's, which is why nothing could offer to clean them up.
+func (Host) MarkedHosts(marker string) []string {
+	contents, err := os.ReadFile("/etc/hosts")
+	if err != nil {
+		return nil
+	}
+
+	domains := []string{}
+
+	for _, line := range strings.Split(string(contents), "\n") {
+		if !strings.Contains(line, marker) {
+			continue
+		}
+
+		for _, field := range strings.Fields(line) {
+			if strings.Contains(field, ".") && !strings.Contains(field, ":") &&
+				net.ParseIP(field) == nil {
+				domains = append(domains, field)
+
+				break
+			}
+		}
+	}
+
+	return domains
+}
+
 // InGroup answers whether the user belongs to a group.
 func (Host) InGroup(name string) bool {
 	current, err := user.Current()

@@ -62,6 +62,7 @@ func (registry) Forget(string, string) error               { return nil }
 func (registry) Overlay(string, string) string             { return "" }
 func (registry) WriteOverlay(string, string, string) error { return nil }
 func (registry) Save(string, core.Worktree) error          { return nil }
+func (registry) Parents() ([]string, error)                { return nil, nil }
 
 func TestMainCheckoutTakesItsOwnProperties(t *testing.T) {
 	resolver := Resolver{

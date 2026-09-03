@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 15 de 65 |
+| Comandos en Go | 16 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -80,7 +80,8 @@ detalle de cada una en `openspec/changes/`.
         que ya se puede porque los tres subcomandos de `worktree` son de la misma implementación
   - [~] `db` — la mitad de plantillas (`freeze`, `templates`, `clone`, `drop`), que es de la que
         depende `worktree`; las instantáneas siguen en shell
-  - [ ] `proxy`, `clean`, `setup`, `down`
+  - [x] `clean` — y con él ya nadie más escribe registraciones desde bash salvo `worktree.sh`
+  - [ ] `proxy`, `setup`, `down`
 - [ ] **5 · Servicios compartidos, seed, worktrees, GC** — donde gana el trabajo con agentes
 - [ ] **6 · Adaptadores de agente: `--json`, MCP, HTTP para la web** — *empezada*
   - [x] `hm web`: la API HTTP y la interfaz de navegador, sobre las mismas llamadas que la CLI
@@ -145,7 +146,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `ai-pull` | ai | 4 | shell |
 | `ai-reset` | ai | 4 | shell |
 | `bash` | tools | 3 | go |
-| `clean` | environment | 2 | shell |
+| `clean` | environment | 2 | go |
 | `cloud` | tools | 4 | shell |
 | `cloud-login` | tools | 4 | shell |
 | `compatibility` | tools | 4 | shell |

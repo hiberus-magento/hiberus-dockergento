@@ -14,6 +14,8 @@ type engine struct {
 
 func (e engine) Containers() ([]core.Container, error) { return e.containers, e.err }
 
+func (engine) Remove([]string) error { return nil }
+
 type filesystem struct{ present map[string]bool }
 
 func (f filesystem) IsDir(path string) bool  { return f.present[path] }

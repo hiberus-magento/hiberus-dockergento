@@ -94,6 +94,35 @@ report() {
     ( cd "$LAB" && "$HM" clean "$@" --json 2>/dev/null )
 }
 
+#
+# The ported implementation, over the same scene.
+#
+# Every assertion below is about what the command sees, and both implementations have to see the
+# same thing — so the cheapest way to hold that is to compare them here, where the fixture already
+# exists, rather than building it twice.
+#
+GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
+
+if [ -x "$GO_BINARY" ]; then
+    test_case "both implementations see the same thing"
+    assert_equals "$( cd "$LAB" && "$HM" clean --json 2>/dev/null | jq -S . )" \
+                  "$( cd "$LAB" && "$GO_BINARY" clean --json 2>/dev/null | jq -S . )"
+
+    test_case "and report it the same way"
+    assert_equals "$( cd "$LAB" && "$HM" --no-json clean 2>&1 )" \
+                  "$( cd "$LAB" && "$GO_BINARY" --no-json clean 2>&1 )"
+
+    #
+    # The lists arrive as lists. The accumulators are built with `\n` inside double quotes, which
+    # is two characters and not one: the text report prints them through `printf`, which
+    # interprets them, and jq does not — so every list used to arrive as a single entry with the
+    # whole blob inside it and a null reason.
+    #
+    test_case "and the lists are lists, not one entry with everything in it"
+    assert_equals "null" "$( cd "$LAB" && "$HM" clean --json 2>/dev/null |
+        jq -r '[.data.unattributable.environments[].reason] | map(select(. == null)) | first' )"
+fi
+
 # ---------------------------------------------------------------- what it sees
 
 test_case "an environment whose directory is gone is collectable"

@@ -190,3 +190,23 @@ func (r Registry) WriteOverlay(parent, name, contents string) error {
 
 	return os.WriteFile(r.Overlay(parent, name), []byte(contents), 0o644) //nolint:gosec
 }
+
+// Parents is every project that has registrations.
+func (r Registry) Parents() ([]string, error) {
+	entries, err := os.ReadDir(r.home())
+	if err != nil {
+		return []string{}, nil
+	}
+
+	parents := []string{}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			parents = append(parents, entry.Name())
+		}
+	}
+
+	sort.Strings(parents)
+
+	return parents, nil
+}

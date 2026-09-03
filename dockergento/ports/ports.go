@@ -66,6 +66,10 @@ type Registry interface {
 
 	// Save records a branch environment.
 	Save(parent string, worktree core.Worktree) error
+
+	// Parents is every project that has registrations, which is how what is abandoned is found
+	// without being told where to look.
+	Parents() ([]string, error)
 }
 
 // ContainerEngine is the Docker daemon.
@@ -74,6 +78,10 @@ type ContainerEngine interface {
 	// is built by grouping them, and asking per environment cost seconds on a machine with a
 	// hundred of them.
 	Containers() ([]core.Container, error)
+
+	// Remove takes containers away by id, forcing them: what is being removed has no directory
+	// left, so there is no configuration to stop it politely with.
+	Remove(ids []string) error
 }
 
 // Daemon is what the diagnosis asks Docker beyond the container list.
@@ -109,6 +117,9 @@ type Machine interface {
 	// Listening is every port held on this machine, with the process holding it when the tool
 	// that listed them names it.
 	Listening() ([]core.Listener, error)
+
+	// MarkedHosts are the entries this tool put in /etc/hosts, by the domain each one names.
+	MarkedHosts(marker string) []string
 
 	// InGroup answers whether the user belongs to a group, which on Linux decides whether they
 	// can talk to Docker at all.
@@ -246,6 +257,10 @@ type VolumeStore interface {
 	// Create makes one with the labels given, and Remove takes it away.
 	Create(name string, labels map[string]string) error
 	Remove(name string) error
+
+	// All is every volume on this machine, whether this tool made it or not: a volume carries no
+	// hm labels, so the only way to attribute one is through the containers of its project.
+	All() ([]string, error)
 
 	// Users are the containers holding a volume, of any state. A stopped container still holds
 	// one, which is why removing it is refused, and saying so beforehand is better than relaying

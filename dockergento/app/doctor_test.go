@@ -49,6 +49,7 @@ func (h host) Listening() ([]core.Listener, error) {
 	return h.listening, h.listenErr
 }
 func (h host) InGroup(string) bool         { return h.group }
+func (h host) MarkedHosts(string) []string { return nil }
 func (h host) Mkcert() (bool, string)      { return h.caroot != "", h.caroot }
 func (h host) HostsEntry(string) bool      { return h.hosts }
 func (h host) ResolvesLocally(string) bool { return h.resolves }

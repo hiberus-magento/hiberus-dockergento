@@ -2,6 +2,7 @@ package dockerd
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -102,6 +103,33 @@ func (v Volumes) Remove(name string) error {
 	defer cancel()
 
 	return docker.VolumeRemove(ctx, name, false)
+}
+
+// All is every volume on this machine, whether this tool made it or not.
+func (v Volumes) All() ([]string, error) {
+	docker, err := connect()
+	if err != nil {
+		return nil, err
+	}
+	defer docker.Close()
+
+	ctx, cancel := v.deadline()
+	defer cancel()
+
+	listed, err := docker.VolumeList(ctx, volume.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(listed.Volumes))
+
+	for _, one := range listed.Volumes {
+		names = append(names, one.Name)
+	}
+
+	sort.Strings(names)
+
+	return names, nil
 }
 
 // Users are the containers holding a volume, of any state.

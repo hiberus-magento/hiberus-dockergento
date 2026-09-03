@@ -73,9 +73,12 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			if !mirrorsVendor(rest[1:]) {
 				return composer(rest[1:], stdout, stderr, jsonOutput)
 			}
+		case "clean":
+			return clean(rest[1:], stdout, stderr, jsonOutput)
 		case "worktree":
-			// `list` and `remove` are ported; `add` is not. All three read and write the same
-			// registrations, so there is no moment where the two implementations disagree
+			// All three are ported, which is what will let the registry change underneath them:
+			// while one half wrote JSON and the other read SQLite there would be a branch
+			// environment `add` created that nothing else could see
 			if len(rest) > 1 && worktreeSubcommands[rest[1]] {
 				return worktree(rest[1:], stdout, stderr, jsonOutput)
 			}

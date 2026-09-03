@@ -99,3 +99,28 @@ func (e Engine) Containers() ([]core.Container, error) {
 
 	return containers, nil
 }
+
+// Remove takes containers away, forcing them.
+//
+// Forcing, because what this removes has no directory left: there is no configuration to stop it
+// politely with, and a running container of an environment nobody can reach is not something to
+// wait for.
+func (e Engine) Remove(ids []string) error {
+	docker, err := connect()
+	if err != nil {
+		return err
+	}
+	defer docker.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	for _, id := range ids {
+		if err := docker.ContainerRemove(ctx, id,
+			container.RemoveOptions{Force: true, RemoveVolumes: false}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

@@ -649,6 +649,29 @@ func configuredDatabase(e *Engine, project core.Project) (string, string) {
 	return app.DataDirectory(configuration)
 }
 
+//
+// Collecting what abandoned environments left behind.
+//
+
+// Survey finds everything collectable without touching any of it.
+func (e *Engine) Survey() (core.Collection, error) { return e.collector().Survey() }
+
+// Collect deletes what a survey found, and nothing else.
+func (e *Engine) Collect(collection core.Collection) error {
+	return e.collector().Collect(collection)
+}
+
+func (e *Engine) collector() app.Collector {
+	return app.Collector{
+		Engine:   dockerd.Engine{Timeout: e.options.Timeout},
+		Volumes:  dockerd.Volumes{},
+		Registry: e.registry(),
+		FS:       osfs.FS{},
+		Machine:  machine.Host{},
+		Marker:   "added by " + e.options.Binary,
+	}
+}
+
 func (e *Engine) worktrees() app.Worktrees {
 	return app.Worktrees{
 		Registry:     e.registry(),

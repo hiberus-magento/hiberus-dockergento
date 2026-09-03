@@ -67,21 +67,21 @@ while IFS='|' read -r name root; do
 
     collectable="${collectable}${name}\t${root}\n"
 done <<< "$(hm_container_table |
-    awk -F'|' '$5 != "" { print $5 "|" $6 }' | sort -u)"
+    awk -F'|' '$5 != "" { print $5 "|" $6 }' | LC_ALL=C sort -u)"
 
 # Environments without hm.* labels: known only by their phpfpm service, with no root to check
 while IFS='|' read -r name; do
     [ -z "$name" ] && continue
     unattributable="${unattributable}${name}\tno hm labels\n"
 done <<< "$(hm_container_table |
-    awk -F'|' '$5 == "" && $4 == "phpfpm" { print $3 }' | sort -u)"
+    awk -F'|' '$5 == "" && $4 == "phpfpm" { print $3 }' | LC_ALL=C sort -u)"
 
 #
 # Volumes are attributed through their project's containers. A volume whose project has no
 # containers left could belong to anything, so it is listed and left alone.
 #
 attributable_projects=$(printf "$collectable" | awk -F'\t' 'NF { print $1 }')
-known_projects=$(hm_container_table | awk -F'|' '{ print $3 }' | sort -u)
+known_projects=$(hm_container_table | awk -F'|' '{ print $3 }' | LC_ALL=C sort -u)
 
 collectable_volumes=""
 orphan_volumes=""
@@ -151,7 +151,7 @@ done
 orphan_hosts=""
 
 if [ -r /etc/hosts ]; then
-    known_domains=$(hm_container_table | awk -F'|' '{ print $3 }' | sort -u)
+    known_domains=$(hm_container_table | awk -F'|' '{ print $3 }' | LC_ALL=C sort -u)
 
     while IFS= read -r domain; do
         [ -z "$domain" ] && continue
@@ -179,14 +179,23 @@ hosts=$(count_lines "$orphan_hosts")
 
 # ------------------------------------------------------------------ report
 
+#
+# The accumulators above are built with `\n` and `\t` inside double quotes, which are two
+# characters and not one. The text report prints them through `printf`, which interprets them; jq
+# does not, so `split("\n")` found nothing to split and every list arrived as a single entry with
+# the whole blob inside it and a null reason.
+#
+# Interpreted here and not by reassigning the variables: `$(...)` eats the trailing newline, and
+# the deletion below reads them with `while read`, which drops the last line without one.
+#
 if is_json_output; then
     json_success "clean" "$(jq -n \
-        --arg collectable "$collectable" \
-        --arg volumes "$collectable_volumes" \
-        --arg strays "$orphan_volumes" \
-        --arg unknown "$unattributable" \
-        --arg worktrees "$orphan_worktrees" \
-        --arg hosts "$orphan_hosts" \
+        --arg collectable "$(printf '%b' "$collectable")" \
+        --arg volumes "$(printf '%b' "$collectable_volumes")" \
+        --arg strays "$(printf '%b' "$orphan_volumes")" \
+        --arg unknown "$(printf '%b' "$unattributable")" \
+        --arg worktrees "$(printf '%b' "$orphan_worktrees")" \
+        --arg hosts "$(printf '%b' "$orphan_hosts")" \
         --argjson removed "$($remove && echo true || echo false)" \
         '{
             removed: $removed,
