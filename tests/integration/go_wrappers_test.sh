@@ -180,4 +180,32 @@ test_case "and what it writes is what the shell implementation writes"
 ( cd "$DIR" && "$SHELL_CLI" mysqldump "$LAB/shell.sql" ) >/dev/null 2>&1
 assert_equals "$(grep -c 'INSERT INTO' "$LAB/shell.sql")" "$(grep -c 'INSERT INTO' "$LAB/salida.sql")"
 
+# ---------------------------------------------------------------- version
+
+#
+# Which build of the tool this is, and what is underneath it: not "1.4.5", but 1.4.5 and eleven
+# commits, on this branch, with uncommitted changes — which is the difference between a report
+# somebody can act on and one naming the version somebody happened to have tagged.
+#
+test_case "both report the same installation"
+assert_equals "$( "$SHELL_CLI" version --json | jq -S . )" \
+              "$( "$GO_BINARY" version --json | jq -S 'del(.data.binary)' )"
+
+#
+# One field is new, and it is the one the shell implementation cannot answer about itself: which
+# build of the binary is running. It is why the diagnostic that used to answer it is gone.
+#
+test_case "and the ported half says which build of it is running"
+assert_equals "0" "$( "$GO_BINARY" version --json | jq -e '.data.binary != null' >/dev/null; echo $? )"
+
+test_case "the words a person reads are the same, but for that line"
+assert_equals "$( "$SHELL_CLI" --no-json version 2>&1 )" \
+              "$( "$GO_BINARY" --no-json version 2>&1 | grep -v '^  binary' )"
+
+test_case "it needs no project, because the problem may be that there is no project"
+assert_equals "0" "$( cd "$LAB" && "$GO_BINARY" version >/dev/null 2>&1; echo $? )"
+
+test_case "and an option nobody declared is a usage error"
+assert_equals "2" "$( "$GO_BINARY" version --tonteria >/dev/null 2>&1; echo $? )"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

@@ -32,7 +32,7 @@ go test ./...                  # los tests de Go
 ./bin/hm hm-go-project         # lo que la capa Go resuelve aquí
 ```
 
-**El andamio, y cuándo se cae.** Hay dos entradas que no son comandos —no salen en `--help` ni
+**El andamio, y cuándo se cae.** Queda una entrada que no es comando —no salen en `--help` ni
 están en `command_descriptions.json`, y llevan guion bajo porque es lo que ese fichero ya usa para
 las claves que no son comandos—. Existen porque, mientras la disciplina sea paridad byte a byte,
 un comando portado no puede reportar nada que el de bash no reporte, así que lo que sólo sabe la
@@ -40,7 +40,6 @@ capa Go no tiene dónde mirarse. Cada una muere en un sitio concreto:
 
 | | qué enseña | desaparece cuando |
 |---|---|---|
-| `hm _binary` | qué build del binario corre | se porte `version`, y pase a ser un campo suyo |
 | `hm _registry` | lo que guarda el registro | nada en shell necesite leerlo: hoy es también por donde lo lee `bin/run` |
 
 El código está en dos mitades. `dockergento/` es la herramienta como librería —dominio, puertos,
@@ -107,6 +106,7 @@ detalle de cada una en `openspec/changes/`.
   - [x] Los envoltorios: `purge`, `npm`, `n98-magerun`, `test-unit`, `test-integration`,
         `mysqldump`, `varnish-on` y `varnish-off`. Todos son una cosa ejecutada en un contenedor, y
         lo que no podían era diferir entre sí en cómo llegan a él
+  - [x] `version` — y con él muere `hm _binary`: qué build del binario corre es un campo suyo
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.

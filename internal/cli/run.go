@@ -5,7 +5,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"runtime/debug"
 )
 
 // Version is stamped at build time. Empty means a build nobody released.
@@ -46,11 +45,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		//
 		// Each has a condition for disappearing, written down in MIGRATION.md:
 		//
-		//   _binary    goes into `hm version` when `version` is ported
-		//   _registry  goes into `hm worktree list` when `worktree` is ported
+		//   _registry  goes when nothing in shell needs to read the registry: it is also how
+		//              `bin/run` reads it, now that the registry is a database
 		//
-		case "_binary":
-			return goVersion(stdout)
 		case "_registry":
 			return registryState(stdout, stderr)
 		case "list":
@@ -100,6 +97,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return execute(rest[1:], stdout, stderr, jsonOutput)
 		case "down":
 			return down(rest[1:], stdout, stderr, jsonOutput)
+		case "version":
+			return version(rest[1:], stdout, stderr, jsonOutput)
 		case "purge":
 			return purge(stdout, stderr, jsonOutput)
 		case "npm":
@@ -140,30 +139,4 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	return code
-}
-
-// goVersion says which binary this is and what it was built from. It is the one question that
-// cannot be answered by the shell implementation, because the shell implementation is not the
-// thing being asked about.
-func goVersion(stdout io.Writer) int {
-	version := Version
-	if version == "" {
-		version = "dev"
-	}
-
-	revision := ""
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, setting := range info.Settings {
-			if setting.Key == "vcs.revision" && len(setting.Value) >= 7 {
-				revision = setting.Value[:7]
-			}
-		}
-	}
-
-	fmt.Fprintf(stdout, "%s\n", version)
-	if revision != "" {
-		fmt.Fprintf(stdout, "%s\n", revision)
-	}
-
-	return 0
 }

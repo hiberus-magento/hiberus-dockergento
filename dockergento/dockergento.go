@@ -462,6 +462,19 @@ func (e *Engine) Clone(dir, address string, force bool) (core.Template, error) {
 	return e.templates(project).Clone(project, configuration, address, force)
 }
 
+// Installed is which build of the tool this is, and what is underneath it.
+//
+// It takes no project, because the problem being reported may be that there is no project.
+func (e *Engine) Installed() (core.Installation, core.Tooling) {
+	reader := toolinfo.Reader{Root: e.options.Root}
+
+	return gitvcs.Git{}.Installed(e.options.Root), core.Tooling{
+		Docker:         reader.DockerVersion(),
+		Compose:        reader.ComposeVersion(),
+		ComposeCommand: reader.ComposeCommand(),
+	}
+}
+
 // Setup creates a project's environment: what its containers are called, what address it answers
 // on, where its code lives, and the compose files that follow from those.
 func (e *Engine) Setup(dir string, options core.SetupOptions, interactive bool) error {

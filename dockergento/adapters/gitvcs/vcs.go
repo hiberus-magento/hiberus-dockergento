@@ -2,6 +2,8 @@
 package gitvcs
 
 import (
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
+
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -161,4 +163,52 @@ func (Git) Tracked(dir string) ([]string, error) {
 	}
 
 	return entries, nil
+}
+
+// Installed describes the checkout the tool is installed from.
+//
+// `git describe --tags` without --abbrev=0 on purpose: rounded to the nearest tag it said "1.4.5"
+// while eleven commits ahead of it, so whoever reported a bug could not say what they were
+// reporting it against.
+func (Git) Installed(dir string) core.Installation {
+	// Trimmed here rather than in `run`: what git prints is a line, and the callers that split it
+	// into lines need the newlines that this one does not
+	described := line(run(dir, "describe", "--tags"))
+	tag := line(run(dir, "describe", "--tags", "--abbrev=0"))
+	commit := line(run(dir, "rev-parse", "--short", "HEAD"))
+	branch := line(run(dir, "rev-parse", "--abbrev-ref", "HEAD"))
+
+	installation := core.Installation{
+		Version: described,
+		Tag:     tag,
+		Commit:  commit,
+		Branch:  branch,
+		Path:    dir,
+	}
+
+	if installation.Version == "" {
+		installation.Version = "unknown"
+	}
+
+	if installation.Branch == "HEAD" {
+		installation.Detached = true
+		installation.Branch = ""
+	}
+
+	installation.CommitsAhead = core.CommitsAhead(described)
+
+	// Tracked changes only: untracked files are the user's own and do not say which version is
+	// installed
+	installation.Dirty = line(run(dir, "status", "--porcelain", "--untracked-files=no")) != ""
+
+	return installation
+}
+
+// line is a git answer that is one line, without it.
+func line(output string, err error) string {
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(output)
 }

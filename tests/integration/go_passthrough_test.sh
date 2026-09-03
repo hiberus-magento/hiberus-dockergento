@@ -112,7 +112,7 @@ assert_equals "$(jq -S 'del(.data)' < "$LAB/shell.out")" "$(jq -S 'del(.data)' <
 # like it had worked — including to the tests that were comparing the two.
 #
 test_case "a global flag before the command still reaches the Go implementation"
-assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" --no-json _binary >/dev/null 2>&1; echo $? )"
+assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" --no-json version >/dev/null 2>&1; echo $? )"
 
 test_case "and it decides the format, wherever it is written"
 assert_equals "$( cd "$DIR" && "$GO_BINARY" --json describe )" "$( cd "$DIR" && "$GO_BINARY" describe --json )"
@@ -252,8 +252,13 @@ HOME="$CASA" "$GO_BINARY" _registry >/dev/null 2>&1
 assert_equals "1" "$( HOME="$CASA" "$GO_BINARY" _registry | jq -r '.data.projects[0].worktrees | length' )"
 rm -rf "$CASA"
 
-test_case "the binary says which build it is, which the shell one cannot"
-assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" _binary >/dev/null 2>&1; echo $?)"
+#
+# Which build of the binary is running is a field of `version` now, and the diagnostic that used to
+# answer it is gone: it existed while a ported command could not report anything the shell one did
+# not, and `version` reports it.
+#
+test_case "which build the binary is, is part of the version it reports"
+assert_contains "$( cd "$DIR" && "$GO_BINARY" --no-json version 2>&1 )" "binary"
 
 # ---------------------------------------------------------------- installed shape
 #

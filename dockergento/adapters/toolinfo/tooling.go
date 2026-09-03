@@ -217,3 +217,37 @@ func (s State) file(environment string) (string, error) {
 
 	return filepath.Join(directory, environment+".json"), nil
 }
+
+// DockerVersion is the daemon's version, asked of the daemon.
+//
+// Not being able to answer is a fact worth reporting rather than a reason to fail: a report that
+// says "docker: not available" is more useful than no report, and the reason somebody is running
+// this command may be that Docker is not running.
+func (Reader) DockerVersion() string {
+	docker, err := connect()
+	if err != nil {
+		return ""
+	}
+	defer docker.Close()
+
+	version, err := docker.ServerVersion(context.Background())
+	if err != nil {
+		return ""
+	}
+
+	return version.Version
+}
+
+// ComposeCommand is how Compose is invoked on this machine, which is what a bug report needs to
+// tell a v2 plugin from the old standalone one.
+func (Reader) ComposeCommand() string {
+	if err := exec.Command("docker", "compose", "version").Run(); err == nil {
+		return "docker compose"
+	}
+
+	if _, err := exec.LookPath("docker-compose"); err == nil {
+		return "docker-compose"
+	}
+
+	return ""
+}
