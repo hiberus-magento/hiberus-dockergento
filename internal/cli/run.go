@@ -97,6 +97,12 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return execute(rest[1:], stdout, stderr, jsonOutput)
 		case "down":
 			return down(rest[1:], stdout, stderr, jsonOutput)
+		case "set-host":
+			return setHost(rest[1:], stdout, stderr, jsonOutput)
+		case "copy-to-container":
+			return copyInto(rest[1:], stdout, stderr, jsonOutput)
+		case "copy-from-container":
+			return copyFrom(rest[1:], stdout, stderr, jsonOutput)
 		case "version":
 			return version(rest[1:], stdout, stderr, jsonOutput)
 		case "purge":

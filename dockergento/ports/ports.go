@@ -297,3 +297,22 @@ type Legacy interface {
 	// returns its exit code.
 	Run(args []string) (int, error)
 }
+
+// FileTransfer moves files between this machine and a container.
+//
+// It exists for the case macOS makes necessary: the code lives in a volume for speed, so what is
+// written on one side has to be carried to the other. It is also how a certificate gets into the
+// container that serves it.
+type FileTransfer interface {
+	Into(container, source, target string) error
+	From(container, source, target string) error
+}
+
+// Resolver answers whether a name already reaches this machine.
+//
+// Asked of the machine's own resolution rather than of a file: a wildcard resolver for the TLD
+// makes an entry in the hosts file pointless, and that entry is what costs a password prompt per
+// project and stays for as long as the machine lives.
+type Resolver interface {
+	ResolvesLocally(domain string) bool
+}

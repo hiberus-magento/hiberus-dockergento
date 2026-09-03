@@ -194,3 +194,114 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	return exitOK
 }
+
+//
+// Moving a project's files between this machine and its container.
+//
+// Only on macOS is this something anybody has to think about: there the code lives in a volume
+// rather than a mount, which is what makes PHP fast enough to work in, and the price is that the
+// two sides are two places.
+//
+
+func copyInto(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	if len(args) == 0 {
+		return failure(stderr, jsonOutput, "copy-to-container", exitUsage, "missing_path",
+			"What should be copied into the container?",
+			binaryName()+" copy-to-container app/code")
+	}
+
+	if _, code := projectOr(stderr, jsonOutput, "copy-to-container"); code != 0 {
+		return code
+	}
+
+	all := args[0] == "--all"
+
+	err := engine(stdout, stderr, jsonOutput).CopyInto(here(), args, all)
+	if err != nil {
+		return report(stderr, jsonOutput, "copy-to-container", err)
+	}
+
+	if jsonOutput {
+		return document(stdout, stderr, "copy-to-container", map[string]any{
+			"copied": args, "all": all,
+		})
+	}
+
+	return exitOK
+}
+
+func copyFrom(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	if len(args) == 0 {
+		return failure(stderr, jsonOutput, "copy-from-container", exitUsage, "missing_path",
+			"What should be copied out of the container?",
+			binaryName()+" copy-from-container generated")
+	}
+
+	if _, code := projectOr(stderr, jsonOutput, "copy-from-container"); code != 0 {
+		return code
+	}
+
+	if err := engine(stdout, stderr, jsonOutput).CopyFrom(here(), args); err != nil {
+		return report(stderr, jsonOutput, "copy-from-container", err)
+	}
+
+	if jsonOutput {
+		return document(stdout, stderr, "copy-from-container", map[string]any{"copied": args})
+	}
+
+	return exitOK
+}
+
+// setHost points a domain at this machine and tells Magento what it answers on.
+//
+// Two different things, and they fail differently: one needs the system password and touches a file
+// every program on the machine reads; the other is a row in the project's database.
+func setHost(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	domain := ""
+	database := true
+	remove := false
+
+	for _, argument := range args {
+		switch argument {
+		case "--remove":
+			remove = true
+		case "--no-database":
+			database = false
+		default:
+			if strings.HasPrefix(argument, "-") {
+				return failure(stderr, jsonOutput, "set-host", exitUsage, "invalid_argument",
+					"Unknown option: "+argument, binaryName()+" set-host shop.test")
+			}
+
+			domain = argument
+		}
+	}
+
+	if remove {
+		if err := engine(stdout, stderr, jsonOutput).RemoveHost(domain); err != nil {
+			return report(stderr, jsonOutput, "set-host", err)
+		}
+
+		if jsonOutput {
+			return document(stdout, stderr, "set-host", map[string]any{"removed": domain})
+		}
+
+		return exitOK
+	}
+
+	if _, code := projectOr(stderr, jsonOutput, "set-host"); code != 0 {
+		return code
+	}
+
+	if err := engine(stdout, stderr, jsonOutput).SetHost(here(), domain, database); err != nil {
+		return report(stderr, jsonOutput, "set-host", err)
+	}
+
+	if jsonOutput {
+		return document(stdout, stderr, "set-host", map[string]any{
+			"domain": domain, "database": database,
+		})
+	}
+
+	return exitOK
+}

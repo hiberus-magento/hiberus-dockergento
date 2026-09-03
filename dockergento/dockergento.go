@@ -475,6 +475,77 @@ func (e *Engine) Installed() (core.Installation, core.Tooling) {
 	}
 }
 
+// SetHost points a domain at this machine and tells Magento what it answers on.
+func (e *Engine) SetHost(dir, domain string, database bool) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	return e.hosts().Set(project, domain, database)
+}
+
+// RemoveHost takes out the entry this tool added for a domain, and nothing else.
+func (e *Engine) RemoveHost(domain string) error { return e.hosts().Remove(domain) }
+
+func (e *Engine) hosts() app.Hosts {
+	return app.Hosts{
+		Properties: e.properties(),
+		Resolver:   machine.Resolver{},
+		Legacy:     legacy.Runner{Root: e.options.ShellRoot},
+		File:       os.Getenv("HM_HOSTS_FILE"),
+		Announce:   e.options.Announce,
+		Binary:     e.options.Binary,
+	}
+}
+
+//
+// Moving a project's files between this machine and its container, which is what macOS makes
+// necessary: there the code lives in a volume rather than a mount.
+//
+
+// CopyInto copies paths from the project into the container, or all of it.
+func (e *Engine) CopyInto(dir string, paths []string, all bool) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	transfer := e.transfer(project)
+	owner := e.Property(project, "USER_PHP") + ":" + e.Property(project, "GROUP_PHP")
+
+	if owner == ":" {
+		owner = ""
+	}
+
+	if all {
+		return transfer.All(project, owner)
+	}
+
+	return transfer.Into(project, paths, owner)
+}
+
+// CopyFrom copies paths out of the container into the project.
+func (e *Engine) CopyFrom(dir string, paths []string) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	return e.transfer(project).From(project, paths)
+}
+
+func (e *Engine) transfer(project core.Project) app.Transfer {
+	return app.Transfer{
+		Engine:   dockerd.Engine{Timeout: e.options.Timeout},
+		Files:    dockerd.Files{},
+		Runner:   dockerd.Runner{},
+		Workdir:  e.Property(project, "WORKDIR_PHP"),
+		Announce: e.options.Announce,
+		Binary:   e.options.Binary,
+	}
+}
+
 // Setup creates a project's environment: what its containers are called, what address it answers
 // on, where its code lives, and the compose files that follow from those.
 func (e *Engine) Setup(dir string, options core.SetupOptions, interactive bool) error {

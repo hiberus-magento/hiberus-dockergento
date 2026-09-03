@@ -51,6 +51,24 @@ puertas más sobre las mismas llamadas.
 Lo siguiente por hacer está siempre en la primera fase sin terminar de la lista de abajo, y el
 detalle de cada una en `openspec/changes/`.
 
+## Las pruebas
+
+Dos suites, y la balanza entre ellas se mueve.
+
+Lo escrito en Go se prueba en Go: los paquetes de debajo, y en `test/e2e` el binario construido,
+ejecutado como lo ejecuta una persona. Lo que sigue en shell se prueba en shell, y su suite se va
+cuando se va el comando.
+
+La regla, que es la misma disciplina que el resto del port: **un comando portado → su prueba en Go
+→ se borran la implementación de shell y su prueba de bash**, en ese orden. Nada de shell se borra
+antes de que su comportamiento esté cubierto en Go. Mientras las dos mitades existan, la prueba de
+paridad se queda en bash, porque es lo que es: un diff entre un binario y un script, y la mitad de
+sus entradas son funciones de bash.
+
+`tests/run.sh` corre las dos y reporta las dos, para que una prueba que cambia de sitio no se lea
+como cobertura que desaparece. Las de Go van primero, porque son segundos y no tiene sentido
+enterarse de que fallan después de veinte minutos de Docker.
+
 ## Fases
 
 - [x] **0 · Estabilizar la 1.x.** Concurrencia, colisiones, `vendor` montado, cachés que no
@@ -107,6 +125,12 @@ detalle de cada una en `openspec/changes/`.
         `mysqldump`, `varnish-on` y `varnish-off`. Todos son una cosa ejecutada en un contenedor, y
         lo que no podían era diferir entre sí en cómo llegan a él
   - [x] `version` — y con él muere `hm _binary`: qué build del binario corre es un campo suyo
+  - [x] `copy-to-container` y `copy-from-container` — por SDK, con su propio tar, que es lo que
+        hace `docker cp` sin el proceso. Un camino que ya es un bind mount se rechaza en vez de
+        copiarse encima de sí mismo
+  - [x] `set-host` — con el fichero de hosts redirigible, así que por primera vez está probado lo
+        que le hace: que no añade nada si el nombre ya resuelve aquí, y que sólo borra lo que puso
+        él
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
