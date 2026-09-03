@@ -5,9 +5,20 @@ context: |
   Magento 2 / Adobe Commerce. Traduce comandos propios a `docker compose` sobre un stack
   de 9 servicios (phpfpm, nginx, db, search, redis, varnish, hitch, mailhog, rabbitmq).
 
-  Implementación: **100 % Bash**. No hay compilación ni gestor de dependencias.
-    - `bin/run` — router de comandos y punto de entrada
-    - `console/commands/*.sh` — un fichero por comando
+  Implementation: **Go binary + Bash, migration in progress** (not 100% Bash anymore).
+    Go module `github.com/hiberus-magento/hiberus-dockergento` (go 1.25), built with
+    `.goreleaser.yaml` from `cmd/hm`. What already moved to Go replaces the equivalent
+    Bash command; what has not yet moved still runs from `console/`.
+    - `cmd/hm/main.go` — Go binary entry point
+    - `internal/cli/` — Cobra command wiring, output, wrappers already ported to Go
+    - `internal/api/` — local HTTP/dashboard server
+    - `dockergento/` — Go core: `core/` (domain logic), `app/` (use cases),
+      `adapters/` (docker, compose, fs, registry, git, machine, traefik, legacy Bash
+      bridge), `ports/`, `contract/`
+    - `dockergento/adapters/legacy/` — bridges to Bash commands not yet ported
+    - `test/e2e/` — Go end-to-end suite driving the built `hm` binary against real Docker
+    - `bin/run` — router de comandos Bash y punto de entrada legacy
+    - `console/commands/*.sh` — un fichero por comando aún no migrado
     - `console/tasks/*.sh` — funciones reutilizables
     - `console/helpers/*.sh` — utilidades (docker, properties, versiones, argumentos)
     - `console/components/*.sh` — E/S (print_message.sh, input_info.sh)
@@ -15,6 +26,7 @@ context: |
     - `docker-compose/*.template.yml` — plantillas de compose
     - `Dockerfiles/<servicio>/<versión>/` — imágenes propias, publicadas en Docker Hub
       mediante `.github/workflows/dockerhub-publish.yml`
+    - `MIGRATION.md` — estado y plan de la migración Bash → Go
 
   Convenciones de código:
     - `#!/usr/bin/env bash` y `set -euo pipefail` en todos los scripts
@@ -38,6 +50,29 @@ context: |
     - Problema conocido y aún abierto: dos proyectos Dockergento no pueden estar levantados
       a la vez porque cada uno publica los puertos 80, 443, 3306, 9200, 8025, 5672 y 15672.
 
+strict_tdd: true
+
+# One workspace-level project: the repository root (Go module + Bash console/).
+# `tests/run.sh` (no args) is the single command that covers both stacks, so
+# strict TDD is enabled workspace-wide (see sdd/hiberus-dockergento/testing-capabilities).
+testing:
+  projects:
+    - path: "."
+      stack: "Go 1.25 (cmd/hm, internal/, dockergento/) + Bash (bin/run, console/)"
+      test_command: "tests/run.sh"
+      framework: "Go testing + tests/lib/assert.sh"
+  test_command: "tests/run.sh"
+  build_command: "go build -o bin/hm ./cmd/hm"
+  coverage_threshold: 0
+  notes: >
+    `tests/run.sh` with no argument runs `go test ./...` (dockergento/, internal/,
+    cmd/, and the Go-based test/e2e suite) and then every `*_test.sh` under tests/
+    (unit, integration, performance). `tests/run.sh tests/unit` runs only the Bash
+    unit suites (what CI runs, since integration/performance need a real Docker
+    project). `tests/run.sh --shell` skips the Go suite; a single file also runs
+    standalone. CI (`.github/workflows/go.yml`) additionally runs `gofmt -l ./cmd
+    ./internal` and `go vet ./...` before `go test ./... -race`.
+
 rules:
   proposal:
     - Enlaza el ID del backlog (`docs/research/backlog.md`) al que corresponde el cambio.
@@ -51,3 +86,18 @@ rules:
   design:
     - "Justifica cualquier dependencia externa nueva: en Bash puro es preferible."
     - Describe el comportamiento en mac y en linux cuando difieran.
+  apply:
+    guidelines:
+      - "Sigue los patrones existentes: hexagonal en dockergento/ (core/app/adapters/ports),
+        wrappers Cobra en internal/cli/, Bash con `set -euo pipefail` y
+        console/components/print_message.sh para toda la salida en lo que quede sin portar."
+      - "Todo comando que se porta a Go llega con sus tests de shell portados y el mismo
+        contrato (códigos de salida, `--json`, preguntas) — ver MIGRATION.md."
+    tdd: true
+    test_command: "tests/run.sh"
+  verify:
+    test_command: "tests/run.sh"
+    build_command: "go build -o bin/hm ./cmd/hm"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas.

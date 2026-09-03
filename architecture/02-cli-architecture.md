@@ -2,7 +2,7 @@
 
 ### 2.1 Design Pattern: Command Router
 
-The tool implements a **Command Router** pattern written entirely in **Bash**. The execution flow follows a modular layered architecture that separates the responsibilities of initialization, validation, routing, and execution.
+The tool implements a **Command Router** pattern with a strangler-fig migration in progress: the `cmd/hm` Go binary is the entry point, `internal/cli/run.go`'s switch routes commands already ported to Go, and everything not yet ported falls through untouched to the `bin/run` Bash bridge described below — `MIGRATION.md` tracks which commands are on which side. The execution flow below is `bin/run`'s: it follows a modular layered architecture that separates the responsibilities of initialization, validation, routing, and execution for commands that reach it.
 
 ### 2.2 Execution Flow
 
