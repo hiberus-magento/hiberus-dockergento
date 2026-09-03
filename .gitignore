@@ -13,3 +13,6 @@ console/hm-completion.bash
 
 # The Go binary is built, not committed
 /bin/hm
+
+# Local CodeGraph index
+.codegraph/
