@@ -31,7 +31,7 @@ listed=$(rows | cut -f1 | sort)
 test_case "every command is in the table"
 missing=""
 while IFS= read -r command; do
-    printf '%s\n' "$listed" | grep -qx "$command" || missing="$missing $command"
+    grep -qx "$command" <<< "$listed" || missing="$missing $command"
 done <<< "$(commands)"
 assert_equals "" "$missing"
 
@@ -39,7 +39,7 @@ test_case "and the table invents none"
 invented=""
 while IFS=$'\t' read -r command _; do
     [ -z "$command" ] && continue
-    commands | grep -qx "$command" || invented="$invented $command"
+    grep -qx "$command" <<< "$(commands)" || invented="$invented $command"
 done <<< "$(rows)"
 assert_equals "" "$invented"
 
