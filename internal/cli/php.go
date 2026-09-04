@@ -93,8 +93,9 @@ func writesDependencies(args []string) bool {
 //
 // On macOS those four subcommands do not simply run in the container: the dependencies are copied
 // in, Composer runs, and the whole tree is copied back out over the host's — which deletes the
-// host's vendor directory on the way. It depends on `copy-to-container`, which is not ported, and
-// it is not a thing to port half of.
+// host's vendor directory on the way. That copy-in/run/copy-back choreography around Composer is
+// what stays in shell, not `copy-to-container` itself — it is wired to `copyInto` in `run.go` —
+// and it is not a thing to port half of.
 func mirrorsVendor(args []string) bool {
 	return runtime.GOOS == "darwin" && writesDependencies(args)
 }
