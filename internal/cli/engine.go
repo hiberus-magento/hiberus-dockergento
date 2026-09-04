@@ -11,6 +11,25 @@ import (
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
+// commands is what a command asks of the tool. Narrow on purpose: it names what the handlers
+// routed through newEngine call and nothing else, so a test can answer for the engine without a
+// daemon.
+type commands interface {
+	Resolve(dir string) (core.Project, error)
+	Exec(dir, service string, command []string, options core.ExecOptions) (int, error)
+	Restart(dir string, services []string) error
+	CopyInto(dir string, paths []string, all bool) error
+	CopyFrom(dir string, paths []string) error
+}
+
+var _ commands = (*dockergento.Engine)(nil)
+
+// newEngine is the seam a test substitutes: production never sets it, so every command still
+// gets the same *dockergento.Engine engine() has always built.
+var newEngine = func(stdout, stderr io.Writer, jsonOutput bool) commands {
+	return engine(stdout, stderr, jsonOutput)
+}
+
 // engine builds the tool for this invocation.
 //
 // Everything the command line adds is here and nowhere else: the name it was invoked as, which
@@ -55,7 +74,7 @@ func projectOr(stderr io.Writer, jsonOutput bool, command string) (core.Project,
 			err.Error(), "")
 	}
 
-	project, err := engine(nil, nil, jsonOutput).Resolve(directory)
+	project, err := newEngine(nil, nil, jsonOutput).Resolve(directory)
 	if err != nil || project.Name == "" {
 		return core.Project{}, failure(stderr, jsonOutput, command, exitProject, "project_not_configured",
 			"This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid",

@@ -88,6 +88,9 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
   es la respuesta rápida en cualquier máquina.
 - Sin librerías de aserciones: se compara con Go, que es lo que recomienda la guía de estilo de
   Google y lo que hace que un fallo diga algo.
+- **Contra `newEngine`, no contra Docker.** Lo que pide un comando ya cableado en Go se prueba
+  sustituyendo esa fábrica por un doble que registra las llamadas: sin demonio, sin red y sin
+  ningún proyecto real de por medio.
 
 ## Fases
 

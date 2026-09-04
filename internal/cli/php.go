@@ -56,7 +56,7 @@ func composer(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 // inside runs a command in the php container and answers with that command's own exit code.
 func inside(project core.Project, command []string, user string,
 	stdout, stderr io.Writer, jsonOutput bool, name string) int {
-	status, err := engine(stdout, stderr, jsonOutput).
+	status, err := newEngine(stdout, stderr, jsonOutput).
 		Exec(project.Root, phpService, command, terminalOptions(user))
 	if status != 0 {
 		return status

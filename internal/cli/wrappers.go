@@ -147,7 +147,7 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 		return code
 	}
 
-	engine := engine(stdout, stderr, jsonOutput)
+	engine := newEngine(stdout, stderr, jsonOutput)
 
 	status, err := engine.Exec(project.Root, varnishService,
 		[]string{"sed", "-i", edit, "/etc/varnish/default.vcl"},
@@ -216,7 +216,7 @@ func copyInto(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	all := args[0] == "--all"
 
-	err := engine(stdout, stderr, jsonOutput).CopyInto(here(), args, all)
+	err := newEngine(stdout, stderr, jsonOutput).CopyInto(here(), args, all)
 	if err != nil {
 		return report(stderr, jsonOutput, "copy-to-container", err)
 	}
@@ -241,7 +241,7 @@ func copyFrom(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return code
 	}
 
-	if err := engine(stdout, stderr, jsonOutput).CopyFrom(here(), args); err != nil {
+	if err := newEngine(stdout, stderr, jsonOutput).CopyFrom(here(), args); err != nil {
 		return report(stderr, jsonOutput, "copy-from-container", err)
 	}
 
