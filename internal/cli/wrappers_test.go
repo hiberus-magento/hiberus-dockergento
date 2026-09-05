@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -22,11 +21,6 @@ import (
 //
 
 func TestWhatCopyingIntoTheContainerAsks(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd() = %v, want no error", err)
-	}
-
 	cases := []struct {
 		name string
 		args []string
@@ -41,6 +35,7 @@ func TestWhatCopyingIntoTheContainerAsks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fake := answering(t)
 			fake.project = core.Project{Name: "shop", Root: "/code/shop"}
+			cwd := here()
 
 			code := copyInto(tt.args, io.Discard, io.Discard, false)
 
@@ -61,13 +56,9 @@ func TestWhatCopyingIntoTheContainerAsks(t *testing.T) {
 }
 
 func TestWhatCopyingOutOfTheContainerAsks(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd() = %v, want no error", err)
-	}
-
 	fake := answering(t)
 	fake.project = core.Project{Name: "shop", Root: "/code/shop"}
+	cwd := here()
 
 	args := []string{"generated", "var/log"}
 
@@ -120,29 +111,28 @@ func TestCopyingWithNoPathIsRefused(t *testing.T) {
 }
 
 func TestACopyTheEngineRefusesIsReported(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd() = %v, want no error", err)
-	}
-
 	refused := errors.New("docker: no")
 
 	cases := []struct {
 		name string
 		run  func(stdout, stderr io.Writer, jsonOutput bool) int
-		want []call
+		want func(cwd string) []call
 	}{
 		{"copy-to-container", func(stdout, stderr io.Writer, jsonOutput bool) int {
 			return copyInto([]string{"app/code"}, stdout, stderr, jsonOutput)
-		}, []call{
-			{Method: "Resolve", Dir: cwd},
-			{Method: "CopyInto", Dir: cwd, Paths: []string{"app/code"}, All: false},
+		}, func(cwd string) []call {
+			return []call{
+				{Method: "Resolve", Dir: cwd},
+				{Method: "CopyInto", Dir: cwd, Paths: []string{"app/code"}, All: false},
+			}
 		}},
 		{"copy-from-container", func(stdout, stderr io.Writer, jsonOutput bool) int {
 			return copyFrom([]string{"generated"}, stdout, stderr, jsonOutput)
-		}, []call{
-			{Method: "Resolve", Dir: cwd},
-			{Method: "CopyFrom", Dir: cwd, Paths: []string{"generated"}},
+		}, func(cwd string) []call {
+			return []call{
+				{Method: "Resolve", Dir: cwd},
+				{Method: "CopyFrom", Dir: cwd, Paths: []string{"generated"}},
+			}
 		}},
 	}
 
@@ -151,6 +141,7 @@ func TestACopyTheEngineRefusesIsReported(t *testing.T) {
 			fake := answering(t)
 			fake.project = core.Project{Name: "shop", Root: "/code/shop"}
 			fake.outcomes = []outcome{{}, {err: refused}}
+			cwd := here()
 
 			code := tt.run(io.Discard, io.Discard, false)
 
@@ -160,7 +151,7 @@ func TestACopyTheEngineRefusesIsReported(t *testing.T) {
 
 			// A trivial fake substitution and a real Docker refusal would land on the same exit
 			// code by coincidence, so the log is what proves the fake was actually asked.
-			if diff := cmp.Diff(tt.want, fake.calls); diff != "" {
+			if diff := cmp.Diff(tt.want(cwd), fake.calls); diff != "" {
 				t.Fatalf("asked of the engine (-want +got):\n%s", diff)
 			}
 		})
@@ -170,17 +161,13 @@ func TestACopyTheEngineRefusesIsReported(t *testing.T) {
 // The two edits are inverses, and this is the only place in Go that says so: the same marker,
 // commented in for one direction and out for the other.
 func TestWhatVarnishAsks(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd() = %v, want no error", err)
-	}
-
 	ignoreTty := cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")
 	root := "/code/shop"
 
 	t.Run("on", func(t *testing.T) {
 		fake := answering(t)
 		fake.project = core.Project{Name: "shop", Root: root}
+		cwd := here()
 
 		code := varnish(true, io.Discard, io.Discard, false)
 
@@ -209,6 +196,7 @@ func TestWhatVarnishAsks(t *testing.T) {
 	t.Run("off", func(t *testing.T) {
 		fake := answering(t)
 		fake.project = core.Project{Name: "shop", Root: root}
+		cwd := here()
 
 		code := varnish(false, io.Discard, io.Discard, false)
 
@@ -246,11 +234,6 @@ func TestWhatVarnishAsks(t *testing.T) {
 }
 
 func TestAFailedEditStopsBeforeTheRestart(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd() = %v, want no error", err)
-	}
-
 	ignoreTty := cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")
 	root := "/code/shop"
 	refused := errors.New("docker: no")
@@ -258,6 +241,7 @@ func TestAFailedEditStopsBeforeTheRestart(t *testing.T) {
 	fake := answering(t)
 	fake.project = core.Project{Name: "shop", Root: root}
 	fake.outcomes = []outcome{{}, {err: refused}}
+	cwd := here()
 
 	code := varnish(true, io.Discard, io.Discard, false)
 
@@ -280,12 +264,8 @@ func TestAFailedEditStopsBeforeTheRestart(t *testing.T) {
 }
 
 func TestOutsideAProjectNothingIsAsked(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd() = %v, want no error", err)
-	}
-
 	fake := answering(t) // fake.project stays at its zero value: no project
+	cwd := here()
 
 	code := copyInto([]string{"app/code"}, io.Discard, io.Discard, false)
 
@@ -304,16 +284,12 @@ func TestOutsideAProjectNothingIsAsked(t *testing.T) {
 // project's root — the same here() vs project.Root inconsistency design.md leaves open for the
 // copy commands, not fixed here either.
 func TestWhatMysqldumpAsks(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd() = %v, want no error", err)
-	}
-
 	path := filepath.Join(t.TempDir(), "dump.sql")
 
 	t.Run("success", func(t *testing.T) {
 		fake := answering(t)
 		fake.project = core.Project{Name: "shop", Root: "/code/shop"}
+		cwd := here()
 
 		code := dump([]string{path}, io.Discard, io.Discard, false)
 
@@ -363,6 +339,7 @@ func TestWhatMysqldumpAsks(t *testing.T) {
 		fake := answering(t)
 		fake.project = core.Project{Name: "shop", Root: "/code/shop"}
 		fake.outcomes = []outcome{{}, {err: errors.New("docker: no")}}
+		cwd := here()
 
 		code := dump([]string{path}, io.Discard, io.Discard, false)
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"io"
+	"path/filepath"
 	"testing"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
@@ -52,6 +53,11 @@ type fakeEngine struct {
 	// properties are. A key left out of the map answers "", which is what drives the fallbacks
 	// wrappers.go falls back to when a project never set one.
 	properties map[string]string
+
+	// installed and tooling are what Installed answers with — the other thing asked of the
+	// engine that only ever answers, never fails, the same as Property.
+	installed core.Installation
+	tooling   core.Tooling
 }
 
 var _ commands = (*fakeEngine)(nil)
@@ -123,14 +129,45 @@ func (f *fakeEngine) Dump(dir, path string) error {
 	return f.outcomeFor(number).err
 }
 
+// Installed answers from f.installed and f.tooling, the same as Property: asked about no
+// project, and never refused.
+func (f *fakeEngine) Installed() (core.Installation, core.Tooling) {
+	f.calls = append(f.calls, call{Method: "Installed"})
+
+	return f.installed, f.tooling
+}
+
 // answering substitutes fake for newEngine for the rest of this test, and restores the real
-// factory when it ends. HM_STATE_DIR is pinned to a temporary directory first: while a call site
-// is still unrouted it reaches the real engine(), and that engine opens its registry at
-// HM_STATE_DIR — unset, that is the developer's own ~/.hm.
+// factory when it ends. Six pins go first, unconditionally, because while a call site is still
+// unrouted — the RED half of a test written against this helper — it reaches the real engine()
+// and everything underneath it:
+//
+//   - HM_STATE_DIR: the real engine() opens its registry there; unset, that is the developer's
+//     own ~/.hm.
+//   - HM_HOSTS_FILE: Hosts.file() falls back to the literal /etc/hosts (app/hosts.go:186), and
+//     write() copies over it through `sudo cp` wired to the real terminal (app/hosts.go:173).
+//     Pointed at a temporary file that does not exist, Set and Remove both fail at os.ReadFile
+//     before anything is written.
+//   - HM_NON_INTERACTIVE: choose() refuses immediately once this is set (select.go:39),
+//     independently of any interactive bool, so a RED run never blocks on a question.
+//   - DOCKER_HOST: an unrouted call into toolinfo's DockerVersion dials with no deadline of its
+//     own; pointed at a socket that cannot exist, the dial fails fast instead of hanging.
+//   - HM_LEGACY_ROOT: reached only when Hosts.Set's own resolution falls through to the legacy
+//     branch, which execs <root>/bin/run (legacy/runner.go:94) when ShellRoot is empty. A
+//     developer's own HM_LEGACY_ROOT would have a RED run shell out to the Bash half; a fresh
+//     temporary directory makes that exec fail with ENOENT instead.
+//   - t.Chdir(t.TempDir()): app/hosts.go:49 writes properties.json under the resolved project
+//     root, which without this pin is the directory the test binary happens to run in — the
+//     package's own checkout.
 func answering(t *testing.T) *fakeEngine {
 	t.Helper()
 
 	t.Setenv("HM_STATE_DIR", t.TempDir())
+	t.Setenv("HM_HOSTS_FILE", filepath.Join(t.TempDir(), "hosts"))
+	t.Setenv("HM_NON_INTERACTIVE", "1")
+	t.Setenv("DOCKER_HOST", "unix:///nonexistent")
+	t.Setenv("HM_LEGACY_ROOT", t.TempDir())
+	t.Chdir(t.TempDir())
 
 	fake := &fakeEngine{}
 

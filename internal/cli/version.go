@@ -20,7 +20,7 @@ func version(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			"Unknown option: "+argument, binaryName()+" version")
 	}
 
-	installed, tooling := engine(stdout, stderr, jsonOutput).Installed()
+	installed, tooling := newEngine(stdout, stderr, jsonOutput).Installed()
 
 	if jsonOutput {
 		return document(stdout, stderr, "version", map[string]any{

@@ -22,6 +22,7 @@ type commands interface {
 	CopyFrom(dir string, paths []string) error
 	Property(project core.Project, key string) string
 	Dump(dir, path string) error
+	Installed() (core.Installation, core.Tooling)
 }
 
 var _ commands = (*dockergento.Engine)(nil)
