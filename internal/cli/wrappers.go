@@ -101,7 +101,7 @@ func dump(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return code
 	}
 
-	if err := engine(stdout, stderr, jsonOutput).Dump(here(), args[0]); err != nil {
+	if err := newEngine(stdout, stderr, jsonOutput).Dump(here(), args[0]); err != nil {
 		return report(stderr, jsonOutput, "mysqldump", err)
 	}
 

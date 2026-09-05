@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -295,5 +297,102 @@ func TestOutsideAProjectNothingIsAsked(t *testing.T) {
 
 	if diff := cmp.Diff(want, fake.calls); diff != "" {
 		t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+	}
+}
+
+// TestWhatMysqldumpAsks is the one command whose Dir is here() rather than the resolved
+// project's root — the same here() vs project.Root inconsistency design.md leaves open for the
+// copy commands, not fixed here either.
+func TestWhatMysqldumpAsks(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("os.Getwd() = %v, want no error", err)
+	}
+
+	path := filepath.Join(t.TempDir(), "dump.sql")
+
+	t.Run("success", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: "/code/shop"}
+
+		code := dump([]string{path}, io.Discard, io.Discard, false)
+
+		if code != exitOK {
+			t.Fatalf("mysqldump %s = %d, want exitOK", path, code)
+		}
+
+		want := []call{
+			{Method: "Resolve", Dir: cwd},
+			{Method: "Dump", Dir: cwd, Path: path},
+		}
+
+		if diff := cmp.Diff(want, fake.calls); diff != "" {
+			t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("--json answers the path it wrote", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: "/code/shop"}
+
+		stdout := &strings.Builder{}
+
+		code := dump([]string{path}, stdout, io.Discard, true)
+
+		if code != exitOK {
+			t.Fatalf("mysqldump --json %s = %d, want exitOK", path, code)
+		}
+
+		var envelope struct {
+			Data map[string]any `json:"data"`
+		}
+
+		if err := json.Unmarshal([]byte(stdout.String()), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal(%q) = %v, want valid JSON", stdout.String(), err)
+		}
+
+		if envelope.Data["path"] != path {
+			t.Fatalf("data.path = %v, want %q", envelope.Data["path"], path)
+		}
+	})
+
+	// A refused Dump and a real Docker refusal land on the same exit code by coincidence, so the
+	// log is what proves the fake was actually asked, the same discipline TestACopyTheEngine
+	// RefusesIsReported uses above.
+	t.Run("a refused dump is reported", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: "/code/shop"}
+		fake.outcomes = []outcome{{}, {err: errors.New("docker: no")}}
+
+		code := dump([]string{path}, io.Discard, io.Discard, false)
+
+		if code != exitDocker {
+			t.Fatalf("mysqldump refused by the engine = %d, want exitDocker", code)
+		}
+
+		want := []call{
+			{Method: "Resolve", Dir: cwd},
+			{Method: "Dump", Dir: cwd, Path: path},
+		}
+
+		if diff := cmp.Diff(want, fake.calls); diff != "" {
+			t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+		}
+	})
+}
+
+// mysqldump has nothing to ask about with no path — not even whether there is a project to ask
+// it of, the same as the two copy commands above.
+func TestMysqldumpWithNoPathIsRefused(t *testing.T) {
+	fake := answering(t)
+
+	code := dump(nil, io.Discard, io.Discard, false)
+
+	if code != exitUsage {
+		t.Fatalf("mysqldump with no path = %d, want exitUsage", code)
+	}
+
+	if len(fake.calls) != 0 {
+		t.Fatalf("mysqldump with no path asked the engine %v, want nothing asked at all", fake.calls)
 	}
 }

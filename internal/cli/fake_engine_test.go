@@ -26,6 +26,7 @@ type call struct {
 	All      bool
 	Services []string
 	Key      string
+	Path     string
 }
 
 // outcome is what a call answers with. outcomes is indexed by call number — the position the
@@ -111,6 +112,15 @@ func (f *fakeEngine) Property(project core.Project, key string) string {
 	f.calls = append(f.calls, call{Method: "Property", Dir: project.Root, Key: key})
 
 	return f.properties[key]
+}
+
+// Dump, unlike Property, is asked to do something and can be refused: it consumes an outcome the
+// way Resolve and Exec do, rather than only ever answering.
+func (f *fakeEngine) Dump(dir, path string) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Dump", Dir: dir, Path: path})
+
+	return f.outcomeFor(number).err
 }
 
 // answering substitutes fake for newEngine for the rest of this test, and restores the real
