@@ -66,7 +66,7 @@ func tests(kind string, args []string, stdout, stderr io.Writer, jsonOutput bool
 		return code
 	}
 
-	binDir := engine(stdout, stderr, jsonOutput).Property(project, "BIN_DIR")
+	binDir := newEngine(stdout, stderr, jsonOutput).Property(project, "BIN_DIR")
 	if binDir == "" {
 		binDir = "./vendor/bin"
 	}
@@ -74,7 +74,7 @@ func tests(kind string, args []string, stdout, stderr io.Writer, jsonOutput bool
 	command := binDir + "/phpunit --config ./dev/tests/unit/phpunit.xml.dist"
 
 	if kind == "integration" {
-		workdir := engine(stdout, stderr, jsonOutput).Property(project, "WORKDIR_PHP")
+		workdir := newEngine(stdout, stderr, jsonOutput).Property(project, "WORKDIR_PHP")
 		if workdir == "" {
 			workdir = "/var/www/html"
 		}

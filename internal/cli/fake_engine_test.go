@@ -25,6 +25,7 @@ type call struct {
 	Paths    []string
 	All      bool
 	Services []string
+	Key      string
 }
 
 // outcome is what a call answers with. outcomes is indexed by call number — the position the
@@ -45,6 +46,11 @@ type fakeEngine struct {
 	// zero value, Name is empty — which is what a directory with no project looks like to the
 	// handlers that call it.
 	project core.Project
+
+	// properties is what Property answers from, keyed the same way the real engine's own
+	// properties are. A key left out of the map answers "", which is what drives the fallbacks
+	// wrappers.go falls back to when a project never set one.
+	properties map[string]string
 }
 
 var _ commands = (*fakeEngine)(nil)
@@ -96,6 +102,15 @@ func (f *fakeEngine) CopyFrom(dir string, paths []string) error {
 	f.calls = append(f.calls, call{Method: "CopyFrom", Dir: dir, Paths: paths})
 
 	return f.outcomeFor(number).err
+}
+
+// Property answers from f.properties, not from an outcome: it is one of the two things asked of
+// the engine that only ever answers, never fails — the same as the real engine, whose reader over
+// two files answers "" for a project that never set the key.
+func (f *fakeEngine) Property(project core.Project, key string) string {
+	f.calls = append(f.calls, call{Method: "Property", Dir: project.Root, Key: key})
+
+	return f.properties[key]
 }
 
 // answering substitutes fake for newEngine for the rest of this test, and restores the real
