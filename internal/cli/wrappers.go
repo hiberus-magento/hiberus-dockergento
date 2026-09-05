@@ -278,7 +278,7 @@ func setHost(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	if remove {
-		if err := engine(stdout, stderr, jsonOutput).RemoveHost(domain); err != nil {
+		if err := newEngine(stdout, stderr, jsonOutput).RemoveHost(domain); err != nil {
 			return report(stderr, jsonOutput, "set-host", err)
 		}
 
@@ -293,7 +293,7 @@ func setHost(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return code
 	}
 
-	if err := engine(stdout, stderr, jsonOutput).SetHost(here(), domain, database); err != nil {
+	if err := newEngine(stdout, stderr, jsonOutput).SetHost(here(), domain, database); err != nil {
 		return report(stderr, jsonOutput, "set-host", err)
 	}
 

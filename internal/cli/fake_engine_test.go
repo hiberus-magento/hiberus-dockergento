@@ -28,6 +28,8 @@ type call struct {
 	Services []string
 	Key      string
 	Path     string
+	Domain   string
+	Database bool
 }
 
 // outcome is what a call answers with. outcomes is indexed by call number — the position the
@@ -135,6 +137,22 @@ func (f *fakeEngine) Installed() (core.Installation, core.Tooling) {
 	f.calls = append(f.calls, call{Method: "Installed"})
 
 	return f.installed, f.tooling
+}
+
+// SetHost, like Dump, consumes an outcome and can be refused.
+func (f *fakeEngine) SetHost(dir, domain string, database bool) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "SetHost", Dir: dir, Domain: domain, Database: database})
+
+	return f.outcomeFor(number).err
+}
+
+// RemoveHost, unlike SetHost, asks nothing about a project: there is no dir to record.
+func (f *fakeEngine) RemoveHost(domain string) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "RemoveHost", Domain: domain})
+
+	return f.outcomeFor(number).err
 }
 
 // answering substitutes fake for newEngine for the rest of this test, and restores the real

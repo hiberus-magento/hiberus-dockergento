@@ -23,6 +23,8 @@ type commands interface {
 	Property(project core.Project, key string) string
 	Dump(dir, path string) error
 	Installed() (core.Installation, core.Tooling)
+	SetHost(dir, domain string, database bool) error
+	RemoveHost(domain string) error
 }
 
 var _ commands = (*dockergento.Engine)(nil)
