@@ -195,6 +195,9 @@ For a command listed in `internal/cli/run.go`'s `Run()` switch, the repository S
 test that verifies what its handler asks of the engine, through a fake substituted for the real
 one, requiring no Docker daemon, no network access, and no project beyond what the test itself
 builds.
+(Previously: covered `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-off`,
+`purge`, `npm`, `n98-magerun`, `test-unit`, `test-integration`, and `mysqldump`. Adds `version`
+and `set-host`.)
 
 #### Scenario: Copying into the container
 
@@ -265,10 +268,39 @@ builds.
 - **AND** when the fake refuses the request, the command exits with the code reserved for
   engine/Docker failures
 
+#### Scenario: Reporting what is installed
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `version` runs, with no project resolved
+- **THEN** the fake records exactly one call, asking what is installed and what tooling is present
+- **AND** in JSON, the document carries the installation fields (`version`, `tag`, `commits_ahead`,
+  `commit`, `branch`, `detached`, `dirty`, `path`), the docker tooling fields (`docker.version`,
+  `docker.compose`, `docker.compose_command`), and `binary` from the binary's own build
+  information, independent of the fake
+- **AND** in text, an empty tag or commit prints "unknown", and an empty docker or compose value
+  prints "not available"
+
+#### Scenario: Pointing a domain at this machine
+
+- **WHEN** `set-host <domain>` runs against a resolved project
+- **THEN** the fake records a call asking to point that domain here, with the database flag on
+- **AND** `--no-database` records the same call with the database flag off
+- **AND** in JSON, the document carries `{"domain": <domain>, "database": <flag>}`
+- **AND** a refusal returned by the engine is reported with its own exit code, message and hint,
+  rather than as a generic Docker failure
+
+#### Scenario: Removing a domain without resolving a project
+
+- **WHEN** `set-host --remove <domain>` runs
+- **THEN** no project is resolved first, and the fake records a call asking only to remove that
+  domain
+- **AND** in JSON, the document carries `{"removed": <domain>}`
+
 ### Requirement: A usage error returns before any engine call
 
-`copy-to-container`, `copy-from-container`, and `mysqldump` SHALL validate their arguments before
-they ask anything of the engine.
+`copy-to-container`, `copy-from-container`, `mysqldump`, `version`, and `set-host` SHALL validate
+their arguments before they ask anything of the engine.
+(Previously: covered only `copy-to-container`, `copy-from-container`, and `mysqldump`.)
 
 #### Scenario: No path given
 
@@ -281,6 +313,16 @@ they ask anything of the engine.
 - **WHEN** `mysqldump` runs with no path argument
 - **THEN** it fails with the missing-path error, and the fake engine used by its test records
   zero calls
+
+#### Scenario: version with an argument
+
+- **WHEN** `version` runs with any argument
+- **THEN** it fails with a usage error, and the fake engine used by its test records zero calls
+
+#### Scenario: set-host with an unknown option
+
+- **WHEN** `set-host` runs with an option it does not recognize
+- **THEN** it fails with a usage error, and the fake engine used by its test records zero calls
 
 ### Requirement: The test seam changes nothing a real invocation runs
 
