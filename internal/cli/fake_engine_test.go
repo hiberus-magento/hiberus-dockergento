@@ -176,6 +176,17 @@ func (f *fakeEngine) StopEverything(dir string, interactive bool) (core.MachineS
 	return f.stopped, nil
 }
 
+// Compose, unlike every other method here, can succeed with a non-zero status: the fake answers
+// both from the same outcome, the way the real Compose runner does.
+func (f *fakeEngine) Compose(dir string, args []string) (int, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Compose", Dir: dir, Command: args})
+
+	out := f.outcomeFor(number)
+
+	return out.status, out.err
+}
+
 // answering substitutes fake for newEngine for the rest of this test, and restores the real
 // factory when it ends. Six pins go first, unconditionally, because while a call site is still
 // unrouted — the RED half of a test written against this helper — it reaches the real engine()

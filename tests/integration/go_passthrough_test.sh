@@ -209,6 +209,21 @@ status=$?
 assert_equals "0" "$status"
 assert_equals "0" "$(printf '%s' "$answer" | grep -qE 'Nothing was stopped|No containers running' && echo 0 || echo 1)"
 
+# ---------------------------------------------------------------- ported: docker-compose
+#
+# A Compose subcommand this tool does not implement itself, run exactly the way `docker compose`
+# would run it. Read-only both ways — config resolves the files, ps lists what is there — so
+# nothing here asks about anything running, and the comparison only holds if the caller's own
+# streams were kept rather than captured.
+
+both docker-compose config --format json
+test_case "compose keeps the caller's streams"
+assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
+
+both docker-compose ps
+test_case "and so does a read-only subcommand that lists something"
+assert_equals "$SHELL_STATUS" "$GO_STATUS"
+
 # ---------------------------------------------------------------- the same refusals
 #
 # The exit codes are a contract: 2 is a usage error, 4 is not a project, 6 is a refusal on

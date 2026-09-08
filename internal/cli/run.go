@@ -135,6 +135,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return restart(rest[1:], stdout, stderr, jsonOutput)
 		case "docker-stop-all":
 			return dockerStopAll(rest[1:], stdout, stderr, jsonOutput)
+		case "docker-compose":
+			return dockerCompose(rest[1:], stdout, stderr, jsonOutput)
 		}
 	}
 

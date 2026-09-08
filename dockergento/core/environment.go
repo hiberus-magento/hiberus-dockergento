@@ -1,6 +1,9 @@
 package core
 
-import "strings"
+import (
+	"path/filepath"
+	"strings"
+)
 
 // Container is one Docker container, seen through the labels this tool stamps on the ones it
 // creates.
@@ -158,6 +161,32 @@ type Compose struct {
 type ComposeFiles struct {
 	Load     []string
 	Declared []string
+}
+
+// Paths resolves Load into the ordered list of files that are actually there, relative to root
+// when they are not already absolute, and skipped when they are missing — the machine overlay of
+// the other platform, most of the time. It is the one rule Up and a passthrough Compose
+// subcommand both use, so a project with nothing to load fails the same way for both.
+func (c ComposeFiles) Paths(root string, exists func(string) bool) []string {
+	paths := make([]string, 0, len(c.Load))
+
+	for _, file := range c.Load {
+		if file == "" {
+			continue
+		}
+
+		if !filepath.IsAbs(file) {
+			file = filepath.Join(root, file)
+		}
+
+		if !exists(file) {
+			continue
+		}
+
+		paths = append(paths, file)
+	}
+
+	return paths
 }
 
 // Service is one service of that configuration.

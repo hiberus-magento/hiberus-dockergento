@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/composecfg"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/composecli"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/composelib"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/dockerd"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/fsprops"
@@ -291,6 +292,28 @@ func (e *Engine) Restart(dir string, services []string) error {
 	}
 
 	return e.creating(project).Restart(project, e.ComposeFiles(project), services, e.UsesProxy(project))
+}
+
+// Compose runs a Compose subcommand this tool does not implement itself, against exactly the
+// files and environment this project resolves to, and hands back that subcommand's own exit
+// code.
+//
+// Built directly rather than through operator(): that factory is shared by every other
+// operation, and ComposeCommand() shells out to find Compose — paid here, on the one command that
+// needs it, and not on every start or stop.
+func (e *Engine) Compose(dir string, args []string) (int, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return 0, err
+	}
+
+	files := e.ComposeFiles(project).Paths(project.Root, (osfs.FS{}).Exists)
+
+	operator := app.Operator{
+		ComposeRunner: composecli.Runner{Command: toolinfo.Reader{}.ComposeCommand()},
+	}
+
+	return operator.Compose(project, files, e.Environment(project), args)
 }
 
 // Logs writes what the services are saying to the engine's output, until it is interrupted or

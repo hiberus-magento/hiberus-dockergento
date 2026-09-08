@@ -26,6 +26,7 @@ type commands interface {
 	SetHost(dir, domain string, database bool) error
 	RemoveHost(domain string) error
 	StopEverything(dir string, interactive bool) (core.MachineStop, error)
+	Compose(dir string, args []string) (int, error)
 }
 
 var _ commands = (*dockergento.Engine)(nil)

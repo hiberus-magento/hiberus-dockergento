@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime/debug"
 	"strings"
 
@@ -203,25 +202,13 @@ func (o Orchestrator) open(project core.Project, files core.ComposeFiles) (api.C
 }
 
 func (o Orchestrator) load(project core.Project, files core.ComposeFiles) (*types.Project, error) {
-	paths := make([]string, 0, len(files.Load))
+	// The machine overlay of the other platform is not there on this one, and the shell
+	// implementation skips it the same way
+	paths := files.Paths(project.Root, func(file string) bool {
+		_, err := os.Stat(file)
 
-	for _, file := range files.Load {
-		if file == "" {
-			continue
-		}
-
-		if !filepath.IsAbs(file) {
-			file = filepath.Join(project.Root, file)
-		}
-
-		// The machine overlay of the other platform is not there on this one, and the shell
-		// implementation skips it the same way
-		if _, err := os.Stat(file); err != nil {
-			continue
-		}
-
-		paths = append(paths, file)
-	}
+		return err == nil
+	})
 
 	if len(paths) == 0 {
 		return nil, fmt.Errorf("no compose file to read in %s", project.Root)

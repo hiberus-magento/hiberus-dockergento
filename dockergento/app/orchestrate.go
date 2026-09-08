@@ -16,6 +16,11 @@ type Operator struct {
 	Engine       ports.ContainerEngine
 	Legacy       ports.Legacy
 
+	// ComposeRunner is the Compose command line itself, for a subcommand this tool does not
+	// implement through Orchestrator. Named apart from the Compose method below: Go does not
+	// allow a field and a method of the same type to share a name.
+	ComposeRunner ports.ComposeRunner
+
 	// Announce is how the steps that take a while say what they are doing before they do it.
 	Announce func(string)
 
@@ -313,6 +318,15 @@ func (o Operator) StopEverything(project core.Project, interactive bool) (core.M
 	}
 
 	return core.MachineStop{Total: total, Others: others, Stopped: stopped}, nil
+}
+
+// Compose runs a Compose subcommand this tool does not implement itself, against exactly the
+// files and environment given, and hands back that subcommand's own exit code.
+//
+// No worktree refusal: docker-compose is not in hm_alters_environment, and passing a subcommand
+// through is not, by itself, recreating or destroying anything.
+func (o Operator) Compose(project core.Project, files []string, environment map[string]string, args []string) (int, error) {
+	return o.ComposeRunner.Run(project.Root, files, environment, args)
 }
 
 // refuseFromAnUnregisteredWorktree stops a branch from taking down the environment of the checkout

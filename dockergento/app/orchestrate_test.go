@@ -53,6 +53,24 @@ func (s *shell) Run(args []string) (int, error) {
 	return s.code, s.err
 }
 
+// composeRunner is the fake for ports.ComposeRunner: it records what it was asked to run, rather
+// than running Compose.
+type composeRunner struct {
+	dir         string
+	files       []string
+	environment map[string]string
+	args        []string
+
+	status int
+	err    error
+}
+
+func (c *composeRunner) Run(dir string, files []string, environment map[string]string, args []string) (int, error) {
+	c.dir, c.files, c.environment, c.args = dir, files, environment, args
+
+	return c.status, c.err
+}
+
 func operatorWith(containers []core.Container, orchestration *orchestrator, legacy *shell) Operator {
 	return Operator{
 		Orchestrator: orchestration,
@@ -618,5 +636,45 @@ func TestStoppingTheRestIsTheSameCallOnEitherPlatform(t *testing.T) {
 				t.Fatalf("stopped on %s = %v, want the same in-process call", platform, fakeEngine.stopped)
 			}
 		})
+	}
+}
+
+//
+// docker-compose: an arbitrary Compose subcommand run through the tool, against exactly the files
+// and environment the project resolves to. composelib implements operations, not a command line,
+// so this is a subprocess — and the fake here proves what it is asked to run without one.
+//
+
+func TestWhatTheComposeRunnerIsAskedToRun(t *testing.T) {
+	runner := &composeRunner{status: 0}
+	operator := Operator{ComposeRunner: runner}
+
+	files := []string{"/code/shop/docker-compose.yml", "/code/shop/docker-compose.dev.mac.yml"}
+	environment := map[string]string{"COMPOSE_PROJECT_NAME": "shop"}
+	args := []string{"config", "--format", "json"}
+
+	status, err := operator.Compose(core.Project{Name: "shop", Root: "/code/shop"}, files, environment, args)
+	if err != nil {
+		t.Fatalf("Compose = %v, want no error", err)
+	}
+
+	if status != 0 {
+		t.Fatalf("status = %d, want the runner's own exit code", status)
+	}
+
+	if runner.dir != "/code/shop" {
+		t.Fatalf("dir = %q, want the project's root", runner.dir)
+	}
+
+	if len(runner.files) != 2 || runner.files[0] != files[0] || runner.files[1] != files[1] {
+		t.Fatalf("files = %v, want the resolved file list, in order", runner.files)
+	}
+
+	if runner.environment["COMPOSE_PROJECT_NAME"] != "shop" {
+		t.Fatalf("environment = %v, want the project's own", runner.environment)
+	}
+
+	if len(runner.args) != 3 || runner.args[2] != "json" {
+		t.Fatalf("args = %v, want them passed through verbatim", runner.args)
 	}
 }

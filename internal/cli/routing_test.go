@@ -18,6 +18,7 @@ func TestTheRouterAnswersForTheDockerTools(t *testing.T) {
 		args []string
 	}{
 		{"docker-stop-all", []string{"docker-stop-all", "--yes"}},
+		{"docker-compose", []string{"docker-compose", "config"}},
 	}
 
 	for _, tt := range cases {

@@ -281,7 +281,7 @@ printf "%%s\\n" "$HM_REGISTERED" "$HM_REGISTERED_PROJECT"
 ' \
     > "$LAB/fake/bin/run"
 chmod +x "$LAB/fake/bin/run"
-( cd "$TREE" && HM_LEGACY_ROOT="$LAB/fake" "$COMMAND_BIN_DIR/bin/hm" docker-compose config >"$LAB/out" 2>&1 )
+( cd "$TREE" && HM_LEGACY_ROOT="$LAB/fake" "$COMMAND_BIN_DIR/bin/hm" compatibility >"$LAB/out" 2>&1 )
 assert_equals "$PROJECT/feature-x" "$(sed -n 1p "$LAB/out")"
 assert_equals "$PROJECT-feature-x" "$(sed -n 2p "$LAB/out")"
 

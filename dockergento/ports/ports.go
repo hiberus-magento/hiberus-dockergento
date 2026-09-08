@@ -293,6 +293,15 @@ type NetworkStore interface {
 	Ensure(name string) error
 }
 
+// ComposeRunner is the Compose command line itself, for the subcommands this tool does not
+// implement. Separate from Orchestrator, which performs operations through the library: this one
+// hands an arbitrary subcommand to the binary and answers with the code it exited with.
+type ComposeRunner interface {
+	// Run executes a Compose subcommand from dir, against these files and this environment, wired
+	// to this process's terminal.
+	Run(dir string, files []string, environment map[string]string, args []string) (int, error)
+}
+
 // Legacy runs a command of the shell implementation.
 //
 // It exists because the migration is a strangler and not a rewrite: what has not been ported yet
