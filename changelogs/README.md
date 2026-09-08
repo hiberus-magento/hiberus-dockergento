@@ -16,6 +16,9 @@ Changelogs include:
 
 ## Versions
 
+- [v2.0.0](v2.0.0.md) - unreleased - The tool stops being a shell script: a Go binary that speaks to Docker through the SDK
+- [v1.7.0](v1.7.0.md) - unreleased - Global proxy, worktree environments, MCP, database templates and agent tooling
+- [v1.6.0](v1.6.0.md) - unreleased - Derived project names, named database copies, mail catcher choice and a first-day admin
 - [v1.5.0](v1.5.0.md) - unreleased - Machine readable output, describe/list/doctor, worktree safety, 14x faster help and terminal manners
 - [v1.4.5](v1.4.5.md) - 2026-08-19 - Non-interactive `hm mysql`, OpenSearch 3 JVM flag and project-scoped container lookups
 - [v1.4.4](v1.4.4.md) - 2026-07-29 - Deployer PHP 8.3, MariaDB 12.3, RabbitMQ 4.3 and Nginx 1.30 images
