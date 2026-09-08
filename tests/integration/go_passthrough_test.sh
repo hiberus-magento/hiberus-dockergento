@@ -191,6 +191,24 @@ test_case "and an option nobody declared is refused the same way"
 assert_equals "2" "$GO_STATUS"
 assert_equals "$SHELL_STATUS" "$GO_STATUS"
 
+# ---------------------------------------------------------------- ported: docker-stop-all
+#
+# Machine-wide, so this suite never answers yes to it: doing that would stop every container the
+# machine running this suite has up, including anything left over from another run. What is
+# provable without touching that is that the shell entry point still reaches the binary through
+# the delegation stub, and that a question the binary asks is asked on the caller's own terminal
+# rather than swallowed on the way across.
+
+test_case "the shell entry point still answers for docker-stop-all"
+( cd "$DIR" && HM_NON_INTERACTIVE=1 "$SHELL_CLI" docker-stop-all >"$LAB/shell.out" 2>&1 )
+assert_equals "0" "$?"
+
+test_case "the question is asked on the caller's own terminal"
+answer=$( cd "$DIR" && HM_NON_INTERACTIVE= printf 'n\n' | "$SHELL_CLI" docker-stop-all 2>&1 )
+status=$?
+assert_equals "0" "$status"
+assert_equals "0" "$(printf '%s' "$answer" | grep -qE 'Nothing was stopped|No containers running' && echo 0 || echo 1)"
+
 # ---------------------------------------------------------------- the same refusals
 #
 # The exit codes are a contract: 2 is a usage error, 4 is not a project, 6 is a refusal on
