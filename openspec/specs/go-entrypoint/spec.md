@@ -296,6 +296,23 @@ and `set-host`.)
   domain
 - **AND** in JSON, the document carries `{"removed": <domain>}`
 
+#### Scenario: Asking to stop everything
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `docker-stop-all` runs against a resolved project
+- **THEN** the fake records exactly one request to stop everything for the resolved directory,
+  carrying whether the run is interactive
+- **AND** whatever the fake answers back — a decline, a refusal, or a stop — is reported without
+  the handler making any other request
+
+#### Scenario: Passing a Compose subcommand through
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `docker-compose <args>` runs against a resolved project
+- **THEN** the fake records exactly one request to run Compose for the resolved directory, with
+  the arguments passed through verbatim
+- **AND** the command exits with the code the fake reports back
+
 ### Requirement: A usage error returns before any engine call
 
 `copy-to-container`, `copy-from-container`, `mysqldump`, `version`, and `set-host` SHALL validate
@@ -350,6 +367,23 @@ whose early-exiting consumer can send its producer a broken pipe.
 - **WHEN** the comparison finds what it is looking for before its producer has written
   everything
 - **THEN** the suite still reports the comparison's own result, not a broken-pipe exit code
+
+### Requirement: A ported command's shell entry point still answers by delegating
+
+When a command is fully answered by the tool, its former shell implementation SHALL delegate to
+the tool rather than duplicate or lose the behavior, so invoking it through the shell entry point
+reaches the same answer.
+
+#### Scenario: Running a ported docker tool through the shell entry point
+
+- **GIVEN** `docker-stop-all` or `docker-compose` is answered by the tool
+- **WHEN** either is invoked through the shell entry point instead of the tool directly
+- **THEN** the shell script delegates to the tool, and the answer is the same
+
+#### Scenario: The question still reaches the same terminal
+
+- **WHEN** `docker-stop-all`'s confirmation is asked through the delegated shell entry point
+- **THEN** the terminal that asks and reads the answer is the same one the tool would use directly
 
 ### Requirement: A comment about what stays in shell names its real reason
 
