@@ -34,7 +34,13 @@ func ask(text, suggestion string) (string, error) {
 		return "", fmt.Errorf("non-interactive mode cannot answer: %s", text)
 	}
 
-	fmt.Fprint(os.Stdout, prompt(text+" ", suggestion))
+	//
+	// The question goes to the error stream, not to stdout: when nobody is watching, stdout
+	// carries the document this command answers with, and a question in front of it is something
+	// the reader has to parse around. It is also where the shell implementation put it, through
+	// `read -p`. A person sees it either way.
+	//
+	fmt.Fprint(os.Stderr, prompt(text+" ", suggestion))
 
 	answer, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil && strings.TrimSpace(answer) == "" {
