@@ -205,6 +205,10 @@ type StartOptions struct {
 
 	// StopOthers stops every other environment first, for a machine that cannot hold two.
 	StopOthers bool
+
+	// Interactive is whether stopping the rest, when StopOthers asks for it, may ask before doing
+	// it. An API caller leaves it false: there is nobody there to answer a question.
+	Interactive bool
 }
 
 // Start brings the environment up, and does the things around it nobody should have to remember:
@@ -216,7 +220,19 @@ func (e *Engine) Start(dir string, options StartOptions) error {
 	}
 
 	return e.creating(project).Start(project, e.ComposeFiles(project),
-		options.Services, options.StopOthers, e.UsesProxy(project))
+		options.Services, options.StopOthers, e.UsesProxy(project), options.Interactive)
+}
+
+// StopEverything stops every container running on this machine, machine-wide and with no label
+// scoping — what docker-stop-all answers for, and what Start calls when asked to stop the rest
+// before coming up.
+func (e *Engine) StopEverything(dir string, interactive bool) (core.MachineStop, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return core.MachineStop{}, err
+	}
+
+	return e.operator(project).StopEverything(project, interactive)
 }
 
 // Stop stops without removing, and only takes a copy of the database when asked. A stop that
@@ -1345,6 +1361,7 @@ func (e *Engine) operator(project core.Project) app.Operator {
 		Workdir:      e.Property(project, "WORKDIR_PHP"),
 		Forced:       e.options.Forced,
 		Choose:       e.options.Choose,
+		Ask:          e.options.Ask,
 		Snapshots:    e.snapshotsFor(project),
 		Proxy:        e.proxyFor(),
 	}

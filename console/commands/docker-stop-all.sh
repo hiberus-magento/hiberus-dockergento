@@ -2,50 +2,19 @@
 set -uo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
-source "$COMPONENTS_DIR"/input_info.sh
 source "$HELPERS_DIR"/exit_codes.sh
 
 #
-# Stop every container on the machine.
+# Stopping every container on the machine is the Go binary's now. This exists so the command is
+# one command: `hm` is normally the binary, which answers this without ever reaching here; what
+# reaches here is somebody calling the shell entry point directly.
 #
-# The name says what it does, and it still gets typed meaning "stop this". It reaches other
-# people's projects and things that have nothing to do with Dockergento, so it says how far it
-# reaches before doing it.
-#
-# Nothing is destroyed here — what is protected is somebody else's work in progress.
-#
+binary="$COMMAND_BIN_DIR/bin/hm"
 
-running=$(docker ps -q 2>/dev/null)
-
-if [ -z "$running" ]; then
-    print_warning "No containers running\n"
-    exit 0
+if [ ! -x "$binary" ]; then
+    hm_fail "$HM_EXIT_ERROR" "binary_missing" \
+        "docker-stop-all needs the ${COMMAND_BIN_NAME} binary, and it is not installed here" \
+        "Reinstall ${COMMAND_BIN_NAME}, or build it with: cd $COMMAND_BIN_DIR && go build -o bin/hm ./cmd/hm"
 fi
 
-total=$(printf '%s\n' "$running" | grep -c .)
-mine=$(docker ps -q --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME:-}" 2>/dev/null |
-    grep -c . || true)
-others=$((total - ${mine:-0}))
-
-if ! is_non_interactive; then
-    printf '\n'
-    print_warning "This stops $total container(s) on this machine.\n"
-
-    if [ "$others" -gt 0 ]; then
-        print_warning "$others of them do not belong to '${COMPOSE_PROJECT_NAME:-this project}'.\n"
-    fi
-
-    printf '\n'
-    confirm "Stop them all? [y/N]: "
-
-    case "$REPLY" in
-        Y | y) ;;
-        *)
-            print_info "Nothing was stopped.\n"
-            exit 0
-            ;;
-    esac
-fi
-
-print_info "Stopping $total container(s)\n"
-docker stop $running
+exec "$binary" docker-stop-all "$@"

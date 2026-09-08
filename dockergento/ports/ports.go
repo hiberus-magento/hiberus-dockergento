@@ -86,6 +86,12 @@ type ContainerEngine interface {
 	// Remove takes containers away by id, forcing them: what is being removed has no directory
 	// left, so there is no configuration to stop it politely with.
 	Remove(ids []string) error
+
+	// Stop stops containers by id, without removing them, and does not stop at the first refusal:
+	// like `docker stop a b c`, it asks all of them and reports which did not die, so a container
+	// that will not stop does not spare the rest. err is only for never reaching the daemon at
+	// all.
+	Stop(ids []string) (failed []string, err error)
 }
 
 // Daemon is what the diagnosis asks Docker beyond the container list.

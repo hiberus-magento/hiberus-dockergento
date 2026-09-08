@@ -10,11 +10,22 @@ import (
 type engine struct {
 	containers []core.Container
 	err        error
+
+	// stopped is what Stop was last asked, and failed is what it answers back with — set by a
+	// test that wants to see some of the containers refuse.
+	stopped []string
+	failed  []string
 }
 
-func (e engine) Containers() ([]core.Container, error) { return e.containers, e.err }
+func (e *engine) Containers() ([]core.Container, error) { return e.containers, e.err }
 
-func (engine) Remove([]string) error { return nil }
+func (*engine) Remove([]string) error { return nil }
+
+func (e *engine) Stop(ids []string) ([]string, error) {
+	e.stopped = ids
+
+	return e.failed, nil
+}
 
 type filesystem struct{ present map[string]bool }
 
@@ -29,7 +40,7 @@ func (b branches) Branch(dir string) string { return b.names[dir] }
 
 func inventoryOf(containers []core.Container, present map[string]bool, names map[string]string) Inventory {
 	return Inventory{
-		Engine:   engine{containers: containers},
+		Engine:   &engine{containers: containers},
 		FS:       filesystem{present: present},
 		Branches: branches{names: names},
 	}
@@ -179,7 +190,7 @@ func TestTheOrderIsTheSameEverywhere(t *testing.T) {
 }
 
 func TestADaemonThatCannotBeReachedIsReported(t *testing.T) {
-	inventory := Inventory{Engine: engine{err: errors.New("sin demonio")}, FS: filesystem{}, Branches: branches{}}
+	inventory := Inventory{Engine: &engine{err: errors.New("sin demonio")}, FS: filesystem{}, Branches: branches{}}
 
 	if _, err := inventory.Environments(); err == nil {
 		t.Fatal("the engine's failure = nil, want it carried out")

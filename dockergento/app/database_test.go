@@ -48,7 +48,7 @@ func (r *runner) Feed(container string, command []string, in io.Reader, out io.W
 }
 
 func baseDeDatos(containers []core.Container, corredor *runner) Database {
-	return Database{Engine: engine{containers: containers}, Runner: corredor, Binary: "hm"}
+	return Database{Engine: &engine{containers: containers}, Runner: corredor, Binary: "hm"}
 }
 
 func contenedorDeDatos(project string, running bool) core.Container {

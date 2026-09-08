@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 30 de 65 |
+| Comandos en Go | 31 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -229,7 +229,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `debug-on` | tools | 3 | shell |
 | `describe` | environment | 1 | go |
 | `docker-compose` | tools | 3 | shell |
-| `docker-stop-all` | tools | 3 | shell |
+| `docker-stop-all` | tools | 3 | go |
 | `doctor` | environment | 1 | go |
 | `down` | environment | 2 | go |
 | `exec` | tools | 1 | go |

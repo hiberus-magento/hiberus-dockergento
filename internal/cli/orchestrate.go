@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -34,7 +35,10 @@ func start(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	return report(stderr, jsonOutput, "start", engine(stdout, stderr, jsonOutput).
-		Start(here(), dockergento.StartOptions{Services: services, StopOthers: stopOthers}))
+		Start(here(), dockergento.StartOptions{
+			Services: services, StopOthers: stopOthers,
+			Interactive: os.Getenv("HM_NON_INTERACTIVE") == "",
+		}))
 }
 
 func stop(args []string, stdout, stderr io.Writer, jsonOutput bool) int {

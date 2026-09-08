@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -123,4 +124,58 @@ func (e Engine) Remove(ids []string) error {
 	}
 
 	return nil
+}
+
+// stopConcurrency is how many containers are asked to stop at once. Eight at a time and not one
+// after another: the docker CLI stops the list concurrently, and hm start -s pays this on every
+// start — a machine holding four environments of nine services would otherwise serialise
+// thirty-six shutdowns.
+const stopConcurrency = 8
+
+// Stop stops containers by id, without removing them.
+//
+// It does not stop at the first one that refuses, the same as `docker stop a b c`: every id is
+// asked, and the ones that would not die come back so they can be named. The deadline is per
+// container rather than one budget for the whole batch, and failed is rebuilt in the order the
+// ids came in, so the message this produces is the same every time.
+func (e Engine) Stop(ids []string) ([]string, error) {
+	docker, err := connect()
+	if err != nil {
+		return nil, err
+	}
+	defer docker.Close()
+
+	refused := make([]bool, len(ids))
+	semaphore := make(chan struct{}, stopConcurrency)
+
+	var wg sync.WaitGroup
+
+	for index, id := range ids {
+		wg.Add(1)
+		semaphore <- struct{}{}
+
+		go func(index int, id string) {
+			defer wg.Done()
+			defer func() { <-semaphore }()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			if err := docker.ContainerStop(ctx, id, container.StopOptions{}); err != nil {
+				refused[index] = true
+			}
+		}(index, id)
+	}
+
+	wg.Wait()
+
+	failed := make([]string, 0, len(ids))
+
+	for index, id := range ids {
+		if refused[index] {
+			failed = append(failed, id)
+		}
+	}
+
+	return failed, nil
 }

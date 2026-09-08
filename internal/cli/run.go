@@ -133,6 +133,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return start(rest[1:], stdout, stderr, jsonOutput)
 		case "restart":
 			return restart(rest[1:], stdout, stderr, jsonOutput)
+		case "docker-stop-all":
+			return dockerStopAll(rest[1:], stdout, stderr, jsonOutput)
 		}
 	}
 

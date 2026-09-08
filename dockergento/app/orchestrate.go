@@ -36,6 +36,10 @@ type Operator struct {
 	// what the flags already said.
 	Choose func(question string, options []string) (string, error)
 
+	// Ask is how a question with a free-form answer is put — "Stop them all?" and not a menu.
+	// Nil means there is nobody to ask, the same as Choose.
+	Ask func(question, suggestion string) (string, error)
+
 	// Snapshots takes the copy that `stop` and `down` offer before doing something that cannot be
 	// undone.
 	Snapshots *Snapshots
@@ -55,13 +59,14 @@ var proxyPorts = []string{"80", "443"}
 // by its absence: the other environments can be stopped first, the proxy a project needs is
 // started for it, and the dependencies are checked for being a bind mount — which on macOS is
 // what makes Magento's modules invisible to itself.
-func (o Operator) Start(project core.Project, files core.ComposeFiles, services []string, stopOthers, usesProxy bool) error {
+func (o Operator) Start(project core.Project, files core.ComposeFiles, services []string,
+	stopOthers, usesProxy, interactive bool) error {
 	if err := o.refuseFromAnUnregisteredWorktree(project, "start"); err != nil {
 		return err
 	}
 
 	if stopOthers {
-		if _, err := o.Legacy.Run([]string{"docker-stop-all"}); err != nil {
+		if _, err := o.StopEverything(project, interactive); err != nil {
 			return err
 		}
 	}
@@ -233,7 +238,81 @@ func (o Operator) Restart(project core.Project, files core.ComposeFiles, service
 		return err
 	}
 
-	return o.Start(project, files, services, false, usesProxy)
+	return o.Start(project, files, services, false, usesProxy, false)
+}
+
+// StopEverything stops every container found running on this machine, machine-wide and with no
+// label scoping — what docker-stop-all asks for, and what Start asks for on its own behalf when
+// told to stop the rest before coming up.
+//
+// It does not stop at the first refusal: the rest still stop, and what would not die comes back
+// in the error so it can be named.
+func (o Operator) StopEverything(project core.Project, interactive bool) (core.MachineStop, error) {
+	if err := o.refuseFromAnUnregisteredWorktree(project, "docker-stop-all"); err != nil {
+		return core.MachineStop{}, err
+	}
+
+	// Tolerated the way the shell implementation tolerated it: `docker ps -q 2>/dev/null`
+	// answered nothing when the daemon could not be reached, and so does this.
+	containers, _ := o.Engine.Containers()
+
+	ids := make([]string, 0, len(containers))
+	others := 0
+
+	for _, item := range containers {
+		if !item.Running {
+			continue
+		}
+
+		ids = append(ids, item.ID)
+
+		if item.ComposeProject != project.Name {
+			others++
+		}
+	}
+
+	total := len(ids)
+
+	if total == 0 {
+		o.say("No containers running\n")
+
+		return core.MachineStop{}, nil
+	}
+
+	if interactive && o.Ask != nil {
+		o.say(fmt.Sprintf("This stops %d container(s) on this machine.\n", total))
+
+		if others > 0 {
+			o.say(fmt.Sprintf("%d of them do not belong to '%s'.\n", others, project.Name))
+		}
+
+		answer, err := o.Ask("Stop them all? [y/N]:", "")
+		if err != nil {
+			return core.MachineStop{}, err
+		}
+
+		if answer != "y" && answer != "Y" {
+			o.say("Nothing was stopped.\n")
+
+			return core.MachineStop{Total: total, Others: others}, nil
+		}
+	}
+
+	o.say(fmt.Sprintf("Stopping %d container(s)\n", total))
+
+	failed, err := o.Engine.Stop(ids)
+	if err != nil {
+		return core.MachineStop{}, err
+	}
+
+	stopped := total - len(failed)
+
+	if len(failed) > 0 {
+		return core.MachineStop{Total: total, Others: others, Stopped: stopped},
+			fmt.Errorf("could not stop: %s", strings.Join(failed, ", "))
+	}
+
+	return core.MachineStop{Total: total, Others: others, Stopped: stopped}, nil
 }
 
 // refuseFromAnUnregisteredWorktree stops a branch from taking down the environment of the checkout

@@ -92,7 +92,7 @@ func (s state) Anonymisation(string) (string, string) {
 func doctorFor(project bool) Doctor {
 	return Doctor{
 		Daemon:  daemon{reachable: true, info: core.DaemonInfo{MemoryBytes: 16 << 30, CPUs: 4}, local: true, pullable: true},
-		Engine:  engine{},
+		Engine:  &engine{},
 		Compose: compose{},
 		Magento: magento{admin: "admin"},
 		Tooling: tools{compose: "2.34.0"},
@@ -198,7 +198,7 @@ func TestAPortHeldByAnotherEnvironmentNamesIt(t *testing.T) {
 	physician.Compose = compose{configuration: core.Compose{Services: []core.Service{
 		{Name: "nginx", Ports: []core.Port{{Published: "80", Target: "80"}, {Published: "443", Target: "443"}}},
 	}}}
-	physician.Engine = engine{containers: []core.Container{
+	physician.Engine = &engine{containers: []core.Container{
 		{Running: true, ComposeProject: "otra-tienda", Published: []string{"80", "443"}},
 	}}
 	physician.Machine = host{
@@ -228,7 +228,7 @@ func TestOurOwnPortsAreNotAConflict(t *testing.T) {
 	physician.Compose = compose{configuration: core.Compose{Services: []core.Service{
 		{Name: "nginx", Ports: []core.Port{{Published: "80", Target: "80"}}},
 	}}}
-	physician.Engine = engine{containers: []core.Container{
+	physician.Engine = &engine{containers: []core.Container{
 		{Running: true, ComposeProject: "shop", Published: []string{"80"}},
 	}}
 	physician.Machine = host{memory: 16 << 30, listening: []core.Listener{{Port: "80", Process: "docker"}}}

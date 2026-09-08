@@ -56,3 +56,14 @@ type DownOptions struct {
 	// Compose's own default.
 	Timeout *int
 }
+
+// MachineStop is what a machine-wide stop actually did.
+type MachineStop struct {
+	// Total is every running container found, and Others is how many of them do not belong to
+	// the project asking — the same distinction the shell implementation announced.
+	Total  int
+	Others int
+
+	// Stopped is how many actually stopped, which is Total unless some of them refused.
+	Stopped int
+}

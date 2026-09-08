@@ -30,6 +30,10 @@ type call struct {
 	Path     string
 	Domain   string
 	Database bool
+
+	// Interactive is what docker-stop-all was asked with: whether the stop may ask before doing
+	// it.
+	Interactive bool
 }
 
 // outcome is what a call answers with. outcomes is indexed by call number — the position the
@@ -60,6 +64,10 @@ type fakeEngine struct {
 	// engine that only ever answers, never fails, the same as Property.
 	installed core.Installation
 	tooling   core.Tooling
+
+	// stopped is what StopEverything answers from, when its own outcome does not fail it — the
+	// same shape as project for Resolve.
+	stopped core.MachineStop
 }
 
 var _ commands = (*fakeEngine)(nil)
@@ -153,6 +161,19 @@ func (f *fakeEngine) RemoveHost(domain string) error {
 	f.calls = append(f.calls, call{Method: "RemoveHost", Domain: domain})
 
 	return f.outcomeFor(number).err
+}
+
+// StopEverything answers from f.stopped, like Resolve answers from f.project, and consumes an
+// outcome for the error, like Dump and SetHost do.
+func (f *fakeEngine) StopEverything(dir string, interactive bool) (core.MachineStop, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "StopEverything", Dir: dir, Interactive: interactive})
+
+	if out := f.outcomeFor(number); out.err != nil {
+		return core.MachineStop{}, out.err
+	}
+
+	return f.stopped, nil
 }
 
 // answering substitutes fake for newEngine for the rest of this test, and restores the real
