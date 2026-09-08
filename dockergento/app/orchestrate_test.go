@@ -678,3 +678,90 @@ func TestWhatTheComposeRunnerIsAskedToRun(t *testing.T) {
 		t.Fatalf("args = %v, want them passed through verbatim", runner.args)
 	}
 }
+
+//
+// The two answers that stop nothing.
+//
+// Both are the whole point of asking: the question exists so that no can be an answer, and a
+// machine with nothing up should not be asked at all. Neither reaches the engine, which is what
+// these pin — a port that stopped things anyway would still pass every other test here.
+//
+
+func TestDecliningStopsNothing(t *testing.T) {
+	fakeEngine := &engine{containers: []core.Container{
+		{ID: "a", ComposeProject: "shop", Running: true},
+		{ID: "b", ComposeProject: "other", Running: true},
+	}}
+	asked := &asker{answer: "n"}
+	announced := []string{}
+
+	operator := Operator{
+		Engine:   fakeEngine,
+		Ask:      asked.Ask,
+		Announce: func(message string) { announced = append(announced, message) },
+	}
+
+	result, err := operator.StopEverything(core.Project{Name: "shop"}, true)
+	if err != nil {
+		t.Fatalf("StopEverything = %v, want no error: declining is an answer, not a failure", err)
+	}
+
+	if fakeEngine.stopped != nil {
+		t.Fatalf("stopped = %v, want the engine never asked to stop anything", fakeEngine.stopped)
+	}
+
+	if result.Stopped != 0 {
+		t.Fatalf("result.Stopped = %d, want nothing counted as stopped", result.Stopped)
+	}
+
+	if result.Total != 2 {
+		t.Fatalf("result.Total = %d, want what was found running to still be reported", result.Total)
+	}
+
+	found := false
+
+	for _, line := range announced {
+		if strings.Contains(line, "Nothing was stopped.") {
+			found = true
+		}
+	}
+
+	if !found {
+		t.Fatalf("announced = %v, want it to say nothing was stopped", announced)
+	}
+}
+
+func TestWithNothingRunningNobodyIsAsked(t *testing.T) {
+	fakeEngine := &engine{containers: []core.Container{
+		{ID: "a", ComposeProject: "shop", Running: false},
+	}}
+	asked := &asker{answer: "y"}
+	announced := []string{}
+
+	operator := Operator{
+		Engine:   fakeEngine,
+		Ask:      asked.Ask,
+		Announce: func(message string) { announced = append(announced, message) },
+	}
+
+	result, err := operator.StopEverything(core.Project{Name: "shop"}, true)
+	if err != nil {
+		t.Fatalf("StopEverything = %v, want no error", err)
+	}
+
+	if len(asked.questions) != 0 {
+		t.Fatalf("questions = %v, want none: there is nothing to decide about", asked.questions)
+	}
+
+	if fakeEngine.stopped != nil {
+		t.Fatalf("stopped = %v, want the engine never asked to stop anything", fakeEngine.stopped)
+	}
+
+	if result.Total != 0 || result.Stopped != 0 {
+		t.Fatalf("result = %+v, want nothing found and nothing stopped", result)
+	}
+
+	if len(announced) != 1 || !strings.Contains(announced[0], "No containers running") {
+		t.Fatalf("announced = %v, want only the line saying nothing is up", announced)
+	}
+}
