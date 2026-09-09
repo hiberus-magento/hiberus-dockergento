@@ -2,6 +2,7 @@
 set -euo pipefail 
 
 source "$COMPONENTS_DIR"/input_info.sh
+source "$HELPERS_DIR"/binary.sh
 
 #
 # Ask sql file and launch mysql import process
@@ -29,4 +30,4 @@ create_database "$@"
 
 # Domain and certificate
 "$COMMANDS_DIR"/ssl.sh "$DOMAIN"
-"$COMMANDS_DIR"/set-host.sh "$DOMAIN" --no-database
+hm_run_binary set-host "$DOMAIN" --no-database

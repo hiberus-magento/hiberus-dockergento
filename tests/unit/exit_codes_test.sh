@@ -5,6 +5,7 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 source "$HELPERS_DIR/exit_codes.sh"
+source "$HELPERS_DIR/binary.sh"
 
 test_case "exit codes are the documented ones"
 assert_equals "0 1 2 3 4 5" "$HM_EXIT_OK $HM_EXIT_ERROR $HM_EXIT_USAGE $HM_EXIT_DOCKER $HM_EXIT_PROJECT $HM_EXIT_SERVICE"
@@ -37,5 +38,21 @@ assert_contains "$stderr" "run hm doctor"
 
 test_case "hm_fail text output is not JSON"
 assert_not_contains "$stderr" '"schema_version"'
+
+# ---------------------------------------------------------------- hm_run_binary
+
+empty_bin_dir=$(mktemp -d)
+
+test_case "hm_run_binary refuses when the binary is not installed"
+status=0
+( COMMAND_BIN_DIR="$empty_bin_dir" HM_OUTPUT_FORMAT=text hm_run_binary set-host ) >/dev/null 2>&1 || status=$?
+assert_equals "1" "$status"
+
+test_case "and reports binary_missing in JSON mode"
+stderr=$( ( COMMAND_BIN_DIR="$empty_bin_dir" HM_OUTPUT_FORMAT=json HM_COMMAND=set-host hm_run_binary set-host ) 2>&1 >/dev/null ) || true
+assert_json_field "$stderr" '.error.type' "binary_missing"
+
+test_case "and the message names the command that needed it"
+assert_contains "$stderr" "set-host"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

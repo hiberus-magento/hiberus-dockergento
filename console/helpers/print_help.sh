@@ -38,12 +38,33 @@ print_commands_info() {
     # Parameter expansion instead of `find -exec basename`, which spawned one process per
     # command file. Glob order, not name order: the glob sorts by file name, so
     # `cloud-login.sh` comes before `cloud.sh`, and that has been the order for years.
-    local names="" script basename
+    #
+    # Names keep their `.sh` all the way through this function, because that is the string
+    # `sort(1)` below orders on — the same string the glob itself just ordered by.
+    local names="" script
     for script in "$command_path"/*.sh; do
         [ -f "$script" ] || continue
-        basename="${script##*/}"
-        names+="${basename%.sh}"$'\n'
+        names+="${script##*/}"$'\n'
     done
+
+    # The custom pass stays glob-only: a project's own commands are never declared in
+    # command_descriptions.json, so there is nothing to union against. The native pass gains
+    # every declared name that has no file of its own — a command ported to the binary and
+    # deleted here, still worth a line in `hm --help`.
+    if ! $custom; then
+        while IFS= read -r declared; do
+            [ -z "$declared" ] && continue
+            [ -f "$command_path/$declared.sh" ] && continue
+            names+="$declared.sh"$'\n'
+        done <<< "$(printf '%s' "$file_content" | jq -r 'keys_unsorted[] | select(startswith("_") | not)')"
+
+        # One `sort(1)`, in the ambient locale, never `jq`'s code-point sort and never `sort -u`:
+        # both the glob above and `sort(1)` order through `strcoll` in the same locale, so this
+        # reproduces the glob's own order exactly, and a name added only when it has no file
+        # already rules out duplicates without a `-u` that could silently drop one that merely
+        # *compares* equal under a locale that ignores punctuation.
+        names=$(printf '%s' "$names" | sort)
+    fi
 
     if [ -z "$names" ]; then
         return 0
@@ -62,7 +83,7 @@ print_commands_info() {
         | (($descriptions._groups // []) | map({(.id): .title}) | add // {}) as $titles
         | $names
         | split("\n")
-        | map(select(length > 0))
+        | map(select(length > 0) | rtrimstr(".sh"))
         | to_entries
         | map({
             position: .key,

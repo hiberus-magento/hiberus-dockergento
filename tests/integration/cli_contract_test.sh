@@ -68,4 +68,19 @@ test_case "the global flag is not passed on to the command"
 run --json noexiste
 assert_json_field "$STDERR" '.command' "noexiste"
 
+# ---------------------------------------------------------------- a command that moved into the binary
+#
+# `set-host` stands in for the twelve retired twins here: it is the one whose shell file goes in
+# this same unit, so it is the only one that can turn this RED into GREEN without waiting on a
+# later unit. `version.sh` is still a file until unit 4, and gets its own case there.
+
+test_case "a command that moved into the binary says so, not that it was never found"
+run set-host
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint names the binary command"
+run --no-json set-host
+assert_contains "$STDERR" "hm set-host"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

@@ -101,12 +101,10 @@ assert_equals "2" "$status"
 assert_contains "$(cat "$LAB/err")" "belongs to"
 
 # ---------------------------------------------------------------- hosts entries
-
-test_case "the entries this tool adds carry a marker"
-assert_contains "$(cat "$COMMANDS_DIR/set-host.sh")" 'added by $COMMAND_BIN_NAME'
-
-test_case "and there is a way to remove its own"
-assert_contains "$(cat "$COMMANDS_DIR/set-host.sh")" "remove_local_host"
+#
+# The marker on the entries this tool writes, and being able to remove its own, are
+# `dockergento/core/hosts.go:19-24` now, pinned by `TestOnlyWhatThisToolAddedIsRemoved` and
+# `TestTheEntryIsItsOwnLine` in `core/hosts_test.go`. There is no set-host.sh to read.
 
 test_case "the collection command reports them without touching the file"
 before=$(md5 -q /etc/hosts 2>/dev/null || md5sum /etc/hosts | cut -d' ' -f1)

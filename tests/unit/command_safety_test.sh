@@ -9,6 +9,7 @@
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/router.sh"
 source "$HELPERS_DIR/worktree.sh"
 source "$TASKS_DIR/set_environment_labels.sh"
 
@@ -49,10 +50,13 @@ for file in "$COMMANDS_DIR"/*.sh; do
 done
 assert_empty "$missing"
 
-test_case "and every entry has a file"
+test_case "and every entry has a file or a route"
+routed_names="$(hm_routed_commands)"
 orphaned=""
 while IFS= read -r name; do
-    [ -f "$COMMANDS_DIR/$name.sh" ] || orphaned="$orphaned $name"
+    [ -f "$COMMANDS_DIR/$name.sh" ] && continue
+    grep -qx "$name" <<< "$routed_names" && continue
+    orphaned="$orphaned $name"
 done <<< "$(commands_named)"
 assert_empty "$orphaned"
 

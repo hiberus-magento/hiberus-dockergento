@@ -8,6 +8,7 @@
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/router.sh"
 
 DOCUMENT="$COMMAND_BIN_DIR/MIGRATION.md"
 DESCRIPTIONS="$COMMAND_BIN_DIR/data/command_descriptions.json"
@@ -73,12 +74,6 @@ assert_equals "$(commands | grep -c .)" "$total_declared"
 # A row that says shell when the router already answers for that command is the same drift,
 # read from the other side: the document has to catch up, not just avoid inventing.
 
-ROUTER="$COMMAND_BIN_DIR/internal/cli/run.go"
-
-routed() {
-    sed -n 's/^[[:space:]]*case "\([a-z0-9_-]*\)":.*/\1/p' "$ROUTER" | grep -v '^_' | sort
-}
-
 # db and proxy route only part of their subcommands (`templateSubcommands` at run.go:85,
 # `proxySubcommands` at run.go:129) — pinned from both sides below, never a silent skip
 PARTIAL="db proxy"
@@ -91,12 +86,12 @@ while IFS= read -r command; do
     is_partial "$command" && continue
     owner=$(rows | awk -F'\t' -v c="$command" '$1 == c { print $2 }')
     [ "$owner" == "go" ] || drifted="$drifted $command"
-done <<< "$(routed)"
+done <<< "$(hm_routed_commands)"
 assert_equals "" "$drifted"
 
 test_case "the partial exception is still routed and still tabled shell"
 stale=""
-still_routed="$(routed)"
+still_routed="$(hm_routed_commands)"
 for command in $PARTIAL; do
     grep -qx "$command" <<< "$still_routed" || stale="$stale ${command}(not-routed)"
     owner=$(rows | awk -F'\t' -v c="$command" '$1 == c { print $2 }')

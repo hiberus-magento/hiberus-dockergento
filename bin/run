@@ -72,6 +72,14 @@ import_dependencies() {
 check_command_dir() {
     if [ ! -f "$COMMANDS_DIR/$command_name" ]; then
         if [[ ! -f "$CUSTOM_COMMANDS_DIR/$command_name" ]]; then
+            local name="${command_name%.sh}"
+
+            if [ "$(jq -r --arg n "$name" 'has($n)' "$DATA_DIR/command_descriptions.json")" == "true" ]; then
+                hm_fail "$HM_EXIT_USAGE" "command_moved_to_binary" \
+                    "'$name' is part of the $COMMAND_BIN_NAME binary now" \
+                    "$COMMAND_BIN_NAME $name"
+            fi
+
             hm_fail "$HM_EXIT_USAGE" "command_not_found" \
                 "Command not found: ${command_name%.sh}" \
                 "$COMMAND_BIN_NAME --help"
