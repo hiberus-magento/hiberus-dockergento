@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/selfrun"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
@@ -142,5 +143,16 @@ func TestNothingIsHandedOverOutsideABranchEnvironment(t *testing.T) {
 
 	if handed := motor(t).registration(filepath.Join(project.Root, "no", "existe")); len(handed) != 0 {
 		t.Fatalf("handed over from a directory that is not a project = %v, want nothing", handed)
+	}
+}
+
+// setup's install door is this binary, not the shell CLI directly: the steps it runs are commands
+// of this same tool, and running them through the shell would mean going through a process that
+// does not know about them either.
+func TestTheInstallDoorIsTheBinary(t *testing.T) {
+	install := motor(t).setup().Legacy
+
+	if _, ok := install.(selfrun.Runner); !ok {
+		t.Fatalf("setup's install door = %T, want selfrun.Runner", install)
 	}
 }

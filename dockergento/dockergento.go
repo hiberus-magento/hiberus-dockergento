@@ -33,6 +33,7 @@ import (
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/magentofiles"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/osfs"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/registry"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/selfrun"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/toolinfo"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/traefik"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/app"
@@ -598,7 +599,7 @@ func (e *Engine) setup() app.Setup {
 		VCS:        gitvcs.Git{},
 		Tooling:    toolinfo.Reader{Root: e.options.Root},
 		Magento:    magentofiles.Reader{},
-		Legacy:     legacy.Runner{Root: e.options.ShellRoot},
+		Legacy:     selfrun.Runner{},
 		Proxy:      e.proxyFor(),
 		Root:       e.options.Root,
 		Platform:   Platform(),

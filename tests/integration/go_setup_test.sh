@@ -140,6 +140,16 @@ assert_contains "$(cat "$HM_FAKE_LOG")" "set-host tienda.test --no-database"
 test_case "with no dump, nothing is imported"
 assert_not_contains "$(cat "$HM_FAKE_LOG")" "mysql -i"
 
+#
+# Once the install door is this binary, nothing else in this file watches the ordinary case: a
+# step whose command the router does not answer for still has to reach the shell bridge, with the
+# same arguments the shell entry point would have received directly.
+#
+test_case "a step the binary does not route reaches the bridge"
+: > "$HM_FAKE_LOG"
+"$GO_BINARY" --no-json install >/dev/null 2>&1
+assert_equals "--no-json install" "$(cat "$HM_FAKE_LOG")"
+
 # ---------------------------------------------------------------- a dump instead of an install
 
 : > "$HM_FAKE_LOG"
