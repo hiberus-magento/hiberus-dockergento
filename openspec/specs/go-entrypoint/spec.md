@@ -196,8 +196,9 @@ test that verifies what its handler asks of the engine, through a fake substitut
 one, requiring no Docker daemon, no network access, and no project beyond what the test itself
 builds.
 (Previously: covered `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-off`,
-`purge`, `npm`, `n98-magerun`, `test-unit`, `test-integration`, and `mysqldump`. Adds `version`
-and `set-host`.)
+`purge`, `npm`, `n98-magerun`, `test-unit`, `test-integration`, `mysqldump`, `version`, and
+`set-host`. Its two varnish scenarios proved only the happy order; this adds, for each, the case
+where the container answers a non-zero status with no Go-level error.)
 
 #### Scenario: Copying into the container
 
@@ -226,6 +227,37 @@ and `set-host`.)
 - **WHEN** `varnish-off` runs
 - **THEN** the fake records the VCL edit, the restart, and the disable call, followed by the
   purge and the cache-clean that turning it off leaves behind, in that order
+
+#### Scenario: Turning the page cache on stops at a failing step
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `varnish-on` runs and the VCL edit or the `cache:enable` call answers a non-zero status
+  with no error
+- **THEN** the fake records only the calls up to and including the one that failed — no restart
+  and no `cache:enable` call are recorded when the edit is the one that failed
+- **AND** the command's return value is that same status
+
+Test: `TestAFailedVCLEditReportsTheContainersCode` (new, edit-failure path — shared code with
+`varnish-off`, so proved once).
+
+#### Scenario: Turning the page cache off stops at a failing step
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `varnish-off` runs and the VCL edit or the `cache:disable` call answers a non-zero
+  status with no error
+- **THEN** the fake records only the calls up to and including the one that failed — no purge and
+  no cache-clean calls are recorded
+- **AND** the command's return value is that same status
+
+Test: `TestAFailedCacheToggleStopsBeforeThePurge` (new, cache-toggle-failure path, proved against
+`varnish-off` because it is the one that also has a cleanup to skip).
+
+The exit code, the text shown, and the `--json` document for both scenarios above are governed by
+`magento-commands`' "A wrapper runs what it says it runs" and by `cli-output-contract`'s "Errores
+estructurados" and "Códigos de salida estables"; this requirement owns only what the fake records.
+
+`TestAFailedEditStopsBeforeTheRestart` (the `err != nil` branch of the same two guards) is
+unchanged by this delta and keeps passing.
 
 #### Scenario: Clearing generated code
 
