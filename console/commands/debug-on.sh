@@ -3,6 +3,7 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/binary.sh
 
 "$TASKS_DIR"/start_service_if_not_running.sh phpfpm
 
@@ -19,7 +20,7 @@ fi
 
 if [[ "$MACHINE" == "mac" ]]; then
     print_warning "Copying generated code into host \n"
-    "$COMMANDS_DIR"/copy-from-container.sh generated
+    hm_run_binary copy-from-container generated
 fi
 
 "$COMMANDS_DIR"/restart.sh phpfpm

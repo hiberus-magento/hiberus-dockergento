@@ -3,6 +3,7 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
 source "$HELPERS_DIR"/exit_codes.sh
+source "$HELPERS_DIR"/binary.sh
 
 #
 # A worktree that reads the main checkout's dependencies cannot write to them.
@@ -36,7 +37,7 @@ copy_vendor_to_container() {
     if [ ! -d "$MAGENTO_DIR"/vendor ]; then
         mkdir -p "$MAGENTO_DIR/vendor"
     fi
-    "$COMMANDS_DIR"/copy-to-container.sh "vendor"
+    hm_run_binary copy-to-container "vendor"
 }
 
 #
@@ -48,7 +49,7 @@ sync_all_from_container_to_host() {
     # Copy all default files magento into container
     default_files_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r 'keys | join(" ")')
 
-    "$COMMANDS_DIR"/copy-to-container.sh $default_files_magento
+    hm_run_binary copy-to-container $default_files_magento
     "$COMMANDS_DIR"/stop.sh "phpfpm"
 
     print_info "Copying all files from container to host\n"
