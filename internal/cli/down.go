@@ -29,23 +29,29 @@ func down(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		case "--remove-orphans":
 			options.RemoveOrphans = true
 		case "--rmi":
-			if at+1 < len(args) {
-				at++
-				options.Images = args[at]
+			if at+1 >= len(args) {
+				return failure(stderr, jsonOutput, "down", exitUsage, "missing_value",
+					"--rmi needs a value", binaryName()+" down --rmi all")
 			}
+
+			at++
+			options.Images = args[at]
 		case "-t", "--timeout":
-			if at+1 < len(args) {
-				at++
-
-				seconds, err := strconv.Atoi(args[at])
-				if err != nil {
-					return failure(stderr, jsonOutput, "down", exitUsage, "invalid_argument",
-						"The timeout is a number of seconds: "+args[at],
-						binaryName()+" down -t 30")
-				}
-
-				options.Timeout = &seconds
+			if at+1 >= len(args) {
+				return failure(stderr, jsonOutput, "down", exitUsage, "missing_value",
+					argument+" needs a value", binaryName()+" down -t 30")
 			}
+
+			at++
+
+			seconds, err := strconv.Atoi(args[at])
+			if err != nil {
+				return failure(stderr, jsonOutput, "down", exitUsage, "invalid_argument",
+					"The timeout is a number of seconds: "+args[at],
+					binaryName()+" down -t 30")
+			}
+
+			options.Timeout = &seconds
 		default:
 			return failure(stderr, jsonOutput, "down", exitUsage, "invalid_argument",
 				"Unknown option: "+argument, binaryName()+" down [-v]")
