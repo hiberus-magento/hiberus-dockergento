@@ -51,17 +51,23 @@ while IFS= read -r title; do
 done <<< "$(jq -r '._groups[] | select(.id != "other") | .title' < "$DATA_DIR/command_descriptions.json")"
 assert_equals "$declared" "$shown"
 
+#
+# The declared names, not the files on disk. A command that lives in the binary has no file, so a
+# loop over `console/commands/*.sh` never gets to ask about it — it would pass just the same with
+# the help's declared-name union deleted. The other direction, a file nobody declared, is what the
+# ungrouped case below is for.
+#
 test_case "no command is missing from the help"
 missing=""
-for script in "$COMMAND_BIN_DIR"/console/commands/*.sh; do
-    name=$(basename "$script" .sh)
+while IFS= read -r name; do
+    [ -z "$name" ] && continue
     mac_only=$(jq -r --arg n "$name" '.[$n].mac // false' < "$DATA_DIR/command_descriptions.json")
     [ "$mac_only" == "true" ] && [ "$(uname -s)" != "Darwin" ] && continue
     case "$OUTPUT" in
         *"$name"*) ;;
         *) missing="$missing $name" ;;
     esac
-done
+done <<< "$(jq -r 'keys_unsorted[] | select(startswith("_") | not)' < "$DATA_DIR/command_descriptions.json")"
 assert_empty "$missing" "these commands are not listed:"
 
 test_case "a group heading is not painted like a command"
