@@ -70,9 +70,10 @@ assert_json_field "$STDERR" '.command' "noexiste"
 
 # ---------------------------------------------------------------- a command that moved into the binary
 #
-# `set-host` stands in for the twelve retired twins here: it is the one whose shell file goes in
-# this same unit, so it is the only one that can turn this RED into GREEN without waiting on a
-# later unit. `version.sh` is still a file until unit 4, and gets its own case there.
+# `set-host` stood in for the twelve retired twins in unit 2: it was the one whose shell file went
+# in that same unit, so it was the only one that could turn this RED into GREEN without waiting on
+# a later unit. `version` is added here, in unit 4, now that `console/commands/version.sh` is
+# actually gone.
 
 test_case "a command that moved into the binary says so, not that it was never found"
 run set-host
@@ -82,5 +83,14 @@ assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
 test_case "and the readable hint names the binary command"
 run --no-json set-host
 assert_contains "$STDERR" "hm set-host"
+
+test_case "and so does version, once its own shell twin is gone"
+run version
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for version names the binary command too"
+run --no-json version
+assert_contains "$STDERR" "hm version"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

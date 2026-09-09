@@ -154,6 +154,17 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
   - [x] `set-host` — con el fichero de hosts redirigible, así que por primera vez está probado lo
         que le hace: que no añade nada si el nombre ya resuelve aquí, y que sólo borra lo que puso
         él
+  - [x] El tercer paso, para estos doce: su gemelo de shell y la prueba de bash que lo comparaba
+        ya no existen. `set-host.sh`, `copy-to-container.sh`, `copy-from-container.sh` y los nueve
+        envoltorios (`version`, `varnish-on`, `varnish-off`, `mysqldump`, `purge`, `n98-magerun`,
+        `test-unit`, `npm`, `test-integration`) están borrados de `console/commands/`, con la misma
+        disciplina de las líneas 62-66: nada de shell se borra antes de que su comportamiento esté
+        cubierto en Go. Las seis pruebas de paridad de `tests/integration/go_wrappers_test.sh` que
+        comparaban un binario con el otro se reescribieron contra un oráculo que no es ninguno de
+        los dos — un contenedor grabando su propio argv, la base de datos restaurada y contada, y
+        git en el directorio de instalación —, y `tests/unit/command_safety_test.sh` ganó la
+        dirección que faltaba: que lo que el binario ya posee del todo no tiene fichero del que
+        desviarse
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.

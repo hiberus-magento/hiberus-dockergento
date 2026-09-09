@@ -60,6 +60,23 @@ while IFS= read -r name; do
 done <<< "$(commands_named)"
 assert_empty "$orphaned"
 
+#
+# The reverse direction, over the twelve retired by name and not "every routed command": twenty
+# routed commands legitimately still have a file (`magento`, `start`, `mysql`, the partials `db`
+# and `proxy`, the three delegating stubs), and a blanket rule would be false today.
+#
+test_case "and what the binary owns outright has no file to drift from"
+RETIRED="copy-to-container copy-from-container varnish-on varnish-off purge npm
+         n98-magerun test-unit test-integration mysqldump version set-host"
+
+drift=""
+routed="$(hm_routed_commands)"
+for name in $RETIRED; do
+    [ -f "$COMMANDS_DIR/$name.sh" ] && drift="$drift ${name}(file)"
+    grep -qx "$name" <<< "$routed" || drift="$drift ${name}(not-routed)"
+done
+assert_empty "$drift"
+
 # ---------------------------------------------------------------- the internal lists agree
 
 # `hm_alters_environment` decides what a worktree refuses. Anything it refuses changes something,

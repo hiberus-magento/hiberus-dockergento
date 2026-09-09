@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 #
-# The commands that are one thing run in one container, ported.
-#
-# They are wrappers, and that is the point of them: knowing that the unit tests are run with this
-# phpunit and that configuration, and that clearing generated code means these seven directories,
-# is what the tool is for. What is checked here is that they reach the same container with the
-# same command as the shell implementation.
+# The commands that are one thing run in one container. There is no shell twin left to compare
+# against, so each case is pinned against something that is not the binary itself: the container
+# it reached, the database it dumped, or git in the installation directory — never the binary
+# compared with its own other rendering, which would prove nothing.
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
-SHELL_CLI="$COMMAND_BIN_DIR/bin/run"
 PROJECT="hm-go-envoltorios"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 
@@ -86,19 +83,48 @@ assert_equals "importante.log" "$(en_contenedor 'ls var/log')"
 # ---------------------------------------------------------------- npm and n98-magerun
 
 #
-# Neither is installed in this image. What is compared is the failure: it has to be the container
-# saying the command is not there, and it has to be the same in both halves.
+# A recorder in place of each real binary, so what is checked is the container's own behaviour —
+# not two CLIs agreeing with each other. `printf '%s\n' "$#"` then `printf '[%s]\n' "$@"` is the
+# unambiguous shape: `echo "$@"` or `"$*"` would render three separate arguments identically to
+# one already-joined string, which is exactly the defect class these two cases exist to catch.
 #
-( cd "$DIR" && "$SHELL_CLI" npm --version >"$LAB/shell.out" 2>&1 ); ESTADO_SHELL=$?
-( cd "$DIR" && "$GO_BINARY"  npm --version >"$LAB/go.out" 2>&1 );   ESTADO_GO=$?
+cat > "$LAB/npm-recorder" <<'RECORDER'
+#!/bin/sh
+pwd                  >  /tmp/npm.argv
+printf '%s\n' "$#"   >> /tmp/npm.argv
+printf '[%s]\n' "$@" >> /tmp/npm.argv
+exit 42
+RECORDER
+chmod +x "$LAB/npm-recorder"
+( cd "$DIR" && docker compose -p "$PROJECT" cp "$LAB/npm-recorder" phpfpm:/usr/local/bin/npm ) >/dev/null 2>&1
 
 test_case "npm is run in the php container, and its failure is its own"
-assert_equals "$ESTADO_SHELL" "$ESTADO_GO"
+( cd "$DIR" && "$GO_BINARY" npm --version ) >/dev/null 2>&1; ESTADO_GO=$?
+assert_equals "$(printf '/var/www/html\n1\n[--version]')" "$(en_contenedor 'cat /tmp/npm.argv')"
+assert_equals "42" "$ESTADO_GO"
 
-test_case "and n98-magerun too"
-( cd "$DIR" && "$SHELL_CLI" n98-magerun --version >"$LAB/shell.out" 2>&1 ); ESTADO_SHELL=$?
-( cd "$DIR" && "$GO_BINARY"  n98-magerun --version >"$LAB/go.out" 2>&1 );   ESTADO_GO=$?
-assert_equals "$ESTADO_SHELL" "$ESTADO_GO"
+#
+# `wrappers.go:55` builds `["bash", "-c", "n98-magerun " + strings.Join(args, " ")]` — three
+# elements, the third one already joined. The recorder replaces `bash` itself, which is the
+# executable the container is asked to run: a recorder logging `"$@"` or `"$*"` alone would render
+# that identically whether the arguments had been passed separately or already joined, so it must
+# count arguments explicitly. Had they been passed separately, `$#` would read 3 and the last line
+# would read `[n98-magerun]` / `[--version]` instead of one joined string — the regression this
+# case exists to catch. (`$#` is 2, not 3: `$0` is the recorder's own name.)
+#
+cat > "$LAB/bash-recorder" <<'RECORDER'
+#!/bin/sh
+printf '%s\n' "$#"   >  /tmp/bash.argv
+printf '[%s]\n' "$@" >> /tmp/bash.argv
+exit 43
+RECORDER
+chmod +x "$LAB/bash-recorder"
+( cd "$DIR" && docker compose -p "$PROJECT" cp "$LAB/bash-recorder" phpfpm:/usr/local/bin/bash ) >/dev/null 2>&1
+
+test_case "and n98-magerun composes one already-joined command line, not separate arguments"
+( cd "$DIR" && "$GO_BINARY" n98-magerun --version ) >/dev/null 2>&1; ESTADO_GO=$?
+assert_equals "$(printf '2\n[-c]\n[n98-magerun --version]')" "$(en_contenedor 'cat /tmp/bash.argv')"
+assert_equals "43" "$ESTADO_GO"
 
 # ---------------------------------------------------------------- the test suites
 
@@ -130,18 +156,15 @@ en_contenedor ': > /tmp/llamadas' >/dev/null 2>&1
 assert_contains "$(en_contenedor 'cat /tmp/llamadas')" "--filter AlgunTest"
 
 #
-# Both halves have to reach it, which is not a given: the shell implementation passed the whole
-# command line as one argument, so Docker looked for a file whose name had spaces in it and the
-# tests never ran — while the exit code said they had.
+# Exact equality of the whole recorded invocation, not a substring: a single argument with spaces
+# in it never invokes the recorder at all, which leaves the log empty rather than merely wrong —
+# `echo "$@"` cannot tell one such argument from three separate ones, but an empty log can.
 #
-test_case "and both halves build the same one"
-en_contenedor ': > /tmp/llamadas' >/dev/null 2>&1
-( cd "$DIR" && "$SHELL_CLI" test-unit ) >/dev/null 2>&1
-DESDE_SHELL=$(en_contenedor 'cat /tmp/llamadas')
+test_case "and the whole invocation reaches phpunit exactly, nothing appended"
 en_contenedor ': > /tmp/llamadas' >/dev/null 2>&1
 ( cd "$DIR" && "$GO_BINARY" test-unit ) >/dev/null 2>&1
-assert_equals "$DESDE_SHELL" "$(en_contenedor 'cat /tmp/llamadas')"
-assert_contains "$DESDE_SHELL" "phpunit.xml.dist"
+assert_equals "$(printf '/var/www/html\n--config ./dev/tests/unit/phpunit.xml.dist')" \
+              "$(en_contenedor 'cat /tmp/llamadas')"
 
 # ---------------------------------------------------------------- mysqldump
 
@@ -158,7 +181,7 @@ esperar_db() {
 esperar_db
 
 ( cd "$DIR" && docker compose -p "$PROJECT" exec -T db \
-    mariadb -uroot -ppassword magento -e "CREATE TABLE pedidos (id INT); INSERT INTO pedidos VALUES (7);" ) >/dev/null 2>&1
+    mariadb -uroot -ppassword magento -e "CREATE TABLE pedidos (id INT); INSERT INTO pedidos VALUES (7),(8),(9);" ) >/dev/null 2>&1
 
 test_case "mysqldump writes the database where it was told"
 ( cd "$DIR" && "$GO_BINARY" mysqldump "$LAB/salida.sql" ) >/dev/null 2>&1
@@ -176,31 +199,92 @@ test_case "with no path it says so instead of writing somewhere"
 ( cd "$DIR" && "$GO_BINARY" mysqldump >"$LAB/go.err" 2>&1 ); ESTADO_GO=$?
 assert_equals "2" "$ESTADO_GO"
 
-test_case "and what it writes is what the shell implementation writes"
-( cd "$DIR" && "$SHELL_CLI" mysqldump "$LAB/shell.sql" ) >/dev/null 2>&1
-assert_equals "$(grep -c 'INSERT INTO' "$LAB/shell.sql")" "$(grep -c 'INSERT INTO' "$LAB/salida.sql")"
+#
+# Completeness against the database itself, which is stronger than a `grep -c` against another
+# dump: extended inserts can make both counts read 1 regardless of what actually happened. The
+# dump is restored into a second database and every row is counted there.
+#
+test_case "and every row it dumped, restored and counted independently"
+( cd "$DIR" && docker compose -p "$PROJECT" exec -T db \
+    mariadb -uroot -ppassword -e "CREATE DATABASE IF NOT EXISTS verificacion" ) >/dev/null 2>&1
+( cd "$DIR" && docker compose -p "$PROJECT" exec -T db \
+    mariadb -uroot -ppassword verificacion ) < "$LAB/salida.sql" >/dev/null 2>&1
+assert_equals "3" "$( cd "$DIR" && docker compose -p "$PROJECT" exec -T db \
+    mariadb -uroot -ppassword verificacion -N -B -e "SELECT COUNT(*) FROM pedidos" )"
 
 # ---------------------------------------------------------------- version
 
 #
 # Which build of the tool this is, and what is underneath it: not "1.4.5", but 1.4.5 and eleven
 # commits, on this branch, with uncommitted changes — which is the difference between a report
-# somebody can act on and one naming the version somebody happened to have tagged.
+# somebody can act on and one naming the version somebody happened to have tagged. There is no
+# shell implementation left to compare against, so git in the installation directory is the
+# oracle: it is the only thing independent of both the JSON and the text the binary prints.
 #
-test_case "both report the same installation"
-assert_equals "$( "$SHELL_CLI" version --json | jq -S . )" \
-              "$( "$GO_BINARY" version --json | jq -S 'del(.data.binary)' )"
+
+COMMIT=$(git -C "$COMMAND_BIN_DIR" rev-parse --short HEAD 2>/dev/null)
+DESCRIBED=$(git -C "$COMMAND_BIN_DIR" describe --tags 2>/dev/null)
+
+test_case "the installation directory is a checkout, or nothing below is an oracle"
+assert_equals "checkout" "$([ -n "$COMMIT" ] && echo checkout || echo "not a checkout")"
+
+TAG=$(git -C "$COMMAND_BIN_DIR" describe --tags --abbrev=0 2>/dev/null)
+DIRTY_GIT=false
+[ -n "$(git -C "$COMMAND_BIN_DIR" status --porcelain --untracked-files=no 2>/dev/null)" ] && DIRTY_GIT=true
+
+EXPECTED_VERSION="$DESCRIBED"
+[ -z "$EXPECTED_VERSION" ] && EXPECTED_VERSION="unknown"
+
+# The `<n>` of `<tag>-<n>-g<hash>`, or 0 when there is no such suffix (`core/installation.go:35-53`).
+EXPECTED_AHEAD=0
+case "$DESCRIBED" in
+    *-g*)
+        REST="${DESCRIBED%-g*}"
+        EXPECTED_AHEAD="${REST##*-}"
+        ;;
+esac
+
+VERSION_JSON=$( "$GO_BINARY" version --json )
+
+test_case "the commit in the document is git's own, not a prefix of the long hash"
+assert_json_field "$VERSION_JSON" '.data.commit' "$COMMIT"
+
+test_case "the installation path is where the checkout is"
+assert_json_field "$VERSION_JSON" '.data.path' "$COMMAND_BIN_DIR"
+
+test_case "the version is what git describes, or unknown when it has nothing to say"
+assert_json_field "$VERSION_JSON" '.data.version' "$EXPECTED_VERSION"
+
+test_case "the tag is the nearest one alone, not the full description with its commit count"
+assert_json_field "$VERSION_JSON" '.data.tag' "$TAG"
+
+test_case "dirty means uncommitted tracked changes, and nothing else"
+assert_json_field "$VERSION_JSON" '.data.dirty' "$DIRTY_GIT"
+
+test_case "commits ahead is read from the same description git gives"
+assert_json_field "$VERSION_JSON" '.data.commits_ahead' "$EXPECTED_AHEAD"
 
 #
-# One field is new, and it is the one the shell implementation cannot answer about itself: which
-# build of the binary is running. It is why the diagnostic that used to answer it is gone.
+# The one field with no git oracle, because it is not about the checkout: which build of the
+# binary itself is running. It is why the diagnostic that used to answer it is gone.
 #
 test_case "and the ported half says which build of it is running"
-assert_equals "0" "$( "$GO_BINARY" version --json | jq -e '.data.binary != null' >/dev/null; echo $? )"
+assert_equals "0" "$(echo "$VERSION_JSON" | jq -e '.data.binary != null' >/dev/null; echo $?)"
 
-test_case "the words a person reads are the same, but for that line"
-assert_equals "$( "$SHELL_CLI" --no-json version 2>&1 )" \
-              "$( "$GO_BINARY" --no-json version 2>&1 | grep -v '^  binary' )"
+#
+# The text rendering, checked against the same git oracle and not against the JSON: a cross-format
+# comparison runs one binary against itself and cannot catch a value wrong in both renderings.
+#
+TEXT=$( "$GO_BINARY" --no-json version 2>&1 )
+
+test_case "the words a person reads name the same commit"
+assert_contains "$(grep '^  commit' <<< "$TEXT")" "$COMMIT"
+
+test_case "and the same installation path"
+assert_contains "$(grep '^  installed' <<< "$TEXT")" "$COMMAND_BIN_DIR"
+
+test_case "and the header carries the same description git gives"
+assert_contains "$TEXT" "$EXPECTED_VERSION"
 
 test_case "it needs no project, because the problem may be that there is no project"
 assert_equals "0" "$( cd "$LAB" && "$GO_BINARY" version >/dev/null 2>&1; echo $? )"

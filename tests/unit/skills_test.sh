@@ -10,6 +10,7 @@
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/router.sh"
 
 SKILLS_DIR="$COMMAND_BIN_DIR/skills"
 DESCRIPTIONS="$COMMAND_BIN_DIR/data/command_descriptions.json"
@@ -72,13 +73,15 @@ done
 # ---------------------------------------------------------------- the commands
 
 test_case "every command a skill mentions exists"
+routed_names="$(hm_routed_commands)"
 unknown=""
 while IFS=$'\t' read -r skill invocation; do
     [ -z "$invocation" ] && continue
     set -- $invocation
     command_name="$2"
-    [ -f "$COMMAND_BIN_DIR/console/commands/$command_name.sh" ] ||
-        unknown="${unknown}${skill}: hm ${command_name}\n"
+    [ -f "$COMMAND_BIN_DIR/console/commands/$command_name.sh" ] && continue
+    grep -qx "$command_name" <<< "$routed_names" && continue
+    unknown="${unknown}${skill}: hm ${command_name}\n"
 done <<< "$(invocations)"
 assert_equals "" "$(printf "$unknown")"
 
