@@ -25,8 +25,11 @@ fuera del código.
 - **THEN** siguen apareciendo en su sección
 
 #### Scenario: Ningún comando desaparece
-- **WHEN** se comparan los comandos listados con los ficheros de comandos existentes
-- **THEN** están todos
+- **WHEN** se comparan los comandos listados con los comandos declarados en
+  `data/command_descriptions.json`
+- **THEN** están todos, tenga o no cada uno un fichero bajo `console/commands/`
+(Previously: comparaba los comandos listados contra los ficheros de comandos existentes; un
+comando solo-Go no tenía fichero y quedaba fuera de esa comparación.)
 
 ### Requirement: Uso y ejemplos
 
