@@ -152,7 +152,11 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 	status, err := engine.Exec(project.Root, varnishService,
 		[]string{"sed", "-i", edit, "/etc/varnish/default.vcl"},
 		terminalOptions("root"))
-	if err != nil || status != 0 {
+	if status != 0 {
+		return failure(stderr, jsonOutput, command, status, "command_failed",
+			"The VCL edit failed in the varnish container", "")
+	}
+	if err != nil {
 		return report(stderr, jsonOutput, command, err)
 	}
 
@@ -162,7 +166,11 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	status, err = engine.Exec(project.Root, phpService,
 		[]string{"bin/magento", cache, "full_page"}, terminalOptions(""))
-	if err != nil || status != 0 {
+	if status != 0 {
+		return failure(stderr, jsonOutput, command, status, "command_failed",
+			fmt.Sprintf("The %s failed in the phpfpm container", cache), "")
+	}
+	if err != nil {
 		return report(stderr, jsonOutput, command, err)
 	}
 

@@ -263,6 +263,169 @@ func TestAFailedEditStopsBeforeTheRestart(t *testing.T) {
 	}
 }
 
+// TestAFailedVCLEditReportsTheContainersCode is the sibling branch TestAFailedEditStopsBefore
+// TheRestart never covered: the sed exits non-zero with no Go-level error, which report() maps
+// to exitOK today because it only looks at err. Proved once against varnish-on — the guard code
+// is shared with varnish-off.
+func TestAFailedVCLEditReportsTheContainersCode(t *testing.T) {
+	ignoreTty := cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")
+	root := "/code/shop"
+
+	t.Run("text", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+		fake.outcomes = []outcome{{}, {status: 42}}
+		cwd := here()
+		stdout, stderr := &strings.Builder{}, &strings.Builder{}
+
+		code := varnish(true, stdout, stderr, false)
+
+		if code != 42 {
+			t.Fatalf("varnish-on with a failed edit = %d, want the container's own 42", code)
+		}
+
+		want := []call{
+			{Method: "Resolve", Dir: cwd},
+			{Method: "Exec", Dir: root, Service: varnishService,
+				Command: []string{"sed", "-i",
+					`s/^[^#]\+return(pass); #skip-varnish/#return(pass); #skip-varnish/g`,
+					"/etc/varnish/default.vcl"},
+				Options: terminalOptions("root")},
+		}
+
+		if diff := cmp.Diff(want, fake.calls, ignoreTty); diff != "" {
+			t.Fatalf("asked of the engine after a failed edit (-want +got):\n%s", diff)
+		}
+
+		if strings.Contains(stdout.String(), "Varnish cache enabled!") {
+			t.Fatalf("stdout = %q, want no success line on a failed edit", stdout.String())
+		}
+
+		if !strings.Contains(stderr.String(), "VCL edit") {
+			t.Fatalf("stderr = %q, want a line naming the VCL edit as the failing step", stderr.String())
+		}
+	})
+
+	t.Run("--json", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+		fake.outcomes = []outcome{{}, {status: 42}}
+		stdout, stderr := &strings.Builder{}, &strings.Builder{}
+
+		code := varnish(true, stdout, stderr, true)
+
+		if code != 42 {
+			t.Fatalf("varnish-on --json with a failed edit = %d, want 42", code)
+		}
+
+		if stdout.String() != "" {
+			t.Fatalf("stdout = %q, want no success document on a failed edit", stdout.String())
+		}
+
+		var envelope struct {
+			OK    bool `json:"ok"`
+			Error struct {
+				Code int `json:"code"`
+			} `json:"error"`
+		}
+
+		if err := json.Unmarshal([]byte(stderr.String()), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal(%q) = %v, want valid JSON", stderr.String(), err)
+		}
+
+		if envelope.OK {
+			t.Fatalf("envelope.ok = true, want false")
+		}
+
+		if envelope.Error.Code != 42 {
+			t.Fatalf("envelope.error.code = %d, want 42", envelope.Error.Code)
+		}
+	})
+}
+
+// TestAFailedCacheToggleStopsBeforeThePurge proves the same missing branch for the second guard,
+// against varnish-off specifically: it is the one command with a cleanup step (purge, then
+// cache:clean) that must never run once the toggle itself is reported as failed.
+func TestAFailedCacheToggleStopsBeforeThePurge(t *testing.T) {
+	ignoreTty := cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")
+	root := "/code/shop"
+
+	t.Run("text", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+		fake.outcomes = []outcome{{}, {}, {}, {status: 42}}
+		cwd := here()
+		stdout, stderr := &strings.Builder{}, &strings.Builder{}
+
+		code := varnish(false, stdout, stderr, false)
+
+		if code != 42 {
+			t.Fatalf("varnish-off with a failed cache toggle = %d, want the container's own 42", code)
+		}
+
+		want := []call{
+			{Method: "Resolve", Dir: cwd},
+			{Method: "Exec", Dir: root, Service: varnishService,
+				Command: []string{"sed", "-i",
+					`s/#\+return(pass); #skip-varnish/ return(pass); #skip-varnish/g`,
+					"/etc/varnish/default.vcl"},
+				Options: terminalOptions("root")},
+			{Method: "Restart", Dir: root, Services: []string{varnishService}},
+			{Method: "Exec", Dir: root, Service: phpService,
+				Command: []string{"bin/magento", "cache:disable", "full_page"},
+				Options: terminalOptions("")},
+		}
+
+		if diff := cmp.Diff(want, fake.calls, ignoreTty); diff != "" {
+			t.Fatalf("asked of the engine after a failed cache toggle (-want +got):\n%s", diff)
+		}
+
+		if strings.Contains(stdout.String(), "Varnish cache disabled!") {
+			t.Fatalf("stdout = %q, want no success line on a failed cache toggle", stdout.String())
+		}
+
+		if !strings.Contains(stderr.String(), "cache:disable") {
+			t.Fatalf("stderr = %q, want a line naming the cache-toggle step as the failing one", stderr.String())
+		}
+	})
+
+	t.Run("--json", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+		fake.outcomes = []outcome{{}, {}, {}, {status: 42}}
+		stdout, stderr := &strings.Builder{}, &strings.Builder{}
+
+		code := varnish(false, stdout, stderr, true)
+
+		if code != 42 {
+			t.Fatalf("varnish-off --json with a failed cache toggle = %d, want 42", code)
+		}
+
+		if stdout.String() != "" {
+			t.Fatalf("stdout = %q, want no success document on a failed cache toggle", stdout.String())
+		}
+
+		var envelope struct {
+			OK    bool `json:"ok"`
+			Error struct {
+				Code int `json:"code"`
+			} `json:"error"`
+		}
+
+		if err := json.Unmarshal([]byte(stderr.String()), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal(%q) = %v, want valid JSON", stderr.String(), err)
+		}
+
+		if envelope.OK {
+			t.Fatalf("envelope.ok = true, want false")
+		}
+
+		if envelope.Error.Code != 42 {
+			t.Fatalf("envelope.error.code = %d, want 42", envelope.Error.Code)
+		}
+	})
+}
+
 func TestOutsideAProjectNothingIsAsked(t *testing.T) {
 	fake := answering(t) // fake.project stays at its zero value: no project
 	cwd := here()

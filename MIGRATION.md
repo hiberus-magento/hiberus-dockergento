@@ -166,6 +166,15 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         dirección que faltaba: que lo que el binario ya posee del todo no tiene fichero del que
         desviarse
 
+        La afirmación de arriba — "nada de shell se borra antes de que su comportamiento esté
+        cubierto en Go" — se cumplió para once de los doce gemelos, no para `varnish-on`. Su gemelo
+        de shell, `console/commands/varnish-on.sh` (visible en `git show 583fb0c^:...`), abría con
+        `set -euo pipefail`: un `sed` que fallaba terminaba el script ahí mismo, con el código de
+        salida del propio `sed`, sin reintentar el `restart` y sin mensaje alguno. Ese
+        comportamiento no estaba cubierto en Go hasta `wrapper-exit-codes`, que lo cierra para
+        `varnish-on` y `varnish-off`: antes, un `sed` o un `cache:enable`/`cache:disable` que
+        fallaban sin error de Go se reportaban como éxito.
+
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
 
