@@ -195,6 +195,14 @@ func execute(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 }
 
 // checkServices refuses a service this project does not have, and says which it does.
+//
+// Configuration is asked of the concrete engine rather than through newEngine, and deliberately:
+// the line below treats any error as permission to skip the check, so against a substituted engine
+// answering about a project that is not on disk, the refusal could never fire and a test written
+// here would be asserting the skip. What covers this instead is
+// tests/integration/logs_launch_version_test.sh, which drives the binary, expects exit 5 and the
+// names of the services that do exist, and runs above that file's `docker info` gate, so it needs
+// no daemon.
 func checkServices(project core.Project, wanted []string,
 	stderr io.Writer, jsonOutput bool, command string) int {
 	configuration, err := engine(nil, nil, jsonOutput).Configuration(project)
