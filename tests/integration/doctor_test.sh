@@ -162,8 +162,8 @@ rm -f "$PROJECT/composer.lock"
 test_case "a project without Magento reports it, without failing the diagnosis"
 assert_json_field "$STDOUT" '.data.checks[] | select(.id == "magento") | .severity' "warning"
 
-test_case "a missing host entry is a warning with an action"
-assert_json_field "$STDOUT" '.data.checks[] | select(.id == "hosts") | .action | length > 0' "true"
+test_case "a domain that does not reach this machine is reported with an action"
+assert_json_field "$STDOUT" '.data.checks[] | select(.id == "domain") | .action | length > 0' "true"
 
 test_case "the compose configuration of the synthetic project is valid"
 assert_json_field "$STDOUT" '.data.checks[] | select(.id == "compose-config") | .severity' "ok"
