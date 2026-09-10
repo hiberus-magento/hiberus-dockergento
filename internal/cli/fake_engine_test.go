@@ -34,6 +34,11 @@ type call struct {
 	// Interactive is what docker-stop-all was asked with: whether the stop may ask before doing
 	// it.
 	Interactive bool
+
+	// WithSecrets is whether describe was asked for the credentials. It is the only argument of
+	// that call besides the directory, and it is the one worth a regression: false by default is
+	// what keeps a database password out of a description nobody asked to contain one.
+	WithSecrets bool
 }
 
 // outcome is what a call answers with. outcomes is indexed by call number — the position the
@@ -73,6 +78,9 @@ type fakeEngine struct {
 	// same shape as project for Resolve. Environments takes no directory, so there is nothing
 	// else to answer from.
 	environments []core.Environment
+
+	// description is what Describe answers with, on the same terms.
+	description core.Description
 }
 
 var _ commands = (*fakeEngine)(nil)
@@ -108,6 +116,20 @@ func (f *fakeEngine) Environments() ([]core.Environment, error) {
 	}
 
 	return f.environments, nil
+}
+
+// Describe answers from f.description on the same terms. WithSecrets is recorded rather than
+// acted on: what the credentials are withheld from is app.Describer's decision, and this seam's
+// job is to prove the flag arrives unchanged.
+func (f *fakeEngine) Describe(dir string, withSecrets bool) (core.Description, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Describe", Dir: dir, WithSecrets: withSecrets})
+
+	if out := f.outcomeFor(number); out.err != nil {
+		return core.Description{}, out.err
+	}
+
+	return f.description, nil
 }
 
 func (f *fakeEngine) Exec(dir, service string, command []string, options core.ExecOptions) (int, error) {
