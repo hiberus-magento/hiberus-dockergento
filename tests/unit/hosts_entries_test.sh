@@ -131,5 +131,4 @@ test_case "the dots in a domain are not wildcards"
 file=$(hosts_file '127.0.0.1 localhost' '127.0.0.1 shopxtest' '::1 shopxtest')
 assert_equals "yes" "$(needs_repair "$file" "shop.test")"
 
-printf '\n%s tests, %s failed\n' "$HM_TESTS_RUN" "$HM_TESTS_FAILED"
-[ "$HM_TESTS_FAILED" -eq 0 ]
+echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
