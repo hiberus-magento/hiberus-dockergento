@@ -39,6 +39,10 @@ type call struct {
 	// that call besides the directory, and it is the one worth a regression: false by default is
 	// what keeps a database password out of a description nobody asked to contain one.
 	WithSecrets bool
+
+	// LogOptions is what logs was asked for, compared whole: a flag that starts writing a
+	// different field shows up as a diff here rather than nothing.
+	LogOptions core.LogOptions
 }
 
 // outcome is what a call answers with. outcomes is indexed by call number — the position the
@@ -226,6 +230,15 @@ func (f *fakeEngine) Compose(dir string, args []string) (int, error) {
 	out := f.outcomeFor(number)
 
 	return out.status, out.err
+}
+
+// Logs, like Restart, only ever answers with an error: there is nothing to read back. Services is
+// reused from Restart's own field — logs asks for the same shape, so there is no new one for it.
+func (f *fakeEngine) Logs(dir string, services []string, options core.LogOptions) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Logs", Dir: dir, Services: services, LogOptions: options})
+
+	return f.outcomeFor(number).err
 }
 
 // answering substitutes fake for newEngine for the rest of this test, and restores the real

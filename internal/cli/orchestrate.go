@@ -163,7 +163,7 @@ func logs(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 	}
 
-	return report(stderr, jsonOutput, "logs", engine(stdout, stderr, jsonOutput).
+	return report(stderr, jsonOutput, "logs", newEngine(stdout, stderr, jsonOutput).
 		Logs(here(), services, options))
 }
 

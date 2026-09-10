@@ -29,6 +29,7 @@ type commands interface {
 	RemoveHost(domain string) error
 	StopEverything(dir string, interactive bool) (core.MachineStop, error)
 	Compose(dir string, args []string) (int, error)
+	Logs(dir string, services []string, options core.LogOptions) error
 }
 
 var _ commands = (*dockergento.Engine)(nil)
