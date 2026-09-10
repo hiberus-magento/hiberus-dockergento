@@ -50,6 +50,40 @@ The tool SHALL NOT write an entry for a name that already resolves to this machi
 - **WHEN** the hosts file already resolves the name, whoever wrote the line
 - **THEN** no second line is added
 
+### Requirement: The malformed entry heals
+
+An entry of the shape `0.0.0.0 ::1 <domain>` resolves the domain to `0.0.0.0` and nothing else,
+because a hosts line carries one address and everything after it is an alias. The tool SHALL
+replace it with one entry per address family, and SHALL decide that before anything about
+resolution is asked: the domain does resolve with that line in the file, so asking about the
+result would keep it.
+
+#### Scenario: A file an earlier version wrote
+
+- **WHEN** the hosts file has `0.0.0.0 ::1 <domain>` for the domain asked about
+- **THEN** that line is gone, and there is one marked entry per address family in its place
+
+#### Scenario: A name that resolves anyway
+
+- **WHEN** the malformed entry is there and the name also resolves through a wildcard resolver
+- **THEN** it is repaired all the same, because the hosts file is what answers
+
+#### Scenario: A malformed entry naming another domain
+
+- **WHEN** a malformed entry names a domain other than the one asked about
+- **THEN** it is left exactly as it is
+
+#### Scenario: A file already repaired by hand
+
+- **WHEN** the malformed entry and a correct entry for the same domain are both there
+- **THEN** the malformed one is removed and no second correct entry is added
+
+#### Scenario: The diagnosis does not bless it
+
+- **WHEN** the project's domain resolves to `0.0.0.0` through the hosts file
+- **THEN** the diagnosis reports that instead of reporting the domain as resolving, with the
+  command that repairs it
+
 ### Requirement: Only what this tool wrote is this tool's to remove
 
 The tool SHALL leave alone every line it did not write.
