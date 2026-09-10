@@ -16,6 +16,7 @@ import (
 // daemon.
 type commands interface {
 	Resolve(dir string) (core.Project, error)
+	Environments() ([]core.Environment, error)
 	Exec(dir, service string, command []string, options core.ExecOptions) (int, error)
 	Restart(dir string, services []string) error
 	CopyInto(dir string, paths []string, all bool) error

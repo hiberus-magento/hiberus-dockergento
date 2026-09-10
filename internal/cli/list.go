@@ -20,7 +20,7 @@ func list(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			fmt.Sprintf("Unknown option: %s", args[0]), binaryName()+" list")
 	}
 
-	environments, err := engine(stdout, stderr, jsonOutput).Environments()
+	environments, err := newEngine(stdout, stderr, jsonOutput).Environments()
 	if err != nil {
 		return failure(stderr, jsonOutput, "list", exitDocker, "docker_unavailable",
 			"Docker is not running", "Start Docker and try again")

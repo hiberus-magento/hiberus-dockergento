@@ -68,6 +68,11 @@ type fakeEngine struct {
 	// stopped is what StopEverything answers from, when its own outcome does not fail it — the
 	// same shape as project for Resolve.
 	stopped core.MachineStop
+
+	// environments is what Environments answers with, when its own outcome does not fail it — the
+	// same shape as project for Resolve. Environments takes no directory, so there is nothing
+	// else to answer from.
+	environments []core.Environment
 }
 
 var _ commands = (*fakeEngine)(nil)
@@ -89,6 +94,20 @@ func (f *fakeEngine) Resolve(dir string) (core.Project, error) {
 	}
 
 	return f.project, nil
+}
+
+// Environments, like Resolve, answers from a field and can still be refused: an unreachable
+// daemon is what list.go:24 branches on. It takes no directory, so the call records only its
+// name — the same single-field entry version's Installed leaves.
+func (f *fakeEngine) Environments() ([]core.Environment, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Environments"})
+
+	if out := f.outcomeFor(number); out.err != nil {
+		return nil, out.err
+	}
+
+	return f.environments, nil
 }
 
 func (f *fakeEngine) Exec(dir, service string, command []string, options core.ExecOptions) (int, error) {
