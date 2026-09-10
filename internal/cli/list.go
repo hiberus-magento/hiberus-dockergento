@@ -17,7 +17,7 @@ import (
 func list(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	if len(args) > 0 {
 		return failure(stderr, jsonOutput, "list", exitUsage, "invalid_argument",
-			fmt.Sprintf("Unknown option: %s", args[0]), "hm list --help")
+			fmt.Sprintf("Unknown option: %s", args[0]), binaryName()+" list")
 	}
 
 	environments, err := engine(stdout, stderr, jsonOutput).Environments()

@@ -18,7 +18,7 @@ func describe(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			withSecrets = true
 		default:
 			return failure(stderr, jsonOutput, "describe", exitUsage, "invalid_argument",
-				fmt.Sprintf("Unknown option: %s", argument), "hm describe --help")
+				fmt.Sprintf("Unknown option: %s", argument), binaryName()+" describe [--with-secrets]")
 		}
 	}
 
@@ -26,7 +26,7 @@ func describe(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	if err != nil {
 		return failure(stderr, jsonOutput, "describe", exitProject, "project_not_configured",
 			fmt.Sprintf("This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid: %s", err),
-			"hm setup")
+			binaryName()+" setup")
 	}
 
 	if jsonOutput {

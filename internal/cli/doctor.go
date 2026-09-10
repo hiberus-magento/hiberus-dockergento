@@ -21,7 +21,7 @@ func doctor(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 
 		return failure(stderr, jsonOutput, "doctor", exitUsage, "invalid_argument",
-			fmt.Sprintf("Unknown option: %s", argument), "hm doctor --help")
+			fmt.Sprintf("Unknown option: %s", argument), binaryName()+" doctor [--only=ports]")
 	}
 
 	// Outside a project the diagnosis still runs: it answers about the machine, which is the
