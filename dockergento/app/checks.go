@@ -417,6 +417,13 @@ func (d Doctor) hosts(facts) []core.Finding {
 		return nil
 	}
 
+	// An entry pointing at 0.0.0.0 is what this tool wrote until 1.5.0, and looking for the name
+	// alone reported it as resolving — about a domain Firefox refuses to connect to
+	if d.Machine.HostsMalformed(d.Project.Domain) {
+		return warn(d.Project.Domain+" resolves to 0.0.0.0 in /etc/hosts, which Firefox refuses to connect to",
+			d.Binary+" set-host "+d.Project.Domain+" --no-database")
+	}
+
 	if d.Machine.HostsEntry(d.Project.Domain) {
 		return ok(d.Project.Domain + " resolves locally")
 	}
@@ -438,6 +445,9 @@ func (d Doctor) domain(facts) []core.Finding {
 	}
 
 	switch {
+	case d.Machine.HostsMalformed(domain):
+		return warn(domain+" resolves to 0.0.0.0 in /etc/hosts, which Firefox refuses to connect to",
+			d.Binary+" set-host "+domain+" --no-database")
 	case d.Machine.HostsEntry(domain):
 		return ok(domain + " resolves here through /etc/hosts")
 	case d.Machine.ResolvesLocally(domain):

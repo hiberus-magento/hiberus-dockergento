@@ -84,17 +84,30 @@ func (h Hosts) Set(project core.Project, domain string, database bool) error {
 // A wildcard resolver for the TLD — ours, or one the machine already had — makes the entry
 // pointless, and the entry is what costs a password prompt per project and leaves a line behind
 // for ever. So: ask about the result, not about who produces it.
+//
+// With one exception, and it is the order below: the malformed entry this tool used to write
+// resolves the domain too, to an address nothing can reach, so the result is no help there.
 func (h Hosts) point(domain string) error {
+	contents, err := os.ReadFile(h.file())
+	if err != nil {
+		return err
+	}
+
+	// The malformed entry earlier versions wrote is asked about first, and before anything a
+	// resolver says: the hosts file is what answers, so a domain with that line in it resolves to
+	// 0.0.0.0 whatever else could have resolved it. Asking about the result first is what left
+	// that line exactly where it was.
+	if core.HostsHasLegacy(string(contents), domain) {
+		h.say(fmt.Sprintf("Your system password is needed to repair the entry in %s...\n", h.file()))
+
+		return h.write(core.WithHost(string(contents), domain, h.Binary))
+	}
+
 	if h.Resolver != nil && h.Resolver.ResolvesLocally(domain) {
 		h.say(fmt.Sprintf("%s already resolves to this machine, so %s was left alone.\n",
 			domain, h.file()))
 
 		return nil
-	}
-
-	contents, err := os.ReadFile(h.file())
-	if err != nil {
-		return err
 	}
 
 	if core.HostsHas(string(contents), domain) {

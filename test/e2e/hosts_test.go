@@ -60,7 +60,8 @@ func TestSetHostAddsAnEntry(t *testing.T) {
 	}
 }
 
-// A second line for a name that already resolves is one more line nobody can attribute.
+// A second line for a name that already resolves is one more line nobody can attribute. There are
+// two of them per domain now, one per address family, and asking again adds neither.
 func TestSetHostAddsNothingTwice(t *testing.T) {
 	t.Parallel()
 
@@ -72,8 +73,59 @@ func TestSetHostAddsNothingTwice(t *testing.T) {
 
 	written := session.Reads(session.HostsFile)
 
-	if got := strings.Count(written, "tienda.invalid"); got != 1 {
-		t.Errorf("entries for tienda.invalid = %d, want 1\n%s", got, written)
+	if got := strings.Count(written, "tienda.invalid"); got != 2 {
+		t.Errorf("entries for tienda.invalid = %d, want 2, one per address family\n%s", got, written)
+	}
+}
+
+// The entry this tool wrote until 1.5.0 was a single `0.0.0.0 ::1 <domain>` line, which resolves
+// the domain to 0.0.0.0 only — an address Firefox refuses to connect to. Every installation that
+// ran it has one, so being asked for the domain again is what heals the file.
+func TestSetHostRepairsTheMalformedEntry(t *testing.T) {
+	t.Parallel()
+
+	session, project := hosts(t, "127.0.0.1 localhost\n0.0.0.0 ::1 tienda.invalid # added by hm\n")
+
+	got := session.Run(t, project.Root, "--no-json", "set-host", "tienda.invalid", "--no-database")
+
+	if got.Code != 0 {
+		t.Fatalf("set-host tienda.invalid = %d, want 0\n%s", got.Code, got.Output())
+	}
+
+	written := session.Reads(session.HostsFile)
+
+	if strings.Contains(written, "0.0.0.0") {
+		t.Errorf("hosts file = %q, want the 0.0.0.0 entry gone", written)
+	}
+
+	for _, want := range []string{"127.0.0.1 tienda.invalid", "::1 tienda.invalid", "127.0.0.1 localhost"} {
+		if !strings.Contains(written, want) {
+			t.Errorf("hosts file = %q, want %q in it", written, want)
+		}
+	}
+}
+
+// And it is repaired before anything a resolver says, because the hosts file is what answers: a
+// domain with that line in it resolves to 0.0.0.0 whatever else could have resolved it. Asking
+// the resolver first left the line exactly where it was, for ever.
+//
+// `localhost` resolves on every machine there is, which is what makes it the case to check.
+func TestTheMalformedEntryIsRepairedEvenWhenTheNameResolves(t *testing.T) {
+	t.Parallel()
+
+	session, project := hosts(t, "0.0.0.0 ::1 localhost # added by hm\n")
+
+	session.Run(t, project.Root, "--no-json", "set-host", "localhost", "--no-database")
+
+	written := session.Reads(session.HostsFile)
+
+	if strings.Contains(written, "0.0.0.0") {
+		t.Errorf("hosts file = %q, want the 0.0.0.0 entry repaired, not left because the name resolves",
+			written)
+	}
+
+	if !strings.Contains(written, "127.0.0.1 localhost") {
+		t.Errorf("hosts file = %q, want an entry per address family in it", written)
 	}
 }
 

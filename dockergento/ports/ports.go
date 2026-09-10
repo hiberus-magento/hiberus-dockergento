@@ -141,6 +141,10 @@ type Machine interface {
 	// HostsEntry is whether /etc/hosts sends this domain anywhere.
 	HostsEntry(domain string) bool
 
+	// HostsMalformed is whether /etc/hosts has the entry this tool wrote until 1.5.0 for this
+	// domain, which resolves it to 0.0.0.0 and therefore nowhere Firefox will follow.
+	HostsMalformed(domain string) bool
+
 	// ResolvesLocally is whether the name resolves to a loopback address. Resolving to something
 	// else is not enough: a domain that answers with a real internet address belongs to somebody.
 	ResolvesLocally(domain string) bool

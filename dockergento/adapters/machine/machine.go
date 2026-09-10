@@ -129,24 +129,7 @@ func (Host) MarkedHosts(marker string) []string {
 		return nil
 	}
 
-	domains := []string{}
-
-	for _, line := range strings.Split(string(contents), "\n") {
-		if !strings.Contains(line, marker) {
-			continue
-		}
-
-		for _, field := range strings.Fields(line) {
-			if strings.Contains(field, ".") && !strings.Contains(field, ":") &&
-				net.ParseIP(field) == nil {
-				domains = append(domains, field)
-
-				break
-			}
-		}
-	}
-
-	return domains
+	return core.HostsMarked(string(contents), marker)
 }
 
 // InGroup answers whether the user belongs to a group.
@@ -183,6 +166,23 @@ func (Host) Mkcert() (bool, string) {
 	}
 
 	return true, strings.TrimSpace(string(output))
+}
+
+// HostsMalformed is whether /etc/hosts has the entry this tool wrote until 1.5.0 for this domain.
+//
+// One question with one answer, in core: a hosts line carries one address, so `0.0.0.0 ::1 <domain>`
+// read `::1` as an alias and resolved the domain to 0.0.0.0 only.
+func (Host) HostsMalformed(domain string) bool {
+	if domain == "" {
+		return false
+	}
+
+	contents, err := os.ReadFile("/etc/hosts")
+	if err != nil {
+		return false
+	}
+
+	return core.HostsHasLegacy(string(contents), domain)
 }
 
 // HostsEntry is whether /etc/hosts sends this domain anywhere.

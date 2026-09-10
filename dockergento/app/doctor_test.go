@@ -40,6 +40,7 @@ type host struct {
 	group     bool
 	caroot    string
 	hosts     bool
+	malformed bool
 	resolves  bool
 }
 
@@ -52,6 +53,7 @@ func (h host) InGroup(string) bool         { return h.group }
 func (h host) MarkedHosts(string) []string { return nil }
 func (h host) Mkcert() (bool, string)      { return h.caroot != "", h.caroot }
 func (h host) HostsEntry(string) bool      { return h.hosts }
+func (h host) HostsMalformed(string) bool  { return h.malformed }
 func (h host) ResolvesLocally(string) bool { return h.resolves }
 
 type compose struct {
@@ -306,5 +308,35 @@ func TestTheContextFingerprintIsTheShellOnes(t *testing.T) {
 
 	if fingerprint := physician.fingerprint(shared); fingerprint != "7a0329048d77eff6ce9873e3f8c8fef7" {
 		t.Fatalf("fingerprint = %q, want the one the shell implementation wrote", fingerprint)
+	}
+}
+
+// A domain can have an entry and still be unreachable. The entry this tool wrote until 1.5.0
+// points it at 0.0.0.0, an address Firefox refuses to connect to, and both checks reported it as
+// resolving — so the browser was the only thing that ever complained, and what it complained
+// about was CORS.
+func TestADomainPointedAtNowhereIsNotReportedAsResolving(t *testing.T) {
+	physician := doctorFor(true)
+	physician.Machine = host{memory: 16 << 30, disk: 100, hosts: true, malformed: true, resolves: true}
+
+	for _, check := range []string{"hosts", "domain"} {
+		found := findingsFor(physician.Diagnose(check), check)
+
+		if len(found) != 1 {
+			t.Fatalf("findings of %q = %d, want 1", check, len(found))
+		}
+
+		if found[0].Severity == core.SeverityOK {
+			t.Errorf("%q said %q about an entry pointing at 0.0.0.0, want it reported",
+				check, found[0].Message)
+		}
+
+		if !strings.Contains(found[0].Message, "0.0.0.0") {
+			t.Errorf("%q said %q, want the address it resolves to named in it", check, found[0].Message)
+		}
+
+		if found[0].Action == "" {
+			t.Errorf("%q reported the entry with no way to repair it", check)
+		}
 	}
 }
