@@ -18,6 +18,8 @@
 #
 # hm_hosts_legacy_pattern <domain> — the malformed entry this tool used to write
 #
+# It matches the line with or without the marker after the domain, because both were written.
+#
 hm_hosts_legacy_pattern() {
     printf '^0[.]0[.]0[.]0[[:space:]]+::1[[:space:]]+%s([[:space:]]|$)' "${1//./\\.}"
 }
@@ -34,18 +36,54 @@ hm_hosts_domain_pattern() {
 }
 
 #
-# hm_hosts_needs_repair <file> <domain> — whether the file has to be rewritten
+# hm_hosts_marked_pattern <domain> <marker> — an entry for a domain that this tool added
 #
-# Asked first and on its own, because rewriting this file costs a password prompt: a domain that
-# already resolves per family is left exactly as it is, prompt included.
-#
-hm_hosts_needs_repair() {
-    grep -qE "$(hm_hosts_legacy_pattern "$2")" "$1" 2>/dev/null \
-        || ! grep -qE "$(hm_hosts_domain_pattern "$2")" "$1" 2>/dev/null
+hm_hosts_marked_pattern() {
+    printf '[[:space:]]%s[[:space:]].*%s' "${1//./\\.}" "$2"
 }
 
 #
-# hm_hosts_repaired <file> <domain> — what the file should contain for the domain
+# hm_hosts_has_legacy <file> <domain> — is the malformed entry in there
+#
+# Asked before anything a resolver says, because the hosts file answers first: a domain with this
+# line in it resolves to 0.0.0.0 whatever else could have resolved it.
+#
+hm_hosts_has_legacy() {
+    grep -qE "$(hm_hosts_legacy_pattern "$2")" "$1" 2>/dev/null
+}
+
+#
+# hm_hosts_has_domain <file> <domain> — does the file resolve the domain, however it got there
+#
+hm_hosts_has_domain() {
+    grep -qE "$(hm_hosts_domain_pattern "$2")" "$1" 2>/dev/null
+}
+
+#
+# hm_hosts_needs_repair <file> <domain> — whether the file has to be rewritten
+#
+# Asked on its own, because rewriting this file costs a password prompt: a domain that already
+# resolves per family is left exactly as it is, prompt included.
+#
+hm_hosts_needs_repair() {
+    hm_hosts_has_legacy "$1" "$2" || ! hm_hosts_has_domain "$1" "$2"
+}
+
+#
+# hm_hosts_entries <domain> [marker] — the lines this tool writes for a domain
+#
+hm_hosts_entries() {
+    local marker=""
+
+    if [ -n "${2:-}" ]; then
+        marker=" $2"
+    fi
+
+    printf '127.0.0.1 %s%s\n::1 %s%s\n' "$1" "$marker" "$1" "$marker"
+}
+
+#
+# hm_hosts_repaired <file> <domain> [marker] — what the file should contain for the domain
 #
 # The whole file, with the legacy entry for this domain removed and one entry per address family
 # appended when the domain does not resolve without it. Appending only then is what keeps a file
@@ -62,6 +100,6 @@ hm_hosts_repaired() {
     fi
 
     if ! printf '%s\n' "$kept" | grep -qE "$(hm_hosts_domain_pattern "$2")"; then
-        printf '127.0.0.1 %s\n::1 %s\n' "$2" "$2"
+        hm_hosts_entries "$2" "${3:-}"
     fi
 }

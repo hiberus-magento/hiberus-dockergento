@@ -12,6 +12,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 source "$HELPERS_DIR/hosts.sh"
 
+MARKER="# added by hm"
+
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$LAB"' EXIT
 
@@ -44,6 +46,27 @@ test_case "the legacy entry is replaced by one entry per address family"
 assert_equals "127.0.0.1 localhost
 127.0.0.1 shop.test
 ::1 shop.test" "$(hm_hosts_repaired "$file" "shop.test")"
+
+#
+# The marker arrived later, so the malformed line exists in both shapes and both have to heal.
+#
+test_case "a legacy entry that carries the marker is a reason to rewrite too"
+file=$(hosts_file '127.0.0.1 localhost' "0.0.0.0 ::1 shop.test $MARKER")
+assert_equals "yes" "$(needs_repair "$file" "shop.test")"
+
+test_case "and it is replaced by marked entries, one per address family"
+assert_equals "127.0.0.1 localhost
+127.0.0.1 shop.test $MARKER
+::1 shop.test $MARKER" "$(hm_hosts_repaired "$file" "shop.test" "$MARKER")"
+
+#
+# `set-host --remove` only takes out what this tool added, and it finds it by the marker. What
+# gets written and what gets removed have to agree, or an entry becomes unremovable.
+#
+test_case "every entry written is one --remove can find"
+unmatched=$(hm_hosts_entries "shop.test" "$MARKER" |
+    grep -cvE "$(hm_hosts_marked_pattern "shop.test" "$MARKER")" || true)
+assert_equals "0" "$unmatched" "entries the removal pattern does not match"
 
 #
 # The password prompt is the cost of touching this file, so it is only paid when something
@@ -108,5 +131,4 @@ test_case "the dots in a domain are not wildcards"
 file=$(hosts_file '127.0.0.1 localhost' '127.0.0.1 shopxtest' '::1 shopxtest')
 assert_equals "yes" "$(needs_repair "$file" "shop.test")"
 
-printf '\n%s tests, %s failed\n' "$HM_TESTS_RUN" "$HM_TESTS_FAILED"
-[ "$HM_TESTS_FAILED" -eq 0 ]
+echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
