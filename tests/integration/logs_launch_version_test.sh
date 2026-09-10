@@ -6,6 +6,14 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
+
+#
+# `version` has no shell implementation any more: it was retired with the other eleven twins, and
+# the shell entry point now answers `command_moved_to_binary` for it. So the version cases below
+# ask the binary, while `logs` and `launch` keep asking `bin/run`, which still owns them.
+#
+GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
+
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 PROJECT="hm-verbs-selftest"
 
@@ -26,7 +34,7 @@ run_in_lab() {
 # ---------------------------------------------------------------- version, without a project
 
 test_case "version answers outside a project"
-( cd "$LAB" && "$HM" version --json >"$LAB/out" 2>"$LAB/err" )
+( cd "$LAB" && "$GO_BINARY" version --json >"$LAB/out" 2>"$LAB/err" )
 assert_equals "0" "$?"
 
 test_case "and reports the version of the tool"
@@ -38,15 +46,21 @@ version=$(jq -r '.data.version' < "$LAB/out")
 assert_equals "named" "$r"
 
 test_case "readable output names the tool and the version"
-( cd "$LAB" && "$HM" version --no-json >"$LAB/out" 2>&1 )
+( cd "$LAB" && "$GO_BINARY" version --no-json >"$LAB/out" 2>&1 )
 assert_contains "$(cat "$LAB/out")" "$COMMAND_BIN_NAME"
 
 test_case "and reports docker and compose"
 assert_contains "$(cat "$LAB/out")" "compose"
 
 test_case "an unknown option is a usage error"
-run_in_lab version --nonsense
-assert_equals "2" "$STATUS"
+( cd "$LAB" && "$GO_BINARY" version --nonsense >"$LAB/out" 2>"$LAB/err" )
+assert_equals "2" "$?"
+
+# Asked of the binary rather than through run_in_lab on purpose: `bin/run` also answers 2 for
+# `version`, but with command_moved_to_binary, so the old case passed on the refusal rather than
+# on the usage error it names.
+test_case "and it is a usage error, not the entry point refusing a retired command"
+assert_json_field "$(cat "$LAB/err")" '.error.type' "invalid_argument"
 
 test_case "the flag still answers as it did"
 ( cd "$LAB" && "$HM" --version --json >"$LAB/out" 2>&1 )
