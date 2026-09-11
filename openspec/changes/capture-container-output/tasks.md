@@ -10,13 +10,17 @@ Scope reminder, not re-litigated here: `internal/cli` has no diff, no `commands`
 
 ## Baseline (do first, sequential)
 
-- [ ] **T0.1** Record this change's own parent commit: `git rev-parse HEAD` on `release/2.0.0`
+- [x] **T0.1** Record this change's own parent commit: `git rev-parse HEAD` on `release/2.0.0`
       before the first edit. Use it as `<parent>` in every size/diff check below via
       `git merge-base HEAD <parent>` at check time — never a hash copied from this or an earlier
       proposal, which goes stale. *(Verifiable here.)*
-- [ ] **T0.2** Confirm the tree is currently green: `go build ./...`, `go test ./...`, `gofmt -l
+
+      Parent recorded: `89690483a95be6dcbfbc951fa36135a4633c4bbe`.
+- [x] **T0.2** Confirm the tree is currently green: `go build ./...`, `go test ./...`, `gofmt -l
       ./cmd ./internal`, `go vet ./...`. This is the "before" baseline the later diff-based checks
       compare against. *(Verifiable here.)*
+
+      Confirmed green: build clean, 408 tests passed in 24 packages, gofmt clean, vet clean.
 
 ## Slice A — generalised resolution + `Database.container` refactor
 
@@ -30,10 +34,17 @@ No new test-writing step here under Strict TDD: this slice introduces no new *ob
 throughout, unedited. Where Strict TDD's RED step applies is Slice B, which is genuinely new
 behaviour.
 
-- [ ] **A1** Add the shared resolution helper in `dockergento/app`, in a new file
+- [x] **A1** Add the shared resolution helper in `dockergento/app`, in a new file
       (`dockergento/app/resolve.go` suggested — a name distinct from the existing `container`
       *methods* on `Database` and `Transfer`, to avoid a same-name function/method pair reading as
       a typo). Signature shape:
+
+      **Correction: not `resolve.go`.** That filename was already taken by a pre-existing,
+      unrelated `Resolver` type (project/worktree resolution, with its own `resolve_test.go`,
+      predating this change). Writing over it would have clobbered ~120 lines of unrelated code —
+      caught via a build error (`undefined: app.Resolver`) before it was committed, and the
+      original file was restored via `git checkout`. Landed instead as
+      `dockergento/app/container.go`.
 
       ```go
       func resolveContainer(engine ports.ContainerEngine, project core.Project, service, binary string) (string, error)
@@ -49,7 +60,7 @@ behaviour.
       exactly as today — **not** the raw label disjunction at
       `dockergento/adapters/toolinfo/tooling.go:84-85` (recorded defect, out of scope per the
       proposal's Non-goals).
-- [ ] **A2** Refactor `Database.container` (`dockergento/app/database.go:121-145`) to delegate:
+- [x] **A2** Refactor `Database.container` (`dockergento/app/database.go:121-145`) to delegate:
 
       ```go
       func (d Database) container(project core.Project) (string, error) {
@@ -59,22 +70,32 @@ behaviour.
 
       Keep the existing doc comment on `Database.container` (it is about *why* refusing matters for
       this call site, which the shared helper's own comment should not have to repeat).
-- [ ] **A3** Run `dockergento/app/database_test.go` and confirm all five tests pass, and confirm via
+- [x] **A3** Run `dockergento/app/database_test.go` and confirm all five tests pass, and confirm via
       `git diff` that the file itself has zero changes. If any assertion needs editing to pass, STOP:
       per the proposal, that means the refactor drifted behaviour — surface it as a finding, do not
       edit the test to make it pass. *(Verifiable here — no daemon needed, the tests use the `engine`
       and `runner` fakes already in the package.)*
-- [ ] **A4** Full check for this slice alone: `go build ./...`, `go test ./...`, `gofmt -l ./cmd
+
+      Confirmed: `git diff --stat -- dockergento/app/database_test.go` is empty; full suite still
+      408 passed in 24 packages (same count as the T0.2 baseline).
+- [x] **A4** Full check for this slice alone: `go build ./...`, `go test ./...`, `gofmt -l ./cmd
       ./internal`, and additionally `gofmt -l ./dockergento` (see Slice-independent note below on why
       this is added beyond the CI-mirrored command), `go vet ./...`. All clean.
-- [ ] **A5** Confirm `internal/cli` has no diff: `git diff --stat <parent-from-T0.1>..HEAD --
+- [x] **A5** Confirm `internal/cli` has no diff: `git diff --stat <parent-from-T0.1>..HEAD --
       internal/cli` is empty.
+
+      Confirmed empty (checked as working-tree diff against the recorded parent, since no commit
+      existed yet at check time).
 
 **Slice A independent line estimate: ~50-65 lines** (additions + deletions, matching the proposal's
 own counting method) — the new helper (~25-35: body ~14 lines, signature, and a doc comment
 explaining it is shared so the two callers cannot drift) plus the delegate (`Database.container`
 shrinks from 25 lines to about 5-6, so ~19-20 deleted and ~6 added, ≈25 lines of diff). No new test
 file, since the existing five tests are the complete proof for this slice.
+
+**Actual, measured against the recorded parent:** 62 lines (`dockergento/app/database.go`: +1/-23 =
+24; new `dockergento/app/container.go`: 38 lines added). Within the ~50-65 estimate. Committed as
+`06896e4` on `release/2.0.0`.
 
 ## Slice B — `app.Capture` + facade wiring + tests
 
