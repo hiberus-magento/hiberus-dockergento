@@ -216,8 +216,17 @@ The near-miss with `resolve.go` demonstrates that a path check must precede any 
 ### Unit 2 (Host-Detection Adapter)
 
 The `Capture` method is now ready to be wired into a handler. Unit 2 will:
-- Build a host-detection adapter in `internal/cli/` (concrete, not the seam)
+- Build a host-detection adapter in `dockergento/adapters/machine/` (concrete, not the seam)
 - Pair it with debugging capabilities for the `debug-on` command
+
+**Correction, added after unit 2's proposal (2026-09-11).** This section first said the adapter
+would go in `internal/cli/`. That is wrong: host detection is machine I/O and belongs beside
+`Host.Listening()` in `dockergento/adapters/machine`, which is where unit 2 puts it. A second thing
+this section could not have known, found while proposing unit 2: the inherited advice to gate on
+`dockergento.Platform()` rather than raw `runtime.GOOS` **does not compile from an adapter** —
+package `dockergento` imports `adapters/machine` (`dockergento.go:32`), so the reverse import is a
+cycle, and no adapter in this repo imports the root package. The gate is `runtime.GOOS`, which is
+exactly equivalent here because `Platform()` only rewrites `darwin` to `mac`.
 
 Dependency: This change (unit 1) must be merged first.
 
