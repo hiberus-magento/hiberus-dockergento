@@ -121,6 +121,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return varnish(true, stdout, stderr, jsonOutput)
 		case "varnish-off":
 			return varnish(false, stdout, stderr, jsonOutput)
+		case "debug-off":
+			return debugOff(stdout, stderr, jsonOutput)
 		case "setup":
 			return setup(rest[1:], stdout, stderr, jsonOutput)
 		case "proxy":

@@ -204,6 +204,68 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 }
 
 //
+// debug-off, alone.
+//
+// It shares phpService and terminalOptions with the varnish handlers above and needs no new
+// engine surface: Exec and Compose are both already on commands.
+//
+
+func debugOff(stdout, stderr io.Writer, jsonOutput bool) int {
+	project, code := projectOr(stderr, jsonOutput, "debug-off")
+	if code != 0 {
+		return code
+	}
+
+	engine := newEngine(stdout, stderr, jsonOutput)
+
+	// The shell script's own pattern carries a stray `\` before `z`
+	// (`s/^\zend_extension/`), which GNU sed treats as the literal character rather than an
+	// escape — the pattern already matched only `^zend_extension`. Dropped here on purpose,
+	// not by oversight (proposal Decision 3).
+	status, err := engine.Exec(project.Root, phpService,
+		[]string{"sed", "-i", "-e", "s/^zend_extension/;zend_extension/g",
+			"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+		terminalOptions(""))
+	if status != 0 {
+		return failure(stderr, jsonOutput, "debug-off", status, "command_failed",
+			"The xdebug ini edit failed in the phpfpm container", "")
+	}
+	if err != nil {
+		return report(stderr, jsonOutput, "debug-off", err)
+	}
+
+	// Compose's own restart, not Operator.Restart: the edit lives inside the container
+	// filesystem rather than in the compose file, a recreating restart is the wrong
+	// primitive for it, and Operator.Restart refuses unconditionally from an unregistered
+	// worktree (app/orchestrate.go:231-247) while Compose carries neither (:326-327) —
+	// debug-off is not in hm_alters_environment, and this call must not become the first
+	// thing that refuses it there (proposal Decision 1). The choice of method, not a
+	// worktree-state assertion, is what proves this: see tasks.md's Phase 3.
+	//
+	// Its own (status, error) pair is handled exactly the way dockerCompose() handles the
+	// identical pair (docker_compose.go:15-20), not the way the edit above is handled: a
+	// non-zero status is returned as-is, unwrapped, because this is a Compose passthrough —
+	// the same reasoning docker-compose's own case follows — while the edit above runs a
+	// program inside a container, the same reasoning varnish's edit follows. Those are
+	// different things this port keeps different rather than unifying by accident.
+	status, err = engine.Compose(project.Root, []string{"restart", "phpfpm"})
+	if err != nil {
+		return report(stderr, jsonOutput, "debug-off", err)
+	}
+	if status != 0 {
+		return status
+	}
+
+	if jsonOutput {
+		return document(stdout, stderr, "debug-off", map[string]any{"xdebug": false})
+	}
+
+	fmt.Fprint(stdout, good("  xdebug disabled\n"))
+
+	return exitOK
+}
+
+//
 // Moving a project's files between this machine and its container.
 //
 // Only on macOS is this something anybody has to think about: there the code lives in a volume

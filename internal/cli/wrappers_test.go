@@ -426,6 +426,241 @@ func TestAFailedCacheToggleStopsBeforeThePurge(t *testing.T) {
 	})
 }
 
+// TestWhatDebugOffAsks proves the whole call log is exactly three entries — Resolve, Exec, then
+// Compose — with no fourth entry and in particular no Start call: the shell script's own
+// defensive start_service_if_not_running.sh probe is dropped on purpose, not replicated.
+func TestWhatDebugOffAsks(t *testing.T) {
+	ignoreTty := cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")
+	root := "/code/shop"
+
+	t.Run("text", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+		cwd := here()
+
+		code := debugOff(io.Discard, io.Discard, false)
+
+		if code != exitOK {
+			t.Fatalf("debug-off = %d, want exitOK", code)
+		}
+
+		want := []call{
+			{Method: "Resolve", Dir: cwd},
+			{Method: "Exec", Dir: root, Service: phpService,
+				Command: []string{"sed", "-i", "-e", "s/^zend_extension/;zend_extension/g",
+					"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+				Options: terminalOptions("")},
+			{Method: "Compose", Dir: root, Command: []string{"restart", "phpfpm"}},
+		}
+
+		if diff := cmp.Diff(want, fake.calls, ignoreTty); diff != "" {
+			t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+		}
+
+		// Separately from the diff above: the reason this scenario exists in the first place is
+		// that the shell script's own defensive start is dropped, not replicated. A cmp.Diff that
+		// fails on an unexpected fourth entry reads as an ordinary mismatch; this says plainly
+		// what a fourth call would mean.
+		if len(fake.calls) != 3 {
+			t.Fatalf("debug-off asked the engine %d things, want exactly 3 (no Start call)", len(fake.calls))
+		}
+	})
+
+	t.Run("json", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+
+		stdout := &strings.Builder{}
+
+		code := debugOff(stdout, io.Discard, true)
+
+		if code != exitOK {
+			t.Fatalf("debug-off --json = %d, want exitOK", code)
+		}
+
+		var envelope struct {
+			Data struct {
+				Xdebug bool `json:"xdebug"`
+			} `json:"data"`
+		}
+
+		if err := json.Unmarshal([]byte(stdout.String()), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal(%q) = %v, want valid JSON", stdout.String(), err)
+		}
+
+		if envelope.Data.Xdebug {
+			t.Fatalf("data.xdebug = true, want false")
+		}
+	})
+}
+
+// TestAFailedDebugOffEditReportsTheContainersStatus mirrors TestAFailedVCLEditReportsTheContainers
+// Code exactly: the sed exits non-zero with no Go-level error, and this is also the seam-visible
+// half of the disclosed behaviour change — with the environment stopped, this is what answers
+// non-zero instead of the shell script silently starting everything.
+func TestAFailedDebugOffEditReportsTheContainersStatus(t *testing.T) {
+	root := "/code/shop"
+
+	fake := answering(t)
+	fake.project = core.Project{Name: "shop", Root: root}
+	fake.outcomes = []outcome{{}, {status: 42}}
+	cwd := here()
+	stdout, stderr := &strings.Builder{}, &strings.Builder{}
+
+	code := debugOff(stdout, stderr, false)
+
+	if code != 42 {
+		t.Fatalf("debug-off with a failed edit = %d, want the container's own 42", code)
+	}
+
+	want := []call{
+		{Method: "Resolve", Dir: cwd},
+		{Method: "Exec", Dir: root, Service: phpService,
+			Command: []string{"sed", "-i", "-e", "s/^zend_extension/;zend_extension/g",
+				"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+			Options: terminalOptions("")},
+	}
+
+	if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
+		t.Fatalf("asked of the engine after a failed edit (-want +got):\n%s", diff)
+	}
+
+	if strings.Contains(stdout.String(), "xdebug disabled") {
+		t.Fatalf("stdout = %q, want no success line on a failed edit", stdout.String())
+	}
+
+	if !strings.Contains(stderr.String(), "ini edit") {
+		t.Fatalf("stderr = %q, want a line naming the ini edit as the failing step", stderr.String())
+	}
+}
+
+// TestADebugOffEditErrorStopsBeforeTheRestart mirrors TestAFailedEditStopsBeforeTheRestart exactly:
+// the err != nil branch, distinct from the non-zero-status one above.
+func TestADebugOffEditErrorStopsBeforeTheRestart(t *testing.T) {
+	root := "/code/shop"
+	refused := errors.New("docker: no")
+
+	fake := answering(t)
+	fake.project = core.Project{Name: "shop", Root: root}
+	fake.outcomes = []outcome{{}, {err: refused}}
+	cwd := here()
+
+	code := debugOff(io.Discard, io.Discard, false)
+
+	if code != exitDocker {
+		t.Fatalf("debug-off with an edit error = %d, want exitDocker", code)
+	}
+
+	want := []call{
+		{Method: "Resolve", Dir: cwd},
+		{Method: "Exec", Dir: root, Service: phpService,
+			Command: []string{"sed", "-i", "-e", "s/^zend_extension/;zend_extension/g",
+				"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+			Options: terminalOptions("")},
+	}
+
+	if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
+		t.Fatalf("asked of the engine after an edit error (-want +got):\n%s", diff)
+	}
+}
+
+// TestAFailedDebugOffRestartReturnsTheComposeStatus proves the restart's own non-zero status is
+// returned as-is, unwrapped — the one place debug-off's failure handling diverges from the sed
+// edit's: no failure() call names a step, and no structured ok: false object is written under
+// --json, mirroring dockerCompose()'s own handling of the identical (int, error) pair.
+func TestAFailedDebugOffRestartReturnsTheComposeStatus(t *testing.T) {
+	root := "/code/shop"
+
+	t.Run("text", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+		fake.outcomes = []outcome{{}, {}, {status: 42}}
+		cwd := here()
+		stdout, stderr := &strings.Builder{}, &strings.Builder{}
+
+		code := debugOff(stdout, stderr, false)
+
+		if code != 42 {
+			t.Fatalf("debug-off with a failed restart = %d, want the container's own 42", code)
+		}
+
+		want := []call{
+			{Method: "Resolve", Dir: cwd},
+			{Method: "Exec", Dir: root, Service: phpService,
+				Command: []string{"sed", "-i", "-e", "s/^zend_extension/;zend_extension/g",
+					"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+				Options: terminalOptions("")},
+			{Method: "Compose", Dir: root, Command: []string{"restart", "phpfpm"}},
+		}
+
+		if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
+			t.Fatalf("asked of the engine after a failed restart (-want +got):\n%s", diff)
+		}
+
+		if stdout.String() != "" {
+			t.Fatalf("stdout = %q, want nothing at all — no success line and no failure() wrapping", stdout.String())
+		}
+
+		if stderr.String() != "" {
+			t.Fatalf("stderr = %q, want nothing at all — the raw status is the only signal", stderr.String())
+		}
+	})
+
+	t.Run("--json", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+		fake.outcomes = []outcome{{}, {}, {status: 42}}
+		stdout, stderr := &strings.Builder{}, &strings.Builder{}
+
+		code := debugOff(stdout, stderr, true)
+
+		if code != 42 {
+			t.Fatalf("debug-off --json with a failed restart = %d, want 42", code)
+		}
+
+		if stdout.String() != "" {
+			t.Fatalf("stdout = %q, want no success document on a failed restart", stdout.String())
+		}
+
+		if stderr.String() != "" {
+			t.Fatalf("stderr = %q, want no structured ok:false object either — the raw status is "+
+				"the only signal", stderr.String())
+		}
+	})
+}
+
+// TestADebugOffRestartErrorIsReported proves the other half of the restart's (int, error) pair:
+// a Go-level error is reported through the same fault-mapping report() uses elsewhere, the same
+// path dockerCompose()'s own err != nil branch takes.
+func TestADebugOffRestartErrorIsReported(t *testing.T) {
+	root := "/code/shop"
+	refused := errors.New("docker: no")
+
+	fake := answering(t)
+	fake.project = core.Project{Name: "shop", Root: root}
+	fake.outcomes = []outcome{{}, {}, {err: refused}}
+	cwd := here()
+
+	code := debugOff(io.Discard, io.Discard, false)
+
+	if code != exitDocker {
+		t.Fatalf("debug-off with a restart error = %d, want exitDocker", code)
+	}
+
+	want := []call{
+		{Method: "Resolve", Dir: cwd},
+		{Method: "Exec", Dir: root, Service: phpService,
+			Command: []string{"sed", "-i", "-e", "s/^zend_extension/;zend_extension/g",
+				"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+			Options: terminalOptions("")},
+		{Method: "Compose", Dir: root, Command: []string{"restart", "phpfpm"}},
+	}
+
+	if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
+		t.Fatalf("asked of the engine after a restart error (-want +got):\n%s", diff)
+	}
+}
+
 func TestOutsideAProjectNothingIsAsked(t *testing.T) {
 	fake := answering(t) // fake.project stays at its zero value: no project
 	cwd := here()
