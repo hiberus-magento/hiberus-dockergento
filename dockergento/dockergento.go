@@ -464,6 +464,21 @@ func (e *Engine) Anonymise(dir string) error {
 	}.Anonymise(project)
 }
 
+// Capture runs a command inside a service's container and hands back what it printed on stdout;
+// its complaints go to the same place Dump's do.
+func (e *Engine) Capture(dir, service string, command []string) (string, int, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return "", 0, err
+	}
+
+	return app.Capture{
+		Engine: dockerd.Engine{Timeout: e.options.Timeout},
+		Runner: dockerd.Runner{},
+		Binary: e.options.Binary,
+	}.Run(project, service, command, e.errors())
+}
+
 // errors is where something else's complaints go.
 func (e *Engine) errors() io.Writer {
 	if e.options.Stderr != nil {

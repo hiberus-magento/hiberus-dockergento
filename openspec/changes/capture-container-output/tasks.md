@@ -107,30 +107,33 @@ parallel with it.
 
 ### RED — new tests first
 
-- [ ] **B1** Add `dockergento/app/capture_test.go` (package `app`, no new fakes — reuse the `engine`
+- [x] **B1** Add `dockergento/app/capture_test.go` (package `app`, no new fakes — reuse the `engine`
       fake from `environments_test.go` and the `runner` fake from `database_test.go`, both already in
       package `app`). Write tests that fail to compile/run because `app.Capture` does not exist yet:
-  - [ ] **B1.a** Resolution reaches this project's container for an arbitrary service (e.g.
+  - [x] **B1.a** Resolution reaches this project's container for an arbitrary service (e.g.
         `"phpfpm"`), the same way `TestLaConsultaLlegaAlContenedorDeEsteProyecto` proves it for
         `"db"` — two projects in the container list, assert the runner's fake `container` field is
         the right one.
-  - [ ] **B1.b** A service that is not running refuses with code 5, naming *that* service and
+  - [x] **B1.b** A service that is not running refuses with code 5, naming *that* service and
         `"hm start phpfpm"` — not `"db"` — proving the helper is truly parameterised and not a
         second hardcoded copy. Mirrors `TestSinBaseDeDatosArribaSeDiceAsi`.
-  - [ ] **B1.c** stdout comes back as the returned string — assert against the `runner` fake's
+  - [x] **B1.c** stdout comes back as the returned string — assert against the `runner` fake's
         `answer` field, the way `database_test.go` already asserts on `salida.String()`.
-  - [ ] **B1.d** stderr is **absent** from the returned string — use the `runner` fake's
+  - [x] **B1.d** stderr is **absent** from the returned string — use the `runner` fake's
         `complaint` field (already written to the `errors` writer at
         `dockergento/app/database_test.go:36`, no new fake code needed), and assert it is present in
         the writer passed in but not in the returned string.
-  - [ ] **B1.e** A non-zero status returns unmapped with a `nil` error — mirrors
+  - [x] **B1.e** A non-zero status returns unmapped with a `nil` error — mirrors
         `TestElCodigoDeSalidaEsElDeLaConsulta`, using the `runner` fake's `status` field.
-- [ ] **B2** Confirm B1's tests fail (compile error or assertion failure) before writing the
+- [x] **B2** Confirm B1's tests fail (compile error or assertion failure) before writing the
       implementation — the RED half of strict TDD.
+
+      Confirmed: with `capture.go` moved aside, `go test ./dockergento/app/...` failed to build with
+      `undefined: Capture` (two occurrences in `capture_test.go`).
 
 ### GREEN — implementation
 
-- [ ] **B3** Add the `Capture` type in `dockergento/app`, in a new file (`dockergento/app/capture.go`
+- [x] **B3** Add the `Capture` type in `dockergento/app`, in a new file (`dockergento/app/capture.go`
       suggested). Shape:
 
       ```go
@@ -163,10 +166,13 @@ parallel with it.
       stdout buffered and returned as a `string`; stderr written through to the caller-supplied
       `io.Writer` untouched; non-zero status returned unmapped in the `int`; `error` reserved for
       "could not run it at all" (resolution failure or a `Runner.Capture` transport error).
-- [ ] **B4** Run B1's tests; they must now pass without editing their assertions. If a test needs
+- [x] **B4** Run B1's tests; they must now pass without editing their assertions. If a test needs
       adjusting to pass, that is a signal the implementation, not the test, is wrong — B1 already
       encodes the agreed behaviour.
-- [ ] **B5** Add the facade method in `dockergento/dockergento.go`, thin wiring in the shape of
+
+      Confirmed: with `capture.go` restored, `go test ./dockergento/app/...` passes (81 tests in the
+      package), assertions unedited from B1.
+- [x] **B5** Add the facade method in `dockergento/dockergento.go`, thin wiring in the shape of
       `Engine.Anonymise` (`:452-465`):
 
       ```go
@@ -193,13 +199,19 @@ parallel with it.
       throwaway `main` or a manual integration test against a running container, to confirm the
       wiring compiles and behaves as the `app` tests predict. Do not mark this task done from a
       unit-test run alone.
-- [ ] **B7** Confirm `internal/cli` still has no diff (same check as A5, re-run after Slice B):
+
+      Left unchecked deliberately — this is the one task in this slice this environment cannot
+      prove. `go build ./...` confirms the wiring compiles; behaviour against a real daemon is
+      unverified here.
+- [x] **B7** Confirm `internal/cli` still has no diff (same check as A5, re-run after Slice B):
       `git diff --stat <parent-from-T0.1>..HEAD -- internal/cli` empty. This is the concrete check
       behind Decision 3 and Success Criterion "`commands` still has sixteen methods and its doc
       comment is unchanged and still true" — count them in
       `internal/cli/engine.go:17-34` if re-verifying by hand (`Resolve`, `Environments`, `Describe`,
       `Exec`, `Restart`, `CopyInto`, `CopyFrom`, `Property`, `Dump`, `Installed`, `SetHost`,
       `RemoveHost`, `StopEverything`, `Compose`, `Logs`, `Anonymise` = 16).
+
+      Confirmed empty: `git diff --stat -- internal/cli` against the working tree is empty.
 
 **Slice B independent line estimate: ~160-185 lines.** Breakdown, counting additions and deletions
 as the proposal does:
@@ -214,30 +226,55 @@ being built up independently per slice rather than repeated from the proposal's 
 reasonable cross-check rather than a coincidence, since both derivations are counting the same five
 pieces (helper, delegate, `Capture` type, facade, tests), just grouped differently.
 
+**Actual, measured against Slice A's tip (`88d0322`):** 153 lines, all additions (no deletions —
+this slice is purely additive): `dockergento/app/capture.go` +42, `dockergento/app/capture_test.go`
++96, `dockergento/dockergento.go` +15. Under the ~160-185 estimate. Combined with Slice A against
+the recorded parent (`8969048`): 215 lines (192 insertions, 23 deletions), within the ~210-250
+combined estimate — no overshoot, no need to split further.
+
 ## Final verification (sequential, after both slices)
 
-- [ ] **F1** `go build ./...` — clean.
-- [ ] **F2** `go test ./...` (add `-short` to match the proposal's Success Criteria exactly) — all
+- [x] **F1** `go build ./...` — clean.
+- [x] **F2** `go test ./...` (add `-short` to match the proposal's Success Criteria exactly) — all
       packages pass, including the five unedited `database_test.go` tests and the new
       `capture_test.go` tests.
-- [ ] **F3** `gofmt -l ./cmd ./internal` — empty, matching `.github/workflows/go.yml:26` exactly.
+
+      `go test ./... -short`: 374 passed in 24 packages. `go test ./...` (no `-short`, matching the
+      408-test baseline recorded at T0.2): 413 passed in 24 packages — 408 + 5, exactly the five new
+      `capture_test.go` scenarios; no other count moved.
+- [x] **F3** `gofmt -l ./cmd ./internal` — empty, matching `.github/workflows/go.yml:26` exactly.
       **Also run `gofmt -l ./dockergento`** — this change's own code lives entirely under
       `dockergento/`, which the CI-mirrored command does not cover; running it here is this task
       list's own addition, not a restatement of an existing check. (See "Findings" note below.)
-- [ ] **F4** `go vet ./...` — clean.
-- [ ] **F5** `tests/run.sh unit` (exactly `unit`, never `tests/unit` — the latter silently runs the
+
+      Both empty.
+- [x] **F4** `go vet ./...` — clean.
+- [x] **F5** `tests/run.sh unit` (exactly `unit`, never `tests/unit` — the latter silently runs the
       whole suite). This change touches no shell code, so this is a regression check, not expected
       to move; still run it, since the proposal's Success Criteria names it explicitly.
-- [ ] **F6** Confirm `MIGRATION.md` is unchanged and still reads `33 de 65` at line 21 — no command
+
+      616 assertions passed, 0 failed — unchanged from baseline, as expected (no shell code touched).
+- [x] **F6** Confirm `MIGRATION.md` is unchanged and still reads `33 de 65` at line 21 — no command
       was ported, so the counter must not move.
-- [ ] **F7** Size check against this change's own parent, per T0.1:
+
+      Confirmed at line 21.
+- [x] **F7** Size check against this change's own parent, per T0.1:
       `git diff --shortstat $(git merge-base HEAD <parent-from-T0.1>)..HEAD -- .
       ':(exclude)openspec'` — compare against the ~210-250 estimate above; if it lands past ~350-400,
       that is a signal to have actually cut the commit at the Slice A/B boundary rather than shipping
       both as one commit, not a reason to pad the estimate after the fact.
-- [ ] **F8** Confirm the Rollback Plan still holds: `git revert` of Slice B's commit(s) alone leaves
+
+      215 lines (192 insertions, 23 deletions) against parent `8969048`. Within estimate, well under
+      the 350-400 overshoot threshold.
+- [x] **F8** Confirm the Rollback Plan still holds: `git revert` of Slice B's commit(s) alone leaves
       `Database.container`'s behaviour and its five tests intact (Slice A stays), and `git revert` of
       both leaves `Database.container` in its original inline form.
+
+      Holds by construction: Slice B added `dockergento/app/capture.go` (new file, self-contained),
+      `dockergento/app/capture_test.go` (new file), and a single additive method
+      `(*Engine).Capture` in `dockergento/dockergento.go` — no existing line was touched. Reverting
+      Slice B's commit alone removes exactly those and leaves `Database.container` (Slice A's
+      delegate) and its five tests untouched.
 
 ## Not verifiable here (needs a live Docker daemon)
 
