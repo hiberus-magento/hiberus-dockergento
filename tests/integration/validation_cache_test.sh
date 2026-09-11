@@ -35,8 +35,13 @@ run() {
     return 0
 }
 
+# describe and list are the binary's now (`internal/cli/run.go`); the cache under test here is
+# bin/run's own (`console/helpers/cache.sh`, not ported), so the entry point stays bin/run and the
+# probe commands change instead — `db list` is still validated the same way `describe` was, and
+# `permissions` is still excluded from validate_command the same way `list` was (`bin/run:206`).
+
 test_case "a valid configuration is accepted"
-run describe --json
+run db list --json
 assert_equals "0" "$STATUS"
 
 test_case "the result is cached"
@@ -44,20 +49,20 @@ test_case "the result is cached"
 assert_equals "yes" "$r"
 
 test_case "the cached result is reused"
-run describe --json
+run db list --json
 assert_equals "0" "$STATUS"
 
 test_case "a configuration broken after a successful validation is still detected"
 echo "this: is: not: valid: yaml:" >> docker-compose.yml
-run describe --json
+run db list --json
 assert_equals "4" "$STATUS"
 
 test_case "a command that does not need the project still works"
-run list --json
+run permissions --json
 assert_equals "0" "$STATUS"
 
 test_case "and the broken configuration keeps being detected"
-run describe --json
+run db list --json
 assert_equals "4" "$STATUS"
 
 test_case "fixing it makes the command work again"
@@ -66,7 +71,7 @@ services:
   phpfpm:
     image: alpine:latest
 YAML
-run describe --json
+run db list --json
 assert_equals "0" "$STATUS"
 
 test_case "the cache leaves nothing inside the project"
@@ -75,7 +80,7 @@ assert_equals "clean" "$r"
 
 test_case "an unreadable cache entry is treated as absent"
 find "$HM_CACHE_DIR" -type f -exec sh -c 'printf "garbage" > "$1"' _ {} \;
-run describe --json
+run db list --json
 assert_equals "0" "$STATUS"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

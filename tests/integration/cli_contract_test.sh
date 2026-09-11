@@ -93,4 +93,13 @@ test_case "and the readable hint for version names the binary command too"
 run --no-json version
 assert_contains "$STDERR" "hm version"
 
+test_case "and so does describe, once its own shell twin is gone"
+run describe
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for describe names the binary command too"
+run --no-json describe
+assert_contains "$STDERR" "hm describe"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

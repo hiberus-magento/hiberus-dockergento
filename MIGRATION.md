@@ -174,6 +174,18 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         comportamiento no estaba cubierto en Go hasta `wrapper-exit-codes`, que lo cierra para
         `varnish-on` y `varnish-off`: antes, un `sed` o un `cache:enable`/`cache:disable` que
         fallaban sin error de Go se reportaban como éxito.
+  - [x] El mismo paso, para `list`, `describe` y `logs` — decimoquinto, decimosexto y
+        decimoséptimo comandos retirados así. `list.sh`, `describe.sh` y `logs.sh` (223 líneas)
+        están borrados de `console/commands/`: las tres tienen su propia prueba de interacción con
+        el motor, y todo lo que las invocaba a través de `bin/run` se corrigió antes de borrarlas.
+        Las dos comparaciones de paridad que les quedaban — `tests/integration/
+        go_passthrough_test.sh` (los bloques de `describe` y `list`) y `tests/integration/
+        go_orchestration_test.sh` (el bloque de `logs`) — se reescribieron contra un oráculo que no
+        es ninguna de las dos implementaciones, en vez de comparar el documento entero o la tabla
+        renderizada byte a byte, que es lo que se pierde y queda dicho, no disimulado. Y
+        `tests/unit/command_safety_test.sh` ganó las tres en su lista `RETIRED`, en el mismo commit
+        que borra los ficheros, para que la comprobación en ambas direcciones — fichero fuera,
+        ruta dentro — también las cubra.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.

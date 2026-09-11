@@ -67,7 +67,8 @@ assert_empty "$orphaned"
 #
 test_case "and what the binary owns outright has no file to drift from"
 RETIRED="copy-to-container copy-from-container varnish-on varnish-off purge npm
-         n98-magerun test-unit test-integration mysqldump version set-host"
+         n98-magerun test-unit test-integration mysqldump version set-host
+         list describe logs"
 
 drift=""
 routed="$(hm_routed_commands)"

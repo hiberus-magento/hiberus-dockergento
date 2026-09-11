@@ -8,8 +8,10 @@
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/router.sh"
 
 TUI="$COMMANDS_DIR/tui.sh"
+routed="$(hm_routed_commands)"
 
 # Every command the dashboard runs: the ones it hands the terminal over for (`run_action`) and
 # the ones it calls directly for their answer (`"$HM" <command>`). Both are the CLI's commands,
@@ -27,7 +29,13 @@ assert_equals "enough" "$r"
 
 for action in $actions; do
     test_case "'$action' is a real command"
-    [ -f "$COMMANDS_DIR/$action.sh" ] && result="exists" || result="missing $action.sh"
+    # A real command is a file, or a name the binary itself routes (`list`, `describe`, and
+    # `logs` have no file any more) — never neither, which is the case a typo would produce.
+    if [ -f "$COMMANDS_DIR/$action.sh" ] || grep -qx "$action" <<< "$routed"; then
+        result="exists"
+    else
+        result="missing $action.sh, not routed either"
+    fi
     assert_equals "exists" "$result"
 
     test_case "'$action' is documented"

@@ -6,6 +6,7 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
+GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 PROJECT="hm-anon-selftest"
 trap 'rm -rf "$LAB"' EXIT
@@ -36,17 +37,20 @@ printf '{"MAGENTO_DIR": ".", "DOMAIN": "anon.test", "COMPOSE_PROJECT_NAME": "%s"
     > "$DIR/config/docker/properties.json"
 
 run() { ( cd "$DIR" && "$HM" "$@" >"$LAB/out" 2>"$LAB/err" ); STATUS=$?; STDOUT=$(cat "$LAB/out"); STDERR=$(cat "$LAB/err"); return 0; }
+# describe is the binary's now; ai-context, doctor, and mysql below are still the shell
+# implementation's and keep asking bin/run through run().
+run_go() { ( cd "$DIR" && "$GO_BINARY" "$@" >"$LAB/out" 2>"$LAB/err" ); STATUS=$?; STDOUT=$(cat "$LAB/out"); STDERR=$(cat "$LAB/err"); return 0; }
 
 # ---------------------------------------------------------------- what describe says
 
-run describe --json
+run_go describe --json
 test_case "a project nobody anonymised says so"
 assert_equals "unknown" "$(printf '%s' "$STDOUT" | jq -r '.data.data.anonymised')"
 
 mkdir -p "$LAB/state"
 printf '{"anonymised_at": "2026-08-28 09:00"}\n' > "$LAB/state/$PROJECT.json"
 
-run describe --json
+run_go describe --json
 test_case "and one that was anonymised carries the date"
 assert_equals "yes" "$(printf '%s' "$STDOUT" | jq -r '.data.data.anonymised')"
 assert_equals "2026-08-28 09:00" "$(printf '%s' "$STDOUT" | jq -r '.data.data.anonymised_at')"
