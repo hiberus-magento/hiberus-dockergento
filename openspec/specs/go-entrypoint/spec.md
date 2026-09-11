@@ -258,12 +258,9 @@ one, requiring no Docker daemon, no network access, and no project beyond what t
 builds.
 (Previously: covered `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-off`,
 `purge`, `npm`, `n98-magerun`, `test-unit`, `test-integration`, `mysqldump`, `version`,
-`set-host`, `list`, `describe`, and `logs`. This adds `bash`, `exec`, and `masquerade` — the
-three commands `data/command_descriptions.json` declares `"safety": "dangerous"` and deferred by
-`read-only-commands-go-tests` — and the seam gains one method, `Anonymise(dir string) error`.
-`Exec` was already on `commands` and already exercised through `inside()`, so `bash` and `exec`
-cost only a routing line: `shell()` (`tools.go:10-18`) only ever calls `execute()`, so one line at
-`orchestrate.go:188` puts both on the seam.)
+`set-host`, `list`, `describe`, `logs`, `bash`, `exec`, and `masquerade`. This adds `debug-off`,
+the eighteenth, which needs no new seam method: `Exec` and `Compose` were already on `commands`,
+already exercised by `varnish-on`/`varnish-off` and `docker-compose` respectively.)
 
 #### Scenario: Copying into the container
 
@@ -321,6 +318,103 @@ estructurados" and "Códigos de salida estables"; this requirement owns only wha
 
 `TestAFailedEditStopsBeforeTheRestart` (the `err != nil` branch of the same two guards) is
 unchanged by this delta and keeps passing.
+
+#### Scenario: Turning xdebug off
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `debug-off` runs against a resolved project
+- **THEN** the fake's whole call log holds exactly three entries, in order: a `Resolve` call; an
+  `Exec` call with `Dir: project.Root`, `Service: phpService`, `Options: terminalOptions("")`, and
+  `Command: []string{"sed", "-i", "-e", "s/^zend_extension/;zend_extension/g",
+  "/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"}` — the shell's `s/^\zend_extension/`
+  loses its stray, inert `\` before `z`; and a `Compose` call with `Dir: project.Root` and
+  `Command: []string{"restart", "phpfpm"}`
+- **AND** no fourth call is recorded, and in particular no `Start` call — `debug-off` never asks
+  the engine to start anything, unlike the shell script's own defensive probe
+
+Test: `TestWhatDebugOffAsks`.
+
+#### Scenario: The restart used is Compose's own, not a stop-and-start
+
+- **GIVEN** `Operator.Restart` refuses unconditionally from an unregistered worktree and may
+  recreate containers, while `Operator.Compose` carries neither of those (`app/orchestrate.go:
+  231-247, 326-327`)
+- **WHEN** `debug-off` runs
+- **THEN** the engine call recorded is `Compose(["restart", "phpfpm"])`, never
+  `Restart(["phpfpm"])`, so an edit made inside the running container is not undone by a recreate,
+  and an unregistered worktree that could run `debug-off` before this port still can, unrefused
+- **AND** this is provable by construction, not by a seam assertion of worktree state: the choice
+  of method is what `TestWhatDebugOffAsks`'s `Compose` log entry pins
+
+#### Scenario: Turning xdebug off stops at a failing edit
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `debug-off` runs and the `sed` edit answers a non-zero status with no error
+- **THEN** the fake records only the `Resolve` and `Exec` calls — no `Compose` call and no `Start`
+  call are recorded
+- **AND** the command's return value is that same status
+- **AND** this is also the seam-visible half of the disclosed behaviour change: with the
+  environment stopped, the edit's own `Exec` call is what answers a non-zero status, and
+  `debug-off` now fails naming that step instead of starting the whole environment the way the
+  shell script's `start_service_if_not_running.sh` probe did
+
+Test: `TestAFailedDebugOffEditReportsTheContainersStatus`.
+
+#### Scenario: A Go-level error on the edit stops before the restart
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `debug-off` runs and the `sed` edit answers an error rather than a non-zero status
+- **THEN** the `Compose` call is not reached, and the failure is reported with the mapped Docker
+  exit code
+
+Test: `TestADebugOffEditErrorStopsBeforeTheRestart`.
+
+#### Scenario: The restart's own non-zero status is returned as-is
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `debug-off` runs and the `Compose(["restart", "phpfpm"])` call answers a non-zero status
+  with no error
+- **THEN** the fake's whole call log still holds all three entries — `Resolve`, `Exec`, `Compose`
+  — because the restart is the last call attempted, not one that failed to be recorded
+- **AND** the command's own return value is that same status, unwrapped — no `failure()` call
+  names a step, and no structured `ok: false` object is written under `--json`; the raw status is
+  the only signal, on stdout or in the process exit code, exactly as it is for a passthrough
+  command
+- **AND** this mirrors `dockerCompose()`'s own handling of the identical `(int, error)` pair
+  (`internal/cli/docker_compose.go:15-20`: `if err != nil { return report(...) }; return status`)
+  and `Operator.Compose`'s own doc, "hands back that subcommand's own exit code"
+  (`dockergento.go:298-300`) — and matches the shell twin, where `set -euo pipefail` ends the
+  script with `$DOCKER_COMPOSE restart phpfpm`'s own exit status and nothing else
+- **AND** this is the one place `debug-off`'s failure handling diverges from the sed edit's: the
+  edit's non-zero status is wrapped through `failure()` with a named step and a structured
+  `--json` error object (`magento-commands`' "The xdebug ini edit fails inside the php
+  container"); the restart's is not — because the edit runs a program inside a container
+  (`varnish`'s precedent) and the restart is a Compose passthrough (`docker-compose`'s precedent),
+  and those are different things this port keeps different rather than unifying by accident
+
+Test: `TestAFailedDebugOffRestartReturnsTheComposeStatus`.
+
+#### Scenario: A Go-level error on the restart is reported
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `debug-off` runs and the `Compose` call answers an error rather than a non-zero status
+- **THEN** the failure is reported through the same fault-mapping `report()` uses elsewhere —
+  `exitDocker`, `error.type` `docker_failed` under `--json` — the same path `dockerCompose()`'s own
+  `err != nil` branch takes, and the same path `varnish`'s failed `Restart` takes
+
+Test: `TestADebugOffRestartErrorIsReported`.
+
+#### Scenario: Disabling xdebug in JSON
+
+- **WHEN** `debug-off --json` succeeds
+- **THEN** the document's `data` carries `{"xdebug": false}`, mirroring `varnish`'s `{"varnish":
+  bool}` shape
+- **AND** the envelope itself (`schema_version`, `command`, `ok`, `data`) is unchanged and remains
+  `cli-output-contract`'s to govern — this scenario owns only the one new key
+- **AND** on a failed restart, no document is produced at all, success or error — see "The
+  restart's own non-zero status is returned as-is"
+
+Test: `TestWhatDebugOffAsks` (JSON case).
 
 #### Scenario: Clearing generated code
 
@@ -754,8 +848,6 @@ Test: `TestAFailedAnonymiseIsReported`.
 Test: `TestWhatMasqueradeAsks` and `TestADeclinedMasqueradeAsksOnlyToResolve` (asserted by
 construction: neither subtest overrides `DOCKER_HOST`, and a code comment beside the call names
 why).
-
-
 ### Requirement: A usage error returns before any engine call
 
 `copy-to-container`, `copy-from-container`, `mysqldump`, `version`, `set-host`, `list`,

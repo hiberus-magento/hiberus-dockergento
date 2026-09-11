@@ -61,6 +61,8 @@ a platform it could not build.
 The tool SHALL pass a command and its arguments to the container as a command and its arguments.
 A wrapper that also owns a JSON success envelope SHALL NOT emit that envelope, and SHALL NOT print
 its success line, when the program it ran inside the container failed.
+(Previously: covered `varnish-on`/`varnish-off`'s VCL edit and cache toggle. This adds `debug-off`'s
+xdebug ini edit, the same failure shape against a different service.)
 
 #### Scenario: A command line with options in it
 
@@ -99,6 +101,20 @@ Test: `TestAFailedVCLEditReportsTheContainersCode` (new).
 
 Test: `TestAFailedCacheToggleStopsBeforeThePurge` (new).
 
+#### Scenario: The xdebug ini edit fails inside the php container
+
+- **GIVEN** `debug-off` is run
+- **WHEN** the `sed` edit against the `phpfpm` service exits non-zero with no Go-level error
+- **THEN** the command exits with that same status, not a mapped code
+- **AND** stdout carries no "xdebug disabled" line; stderr carries the container's own output
+  plus one readable line naming the ini edit as the step that failed
+- **AND** under `--json`, stdout carries no success document; stderr carries exactly one envelope
+  with `ok: false` and `error.code` equal to that status
+- **AND** the restart (`Compose(["restart", "phpfpm"])`) is not reached
+
+Test: `TestAFailedDebugOffEditReportsTheContainersStatus` (new; shared with `go-entrypoint`'s
+scenario of the same fact, proved once).
+
 #### Scenario: A Go-level error still stops before the restart
 
 - **WHEN** the VCL edit fails with an error rather than a non-zero status
@@ -108,6 +124,8 @@ Test: `TestAFailedEditStopsBeforeTheRestart` (existing, unchanged — regression
 (Previously: only the `err != nil` branch of the two guards had a scenario; the `status != 0,
 err == nil` branch, which answered success, had none.)
 
+Requirement "Turning the page cache off clears what it cached" is untouched by this change and is
+not repeated here.
 ### Requirement: Turning the page cache off clears what it cached
 
 The tool SHALL leave nothing behind that is served from a cache that has been turned off.
