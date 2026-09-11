@@ -5,7 +5,9 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
+# `list` and `describe` have no shell implementation any more: both were retired with the other
+# thirteen twins, so this whole file asks the binary directly rather than going through bin/run.
+HM="$COMMAND_BIN_DIR/bin/hm"
 WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
 
@@ -57,6 +59,7 @@ assert_empty "$STDERR"
 test_case "list rejects unknown options"
 run_in "$WORKDIR" list --nope
 assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "invalid_argument"
 
 # ---------------------------------------------------------------- hm describe
 
@@ -67,9 +70,10 @@ assert_equals "4" "$STATUS"
 test_case "describe explains why it failed"
 assert_json_field "$STDERR" '.error.type' "project_not_configured"
 
-test_case "describe rejects unknown options"
+test_case "describe rejects unknown options before it looks for a project"
 run_in "$WORKDIR" describe --nope --json
-assert_equals "4" "$STATUS"
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "invalid_argument"
 
 # ------------------------------------------- a synthetic project with nothing running
 
@@ -113,6 +117,7 @@ test_case "the services are still listed with nothing running"
 assert_json_field "$STDOUT" '.data.services | length' "9"
 
 test_case "without composer.lock the Magento version is unknown"
+assert_json_field "$STDOUT" '.data.magento | has("version")' "true"
 assert_json_field "$STDOUT" '.data.magento.version' ""
 
 test_case "xdebug is unknown while the container is down"

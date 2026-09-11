@@ -179,6 +179,9 @@ assert_contains "$reachable" "yes"
     # ---------------------------------------------------------------- what the CLI reports
 
 HM="$COMMAND_BIN_DIR/bin/run"
+# `describe` is the binary's now; `doctor` stays the shell implementation's and keeps asking
+# bin/run through `$HM`.
+GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 
 make_project() {
     local dir="$LAB/$1" service="$2" image="$3"
@@ -200,7 +203,7 @@ YAML
 
 test_case "the mailbox address is reported under a key that does not name the implementation"
 make_project reported mailpit "hiberusmagento/mailpit:1"
-urls=$( cd "$LAB/reported" && "$HM" describe --json 2>/dev/null | jq -r '.data.project.urls' )
+urls=$( cd "$LAB/reported" && "$GO_BINARY" describe --json 2>/dev/null | jq -r '.data.project.urls' )
 assert_equals "http://localhost:8025" "$(printf '%s' "$urls" | jq -r '.mail')"
 
 test_case "and the key that existed before still carries it"

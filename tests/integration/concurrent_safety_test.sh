@@ -9,6 +9,9 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
+# `describe` is the binary's now; `worktree add`/`clean` stay the shell implementation's and keep
+# asking bin/run through `$HM`.
+GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 PROJECT="hm-concurrent-selftest"
 trap 'rm -rf "$LAB"' EXIT
@@ -58,10 +61,10 @@ p.write_text(json.dumps(d))
 INNER
 
 test_case "a worktree reads its own properties, not the main checkout's"
-assert_equals "./src" "$( cd "$LAB/rama" && "$HM" describe --json 2>/dev/null | jq -r '.data.paths.magento_dir')"
+assert_equals "./src" "$( cd "$LAB/rama" && "$GO_BINARY" describe --json 2>/dev/null | jq -r '.data.paths.magento_dir')"
 
 test_case "and the main checkout still reads its own"
-assert_equals "." "$( cd "$DIR" && "$HM" describe --json 2>/dev/null | jq -r '.data.paths.magento_dir')"
+assert_equals "." "$( cd "$DIR" && "$GO_BINARY" describe --json 2>/dev/null | jq -r '.data.paths.magento_dir')"
 
 test_case "which is the file that was there all along"
 assert_equals "." "$(jq -r '.MAGENTO_DIR' "$DIR/config/docker/properties.json")"

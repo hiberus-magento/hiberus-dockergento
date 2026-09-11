@@ -31,6 +31,18 @@ run_in_lab() {
     return 0
 }
 
+#
+# The binary's twin of run_in_lab. `logs` and `describe` are the binary's now; `launch` is still
+# the shell implementation's and keeps asking bin/run through run_in_lab above.
+#
+run_in_lab_go() {
+    ( cd "$LAB" && "$GO_BINARY" "$@" >"$LAB/out" 2>"$LAB/err" )
+    STATUS=$?
+    STDOUT=$(cat "$LAB/out")
+    STDERR=$(cat "$LAB/err")
+    return 0
+}
+
 # ---------------------------------------------------------------- version, without a project
 
 test_case "version answers outside a project"
@@ -116,7 +128,7 @@ run_in_lab launch --admin --json
 assert_json_field "$STDOUT" '.data.url' "https://verbs.local/admin_7f3k9x"
 
 test_case "and describe reports the same address"
-run_in_lab describe --json
+run_in_lab_go describe --json
 assert_json_field "$STDOUT" '.data.project.urls.admin' "https://verbs.local/admin_7f3k9x"
 
 test_case "the storefront is unaffected by it"
@@ -160,15 +172,16 @@ echo '{"MAGENTO_DIR": ".", "COMPOSE_PROJECT_NAME": "hm-verbs-selftest", "DOMAIN"
 # ---------------------------------------------------------------- logs
 
 test_case "logs of a service the project does not have is refused"
-run_in_lab logs nonexistent
+run_in_lab_go logs nonexistent
 assert_equals "5" "$STATUS"
 
 test_case "and the refusal names the services that do exist"
 assert_contains "$STDERR" "phpfpm"
 
 test_case "an option that needs a value says so when it has none"
-run_in_lab logs --tail
+run_in_lab_go logs --tail
 assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "missing_value"
 
 if ! docker info >/dev/null 2>&1; then
     echo "  - skipped: docker is not available for the rest of the log checks"
@@ -179,21 +192,21 @@ fi
 docker compose -p "$PROJECT" up -d >/dev/null 2>&1
 
 test_case "logs shows what the containers printed"
-run_in_lab logs
+run_in_lab_go logs
 assert_contains "$STDOUT" "hello-from-phpfpm"
 
 test_case "and everything, when no service is named"
 assert_contains "$STDOUT" "hello-from-db"
 
 test_case "naming a service narrows it down"
-run_in_lab logs db
+run_in_lab_go logs db
 assert_contains "$STDOUT" "hello-from-db"
 
 test_case "to that service only"
 assert_not_contains "$STDOUT" "hello-from-phpfpm"
 
 test_case "the value of an option is not read as a service name"
-run_in_lab logs --tail 1 db
+run_in_lab_go logs --tail 1 db
 assert_equals "0" "$STATUS"
 
 test_case "and the option reaches Compose"
@@ -202,14 +215,18 @@ assert_equals "1" "$(printf '%s\n' "$STDOUT" | grep -c "hello-from-db")"
 # `logs` is a transparent command: a flag before the command name is the CLI's, a flag after it
 # belongs to the process being wrapped. That is the same rule as `mysql` and `composer`.
 test_case "the output is data: asking for JSON does not wrap it"
-run_in_lab --json logs db
+run_in_lab_go --json logs db
 assert_contains "$STDOUT" "hello-from-db"
 
 test_case "so nothing of the JSON envelope appears in it"
 assert_not_contains "$STDOUT" "schema_version"
 
-test_case "and a flag after the command name is left for Compose"
-run_in_lab logs --json db
-assert_equals "1" "$STATUS"
+# The binary enumerates the options it forwards rather than passing them through
+# (`orchestrate.go:87-89`), so an undeclared one after the command name is its own usage error and
+# never reaches Compose. The shell implementation forwarded it and inherited Compose's exit 1.
+test_case "and an undeclared flag after the command name is a usage error, not Compose's"
+run_in_lab_go logs --json db
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "invalid_argument"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

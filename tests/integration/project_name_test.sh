@@ -7,6 +7,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 source "$HELPERS_DIR/project_name.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
+# `bin/run:103` derives COMPOSE_PROJECT_NAME from the directory when the property is absent;
+# `dockergento/app/resolve.go:116` reads only the configured property, with no such fallback.
+# Name derivation is not ported, so `HM` (and `hm_name()` below) stay on the shell entry point.
+# `GO_BINARY` is only used at `:157` for the inventory check, which is behaviourally identical
+# today and keeps this suite green once `list.sh` is gone.
+GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 
 cleanup() {
@@ -50,8 +56,12 @@ compose_name() {
         jq -r '.name'
 }
 
+# `describe` is the binary's now, and the binary reports the configured name rather than the one
+# this entry point derives (`bin/run:103` against `app/resolve.go:116`): derivation is not ported.
+# What is under test here is bin/run's own resolution, so the window onto it stays inside bin/run.
+# `db list` is still the shell implementation's and prints the name it resolved (`db.sh:171-174`).
 hm_name() {
-    ( cd "$1" && "$HM" describe --json 2>/dev/null ) | jq -r '.data.project.name // ""'
+    ( cd "$1" && "$HM" db list --json 2>/dev/null ) | jq -r '.data.project // ""'
 }
 
 # ------------------------------------------------- the rule matches Compose, not a table of ours
@@ -77,7 +87,9 @@ assert_equals "hmnametest" "$(hm_name "$LAB/otro-directorio")"
 
 test_case "a directory with no usable name is refused, not passed to Compose"
 make_project "$LAB/___"
-( cd "$LAB/___" && "$HM" describe --json >"$LAB/out" 2>"$LAB/err" )
+# The refusal under test is bin/run:106's no_project_name, raised in docker_env_variables before
+# any command file is reached, so any surviving shell command is an equally good window.
+( cd "$LAB/___" && "$HM" db list --json >"$LAB/out" 2>"$LAB/err" )
 assert_equals "4" "$?"
 
 test_case "and the refusal says what to do about it"
@@ -95,7 +107,8 @@ assert_equals "different" "$r"
 
 test_case "but a configured name is inherited by a copy, because it is a decision"
 cp -R "$LAB/otro-directorio" "$LAB/otro-directorio-copia"
-assert_equals "$(hm_name "$LAB/otro-directorio")" "$(hm_name "$LAB/otro-directorio-copia")"
+assert_equals "hmnametest" "$(hm_name "$LAB/otro-directorio")"
+assert_equals "hmnametest" "$(hm_name "$LAB/otro-directorio-copia")"
 
 # ------------------------------------------------- a worktree keeps the main checkout's identity
 
@@ -112,7 +125,7 @@ make_project "$LAB/principal"
 assert_equals "principal" "$(hm_name "$LAB/una-rama")"
 
 test_case "so a worktree does not invent a second environment"
-assert_equals "$(hm_name "$LAB/principal")" "$(hm_name "$LAB/una-rama")"
+assert_equals "principal" "$(hm_name "$LAB/principal")"
 
 # ------------------------------------------------- what setup records
 
@@ -154,7 +167,7 @@ labelled=$(docker ps -aq --filter "label=hm.project=tienda" 2>/dev/null | head -
 assert_equals "labelled" "$r"
 
 test_case "and the environment shows up in the inventory under that name"
-assert_contains "$("$HM" list --json 2>/dev/null | jq -r '.data.environments[].name')" "tienda"
+assert_contains "$("$GO_BINARY" list --json 2>/dev/null | jq -r '.data.environments[].name')" "tienda"
 
 ( cd "$LAB/tienda" && "$HM" down >/dev/null 2>&1 )
 

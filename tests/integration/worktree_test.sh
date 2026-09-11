@@ -10,6 +10,9 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
+# `describe` and `list` are the binary's now; the guardrail cases below (start/stop/down/setup)
+# stay the shell implementation's and keep asking bin/run through `$HM`.
+GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 # Canonical path: on macOS /var is a symlink to /private/var, and git reports the resolved
 # path. Comparing against the unresolved one makes assertions pass or fail for the wrong
 # reason.
@@ -60,17 +63,32 @@ run_in() {
     return 0
 }
 
+# The binary's twin of run_in, for the calls that are the binary's now (describe, list).
+run_in_go() {
+    local dir="$1"
+    shift
+    ( cd "$dir" && "$GO_BINARY" "$@" >"$LAB/out" 2>"$LAB/err" )
+    STATUS=$?
+    STDOUT=$(cat "$LAB/out")
+    STDERR=$(cat "$LAB/err")
+    return 0
+}
+
 # ------------------------------------------------------------------ detection
 
-test_case "a worktree is recognised as such"
-run_in "$LAB/wt" describe --json
-assert_json_field "$STDOUT" '.data.project.worktree' "wt"
+# A worktree with no environment of its own keeps resolving against the main checkout
+# (`app/resolve.go:59-63`), and the binary names a worktree only when it has one
+# (`app/describe.go:108-110`). That a worktree is recognised at all is proved below, by the eight
+# commands refused from it with exit 6 — through `bin/run`, which still owns them.
+test_case "a worktree with no environment of its own resolves to the main checkout"
+run_in_go "$LAB/wt" describe --json
+assert_json_field "$STDOUT" '.data.project.worktree' ""
 
 test_case "the root points at the main checkout"
 assert_json_field "$STDOUT" '.data.project.root' "$LAB/main"
 
 test_case "the main checkout is not treated as a worktree"
-run_in "$LAB/main" describe --json
+run_in_go "$LAB/main" describe --json
 assert_json_field "$STDOUT" '.data.project.worktree' ""
 
 test_case "the project name is the same from both directories"
@@ -112,11 +130,11 @@ assert_equals "6" "$STATUS"
 # ------------------------------------------------------------------ allowed commands
 
 test_case "describe works from a worktree"
-run_in "$LAB/wt" describe --json
+run_in_go "$LAB/wt" describe --json
 assert_equals "0" "$STATUS"
 
 test_case "list works from a worktree"
-run_in "$LAB/wt" list --json
+run_in_go "$LAB/wt" list --json
 assert_equals "0" "$STATUS"
 
 test_case "doctor works from a worktree"
@@ -148,7 +166,7 @@ test_case "the environment mounts the main checkout"
 assert_equals "yes" "$r"
 
 test_case "allowed commands from a worktree leave the mounts alone"
-run_in "$LAB/wt" describe --json
+run_in_go "$LAB/wt" describe --json
 run_in "$LAB/wt" doctor --json
 assert_equals "0" "$(mounts_pointing_at "$LAB/wt")"
 
