@@ -185,7 +185,7 @@ func execute(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return code
 	}
 
-	status, err := engine(stdout, stderr, jsonOutput).
+	status, err := newEngine(stdout, stderr, jsonOutput).
 		Exec(here(), phpService, args, terminalOptions(user))
 	if status != 0 {
 		return status
