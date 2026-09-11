@@ -30,6 +30,7 @@ type commands interface {
 	StopEverything(dir string, interactive bool) (core.MachineStop, error)
 	Compose(dir string, args []string) (int, error)
 	Logs(dir string, services []string, options core.LogOptions) error
+	Anonymise(dir string) error
 }
 
 var _ commands = (*dockergento.Engine)(nil)

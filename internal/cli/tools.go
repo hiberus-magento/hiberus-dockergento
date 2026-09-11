@@ -51,5 +51,5 @@ func masquerade(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return exitOK
 	}
 
-	return report(stderr, jsonOutput, "masquerade", engine(stdout, stderr, jsonOutput).Anonymise(here()))
+	return report(stderr, jsonOutput, "masquerade", newEngine(stdout, stderr, jsonOutput).Anonymise(here()))
 }

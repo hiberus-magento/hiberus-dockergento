@@ -241,6 +241,15 @@ func (f *fakeEngine) Logs(dir string, services []string, options core.LogOptions
 	return f.outcomeFor(number).err
 }
 
+// Anonymise, like Restart and Dump, only ever answers with an error: there is nothing to read
+// back, so no new call field is needed beyond Dir, which already exists.
+func (f *fakeEngine) Anonymise(dir string) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Anonymise", Dir: dir})
+
+	return f.outcomeFor(number).err
+}
+
 // answering substitutes fake for newEngine for the rest of this test, and restores the real
 // factory when it ends. Six pins go first, unconditionally, because while a call site is still
 // unrouted — the RED half of a test written against this helper — it reaches the real engine()
