@@ -157,28 +157,33 @@ assert_contains "$(docker inspect "$(docker ps -q -f "label=com.docker.compose.p
 # ---------------------------------------------------------------- the same output
 
 #
-# The padding of the prefix is not compared, and that is not a concession: Compose computes it
-# from the containers registered so far, so a line printed before the widest name has arrived gets
-# a narrower prefix. It is its own race, in its own consumer, and both implementations have it.
-# What has to match is every line and every prefix.
+# The padding of the prefix used to not be compared either, and that was not a concession: Compose
+# computes it from the containers registered so far, so a line printed before the widest name has
+# arrived gets a narrower prefix — its own race, in its own consumer, that both implementations
+# had. What the three blocks below used to prove, by comparing the shell implementation and the Go
+# one line for line, byte for byte, and refusal for refusal, is gone along with logs.sh: there is
+# no second implementation left to disagree with. What replaces each comparison checks the Go
+# answer against the container's own fixed output instead — the `command:` strings each service
+# was started with, and the service names the fixture actually defines — which is weaker in a
+# stated way: an exact rendering difference (a prefix format, a missing newline, a changed refusal
+# wording) is no longer caught by anything here.
 #
-test_case "the logs are the shell implementation's, line for line"
-( cd "$DIR" && "$SHELL_CLI" --no-json logs --no-color >"$LAB/shell.out" 2>&1 )
-( cd "$DIR" && "$GO_BINARY"  --no-json logs --no-color >"$LAB/go.out" 2>&1 )
-assert_equals "$(sed 's/  */ /g' < "$LAB/shell.out" | sort)" "$(sed 's/  */ /g' < "$LAB/go.out" | sort)"
+test_case "the log output still names both services' own command strings"
+( cd "$DIR" && "$GO_BINARY" --no-json logs --no-color >"$LAB/go.out" 2>&1 )
+assert_contains "$(cat "$LAB/go.out")" "listo phpfpm"
+assert_contains "$(cat "$LAB/go.out")" "listo nginx"
 
-# One service, so there is one name and the width cannot move: this one is compared whole
-test_case "and the logs of one service are the same, character for character"
-( cd "$DIR" && "$SHELL_CLI" --no-json logs nginx >"$LAB/shell.out" 2>&1 )
-( cd "$DIR" && "$GO_BINARY"  --no-json logs nginx >"$LAB/go.out" 2>&1 )
-assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
+test_case "and the logs of one service are limited to that service"
+( cd "$DIR" && "$GO_BINARY" --no-json logs nginx >"$LAB/go.out" 2>&1 )
+assert_contains "$(cat "$LAB/go.out")" "listo nginx"
+assert_not_contains "$(cat "$LAB/go.out")" "listo phpfpm"
 
-test_case "a service this project does not have is refused the same way"
-( cd "$DIR" && "$SHELL_CLI" logs no-existe >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
-( cd "$DIR" && "$GO_BINARY"  logs no-existe >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+test_case "a service this project does not have is refused as an unknown service"
+( cd "$DIR" && "$GO_BINARY" logs no-existe >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
 assert_equals "5" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
-assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
+assert_json_field "$(cat "$LAB/go.err")" '.error.type' "unknown_service"
+assert_contains "$(cat "$LAB/go.err")" "phpfpm"
+assert_contains "$(cat "$LAB/go.err")" "nginx"
 
 test_case "an option that needs a value says so instead of reading the next word as a service"
 ( cd "$DIR" && "$GO_BINARY" logs --tail >"$LAB/go.err" 2>&1 )

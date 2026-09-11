@@ -56,54 +56,68 @@ assert_equals "$SHELL_STATUS" "$GO_STATUS"
 
 # ---------------------------------------------------------------- ported: describe
 #
-# The richest document the tool produces, and the command run most often. Compared whole, with
-# and without the secrets, and as a table with colour turned off — anything less and a port could
-# quietly drop a field nobody looks at until an agent needs it.
+# The richest document the tool produces, and the command run most often. This used to compare
+# the shell and Go implementations directly — the whole document, with and without secrets, and
+# the table with colour turned off — which caught a field nobody wrote an assertion for and a
+# rendering that drifted a single byte, because the two implementations had to agree on everything
+# to pass, not only on what somebody checked.
+#
+# describe.sh is retired in this same change, so there is no shell answer left to compare against.
+# What follows checks the Go answer against a fixed oracle instead — the document's own declared
+# sections, and the fixture's own configuration — which proves the sections and fields somebody
+# named still exist, but not that the two implementations ever agreed on everything else: an
+# undocumented field going missing, or the --no-json table's column widths and spacing drifting,
+# would no longer be caught by anything here.
 
-both describe --json
-test_case "describe answers exactly what the shell one did"
-assert_equals "$(jq -S . < "$LAB/shell.out" 2>/dev/null)" "$(jq -S . < "$LAB/go.out" 2>/dev/null)"
+( cd "$DIR" && "$GO_BINARY" describe --json >"$LAB/go.out" 2>"$LAB/go.err" )
+test_case "the document still carries every documented section"
+assert_json_field "$(cat "$LAB/go.out")" \
+    '.data | has("project") and has("magento") and has("services") and has("paths") and has("tooling")' \
+    "true"
 
-both describe --json --with-secrets
+( cd "$DIR" && "$GO_BINARY" describe --json --with-secrets >"$LAB/go.out" 2>"$LAB/go.err" )
 test_case "and with the credentials too, when they are asked for"
-assert_equals "$(jq -S . < "$LAB/shell.out" 2>/dev/null)" "$(jq -S . < "$LAB/go.out" 2>/dev/null)"
+assert_json_field "$(cat "$LAB/go.out")" '.data.credentials.database | has("password")' "true"
 
 test_case "which are never volunteered"
-both describe --json
+( cd "$DIR" && "$GO_BINARY" describe --json >"$LAB/go.out" 2>"$LAB/go.err" )
 assert_equals "null" "$(jq -r '.data.credentials // "null"' < "$LAB/go.out")"
 
-test_case "and the table is the same, character for character"
-( cd "$DIR" && NO_COLOR=1 "$SHELL_CLI" --no-json describe >"$LAB/shell.out" 2>&1 )
-( cd "$DIR" && NO_COLOR=1 "$GO_BINARY"  --no-json describe >"$LAB/go.out" 2>&1 )
-assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
+test_case "and the table still names its sections"
+( cd "$DIR" && NO_COLOR=1 "$GO_BINARY" --no-json describe >"$LAB/go.out" 2>&1 )
+assert_contains "$(cat "$LAB/go.out")" "Environment"
+assert_contains "$(cat "$LAB/go.out")" "URLs"
+assert_contains "$(cat "$LAB/go.out")" "Magento"
+assert_contains "$(cat "$LAB/go.out")" "Services"
+assert_contains "$(cat "$LAB/go.out")" "Paths"
 
-both describe --nonsense
-test_case "an option nobody declared is refused the same way"
+( cd "$DIR" && "$GO_BINARY" describe --nonsense >"$LAB/go.out" 2>"$LAB/go.err" ); GO_STATUS=$?
+test_case "an option nobody declared is its own usage error"
 assert_equals "2" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
+assert_json_field "$(cat "$LAB/go.err")" '.error.type' "invalid_argument"
 
 # ---------------------------------------------------------------- ported: list
 #
-# The first command that stopped going through the shell implementation. What is compared is not
-# "roughly the same" but the whole document and the whole table, because the moment the two are
-# allowed to differ a little, nobody can tell a port from a regression.
+# The first command that stopped going through the shell implementation. This used to compare the
+# whole document and the whole table against the shell one, because the moment the two were
+# allowed to differ a little, nobody could tell a port from a regression.
+#
+# list.sh is retired in this same change, so there is no shell document or shell table left to
+# compare against. introspection_test.sh:37-52 already proves the full environment shape, so what
+# is left here is the envelope fields nothing else names, plus the refusal — not a duplicate of
+# that suite and not a replacement for the comparison: an unnoticed field, or the table rendering
+# drifting a column width, is no longer caught by anything.
 
-both list --json
-test_case "the ported command answers exactly what the shell one did"
-assert_equals "$(jq -S . < "$LAB/shell.out" 2>/dev/null)" "$(jq -S . < "$LAB/go.out" 2>/dev/null)"
+( cd "$DIR" && "$GO_BINARY" list --json >"$LAB/go.out" 2>"$LAB/go.err" )
+test_case "the envelope carries the documented shape"
+assert_json_field "$(cat "$LAB/go.out")" '.schema_version' "1"
+assert_json_field "$(cat "$LAB/go.out")" '.command' "list"
+assert_json_field "$(cat "$LAB/go.out")" '.data.count | type' "number"
 
-both --no-json list
-test_case "and prints exactly the same table"
-assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
-
-both list --nonsense
-test_case "and refuses the same options, with the same code"
+( cd "$DIR" && "$GO_BINARY" list --nonsense >"$LAB/go.out" 2>"$LAB/go.err" ); GO_STATUS=$?
+test_case "and an option nobody declared is its own usage error"
 assert_equals "2" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
-
-test_case "the JSON envelope is the same shape"
-both list --json
-assert_equals "$(jq -S 'del(.data)' < "$LAB/shell.out")" "$(jq -S 'del(.data)' < "$LAB/go.out")"
+assert_json_field "$(cat "$LAB/go.err")" '.error.type' "invalid_argument"
 
 #
 # The tool's own flags are accepted before the command name as well as after it, which is what the
