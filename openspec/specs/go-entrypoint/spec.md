@@ -257,11 +257,13 @@ test that verifies what its handler asks of the engine, through a fake substitut
 one, requiring no Docker daemon, no network access, and no project beyond what the test itself
 builds.
 (Previously: covered `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-off`,
-`purge`, `npm`, `n98-magerun`, `test-unit`, `test-integration`, `mysqldump`, `version`, and
-`set-host`. This adds `list`, `describe`, and `logs` — the three commands
-`data/command_descriptions.json` declares `"safety": "safe"` — and the seam gains the three
-methods each of them needs: `Environments()`, `Describe(dir, withSecrets)`, and
-`Logs(dir, services, options)`.)
+`purge`, `npm`, `n98-magerun`, `test-unit`, `test-integration`, `mysqldump`, `version`,
+`set-host`, `list`, `describe`, and `logs`. This adds `bash`, `exec`, and `masquerade` — the
+three commands `data/command_descriptions.json` declares `"safety": "dangerous"` and deferred by
+`read-only-commands-go-tests` — and the seam gains one method, `Anonymise(dir string) error`.
+`Exec` was already on `commands` and already exercised through `inside()`, so `bash` and `exec`
+cost only a routing line: `shell()` (`tools.go:10-18`) only ever calls `execute()`, so one line at
+`orchestrate.go:188` puts both on the seam.)
 
 #### Scenario: Copying into the container
 
@@ -422,7 +424,7 @@ Test: `TestWhatListAsks`.
   `Environments()` and `Describe()` before `list.go:23` and `describe.go:25` are routed through
   `newEngine`
 - **WHEN** that RED half of each suite runs under `answering(t)`
-- **THEN** `answering(t)`'s `DOCKER_HOST=unix:///nonexistent` pin (`fake_engine_test.go:218`) is
+- **THEN** `answering(t)`'s `DOCKER_HOST=unix:///nonexistent` pin (`fake_engine_test.go:272`) is
   what stops **both** from reaching a real daemon — `Resolve` does not fail on a directory that is
   not a project (`dockergento.go:128-131`), so an unrouted `describe` proceeds into
   `app.Describer.Describe`'s seven concurrent questions before any error is inspected, and two of
@@ -598,15 +600,170 @@ call site is routed to the binary, and its citation in this spec corrected) and
 `tests/integration/go_orchestration_test.sh` (modified — parity retired, Go-only assertion kept).
 No `internal/cli` test asserts this branch.
 
+#### Scenario: Running something inside the php container (exec)
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `exec <command...>` runs against a resolved project
+- **THEN** the fake's whole call log holds, in order, a `Resolve` call and then an `Exec` call
+- **AND** the `Exec` call's `Dir` equals the test's own working directory (read from `os.Getwd()`
+  inside the test), **not** `f.project.Root` — `orchestrate.go:188-189` calls its engine method
+  with `here()`, the same way `execute` (via `logs`) already does, and the opposite of `inside()`,
+  which `inside_test.go` asserts against `root`; `TestWhatCopyingIntoTheContainerAsks`
+  (`wrappers_test.go:23-56`) is the working template to copy, with `fake.project.Root` set to a
+  value no `t.TempDir()` can equal so the assertion discriminates
+- **AND** the command's arguments are recorded verbatim as `Command`, `Service` is `phpfpm`
+  (`phpService`), and `Options` equals exactly what calling `terminalOptions(user)` itself returns
+  — never a literal `Tty: false` or `Tty: true` — because `terminalOptions` (`php.go:70-76`) reads
+  `isTerminal(os.Stdin) && isTerminal(os.Stdout)` at call time
+
+Test: `TestWhatExecAsks`.
+
+#### Scenario: -r sets the root user for exec
+
+- **WHEN** `exec` runs with `-r` first
+- **THEN** it is consumed from the arguments before the command is built, and the recorded `Exec`
+  call carries `Options` built from `terminalOptions("root")` instead of `terminalOptions("")`,
+  while the remaining arguments become `Command` unchanged
+
+Test: `TestWhatExecAsks` (root case).
+
+#### Scenario: A failed exec status is returned without being mapped
+
+- **GIVEN** the fake's `Exec` outcome answers a non-zero status with no error
+- **WHEN** `exec` runs
+- **THEN** the command's own return value is that same status (`orchestrate.go:190-192`), not
+  passed through `report`'s `docker_failed` mapping
+
+Test: `TestAFailedExecStatusIsReturnedAsIs`.
+
+#### Scenario: An exec error is reported as a Docker failure
+
+- **GIVEN** the fake's `Exec` outcome answers status `0` together with an error — the other half
+  of `orchestrate.go:190-194`'s branch, distinct from the non-zero-status case above: `execute()`
+  only returns `status` early when it is non-zero, so a zero status with a non-nil `err` falls
+  through into `report`
+- **WHEN** `exec` runs
+- **THEN** it exits `exitDocker`, and the reported fault's `type` is `docker_failed`, and the call
+  log still ends at `Exec` — `Resolve` succeeded before it
+
+Test: `TestExecReportsAFailure`.
+
+#### Scenario: Opening a shell (bash)
+
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** `bash` runs against a resolved project
+- **THEN** the fake's whole call log holds, in order, a `Resolve` call and then an `Exec` call
+  whose `Command` is exactly `["bash"]`, through the same `execute()` handler `exec` uses, with
+  `Dir` equal to the test's own working directory, the same as `exec`'s
+- **AND** when `bash` runs with `-r` first, `shell()` (`tools.go:10-18`) forwards it to `execute()`
+  as `["-r", "bash"]`, and the recorded `Exec` call's `Command` is still exactly `["bash"]`, while
+  `Options` is built from `terminalOptions("root")` instead of `terminalOptions("")`
+
+Test: `TestWhatBashAsks`.
+
+#### Scenario: bash silently discards any argument other than -r
+
+- **GIVEN** `shell()` (`tools.go:10-18`) only ever inspects `args[0]`, comparing it against `"-r"`
+  and nothing else
+- **WHEN** `bash` runs with an argument other than `-r` — for example `--nonsense`, or a positional
+  word — as its first (and only) argument
+- **THEN** the recorded `Exec` call's `Command` is still exactly `["bash"]` and `Options` is built
+  from `terminalOptions("")`, exactly as with no argument at all: the argument is silently
+  discarded rather than reaching the container or producing a usage error
+- **AND** this is worth pinning precisely because it is surprising: unlike `exec`'s own argument
+  handling, nothing in `bash`'s path refuses an argument it does not recognize
+
+Test: `TestWhatBashAsks` (discarded-argument case).
+
+#### Scenario: exec and bash's RED window is bounded by the working directory, not the daemon
+
+- **GIVEN** `exec_test.go` and `tools_test.go`'s `bash` cases are written, strict-TDD style,
+  against `Exec()` before `orchestrate.go:188` is routed through `newEngine`
+- **WHEN** that RED half runs under `answering(t)`
+- **THEN** `t.Chdir(t.TempDir())` (`fake_engine_test.go:274`) is what stops it — `Resolve` does not
+  fail on a directory that is not a project, so an unrouted call proceeds into
+  `orchestrator.Exec`'s own `open`/`load` (`orchestrator.go:166-215`), which refuses for want of a
+  compose file under the temp cwd, before `service.Exec` runs and before any daemon dial happens
+- **AND** `DOCKER_HOST=unix:///nonexistent` does not bound this window by itself — the missing
+  compose file is what stops it first
+- **AND** every subtest that exercises `exec` or `bash` runs under `answering(t)`, and none
+  re-chdirs on its own
+
+Test: `TestWhatExecAsks` and `TestWhatBashAsks` (asserted by construction: neither test file has a
+subtest outside `answering(t)`, and a code comment beside the call names why).
+
+#### Scenario: Anonymising the database when confirmed
+
+- **GIVEN** a fake engine substituted for the real one, run under `answering(t)` so `ask()`
+  answers its own suggestion (`"Y"`) without reading stdin
+- **WHEN** `masquerade` runs against a resolved project
+- **THEN** the fake's whole call log holds, in order, a `Resolve` call and then an `Anonymise`
+  call, and the `Anonymise` call's `Dir` equals the test's own working directory (read from
+  `os.Getwd()` inside the test), **not** `f.project.Root` — `tools.go:54` calls its engine method
+  with `here()`, the same way `exec` does
+
+Test: `TestWhatMasqueradeAsks`.
+
+#### Scenario: Declining leaves the database untouched
+
+- **GIVEN** `answering(t)` as usual (its other pins are still wanted, and `projectOr`'s `Resolve`
+  must succeed against `f.project`), **plus** a nested `t.Setenv("HM_NON_INTERACTIVE", "")` that
+  stacks over the helper's own pin and unwinds LIFO, **plus** `os.Stdin` swapped for a pipe
+  carrying `"n\n"` — `ask()` (`ask.go:23-56`) checks `HM_NON_INTERACTIVE` first (`:29-35`) and
+  answers the suggestion without reading stdin when it is set, so `answering(t)`'s own pin makes
+  this branch structurally unreachable unless all three are present together; `askingWith`
+  (`ask_test.go:25-60`) is the precedent, and strictly only `os.Stdin` needs to move, because
+  `ask.go:43` writes the question to the real `os.Stderr`, not to a writer `masquerade()` was
+  handed
+- **WHEN** `masquerade` runs and the piped answer is anything other than `""` or `"y"`
+  (case-insensitive, trimmed)
+- **THEN** the fake's whole call log holds exactly one entry — the `Resolve` call — and no
+  `Anonymise` call is recorded
+- **AND** the command exits `exitOK`, because declining is not reported as a failure
+
+Test: `TestADeclinedMasqueradeAsksOnlyToResolve`. A masquerade test whose log shows `Anonymise` in
+this case, or that reaches `exitOK` without the `os.Stdin` swap, has not covered the branch that
+keeps this tool from writing to a database — the empty half of the log past `Resolve` is the
+assertion that matters, not the exit code alone.
+
+#### Scenario: An Anonymise refusal is reported
+
+- **GIVEN** the fake's second outcome — the `Anonymise` call, not the preceding `Resolve` call —
+  carries an error
+- **WHEN** `masquerade` runs, confirmed
+- **THEN** the error is reported through the same fault-mapping `report()` uses elsewhere, and the
+  call log still ends at `Anonymise` — `Resolve` succeeded before it
+
+Test: `TestAFailedAnonymiseIsReported`.
+
+#### Scenario: masquerade's RED window is bounded by the daemon, not the working directory
+
+- **GIVEN** `tools_test.go`'s `masquerade` cases are written, strict-TDD style, against
+  `Anonymise()` before `tools.go:54` is routed through `newEngine`
+- **WHEN** that RED half runs under `answering(t)`
+- **THEN** `DOCKER_HOST=unix:///nonexistent` (`fake_engine_test.go:272`) is what stops it —
+  `Resolve` does not fail on a directory that is not a project, so an unrouted call proceeds
+  through `app.Importer.Anonymise` (`app/anonymise.go:26-30`) into `Database.Ready`, which calls
+  `Engine.Containers()` at `app/database.go:121-145` — a machine-wide `ContainerList` that dials
+  the daemon regardless of the working directory
+- **AND** `t.Chdir` does not bound this window the way it bounds `exec` and `bash` — the compose
+  loader is never reached on this path
+- **AND** every subtest that exercises `masquerade` runs under `answering(t)`, and none overrides
+  `DOCKER_HOST`
+
+Test: `TestWhatMasqueradeAsks` and `TestADeclinedMasqueradeAsksOnlyToResolve` (asserted by
+construction: neither subtest overrides `DOCKER_HOST`, and a code comment beside the call names
+why).
+
 
 ### Requirement: A usage error returns before any engine call
 
 `copy-to-container`, `copy-from-container`, `mysqldump`, `version`, `set-host`, `list`,
-`describe`, `logs`, and `doctor` SHALL validate their arguments before they ask anything of the
-engine.
-(Previously: covered `copy-to-container`, `copy-from-container`, `mysqldump`, `version`, and
-`set-host`. This adds `list`, `describe`, `logs`, and `doctor` — `doctor` gets no engine-seam test
-elsewhere in this cycle, so this refusal is its only Go test.)
+`describe`, `logs`, `doctor`, `exec`, and `masquerade` SHALL validate their arguments before they
+ask anything of the engine.
+(Previously: covered `copy-to-container`, `copy-from-container`, `mysqldump`, `version`,
+`set-host`, `list`, `describe`, `logs`, and `doctor`. This adds `exec` and `masquerade`. `bash` has
+no usage error of its own — it always builds a command and so needs no scenario here.)
 
 #### Scenario: No path given
 
@@ -706,53 +863,22 @@ Test: `TestLogsRefusesAFlagWithNoValue`.
 
 Test: `TestLogsRefusesANonNumericIndex`.
 
-## Note
+#### Scenario: exec with no command
 
-Every `Test:` name in this delta is the design's, not an independent choice: `internal/cli` is one
-Go package, and Go forbids two test functions sharing a name in it. `TestAnArgumentNobodyDeclaredIsAUsageError`
-(`version_test.go:128`), `TestADownOptionNobodyDeclaredIsAUsageError` (`down_test.go:250`), and
-`TestASetHostOptionNobodyDeclaredIsAUsageError` (`set_host_test.go:190`) already occupy the
-`…IsAUsageError` family and already contort their prefixes to stay distinct from each other. A
-fourth, fifth, and sixth member in that family is one collision closer to a build failure over a
-name, which is why `list`, `describe`, and `logs`'s refusal tests are named
-`TestListRefusesAnyArgument`, `TestDescribeRefusesAnUnknownOption`, and the three
-`TestLogsRefuses…` names instead — command-prefixed, verb-first names that cannot collide by
-construction. `list` refusing any argument is exactly `version`'s situation, and
-`TestListRefusesAnyArgument` says so under a name that can coexist with
-`TestAnArgumentNobodyDeclaredIsAUsageError` rather than repeat it.
+- **WHEN** `exec` runs with no command argument (after any `-r` is consumed)
+- **THEN** it fails with `missing_command`, and the fake engine used by its test records zero
+  calls
 
-Four decisions from the design constrain how these tests must be written, not just what they must
-prove:
+Test: `TestExecRefusesWithNoCommand`.
 
-- **The hardcoded hints are fixed first, in their own unit, before any test can cement them**
-  (Decision 6 — see the new requirement above). Placed later, `list_test.go` and `describe_test.go`
-  would ship assertions pinning the circular `--help` hint, and the fix would then have to edit
-  tests written days earlier to say something else.
-- **`Configuration` stays off the seam** (Decision 4 / proposal Decision 1). Because of it, a
-  `logs <service>` test still reaches the real `engine()` inside `checkServices`, which fails to
-  load compose YAML at the fake project's fictitious root and skips validation — deterministic
-  only while no test creates a compose file under `f.project.Root`. `logs_test.go` must say so in
-  a comment, not leave it to be rediscovered.
-- **`list` and `describe` share the same RED-window net, and it is not "safe by construction"**
-  (Decision 2). `Resolve` does not fail on a directory with no project — it returns a nameless
-  project with a nil error — so an unrouted `describe` reaches the daemon through
-  `Engine.Containers()` and `Tooling.Xdebug()` exactly as an unrouted `list` reaches it through
-  `Environments()`. `DOCKER_HOST=unix:///nonexistent` is what protects **both**. `logs` is the one
-  genuinely safe by construction: its unrouted path stops at the Compose loader, below any dial.
-  Each unit's RED has exactly one legitimate failure signature (a hint-equality diff for unit 0; an
-  `exitOK`-vs-expected-refusal exit code for units 1–3) — any other signature, in particular a
-  call-log diff at `exitOK`, means a pin did not hold and the run must stop for investigation
-  rather than be repeated.
-- **`logs`' `Dir` is the test's cwd, not `f.project.Root`** (Decision 3). `orchestrate.go:166-167`
-  calls `Logs` with `here()`, the same as `execute`, not with the project the fake resolved.
-  Copying `inside_test.go`'s `Dir: root` pattern verbatim would silently assert the wrong value;
-  the expected `Dir` must be read from `os.Getwd()` inside the test itself.
+#### Scenario: masquerade with a dashed argument
 
-This delta changes nothing under `console/`, `bin/run`, `data/`, or `dockergento/`; no shell twin
-is deleted, and the shell twins keep their own `--help` hint text even where Go's now differs.
-`commands` grows to exactly fifteen methods, and `orchestrate.go:200`'s call to the concrete
-`engine(` — the one behind `Configuration` — is unchanged. Unit 0 (the hint fix) is the only unit
-that changes production behavior; units 1–3 stay test-only.
+- **WHEN** `masquerade` runs with any argument that starts with a dash
+- **THEN** it fails with `invalid_argument`, and the fake engine used by its test records zero
+  calls
+
+Test: `TestMasqueradeRefusesADashedArgument`.
+
 
 ### Requirement: The test seam changes nothing a real invocation runs
 
