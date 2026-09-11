@@ -119,27 +119,5 @@ func (d Database) Feed(project core.Project, dump io.Reader, out io.Writer) (int
 // container is the one holding this project's database, and refusing when it is not running is
 // the whole point: every other answer would be a connection error three layers down.
 func (d Database) container(project core.Project) (string, error) {
-	containers, err := d.Engine.Containers()
-	if err != nil {
-		return "", err
-	}
-
-	for _, candidate := range containers {
-		if candidate.Key() != project.Name || candidate.ComposeService != databaseService {
-			continue
-		}
-
-		if !candidate.Running {
-			break
-		}
-
-		return candidate.ID, nil
-	}
-
-	return "", core.Refusal{
-		Kind:    "service_not_running",
-		Code:    5,
-		Message: fmt.Sprintf("Service '%s' is not running", databaseService),
-		Hint:    fmt.Sprintf("%s start %s", d.Binary, databaseService),
-	}
+	return resolveContainer(d.Engine, project, databaseService, d.Binary)
 }
