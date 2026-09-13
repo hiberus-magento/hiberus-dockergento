@@ -11,7 +11,7 @@ unless marked otherwise.
 
 ## 0 · Before anything: path safety
 
-- [ ] Confirm every file this plan touches already exists, and that no task below creates a new
+- [x] Confirm every file this plan touches already exists, and that no task below creates a new
   file. Run, from the repository root:
   ```
   test -e dockergento/dockergento.go && test -e internal/cli/engine.go && \
@@ -31,7 +31,7 @@ Two `string → value` functions, fixture-testable with no `t.Skip`, per the pro
 table: they land in `internal/cli/wrappers.go`, beside `debugOff`, with tests in
 `internal/cli/wrappers_test.go`.
 
-- [ ] **RED**: write the `php -v` → Xdebug-version parser's fixture tests. Four fixtures, each
+- [x] **RED**: write the `php -v` → Xdebug-version parser's fixture tests. Four fixtures, each
   earning its place because a less adversarial one could pass by accident (the lesson unit 2's
   `ip addr`/`inet6` fixture proved):
   - a v2 version line → classifies `"v2"`
@@ -41,9 +41,9 @@ table: they land in `internal/cli/wrappers.go`, beside `debugOff`, with tests in
     reach; Decision 1 / spec scenario "Xdebug absent or unrecognized is reported, not a failure")
   - a fixture containing `Xdebug v` but neither `v2.` nor `v3.` (the `v4` case — the only one the
     shell's own `else` branch could ever reach) → classifies as neither
-- [ ] **GREEN**: implement the version-extraction-and-classification parser in
+- [x] **GREEN**: implement the version-extraction-and-classification parser in
   `internal/cli/wrappers.go`
-- [ ] **RED**: write the `php -i` settings-selection parser's fixture tests (the
+- [x] **RED**: write the `php -i` settings-selection parser's fixture tests (the
   `grep -e ... | cut -d= -f1-2` equivalent). One fixture does the discriminating work: it carries
   **both** `xdebug.remote_host` and `xdebug.client_host` (plus `xdebug.idekey`), so:
   - selecting for v2 returns only `xdebug.idekey`, `xdebug.remote_host`, `xdebug.remote_port` —
@@ -51,8 +51,8 @@ table: they land in `internal/cli/wrappers.go`, beside `debugOff`, with tests in
     key is present, not absent
   - selecting for v3 returns only `xdebug.idekey`, `xdebug.client_host`, `xdebug.client_port` on
     the same fixture, for the same reason in the opposite direction
-- [ ] **GREEN**: implement the settings-selection parser in `internal/cli/wrappers.go`
-- [ ] Verify: `go test ./internal/cli/...` (new parser tests green, nothing else touched),
+- [x] **GREEN**: implement the settings-selection parser in `internal/cli/wrappers.go`
+- [x] Verify: `go test ./internal/cli/...` (new parser tests green, nothing else touched),
   `go vet ./...`, `gofmt -l ./internal ./cmd` empty
 
 ## 2 · Seam growth (16 → 18, plus `outcome.captured`)
@@ -62,33 +62,33 @@ a facade method before it can join `commands`. `Capture` already exists at the r
 (`dockergento.go:469`, `(dir, service string, command []string) (string, int, error)`) and needs
 only the interface line.
 
-- [ ] Add `func (e *Engine) XdebugHost() (string, error) { return machine.Host{}.XdebugHost() }` to
+- [x] Add `func (e *Engine) XdebugHost() (string, error) { return machine.Host{}.XdebugHost() }` to
   `dockergento/dockergento.go`, beside the other thin facades (`machine` is already imported —
   used at `Diagnose`'s `Machine: machine.Host{}`, so no new import)
-- [ ] Add two lines to the `commands` interface in `internal/cli/engine.go:17-34`:
+- [x] Add two lines to the `commands` interface in `internal/cli/engine.go:17-34`:
   `Capture(dir, service string, command []string) (string, int, error)` and
   `XdebugHost() (string, error)` — sixteen to eighteen. Leave the doc comment at `:14-16`
   unchanged; it must still read true afterward
-- [ ] Add `captured string` to `outcome` in `internal/cli/fake_engine_test.go:51-54` — **not** a
+- [x] Add `captured string` to `outcome` in `internal/cli/fake_engine_test.go:51-54` — **not** a
   new field on `fakeEngine`. This is a correction to an earlier sketch, not a style choice:
   `debug-on` calls `Capture` twice (`php -v`, then `php -i`) and needs a different answer each
   time; `outcomes` is already indexed by call number, so a field on `outcome` gives per-call
   answers for free, and a field on `fakeEngine` could not
-- [ ] Add `fakeEngine.Capture(dir, service string, command []string) (string, int, error)`,
+- [x] Add `fakeEngine.Capture(dir, service string, command []string) (string, int, error)`,
   recording `call{Method: "Capture", Dir: dir, Service: service, Command: command}` and answering
   `(out.captured, out.status, out.err)`
-- [ ] Add `fakeEngine.XdebugHost() (string, error)`, recording `call{Method: "XdebugHost"}` — no
+- [x] Add `fakeEngine.XdebugHost() (string, error)`, recording `call{Method: "XdebugHost"}` — no
   directory, the same shape `Environments` and `Installed` already use for "asks about the machine,
   not the project" — and answering `(out.captured, out.err)`
-- [ ] Confirm both compile assertions still hold with no other change:
+- [x] Confirm both compile assertions still hold with no other change:
   `var _ commands = (*dockergento.Engine)(nil)` (`engine.go:36`) and
   `var _ commands = (*fakeEngine)(nil)` (`fake_engine_test.go:90`)
-- [ ] **Not assertion-only**: write one small fake-level test in `internal/cli/fake_engine_test.go`
+- [x] **Not assertion-only**: write one small fake-level test in `internal/cli/fake_engine_test.go`
   (or a nearby `_test.go`, not `wrappers_test.go` — `debugOn` does not exist yet) proving the two
   new fake methods record the right call and forward `outcome.captured` / `.status` / `.err`
   correctly, for both `Capture` and `XdebugHost`, in isolation from any handler. See "On the
   assertion-only concern" below for why this task exists and is not optional.
-- [ ] Verify: `go build ./...`, `go vet ./...`, `gofmt -l ./internal ./cmd ./dockergento` empty,
+- [x] Verify: `go build ./...`, `go vet ./...`, `gofmt -l ./internal ./cmd ./dockergento` empty,
   `go test ./internal/cli/... ./dockergento/...` green
 
 ### On the assertion-only concern

@@ -31,6 +31,8 @@ type commands interface {
 	Compose(dir string, args []string) (int, error)
 	Logs(dir string, services []string, options core.LogOptions) error
 	Anonymise(dir string) error
+	Capture(dir, service string, command []string) (string, int, error)
+	XdebugHost() (string, error)
 }
 
 var _ commands = (*dockergento.Engine)(nil)

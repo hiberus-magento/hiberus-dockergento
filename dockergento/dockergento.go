@@ -479,6 +479,13 @@ func (e *Engine) Capture(dir, service string, command []string) (string, int, er
 	}.Run(project, service, command, e.errors())
 }
 
+// XdebugHost is the address xdebug inside a container should call back to reach the developer's
+// IDE on the host, thin over machine.Host's own answer — nothing here asks about a project, the
+// same as Installed.
+func (e *Engine) XdebugHost() (string, error) {
+	return machine.Host{}.XdebugHost()
+}
+
 // errors is where something else's complaints go.
 func (e *Engine) errors() io.Writer {
 	if e.options.Stderr != nil {

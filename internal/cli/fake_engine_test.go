@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"errors"
 	"io"
 	"path/filepath"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
@@ -51,6 +53,12 @@ type call struct {
 type outcome struct {
 	status int
 	err    error
+
+	// captured is what Capture or XdebugHost answers with, on the same terms Resolve answers
+	// from f.project: per-call, not per-method. debug-on calls Capture twice — php -v, then
+	// php -i — and needs a different string back each time; outcomes is already indexed by call
+	// number, so a field here gives that for free, where a field on fakeEngine itself could not.
+	captured string
 }
 
 // fakeEngine is a commands that never reaches Docker: everything asked of it lands in calls, and
@@ -248,6 +256,96 @@ func (f *fakeEngine) Anonymise(dir string) error {
 	f.calls = append(f.calls, call{Method: "Anonymise", Dir: dir})
 
 	return f.outcomeFor(number).err
+}
+
+// Capture, unlike every other method here except Compose, can succeed with a non-zero status
+// alongside the string it read: the fake answers all three from the same outcome, the way the
+// real Capture does.
+func (f *fakeEngine) Capture(dir, service string, command []string) (string, int, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Capture", Dir: dir, Service: service, Command: command})
+
+	out := f.outcomeFor(number)
+
+	return out.captured, out.status, out.err
+}
+
+// XdebugHost, like Environments and Installed, asks nothing about a project: there is no
+// directory to record. It answers from the same outcome.captured field Capture reads, because
+// debug-on's readback needs an address here and a program's output there, at different points in
+// the same ordered log, and outcomes is what already gives each call its own answer.
+func (f *fakeEngine) XdebugHost() (string, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "XdebugHost"})
+
+	out := f.outcomeFor(number)
+
+	return out.captured, out.err
+}
+
+// TestFakeEngineRecordsCaptureAndXdebugHost is Slice 2's own RED/GREEN — not merely the two
+// compile assertions holding. debug-on calls Capture twice (php -v, then php -i) and needs a
+// different answer each time; this proves the fake forwards each outcome's captured/status/err
+// correctly for both new methods, in isolation from any handler, because debugOn does not exist
+// yet.
+func TestFakeEngineRecordsCaptureAndXdebugHost(t *testing.T) {
+	t.Run("both answer their recorded outcome", func(t *testing.T) {
+		fake := &fakeEngine{
+			outcomes: []outcome{
+				{captured: "PHP 8.1.27 (cli)\n    with Xdebug v3.1.5"},
+				{captured: "172.17.0.1"},
+			},
+		}
+
+		output, status, err := fake.Capture("/code/shop", phpService, []string{"php", "-v"})
+		if err != nil {
+			t.Fatalf("Capture(...) err = %v, want nil", err)
+		}
+		if status != 0 {
+			t.Fatalf("Capture(...) status = %d, want 0", status)
+		}
+		if output != fake.outcomes[0].captured {
+			t.Fatalf("Capture(...) output = %q, want %q", output, fake.outcomes[0].captured)
+		}
+
+		host, err := fake.XdebugHost()
+		if err != nil {
+			t.Fatalf("XdebugHost() err = %v, want nil", err)
+		}
+		if host != fake.outcomes[1].captured {
+			t.Fatalf("XdebugHost() = %q, want %q", host, fake.outcomes[1].captured)
+		}
+
+		want := []call{
+			{Method: "Capture", Dir: "/code/shop", Service: phpService, Command: []string{"php", "-v"}},
+			{Method: "XdebugHost"},
+		}
+
+		if diff := cmp.Diff(want, fake.calls); diff != "" {
+			t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("both forward their recorded error", func(t *testing.T) {
+		captureErr := errors.New("docker: no")
+		hostErr := errors.New("no docker0")
+
+		fake := &fakeEngine{
+			outcomes: []outcome{
+				{status: 42, err: captureErr},
+				{err: hostErr},
+			},
+		}
+
+		_, status, err := fake.Capture("/code/shop", phpService, []string{"php", "-i"})
+		if status != 42 || err != captureErr {
+			t.Fatalf("Capture(...) = (_, %d, %v), want (_, 42, %v)", status, err, captureErr)
+		}
+
+		if _, err := fake.XdebugHost(); err != hostErr {
+			t.Fatalf("XdebugHost() err = %v, want %v", err, hostErr)
+		}
+	})
 }
 
 // answering substitutes fake for newEngine for the rest of this test, and restores the real
