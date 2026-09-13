@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -658,6 +659,290 @@ func TestADebugOffRestartErrorIsReported(t *testing.T) {
 
 	if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
 		t.Fatalf("asked of the engine after a restart error (-want +got):\n%s", diff)
+	}
+}
+
+//
+// debug-on, Slice 3a: the failure and refusal paths, everything up to and including Restart.
+// None of these need the readback (Slice 3b) to be meaningful — the ones that reach Restart
+// stop the fake right there, with an outcome that never lets a Capture call get recorded.
+//
+
+// macCopyCalls is what debug-on's macOS-only branch adds to the call log between the uncomment
+// edit and the restart: a Resolve and a CopyFrom, both through copyFrom's own here()
+// (TestWhatCopyingOutOfTheContainerAsks is the precedent for that shape). debug-on branches on
+// the real runtime.GOOS (php.go:100's own check, no override), so a test whose call log spans
+// that branch has to account for whatever platform the test binary itself runs on — a genuine
+// Linux scenario, written and run on a macOS development machine, would otherwise see calls a
+// real Linux CI run never will.
+func macCopyCalls(cwd string) []call {
+	if runtime.GOOS != "darwin" {
+		return nil
+	}
+
+	return []call{
+		{Method: "Resolve", Dir: cwd},
+		{Method: "CopyFrom", Dir: cwd, Paths: []string{"generated"}},
+	}
+}
+
+// macCopyOutcomes pads a test's outcomes by the same amount macCopyCalls adds to the log, so an
+// outcome meant for the call after the macOS branch (Restart, in every Slice 3a test that needs
+// one) lands at the right index regardless of platform.
+func macCopyOutcomes() []outcome {
+	if runtime.GOOS != "darwin" {
+		return nil
+	}
+
+	return []outcome{{}, {}}
+}
+
+// TestDebugOnReportsAnUnresolvableHost is debug-on-host-detection's Decision 2 (renumbered
+// Decision 4 in this proposal), made observable for the first time: a docker0 that exists but
+// could not be resolved is a failure, not a silent skip.
+func TestDebugOnReportsAnUnresolvableHost(t *testing.T) {
+	root := "/code/shop"
+	unresolved := errors.New("no address found for the docker0 bridge")
+
+	fake := answering(t)
+	fake.project = core.Project{Name: "shop", Root: root}
+	fake.outcomes = []outcome{{}, {err: unresolved}}
+	cwd := here()
+	stdout, stderr := &strings.Builder{}, &strings.Builder{}
+
+	code := debugOn(stdout, stderr, true)
+
+	if code != exitDocker {
+		t.Fatalf("debug-on with an unresolvable host = %d, want exitDocker", code)
+	}
+
+	want := []call{
+		{Method: "Resolve", Dir: cwd},
+		{Method: "XdebugHost"},
+	}
+
+	if diff := cmp.Diff(want, fake.calls); diff != "" {
+		t.Fatalf("asked of the engine after an unresolvable host (-want +got):\n%s", diff)
+	}
+
+	var envelope struct {
+		Error struct {
+			Type string `json:"type"`
+		} `json:"error"`
+	}
+
+	if err := json.Unmarshal([]byte(stderr.String()), &envelope); err != nil {
+		t.Fatalf("json.Unmarshal(%q) = %v, want valid JSON", stderr.String(), err)
+	}
+
+	if envelope.Error.Type != "docker_failed" {
+		t.Fatalf("error.type = %q, want docker_failed — XdebugHost's error is not a core.Refusal", envelope.Error.Type)
+	}
+}
+
+// TestAFailedDebugOnEditReportsTheContainersStatus mirrors TestAFailedDebugOffEditReportsThe
+// ContainersStatus and TestAFailedVCLEditReportsTheContainersCode: whichever of debug-on's three
+// edits fails first — a host patch, or the uncomment that always runs afterward — stops the call
+// log there, with no further call recorded. Shared verbatim with magento-commands' scenario of
+// the same fact, proved once.
+func TestAFailedDebugOnEditReportsTheContainersStatus(t *testing.T) {
+	root := "/code/shop"
+
+	cases := []struct {
+		name     string
+		outcomes []outcome
+		wantLen  int
+	}{
+		{"the first host patch", []outcome{{}, {captured: "172.17.0.1"}, {status: 42}}, 3},
+		{"the uncomment, after both host patches succeeded",
+			[]outcome{{}, {captured: "172.17.0.1"}, {}, {}, {status: 42}}, 5},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := answering(t)
+			fake.project = core.Project{Name: "shop", Root: root}
+			fake.outcomes = tt.outcomes
+			stdout, stderr := &strings.Builder{}, &strings.Builder{}
+
+			code := debugOn(stdout, stderr, false)
+
+			if code != 42 {
+				t.Fatalf("debug-on with a failed %s = %d, want the container's own 42", tt.name, code)
+			}
+
+			if len(fake.calls) != tt.wantLen {
+				t.Fatalf("debug-on asked the engine %d things after a failed %s, want exactly %d — "+
+					"no CopyFrom, no Restart, no Capture", len(fake.calls), tt.name, tt.wantLen)
+			}
+
+			if strings.Contains(stdout.String(), "xdebug configuration") {
+				t.Fatalf("stdout = %q, want no banner on a failed edit", stdout.String())
+			}
+
+			if !strings.Contains(stderr.String(), "edit") {
+				t.Fatalf("stderr = %q, want a line naming the edit as the failing step", stderr.String())
+			}
+		})
+	}
+}
+
+// TestADebugOnEditErrorStopsBeforeTheRestart mirrors TestADebugOffEditErrorStopsBeforeTheRestart:
+// the err != nil branch of the same guard, distinct from the non-zero-status one above.
+func TestADebugOnEditErrorStopsBeforeTheRestart(t *testing.T) {
+	root := "/code/shop"
+	refused := errors.New("docker: no")
+
+	fake := answering(t)
+	fake.project = core.Project{Name: "shop", Root: root}
+	fake.outcomes = []outcome{{}, {captured: "172.17.0.1"}, {err: refused}}
+	cwd := here()
+
+	code := debugOn(io.Discard, io.Discard, false)
+
+	if code != exitDocker {
+		t.Fatalf("debug-on with an edit error = %d, want exitDocker", code)
+	}
+
+	want := []call{
+		{Method: "Resolve", Dir: cwd},
+		{Method: "XdebugHost"},
+		{Method: "Exec", Dir: root, Service: phpService,
+			Command: []string{"sed", "-i", `s/xdebug\.remote_host=.*/xdebug\.remote_host=172.17.0.1/g`,
+				"/usr/local/etc/php/conf.d/xdebug.ini"},
+			Options: terminalOptions("")},
+	}
+
+	if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
+		t.Fatalf("asked of the engine after an edit error (-want +got):\n%s", diff)
+	}
+}
+
+// TestDebugOnRefusesFromAnUnregisteredWorktree is new: hm debug-on has never refused from a
+// worktree before this port, because debug-on's own restart.sh never re-entered bin/run's own
+// gate (proposal Decision 5). Restart's own error is what carries the refusal here.
+func TestDebugOnRefusesFromAnUnregisteredWorktree(t *testing.T) {
+	root := "/code/shop"
+	blocked := core.Refusal{Kind: "blocked_in_worktree", Code: 6,
+		Message: "This worktree is not registered", Hint: ""}
+
+	fake := answering(t)
+	fake.project = core.Project{Name: "shop", Root: root}
+	cwd := here()
+
+	// host is left empty on purpose here: this test is about the restart, not the host patches,
+	// and an empty host keeps the outcome slice's own shape simple.
+	outcomes := []outcome{{}, {}, {}}
+	outcomes = append(outcomes, macCopyOutcomes()...)
+	outcomes = append(outcomes, outcome{err: blocked})
+	fake.outcomes = outcomes
+
+	code := debugOn(io.Discard, io.Discard, false)
+
+	if code != 6 {
+		t.Fatalf("debug-on from an unregistered worktree = %d, want 6", code)
+	}
+
+	want := []call{
+		{Method: "Resolve", Dir: cwd},
+		{Method: "XdebugHost"},
+		{Method: "Exec", Dir: root, Service: phpService,
+			Command: []string{"sed", "-i", "-e", "s/^;zend_extension/zend_extension/g",
+				"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+			Options: terminalOptions("")},
+	}
+	want = append(want, macCopyCalls(cwd)...)
+	want = append(want, call{Method: "Restart", Dir: root, Services: []string{phpService}})
+
+	if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
+		t.Fatalf("asked of the engine from an unregistered worktree (-want +got):\n%s", diff)
+	}
+}
+
+// TestADebugOnRestartErrorIsReported proves the other half of Restart's error, the one that is
+// not a core.Refusal: mapped through the same report() every other engine error goes through.
+func TestADebugOnRestartErrorIsReported(t *testing.T) {
+	root := "/code/shop"
+	refused := errors.New("docker: no")
+
+	fake := answering(t)
+	fake.project = core.Project{Name: "shop", Root: root}
+	cwd := here()
+
+	outcomes := []outcome{{}, {}, {}}
+	outcomes = append(outcomes, macCopyOutcomes()...)
+	outcomes = append(outcomes, outcome{err: refused})
+	fake.outcomes = outcomes
+
+	code := debugOn(io.Discard, io.Discard, false)
+
+	if code != exitDocker {
+		t.Fatalf("debug-on with a restart error = %d, want exitDocker", code)
+	}
+
+	want := []call{
+		{Method: "Resolve", Dir: cwd},
+		{Method: "XdebugHost"},
+		{Method: "Exec", Dir: root, Service: phpService,
+			Command: []string{"sed", "-i", "-e", "s/^;zend_extension/zend_extension/g",
+				"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+			Options: terminalOptions("")},
+	}
+	want = append(want, macCopyCalls(cwd)...)
+	want = append(want, call{Method: "Restart", Dir: root, Services: []string{phpService}})
+
+	if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
+		t.Fatalf("asked of the engine after a restart error (-want +got):\n%s", diff)
+	}
+}
+
+// TestDebugOnIgnoresXdebugHostEnvironmentVariable is Decision 8, disclosed: the shell's own
+// undocumented escape hatch is gone, and XdebugHost()'s answer is the only thing that decides
+// the patched address, even when the calling process's own environment carries XDEBUG_HOST. This
+// stops the run at a deliberately failing uncomment edit — the assertion needs the two host
+// patches, not the restart or the readback (proposal Decision 8; asserted "without needing the
+// restart or the readback to complete").
+func TestDebugOnIgnoresXdebugHostEnvironmentVariable(t *testing.T) {
+	root := "/code/shop"
+	t.Setenv("XDEBUG_HOST", "9.9.9.9")
+
+	fake := answering(t)
+	fake.project = core.Project{Name: "shop", Root: root}
+	cwd := here()
+	fake.outcomes = []outcome{
+		{}, {captured: "172.17.0.1"}, {}, {}, {err: errors.New("stop here, deliberately")},
+	}
+
+	debugOn(io.Discard, io.Discard, false)
+
+	want := []call{
+		{Method: "Resolve", Dir: cwd},
+		{Method: "XdebugHost"},
+		{Method: "Exec", Dir: root, Service: phpService,
+			Command: []string{"sed", "-i", `s/xdebug\.remote_host=.*/xdebug\.remote_host=172.17.0.1/g`,
+				"/usr/local/etc/php/conf.d/xdebug.ini"},
+			Options: terminalOptions("")},
+		{Method: "Exec", Dir: root, Service: phpService,
+			Command: []string{"sed", "-i", `s/xdebug\.client_host=.*/xdebug\.client_host=172.17.0.1/g`,
+				"/usr/local/etc/php/conf.d/xdebug.ini"},
+			Options: terminalOptions("")},
+		// The deliberately-failing outcome above lands on this call, which is why it is
+		// recorded (attempted) but nothing after it is: this is what stops the run before the
+		// restart, without needing the restart itself to do anything.
+		{Method: "Exec", Dir: root, Service: phpService,
+			Command: []string{"sed", "-i", "-e", "s/^;zend_extension/zend_extension/g",
+				"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+			Options: terminalOptions("")},
+	}
+
+	if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
+		t.Fatalf("asked of the engine with XDEBUG_HOST set in the environment (-want +got):\n%s", diff)
+	}
+
+	for _, recorded := range fake.calls {
+		if strings.Contains(strings.Join(recorded.Command, " "), "9.9.9.9") {
+			t.Fatalf("call %+v used the environment's XDEBUG_HOST, want only XdebugHost()'s answer", recorded)
+		}
 	}
 }
 

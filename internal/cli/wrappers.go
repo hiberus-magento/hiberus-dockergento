@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 )
 
@@ -263,6 +264,104 @@ func debugOff(stdout, stderr io.Writer, jsonOutput bool) int {
 	fmt.Fprint(stdout, good("  xdebug disabled\n"))
 
 	return exitOK
+}
+
+//
+// debug-on, alone.
+//
+// It shares phpService, terminalOptions and copyFrom with the handlers above and needs no new
+// engine surface beyond what Slice 2 already added: Exec, Restart, CopyFrom and XdebugHost are
+// all already on commands.
+//
+
+func debugOn(stdout, stderr io.Writer, jsonOutput bool) int {
+	project, code := projectOr(stderr, jsonOutput, "debug-on")
+	if code != 0 {
+		return code
+	}
+
+	engine := newEngine(stdout, stderr, jsonOutput)
+
+	// Consulted unconditionally, never the calling process's own environment: the shell's
+	// undocumented $XDEBUG_HOST escape hatch is dropped on purpose (proposal Decision 8), so this
+	// is the only thing that decides the address patched below. A plain error — an unresolved
+	// docker0 on Linux — is a failure here, not a silent skip (unit 2's Decision 2, renumbered
+	// Decision 4 in this proposal).
+	host, err := engine.XdebugHost()
+	if err != nil {
+		return report(stderr, jsonOutput, "debug-on", err)
+	}
+
+	if host != "" {
+		if code := debugOnPatchHost(engine, project.Root, "remote_host", host, stderr, jsonOutput); code != 0 {
+			return code
+		}
+
+		if code := debugOnPatchHost(engine, project.Root, "client_host", host, stderr, jsonOutput); code != 0 {
+			return code
+		}
+	}
+
+	// Always runs, host or not — a different file from the two patches above. The shell's own
+	// stray, inert `\;` before `zend_extension` is dropped, the same undefined-escape shape
+	// debug-off's own `\z` was (proposal Decision 7).
+	status, err := engine.Exec(project.Root, phpService,
+		[]string{"sed", "-i", "-e", "s/^;zend_extension/zend_extension/g",
+			"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+		terminalOptions(""))
+	if status != 0 {
+		return failure(stderr, jsonOutput, "debug-on", status, "command_failed",
+			"The xdebug extension uncomment edit failed in the phpfpm container", "")
+	}
+	if err != nil {
+		return report(stderr, jsonOutput, "debug-on", err)
+	}
+
+	// Only on macOS the code lives in a volume rather than a mount, so the enabled extension's
+	// generated files have to be copied back out. copyFrom prints nothing of its own on success
+	// in text mode, so the line the shell script printed is written here instead (proposal
+	// Decision 6). The same runtime.GOOS check php.go:100 already uses — no new mechanism.
+	if runtime.GOOS == "darwin" {
+		fmt.Fprint(stdout, warning("Copying generated code into host\n"))
+
+		if code := copyFrom([]string{"generated"}, stdout, stderr, jsonOutput); code != 0 {
+			return code
+		}
+	}
+
+	// Operator.Restart, not Compose — the opposite choice from debug-off's own, because
+	// restart.sh is a faithful stop-then-start and Operator.Restart is what reproduces that,
+	// worktree refusal included (proposal Decision 5, disclosed): hm debug-on has never refused
+	// from an unregistered worktree before this port.
+	if err := engine.Restart(project.Root, []string{phpService}); err != nil {
+		return report(stderr, jsonOutput, "debug-on", err)
+	}
+
+	// The readback — both Capture calls, the version/settings parsing, the banner and the
+	// --json envelope — is Slice 3b's own; this placeholder is what keeps 3a's failure and
+	// refusal paths, which never reach this line, provable on their own.
+	return exitOK
+}
+
+// debugOnPatchHost is one of the two identical xdebug.ini edits, differing only in which key
+// they patch — first remote_host (Xdebug v2), then client_host (v3), because which family the
+// image ships is not known until the readback. The shell's stray, inert `\=` is dropped from
+// both patterns, the same undefined-escape shape debug-off's own `\z` was (proposal Decision 7);
+// `\.` is meaningful and stays.
+func debugOnPatchHost(engine commands, root, key, host string, stderr io.Writer, jsonOutput bool) int {
+	status, err := engine.Exec(root, phpService,
+		[]string{"sed", "-i", `s/xdebug\.` + key + `=.*/xdebug\.` + key + `=` + host + `/g`,
+			"/usr/local/etc/php/conf.d/xdebug.ini"},
+		terminalOptions(""))
+	if status != 0 {
+		return failure(stderr, jsonOutput, "debug-on", status, "command_failed",
+			"The xdebug.ini "+key+" edit failed in the phpfpm container", "")
+	}
+	if err != nil {
+		return report(stderr, jsonOutput, "debug-on", err)
+	}
+
+	return 0
 }
 
 //
