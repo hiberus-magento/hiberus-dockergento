@@ -61,8 +61,10 @@ a platform it could not build.
 The tool SHALL pass a command and its arguments to the container as a command and its arguments.
 A wrapper that also owns a JSON success envelope SHALL NOT emit that envelope, and SHALL NOT print
 its success line, when the program it ran inside the container failed.
-(Previously: covered `varnish-on`/`varnish-off`'s VCL edit and cache toggle. This adds `debug-off`'s
-xdebug ini edit, the same failure shape against a different service.)
+(Previously: covered `varnish-on`/`varnish-off`'s VCL edit and cache toggle, and `debug-off`'s
+xdebug ini edit. This adds `debug-on`'s own three ini edits — the two `xdebug.ini` host patches and
+the `docker-php-ext-xdebug.ini` uncomment — the same failure shape reused a third time, against the
+sibling command that turns xdebug on rather than off.)
 
 #### Scenario: A command line with options in it
 
@@ -113,6 +115,23 @@ Test: `TestAFailedCacheToggleStopsBeforeThePurge` (new).
 - **AND** the restart (`Compose(["restart", "phpfpm"])`) is not reached
 
 Test: `TestAFailedDebugOffEditReportsTheContainersStatus` (new; shared with `go-entrypoint`'s
+scenario of the same fact, proved once).
+
+#### Scenario: An xdebug-enabling edit fails inside the php container
+
+- **GIVEN** `debug-on` is run
+- **WHEN** any of its three `sed` edits — the two host patches against `xdebug.ini`, or the
+  uncomment against `docker-php-ext-xdebug.ini` — exits non-zero inside the `phpfpm` container with
+  no Go-level error
+- **THEN** the command exits with that same status, not a mapped code
+- **AND** stdout carries no banner and no `--json` success document; stderr carries the
+  container's own output plus one readable line naming the edit as the step that failed
+- **AND** under `--json`, stderr carries exactly one envelope with `ok: false` and `error.code`
+  equal to that status
+- **AND** neither the restart nor either `Capture` call (`php -v`, `php -i`) is reached — whichever
+  edit fails first, everything after it in the shell's own sequence is skipped
+
+Test: `TestAFailedDebugOnEditReportsTheContainersStatus` (new; shared with `go-entrypoint`'s
 scenario of the same fact, proved once).
 
 #### Scenario: A Go-level error still stops before the restart

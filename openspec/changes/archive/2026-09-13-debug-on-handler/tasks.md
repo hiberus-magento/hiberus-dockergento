@@ -110,33 +110,33 @@ what it forwards is provably correct."
 the failure/refusal paths that never reach `Capture` — the happy path through the banner and JSON
 is 3b's, because "succeeded" here is only provable once the readback exists.
 
-- [ ] `projectOr` / `newEngine`, matching every other wrapper's opening
-- [ ] `engine.XdebugHost()` — consulted unconditionally; `$XDEBUG_HOST` is never read on this path
+- [x] `projectOr` / `newEngine`, matching every other wrapper's opening
+- [x] `engine.XdebugHost()` — consulted unconditionally; `$XDEBUG_HOST` is never read on this path
   (Decision 8). On a plain error, `report()` immediately with no further call
   (`TestDebugOnReportsAnUnresolvableHost` — the fake answers `("", ErrNoBridgeAddress)`-shaped;
   call log ends at `XdebugHost`, exit `exitDocker`, fault type `docker_failed`)
-- [ ] When `XdebugHost` answers a non-empty host: two `Exec` calls against `phpfpm`, patching
+- [x] When `XdebugHost` answers a non-empty host: two `Exec` calls against `phpfpm`, patching
   `/usr/local/etc/php/conf.d/xdebug.ini` — first `xdebug.remote_host`, then `xdebug.client_host` —
   with the shell's stray, inert `\=` dropped from both patterns (GNU sed already read it as a
   literal `=`; same undefined-escape shape as `debug-off`'s dropped `\z`, Decision 7)
-- [ ] The uncomment `Exec` call, always run regardless of host resolution, against the
+- [x] The uncomment `Exec` call, always run regardless of host resolution, against the
   **different** file `/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini`, dropping the shell's
   stray `\;`
-- [ ] Any of the three edit `Exec` calls answering non-zero with no Go-level error →
+- [x] Any of the three edit `Exec` calls answering non-zero with no Go-level error →
   `failure()` naming the edit as the failing step, no further call recorded — no `CopyFrom`, no
   `Restart`, no `Capture`, and in particular no `Start` (Decision 3)
   (`TestAFailedDebugOnEditReportsTheContainersStatus` — shared verbatim with
   `magento-commands`' "An xdebug-enabling edit fails inside the php container", proved once)
-- [ ] The same three calls, on a Go-level error instead of a non-zero status → `report()`, no
+- [x] The same three calls, on a Go-level error instead of a non-zero status → `report()`, no
   further call (`TestADebugOnEditErrorStopsBeforeTheRestart`)
-- [ ] On macOS (`runtime.GOOS == "darwin"`, the same check `php.go:100` already uses — no new
+- [x] On macOS (`runtime.GOOS == "darwin"`, the same check `php.go:100` already uses — no new
   platform-detection mechanism): print `Copying generated code into host` via `warning()` before
   calling `copyFrom([]string{"generated"}, stdout, stderr, jsonOutput)` — `copyFrom` prints nothing
   of its own on success, so this line only appears if the handler writes it
-- [ ] `engine.Restart(project.Root, []string{"phpfpm"})` — **not** `engine.Compose`, the opposite
+- [x] `engine.Restart(project.Root, []string{"phpfpm"})` — **not** `engine.Compose`, the opposite
   choice from `debugOff`'s own, because `restart.sh` is a faithful stop-then-start and
   `Operator.Restart` is what reproduces that, worktree refusal included
-- [ ] `Restart`'s error, whatever shape it takes, goes through the existing generic `report()`
+- [x] `Restart`'s error, whatever shape it takes, goes through the existing generic `report()`
   (`orchestrate.go:248-253` already maps a `core.Refusal` to its own code/kind and anything else to
   `exitDocker`/`docker_failed` — no special-casing needed in the handler itself):
   - a `core.Refusal{Kind: "blocked_in_worktree", Code: 6}` → call log ends at `Restart`, no
@@ -144,13 +144,13 @@ is 3b's, because "succeeded" here is only provable once the readback exists.
     (`TestDebugOnRefusesFromAnUnregisteredWorktree`)
   - a plain error → exit `exitDocker`, fault type `docker_failed`, no `Capture` recorded
     (`TestADebugOnRestartErrorIsReported`)
-- [ ] The two host-patch `Exec` calls' command arguments reflect whatever `XdebugHost()` answered,
+- [x] The two host-patch `Exec` calls' command arguments reflect whatever `XdebugHost()` answered,
   never an environment read, even when the calling process's own `XDEBUG_HOST` is set — asserted
   without needing the restart or the readback to complete
   (`TestDebugOnIgnoresXdebugHostEnvironmentVariable` — Decision 8, disclosed)
-- [ ] Verify: `go test ./internal/cli/...` green (the six tests above, plus every existing test
+- [x] Verify: `go test ./internal/cli/...` green (the six tests above, plus every existing test
   unaffected), `go vet ./...` clean, `gofmt -l ./internal ./cmd` empty
-- [ ] **Do not** add the `run.go` case yet, and do not touch `MIGRATION.md` yet — routing is
+- [x] **Do not** add the `run.go` case yet, and do not touch `MIGRATION.md` yet — routing is
   deliberately deferred to 3b, so the command is never reachable without the banner it exists to
   print
 
@@ -159,46 +159,46 @@ is 3b's, because "succeeded" here is only provable once the readback exists.
 Completes `debugOn`: the two `Capture` calls, the version/settings parsing from Slice 1, the text
 banner, the `--json` envelope, the `run.go` case, and `MIGRATION.md`.
 
-- [ ] After a successful `Restart`, `engine.Capture(project.Root, phpService, []string{"php", "-v"})`
-- [ ] A failing first `Capture` (non-zero status or error) → `failure()` naming the step ("reading
+- [x] After a successful `Restart`, `engine.Capture(project.Root, phpService, []string{"php", "-v"})`
+- [x] A failing first `Capture` (non-zero status or error) → `failure()` naming the step ("reading
   the Xdebug version"), no second `Capture` ever recorded
   (`TestAFailedDebugOnCaptureIsReported`, first-call half)
-- [ ] Classify the captured `php -v` output with Slice 1's version parser
-- [ ] When it classifies v2 or v3: `engine.Capture(project.Root, phpService, []string{"php", "-i"})`
-- [ ] A failing second `Capture` → `failure()` naming the step ("reading its settings")
+- [x] Classify the captured `php -v` output with Slice 1's version parser
+- [x] When it classifies v2 or v3: `engine.Capture(project.Root, phpService, []string{"php", "-i"})`
+- [x] A failing second `Capture` → `failure()` naming the step ("reading its settings")
   (`TestAFailedDebugOnCaptureIsReported`, second-call half)
-- [ ] Select settings with Slice 1's settings parser (v2 keys or v3 keys, per classification) and
+- [x] Select settings with Slice 1's settings parser (v2 keys or v3 keys, per classification) and
   print, between two separator lines: only the selected keys — proven against the dual-key fixture
   so a wrong selection cannot pass by the other version's key being absent
-- [ ] When classification is neither v2 nor v3 (absent or the `v4` case): no second `Capture` at
+- [x] When classification is neither v2 nor v3 (absent or the `v4` case): no second `Capture` at
   all; print, between the same two separator lines, that Xdebug is not installed — and still exit
   `0`, because by this point the edits and the restart already succeeded (Decision 1, the branch
   the shell's own `else` could never reach for the "absent" case)
   (`TestWhatDebugOnAsksXdebugAbsent` — both discriminating fixtures drive the same branch in one
   test; text case)
-- [ ] The full ordered call log for a successful Linux run — `Resolve`, `XdebugHost`, both host
+- [x] The full ordered call log for a successful Linux run — `Resolve`, `XdebugHost`, both host
   patches, the uncomment, `Restart`, both `Capture` calls, in that order, with `Restart` (not
   `Compose`) pinning the method choice — for both v2 and v3 fixtures
   (`TestWhatDebugOnAsks`, text case: v2, v3, and the restart-method-choice assertion, all the same
   test per the spec)
-- [ ] `--json` on success: `{"xdebug": true, "version": <verbatim php -v string>, "host": <patched
+- [x] `--json` on success: `{"xdebug": true, "version": <verbatim php -v string>, "host": <patched
   address, or JSON `null` when nothing was patched — not an empty string>, "settings": {<the ini
   keys exactly as read, unrenamed>}}`. Watch this specifically: a plain Go `""` marshals to JSON
   `""`, not `null` — the "no host" case needs `any(nil)` (or an equivalent nil-able value) in the
   `map[string]any` passed to `document()`, not an empty string
   (`TestWhatDebugOnAsks`, JSON case: v2 and v3)
-- [ ] `--json` when absent/unrecognized: `{"xdebug": false}` only — no `version`, `host`, or
+- [x] `--json` when absent/unrecognized: `{"xdebug": false}` only — no `version`, `host`, or
   `settings` key, mirroring `debug-off`'s own minimal shape
   (`TestWhatDebugOnAsksXdebugAbsent`, JSON case)
-- [ ] The macOS success path, end to end: no host-patching `Exec` calls, but the uncomment `Exec`,
+- [x] The macOS success path, end to end: no host-patching `Exec` calls, but the uncomment `Exec`,
   the warning line, `CopyFrom`, `Restart`, and the completed readback with `host` reported as
   absent (`null` in JSON, omitted in text)
   (`TestWhatDebugOnAsksOnMac`)
-- [ ] Add the `case "debug-on": return debugOn(stdout, stderr, jsonOutput)` to the switch in
+- [x] Add the `case "debug-on": return debugOn(stdout, stderr, jsonOutput)` to the switch in
   `internal/cli/run.go`, beside the existing `case "debug-off"`
-- [ ] Update `MIGRATION.md`: `:21` `33 de 65` → `34 de 65`, and `:261` `debug-on`'s row from `shell`
+- [x] Update `MIGRATION.md`: `:21` `33 de 65` → `34 de 65`, and `:261` `debug-on`'s row from `shell`
   to `go` — in the same commit as the `run.go` case
-- [ ] Verify: `go test ./...` green, `go vet ./...` clean, `gofmt -l ./cmd ./internal` and
+- [x] Verify: `go test ./...` green, `go vet ./...` clean, `gofmt -l ./cmd ./internal` and
   `gofmt -l ./dockergento` both empty, `./tests/run.sh unit` green (argument is exactly `unit`, not
   `tests/unit` — `run.sh:81` checks `-d "$TESTS_DIR/$target"`, so `tests/unit` resolves to
   `tests/tests/unit`, misses, and `:83` falls through to running every suite in the repository),
@@ -207,15 +207,15 @@ banner, the `--json` envelope, the `run.go` case, and `MIGRATION.md`.
 
 ## Final verification (whole change)
 
-- [ ] `go test ./...` — compare against the baseline of **423 passed across 24 packages**; expect
+- [x] `go test ./...` — compare against the baseline of **423 passed across 24 packages**; expect
   it to grow by the new test functions in Slices 1-3b and nothing to regress
-- [ ] `go vet ./...` clean
-- [ ] `gofmt -l ./dockergento` empty
-- [ ] `gofmt -l ./internal ./cmd` empty
-- [ ] `./tests/run.sh unit` — compare against the baseline of **616 assertions, 0 failed**
-- [ ] `commands` has exactly eighteen methods, and `internal/cli/engine.go:14-16`'s doc comment is
+- [x] `go vet ./...` clean
+- [x] `gofmt -l ./dockergento` empty
+- [x] `gofmt -l ./internal ./cmd` empty
+- [x] `./tests/run.sh unit` — compare against the baseline of **616 assertions, 0 failed**
+- [x] `commands` has exactly eighteen methods, and `internal/cli/engine.go:14-16`'s doc comment is
   unchanged and still reads true
-- [ ] Any size or diff check run during review derives its base at check time (`git merge-base
+- [x] Any size or diff check run during review derives its base at check time (`git merge-base
   HEAD main` or equivalent) — never a hardcoded base-commit hash
 
 ## Explicitly not verifiable here

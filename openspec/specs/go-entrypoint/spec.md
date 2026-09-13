@@ -258,9 +258,12 @@ one, requiring no Docker daemon, no network access, and no project beyond what t
 builds.
 (Previously: covered `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-off`,
 `purge`, `npm`, `n98-magerun`, `test-unit`, `test-integration`, `mysqldump`, `version`,
-`set-host`, `list`, `describe`, `logs`, `bash`, `exec`, and `masquerade`. This adds `debug-off`,
-the eighteenth, which needs no new seam method: `Exec` and `Compose` were already on `commands`,
-already exercised by `varnish-on`/`varnish-off` and `docker-compose` respectively.)
+`set-host`, `list`, `describe`, `logs`, `bash`, `exec`, `masquerade`, and `debug-off`. This adds
+`debug-on`, the nineteenth, and the first that needs two new seam methods at once: `Capture`
+(added, uncalled, by `capture-container-output`) and a new `(*dockergento.Engine).XdebugHost()
+(string, error)` facade over `machine.Host.XdebugHost` (added, uncalled, by
+`debug-on-host-detection`). `commands` grows from sixteen to eighteen — `Restart` is already on it,
+exercised today by `varnish-on`/`varnish-off`, and needs no seam change of its own.)
 
 #### Scenario: Copying into the container
 
@@ -416,223 +419,229 @@ Test: `TestADebugOffRestartErrorIsReported`.
 
 Test: `TestWhatDebugOffAsks` (JSON case).
 
-#### Scenario: Clearing generated code
+#### Scenario: Turning xdebug on, with a resolved host, Xdebug v2
 
-- **WHEN** `purge` runs against a resolved project
-- **THEN** the fake records one shell command, run as the web user, that removes exactly the
-  generated paths the command lists
+- **GIVEN** a fake engine substituted for the real one, answering `XdebugHost` with a non-empty
+  address and no error, and its first `Capture` call (`php -v`) with an Xdebug v2 version string
+- **WHEN** `debug-on` runs against a resolved project on Linux
+- **THEN** the fake's whole call log holds, in order: a `Resolve` call; an `XdebugHost` call
+  carrying no directory — it asks about the machine, not the project, the same way `Environments`
+  and `Installed` ask for nothing beyond themselves; two `Exec` calls against `phpfpm`, each with
+  `Options` built from `terminalOptions("")`, patching `/usr/local/etc/php/conf.d/xdebug.ini` —
+  first `xdebug.remote_host`, then `xdebug.client_host` — with the resolved address, and with the
+  shell's stray, inert `\=` dropped from both patterns (GNU sed already read it as a literal `=`,
+  the same undefined-escape shape `debug-off`'s own `\z` was, per Decision 7); a third `Exec` call
+  against `phpfpm` patching `/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini` — a **different
+  file** from the host patches above — uncommenting `zend_extension` with the shell's stray `\;`
+  also dropped; a `Restart` call for `["phpfpm"]`; and a `Capture` call running `["php", "-v"]`
+- **AND** because the captured `php -v` output classifies as Xdebug v2, a second `Capture` call
+  runs `["php", "-i"]`, and the printed text banner shows, between two separator lines, only the
+  `xdebug.idekey`, `xdebug.remote_host` and `xdebug.remote_port` lines the fixture carried — none
+  of the v3 keys, even when the fixture given to `php -i` also carries them (the discriminating
+  fixture named below)
+- **AND** no `Start` call is ever recorded (Decision 3), and no `CopyFrom` call is recorded — this
+  run is Linux, not macOS
 
-#### Scenario: Running the front-end package manager
+The `php -i` fixture used for this proof carries **both** `xdebug.remote_host` and
+`xdebug.client_host`, so a v2 selection that wrongly also picked up the v3 key could not pass by
+the v3 key merely being absent from the fixture.
 
-- **WHEN** `npm <args>` runs
-- **THEN** the fake records a call into the container that passes those arguments through
-  verbatim to `npm`
+Test: `TestWhatDebugOnAsks` (Linux, v2 case).
 
-#### Scenario: Running n98-magerun
+#### Scenario: Turning xdebug on with Xdebug v3
 
-- **WHEN** `n98-magerun <args>` runs
-- **THEN** the fake records a call that runs `n98-magerun` with the arguments joined into one
-  command, through a shell
+- **GIVEN** the same fake as above, this time answering the first `Capture` call with a v3 version
+  string, and the second with the same dual-key `php -i` fixture
+- **WHEN** `debug-on` runs
+- **THEN** the same ordered call log holds, and the second `Capture` call's output is parsed for
+  `xdebug.idekey`, `xdebug.client_host` and `xdebug.client_port` only — proving the v3 selection
+  reads the `client_*` pair and never `xdebug.remote_host` or `xdebug.remote_port`, even though
+  both are present in the same fixture
 
-#### Scenario: Running the unit suite
+Test: `TestWhatDebugOnAsks` (v3 case).
 
-- **WHEN** `test-unit <args>` runs
-- **THEN** the fake records a call that runs `phpunit` against the unit suite's configuration,
-  with the arguments appended
-- **AND** when the project defines no bin directory, the fallback bin directory is used
+#### Scenario: The restart used is Restart's own, a stop and a start — not Compose's
 
-#### Scenario: Running the integration suite
+- **GIVEN** `restart.sh` is literally `stop.sh` then `start.sh`, so `commands.Restart` is the
+  faithful port of `debug-on.sh:26` — unlike `debug-off`, whose shell twin called `$DOCKER_COMPOSE
+  restart phpfpm` directly
+- **WHEN** `debug-on` runs
+- **THEN** the engine call recorded is `Restart(dir, ["phpfpm"])`, never `Compose([...,
+  "restart", "phpfpm"])` — the opposite choice from `debug-off`'s own, made for the opposite
+  reason: `debug-on`'s shell twin genuinely ran a stop then a start, and `Operator.Restart` is what
+  reproduces that, including the worktree refusal `Operator.Restart` carries and `Compose` does
+  not
+- **AND** this is provable by construction, the same way `debug-off`'s spec pins the opposite
+  choice: the choice of method is what the ordered call log's `Restart` entry pins, in the same
+  test as the scenario above
 
-- **WHEN** `test-integration <args>` runs
-- **THEN** the fake records a call that changes into the integration suite's own directory, then
-  runs `phpunit` against its configuration from the resolved working directory and bin
-  directory, with the arguments appended
-- **AND** when the project defines no working directory, the fallback working directory is used
+Test: `TestWhatDebugOnAsks` (same test; this scenario is the log entry's own proof, not a separate
+run).
 
-#### Scenario: Writing a database dump
+#### Scenario: Turning xdebug on with no host to patch, on macOS
 
-- **WHEN** `mysqldump <path>` runs against a resolved project
-- **THEN** the fake records a request for a dump at that path from the current directory
-- **AND** on success the command answers `{"path": <path>}` in JSON
-- **AND** when the fake refuses the request, the command exits with the code reserved for
-  engine/Docker failures
+- **GIVEN** `XdebugHost` answers `("", nil)` — not applicable outside Linux, per
+  `debug-on-host-detection` — and a fake engine substituted for the real one
+- **WHEN** `debug-on` runs on macOS
+- **THEN** the call log holds no host-patching `Exec` calls at all — the two `xdebug.ini` patches
+  never fire against an empty host — but does hold, in order: the uncomment `Exec` against
+  `docker-php-ext-xdebug.ini`, a `CopyFrom(["generated"])` call, and the `Restart` call
+- **AND** the line `Copying generated code into host` is printed in warning colour before the
+  `CopyFrom` call, written by the handler itself — `copyFrom()` prints nothing on success
+  (verified), so nothing else would print it
+- **AND** the eventual output's host is reported as absent (`null` in JSON, omitted in text) —
+  see "Enabling xdebug in JSON" below
 
-#### Scenario: Reporting what is installed
+Test: `TestWhatDebugOnAsksOnMac`.
 
-- **GIVEN** a fake engine substituted for the real one
-- **WHEN** `version` runs, with no project resolved
-- **THEN** the fake records exactly one call, asking what is installed and what tooling is present
-- **AND** in JSON, the document carries the installation fields (`version`, `tag`, `commits_ahead`,
-  `commit`, `branch`, `detached`, `dirty`, `path`), the docker tooling fields (`docker.version`,
-  `docker.compose`, `docker.compose_command`), and `binary` from the binary's own build
-  information, independent of the fake
-- **AND** in text, an empty tag or commit prints "unknown", and an empty docker or compose value
-  prints "not available"
+#### Scenario: Xdebug absent or unrecognized is reported, not a failure
 
-#### Scenario: Pointing a domain at this machine
+- **GIVEN** two `php -v` fixtures: one carrying **no** Xdebug line at all — the case the shell
+  script's own `set -euo pipefail` aborted on before its own `else` clause, written nine lines
+  below, could ever run for it — and one carrying a version string that matches `Xdebug v` but
+  neither `v2.` nor `v3.` (the only case the shell's `else` could reach)
+- **WHEN** `debug-on` runs against either fixture
+- **THEN** the enabling work already completed is recorded exactly as in the installed case — both
+  host patches when a host was resolved, the uncomment edit, the macOS copy when applicable, and
+  the `Restart` — and the command still exits `0`
+- **AND** no second `Capture` call (`php -i`) is recorded — there are no keys to read back
+- **AND** the printed text reports, between the same two separator lines the installed case
+  prints, that Xdebug is not installed, in place of the `key=value` lines
+- **AND** this is Decision 1, made observable for the first time: the shell's abort meant its own
+  `else` branch could never fire for the absent case; in Go the branch is reachable and is chosen
+  to be informative rather than fatal, because by this point the edits and the restart have
+  already succeeded
 
-- **WHEN** `set-host <domain>` runs against a resolved project
-- **THEN** the fake records a call asking to point that domain here, with the database flag on
-- **AND** `--no-database` records the same call with the database flag off
-- **AND** in JSON, the document carries `{"domain": <domain>, "database": <flag>}`
-- **AND** a refusal returned by the engine is reported with its own exit code, message and hint,
-  rather than as a generic Docker failure
+Test: `TestWhatDebugOnAsksXdebugAbsent` (both fixtures, one test — the two inputs drive the same
+branch; discriminating them at the parser level is a separate, package-level fixture test, not
+duplicated here as two handler scenarios).
 
-#### Scenario: Removing a domain without resolving a project
+#### Scenario: The xdebug host cannot be resolved on Linux
 
-- **WHEN** `set-host --remove <domain>` runs
-- **THEN** no project is resolved first, and the fake records a call asking only to remove that
-  domain
-- **AND** in JSON, the document carries `{"removed": <domain>}`
+- **GIVEN** a fake engine substituted for the real one, answering `XdebugHost` with `("",
+  ErrNoBridgeAddress)` — a `docker0` that exists but could not be resolved
+- **WHEN** `debug-on` runs on Linux
+- **THEN** the fake's whole call log holds exactly two entries — `Resolve` and `XdebugHost` — no
+  `Exec`, no `CopyFrom`, no `Restart` and no `Capture` call is recorded
+- **AND** the command exits `exitDocker`, and the reported fault's `type` is `docker_failed`,
+  carrying `XdebugHost`'s own error text — the same mapping `report()` gives any error that is not
+  a `core.Refusal` elsewhere in this package, because the host lookup answers a plain error, not a
+  refusal
+- **AND** this is `debug-on-host-detection`'s Decision 2 (renumbered Decision 4 in this proposal),
+  made observable for the first time: an unresolvable `docker0` is a failure, not a silent skip
 
-#### Scenario: Asking to stop everything
+Test: `TestDebugOnReportsAnUnresolvableHost`.
 
-- **GIVEN** a fake engine substituted for the real one
-- **WHEN** `docker-stop-all` runs against a resolved project
-- **THEN** the fake records exactly one request to stop everything for the resolved directory,
-  carrying whether the run is interactive
-- **AND** whatever the fake answers back — a decline, a refusal, or a stop — is reported without
-  the handler making any other request
-
-#### Scenario: Passing a Compose subcommand through
-
-- **GIVEN** a fake engine substituted for the real one
-- **WHEN** `docker-compose <args>` runs against a resolved project
-- **THEN** the fake records exactly one request to run Compose for the resolved directory, with
-  the arguments passed through verbatim
-- **AND** the command exits with the code the fake reports back
-
-#### Scenario: Listing every environment on the machine
-
-- **GIVEN** a fake engine substituted for the real one
-- **WHEN** `list` runs with no argument
-- **THEN** the fake's whole call log holds exactly one entry — an `Environments` call — with no
-  `Resolve` before it, because `Environments()` takes no directory and `list.go` never calls
-  `projectOr`
-
-Test: `TestWhatListAsks`.
-
-#### Scenario: `list` and `describe` both reach the daemon during their own RED window
-
-- **GIVEN** `list_test.go` and `describe_test.go` are written, strict-TDD style, against
-  `Environments()` and `Describe()` before `list.go:23` and `describe.go:25` are routed through
-  `newEngine`
-- **WHEN** that RED half of each suite runs under `answering(t)`
-- **THEN** `answering(t)`'s `DOCKER_HOST=unix:///nonexistent` pin (`fake_engine_test.go:272`) is
-  what stops **both** from reaching a real daemon — `Resolve` does not fail on a directory that is
-  not a project (`dockergento.go:128-131`), so an unrouted `describe` proceeds into
-  `app.Describer.Describe`'s seven concurrent questions before any error is inspected, and two of
-  them — `Engine.Containers()` and `Tooling.Xdebug(project.Name)` — reach the daemon exactly as
-  `list`'s `Environments()` does
-- **AND** `logs` needs no daemon pin for its own RED window: its unrouted path stops at the Compose
-  loader, below where any dial happens
-- **AND** every subtest that exercises `list` or `describe` runs under `answering(t)`, and none
-  overrides `DOCKER_HOST`
-
-Test: `TestWhatListAsks` and `TestWhatDescribeAsks` (asserted by construction: neither test file
-has a subtest outside `answering(t)`, and a code comment beside each call names why).
-
-#### Scenario: What list prints as text
-
-- **GIVEN** a fake engine answering with a fixed `[]core.Environment`, including one orphaned
-  entry, one with `HasMetadata` false, one with an empty branch and root, and one with a worktree
-- **WHEN** `list` runs
-- **THEN** the text table shows one row per environment, marking the orphan with "⚠ orphan",
-  marking the metadata-less one with "(no metadata)", printing "-" for the empty branch and root,
-  and composing the worktree row's name as "name (wt: branch)"
-
-Test: `TestWhatListPrints`.
-
-#### Scenario: An empty list of environments
-
-- **GIVEN** the fake answers `Environments` with zero entries
-- **WHEN** `list` runs with no `--json`
-- **THEN** the text says no environments were found and suggests `hm setup`
-
-Test: `TestWhatListPrints` (empty-inventory case).
-
-#### Scenario: What list reports as JSON
-
-- **GIVEN** a fake engine answering with a fixed set of two environments
-- **WHEN** `list --json` runs
-- **THEN** the document decodes to `{"environments": [...], "count": 2}` with the same data,
-  compared against a literal, not a re-marshalled fixture
-
-Test: `TestWhatListReportsAsJSON`.
-
-#### Scenario: A failed list is reported as an unreachable daemon
-
-- **GIVEN** the fake's `Environments` outcome carries an error
-- **WHEN** `list` runs, in both text and `--json`
-- **THEN** it exits with `exitDocker`, and the reported fault's `type` is `docker_unavailable`
-
-Test: `TestListReportsAnUnreachableDaemon`.
-
-#### Scenario: Describing a project
+#### Scenario: An edit fails before the restart, with no Go-level error
 
 - **GIVEN** a fake engine substituted for the real one
-- **WHEN** `describe` runs
-- **THEN** the fake's whole call log holds exactly one entry — a `Describe` call, with `Dir` equal
-  to the test's own working directory and `WithSecrets` false — and no `Resolve` call precedes it,
-  because `describe.go` never calls `projectOr`, so the fake's `project` field plays no part
+- **WHEN** `debug-on` runs and one of its three edit `Exec` calls — either `xdebug.ini` host patch
+  or the `docker-php-ext-xdebug.ini` uncomment, whichever comes first in the log — answers a
+  non-zero status with no error
+- **THEN** the fake records only the calls up to and including the one that failed — no further
+  `Exec`, no `CopyFrom`, no `Restart`, and no `Capture` call is recorded, and in particular no
+  `Start` call is ever recorded (Decision 3)
+- **AND** the command's return value is that same status
+- **AND** this is also the seam-visible half of the disclosed behaviour change: with the
+  environment stopped, an edit's own `Exec` call is what answers non-zero, and `debug-on` now
+  fails naming that step instead of starting the whole environment the way the shell script's
+  `start_service_if_not_running.sh` probe did
 
-Test: `TestWhatDescribeAsks`.
+Test: `TestAFailedDebugOnEditReportsTheContainersStatus` (shared with `magento-commands`'
+scenario of the same fact, proved once).
 
-#### Scenario: describe --with-secrets
+#### Scenario: A Go-level error on an edit stops before the restart
 
-- **WHEN** `describe --with-secrets` runs
-- **THEN** the recorded `Describe` call carries `WithSecrets` true instead of false, and nothing
-  else about the log changes
+- **GIVEN** a fake engine substituted for the real one
+- **WHEN** one of the same three edit `Exec` calls answers an error rather than a non-zero status
+- **THEN** no further call beyond it is recorded — no `CopyFrom`, no `Restart`, no `Capture` — and
+  the failure is reported with the mapped Docker exit code
 
-Test: `TestWhatDescribeAsks` (with-secrets case).
+Test: `TestADebugOnEditErrorStopsBeforeTheRestart`.
 
-#### Scenario: What describe prints as text
+#### Scenario: The restart refuses from an unregistered worktree
 
-- **GIVEN** a fake engine answering with a fixed `core.Description` covering the project (name,
-  root, domain, worktree, status), URLs, Magento version and mode, xdebug, services, and paths,
-  with no credentials, and with an empty version, mode, and some empty URL entries
-- **WHEN** `describe` runs
-- **THEN** the text rendering shows, in order, the Environment, URLs, Magento, Services and Paths
-  sections, using `orDash` for the empty status, domain or worktree, `orUnknown` for the empty
-  Magento version and mode, skips the empty URL entries rather than printing blank lines, and shows
-  no Credentials section
+- **GIVEN** a fake engine substituted for the real one, answering `Restart` with the same
+  `core.Refusal` an unregistered worktree gets elsewhere (`Kind: "blocked_in_worktree"`, `Code: 6`)
+- **WHEN** `debug-on` runs from an unregistered worktree
+- **THEN** the fake's whole call log ends at `Restart` — no `Capture` call is ever recorded
+- **AND** the command exits `6`, and the reported fault's `type` is `blocked_in_worktree`
+- **AND** this is new: `hm debug-on` has never refused from a worktree before this port, because
+  `restart.sh`, called from inside `debug-on.sh`, never re-entered `bin/run`'s own gate, and
+  `debug-on` is absent from `hm_alters_environment` (`worktree.sh:85-94`, verified) — so no shell
+  invocation of `debug-on` was ever gated on it either (proposal Decision 5)
 
-Test: `TestWhatDescribePrintsAsText`.
+Test: `TestDebugOnRefusesFromAnUnregisteredWorktree`.
 
-#### Scenario: describe --with-secrets prints credentials in text
+#### Scenario: The restart's other failures are reported as Docker failures
 
-- **GIVEN** the same fixed description, this time with `Credentials` populated
-- **WHEN** `describe --with-secrets` runs
-- **THEN** the text rendering adds a Credentials section with the database name, user, password
-  and root password
+- **GIVEN** a fake engine substituted for the real one, answering `Restart` with a plain error, not
+  a `core.Refusal`
+- **WHEN** `debug-on` runs
+- **THEN** the failure is reported through the same fault-mapping `report()` uses elsewhere —
+  `exitDocker`, `error.type` `docker_failed` — and no `Capture` call is recorded
 
-Test: `TestWhatDescribePrintsAsText` (with-secrets case).
+Test: `TestADebugOnRestartErrorIsReported`.
 
-#### Scenario: What describe reports as JSON
+#### Scenario: A failed Capture is reported as a named step, not a raw status
 
-- **GIVEN** the same fixed `core.Description`, with `Credentials` nil
-- **WHEN** `describe --json` runs
-- **THEN** the document decodes to the same fields nested under `description`, compared against a
-  literal, and carries **no** `credentials` key at all — not a null one
+- **GIVEN** a fake engine substituted for the real one, whose `Capture` outcome — either the first
+  (`php -v`) or the second (`php -i`) — answers a non-zero status or an error
+- **WHEN** `debug-on` runs
+- **THEN** the failure is reported through `failure()`, naming the step (reading the Xdebug
+  version, or reading its settings) rather than being returned as a raw, unwrapped status the way
+  `debug-off`'s own restart status is
+- **AND** when the first `Capture` call is the one that fails, no second `Capture` call is ever
+  recorded
+- **AND** this is a decision this spec makes in the absence of any shell precedent — `Capture` had
+  no caller before this unit — following the same wrapped-with-a-named-step shape the sed edits
+  already use, rather than the raw-passthrough shape `Compose`'s restart uses: a captured
+  program's own exit code is not something a caller of `hm debug-on` is meant to branch on the way
+  a Compose subcommand's is
 
-Test: `TestWhatDescribeReportsAsJSON`.
+Test: `TestAFailedDebugOnCaptureIsReported`.
 
-#### Scenario: describe --with-secrets reports credentials in JSON
+#### Scenario: The xdebug host environment variable is not consulted
 
-- **GIVEN** the same fixed description, this time with `Credentials` populated by fixture values
-- **WHEN** `describe --with-secrets --json` runs
-- **THEN** the document carries the `credentials` object with those values
+- **GIVEN** nothing in this repository sets `XDEBUG_HOST` except `set_xdebug_host_property.sh`
+  itself (verified, unchanged by this port) — a shell-only escape hatch this port drops
+- **WHEN** `debug-on` runs with `XDEBUG_HOST` set in the calling process's own environment
+- **THEN** the recorded `XdebugHost` call — not an environment read — is still what decides the
+  host used; the variable is not read anywhere on this path
+- **AND** this is a disclosed behaviour change, not an oversight (proposal Decision 8): the escape
+  hatch a developer could reach for by hand is gone, and the only way to change what address gets
+  patched is whatever `XdebugHost()` resolves
 
-Test: `TestWhatDescribeReportsAsJSON` (with-secrets case).
+Test: `TestDebugOnIgnoresXdebugHostEnvironmentVariable`.
 
-#### Scenario: A failed describe is reported as an unresolvable project
+#### Scenario: Enabling xdebug in JSON
 
-- **GIVEN** the fake's `Describe` outcome carries an error
-- **WHEN** `describe` runs
-- **THEN** it exits with `exitProject`, the reported fault's `type` is `project_not_configured`,
-  and the message includes the engine's own error text rather than swallowing it
+- **GIVEN** a fake engine as in the v2 and v3 scenarios above
+- **WHEN** `debug-on --json` succeeds
+- **THEN** the document's `data` carries `{"xdebug": true, "version": <the verbatim php -v
+  string>, "host": <the patched address, or null when nothing was patched>, "settings":
+  {<the ini keys as actually read, unrenamed — xdebug.idekey/xdebug.remote_host/xdebug.remote_port
+  on v2, xdebug.idekey/xdebug.client_host/xdebug.client_port on v3>}}`
+- **AND** on macOS, or wherever `XdebugHost` answered no host, `host` is `null`, not an empty
+  string — carrying `debug-on-host-detection`'s not-applicable/unresolved distinction outward
+  rather than flattening it into one falsy value (proposal Decision 2)
+- **AND** the `settings` object is never renamed to a version-independent shape — a v3 run's
+  document has no `xdebug.remote_host` key and a v2 run's has no `xdebug.client_host` key, because
+  normalising them would assert an equivalence this port never verified
+- **AND** the envelope itself (`schema_version`, `command`, `ok`, `data`) is unchanged and remains
+  `cli-output-contract`'s to govern — this scenario owns only these four keys
 
-Test: `TestDescribeReportsAnUnresolvableProject`.
+Test: `TestWhatDebugOnAsks` (JSON case, v2 and v3).
+
+#### Scenario: Xdebug absent in JSON
+
+- **GIVEN** Xdebug is absent or its version is unrecognized, as in the text scenario above
+- **WHEN** `debug-on --json` succeeds
+- **THEN** the document's `data` carries only `{"xdebug": false}` — no `version`, `host` or
+  `settings` key at all, because nothing was read to report — mirroring `debug-off`'s own minimal
+  `{"xdebug": false}` shape for the symmetric case
+
+Test: `TestWhatDebugOnAsksXdebugAbsent` (JSON case).
 
 #### Scenario: Getting logs
 
