@@ -270,8 +270,8 @@ func debugOff(stdout, stderr io.Writer, jsonOutput bool) int {
 // debug-on, alone.
 //
 // It shares phpService, terminalOptions and copyFrom with the handlers above and needs no new
-// engine surface beyond what Slice 2 already added: Exec, Restart, CopyFrom and XdebugHost are
-// all already on commands.
+// engine surface beyond what Slice 2 already added: Exec, Restart, CopyFrom, Capture and
+// XdebugHost are all already on commands.
 //
 
 func debugOn(stdout, stderr io.Writer, jsonOutput bool) int {
@@ -320,11 +320,23 @@ func debugOn(stdout, stderr io.Writer, jsonOutput bool) int {
 	// Only on macOS the code lives in a volume rather than a mount, so the enabled extension's
 	// generated files have to be copied back out. copyFrom prints nothing of its own on success
 	// in text mode, so the line the shell script printed is written here instead (proposal
-	// Decision 6). The same runtime.GOOS check php.go:100 already uses — no new mechanism.
+	// Decision 6); it is decorative, so — like every other line this handler writes before its
+	// own document — it is skipped under --json. The same runtime.GOOS check php.go:100 already
+	// uses — no new mechanism.
+	//
+	// copyFrom is always called in its own text mode here, regardless of debug-on's own
+	// jsonOutput: unlike varnish's sibling calls (purge, magento), which never print a document
+	// of their own, copyFrom does — under --json it would otherwise write its own
+	// "copy-from-container" envelope onto stdout ahead of debug-on's, leaving two concatenated
+	// top-level JSON values where a consumer expects exactly one. A failure here is rarer than
+	// the edits' or the restart's own and has no covering spec scenario; it still reports through
+	// copyFrom's own text-mode failure() rather than silently continuing.
 	if runtime.GOOS == "darwin" {
-		fmt.Fprint(stdout, warning("Copying generated code into host\n"))
+		if !jsonOutput {
+			fmt.Fprint(stdout, warning("Copying generated code into host\n"))
+		}
 
-		if code := copyFrom([]string{"generated"}, stdout, stderr, jsonOutput); code != 0 {
+		if code := copyFrom([]string{"generated"}, stdout, stderr, false); code != 0 {
 			return code
 		}
 	}
@@ -337,10 +349,7 @@ func debugOn(stdout, stderr io.Writer, jsonOutput bool) int {
 		return report(stderr, jsonOutput, "debug-on", err)
 	}
 
-	// The readback — both Capture calls, the version/settings parsing, the banner and the
-	// --json envelope — is Slice 3b's own; this placeholder is what keeps 3a's failure and
-	// refusal paths, which never reach this line, provable on their own.
-	return exitOK
+	return debugOnReadback(engine, project.Root, host, stdout, stderr, jsonOutput)
 }
 
 // debugOnPatchHost is one of the two identical xdebug.ini edits, differing only in which key
@@ -364,9 +373,96 @@ func debugOnPatchHost(engine commands, root, key, host string, stderr io.Writer,
 	return 0
 }
 
+// xdebugSeparator is the shell's own frame around the readback (debug-on.sh:30, :38): forty-eight
+// dashes, copied rather than retyped, because the two implementations are compared byte for byte
+// elsewhere in this project and a miscounted rule is exactly the kind of difference that catches.
+const xdebugSeparator = "------------------------------------------------"
+
+// debugOnReadback runs the shell script's own final block (debug-on.sh:27-38): read the Xdebug
+// version, classify it, and — for a recognized family — read the settings it selects. Both
+// Capture calls are wrapped through failure() with a named step rather than returned as a raw
+// status, unlike Restart's own passthrough above: a captured program's exit code is not something
+// a caller of hm debug-on is meant to branch on the way a Compose subcommand's is.
+func debugOnReadback(engine commands, root, host string, stdout, stderr io.Writer, jsonOutput bool) int {
+	phpV, status, err := engine.Capture(root, phpService, []string{"php", "-v"})
+	if err != nil {
+		return failure(stderr, jsonOutput, "debug-on", exitDocker, "docker_failed",
+			"Reading the Xdebug version failed: "+err.Error(), "")
+	}
+	if status != 0 {
+		return failure(stderr, jsonOutput, "debug-on", status, "command_failed",
+			"Reading the Xdebug version failed in the phpfpm container", "")
+	}
+
+	version, family := xdebugVersion(phpV)
+
+	// Xdebug absent or unrecognized (Decision 1): the shell's own `set -euo pipefail` could
+	// never reach its own else clause for the absent case; here it is reachable, and it is
+	// chosen to be informative rather than fatal — the enabling work above already succeeded.
+	if family == "" {
+		if jsonOutput {
+			return document(stdout, stderr, "debug-on", map[string]any{"xdebug": false})
+		}
+
+		printXdebugBanner(stdout, func() {
+			fmt.Fprint(stdout, "Xdebug is not installed or the version is not recognized.\n")
+		})
+
+		return exitOK
+	}
+
+	phpI, status, err := engine.Capture(root, phpService, []string{"php", "-i"})
+	if err != nil {
+		return failure(stderr, jsonOutput, "debug-on", exitDocker, "docker_failed",
+			"Reading its settings failed: "+err.Error(), "")
+	}
+	if status != 0 {
+		return failure(stderr, jsonOutput, "debug-on", status, "command_failed",
+			"Reading its settings failed in the phpfpm container", "")
+	}
+
+	settings := xdebugSettings(phpI, family)
+
+	if jsonOutput {
+		values := make(map[string]string, len(settings))
+		for _, setting := range settings {
+			values[setting.Key] = setting.Value
+		}
+
+		// A plain Go "" marshals to JSON "", not null — host is left as an untyped nil when
+		// nothing was patched, which is what carries Decision 2's not-applicable/unresolved
+		// distinction outward instead of flattening it into one falsy value.
+		var reportedHost any
+		if host != "" {
+			reportedHost = host
+		}
+
+		return document(stdout, stderr, "debug-on", map[string]any{
+			"xdebug": true, "version": version, "host": reportedHost, "settings": values,
+		})
+	}
+
+	printXdebugBanner(stdout, func() {
+		for _, setting := range settings {
+			fmt.Fprintf(stdout, "%s => %s\n", setting.Key, setting.Value)
+		}
+	})
+
+	return exitOK
+}
+
+// printXdebugBanner is the shell's own three-line frame around the readback: a header, a
+// separator, whatever body prints, and the same separator again.
+func printXdebugBanner(stdout io.Writer, body func()) {
+	fmt.Fprint(stdout, warning("xdebug configuration:\n"))
+	fmt.Fprint(stdout, warning(xdebugSeparator+"\n"))
+	body()
+	fmt.Fprint(stdout, warning(xdebugSeparator+"\n"))
+}
+
 //
-// Parsing php -v and php -i for debug-on's readback. Pure string -> value functions with no
-// engine and no caller yet: debug-on itself lands in a later slice.
+// Parsing php -v and php -i for debug-on's readback. Pure string -> value functions, called from
+// debugOnReadback above.
 //
 
 // xdebugVersion is the `grep "Xdebug v"` equivalent (debug-on.sh:27): it finds the line inside

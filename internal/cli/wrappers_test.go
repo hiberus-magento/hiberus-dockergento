@@ -946,6 +946,401 @@ func TestDebugOnIgnoresXdebugHostEnvironmentVariable(t *testing.T) {
 	}
 }
 
+//
+// debug-on, Slice 3b: the readback. Both Capture calls, Slice 1's parsers, the banner, and the
+// --json envelope — completing what Slice 3a left at a bare exitOK once the restart succeeds.
+//
+
+// debugOnDocument is the shape asserted against debug-on --json's data object. Host is a pointer
+// so the test can tell JSON null (Decision 2's not-applicable/unresolved case) apart from the
+// empty string a plain Go "" would otherwise marshal to.
+type debugOnDocument struct {
+	Data struct {
+		Xdebug   bool              `json:"xdebug"`
+		Version  string            `json:"version"`
+		Host     *string           `json:"host"`
+		Settings map[string]string `json:"settings"`
+	} `json:"data"`
+}
+
+// TestWhatDebugOnAsks proves the full ordered call log for a successful Linux run — Resolve,
+// XdebugHost, both host patches, the uncomment, Restart (not Compose — the opposite choice from
+// debug-off's own), both Capture calls — for both v2 and v3 fixtures, plus the --json envelope
+// each produces.
+func TestWhatDebugOnAsks(t *testing.T) {
+	root := "/code/shop"
+	host := "172.17.0.1"
+
+	cases := []struct {
+		name       string
+		phpV       string
+		version    string
+		wantKey    string
+		wantAbsent string
+	}{
+		{"v2", phpVWithXdebugV2,
+			"    with Xdebug v2.9.8, Copyright (c) 2020, by Derick Rethans",
+			"xdebug.remote_host", "xdebug.client_host"},
+		{"v3", phpVWithXdebugV3,
+			"    with Xdebug v3.1.5, Copyright (c) 2002-2021, by Derick Rethans",
+			"xdebug.client_host", "xdebug.remote_host"},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name+"/text", func(t *testing.T) {
+			fake := answering(t)
+			fake.project = core.Project{Name: "shop", Root: root}
+			cwd := here()
+
+			outcomes := []outcome{{}, {captured: host}, {}, {}, {}}
+			outcomes = append(outcomes, macCopyOutcomes()...)
+			outcomes = append(outcomes, outcome{}, outcome{captured: tt.phpV}, outcome{captured: phpIWithBothVersionFamilies})
+			fake.outcomes = outcomes
+
+			stdout := &strings.Builder{}
+
+			code := debugOn(stdout, io.Discard, false)
+
+			if code != exitOK {
+				t.Fatalf("debug-on = %d, want exitOK", code)
+			}
+
+			want := []call{
+				{Method: "Resolve", Dir: cwd},
+				{Method: "XdebugHost"},
+				{Method: "Exec", Dir: root, Service: phpService,
+					Command: []string{"sed", "-i", `s/xdebug\.remote_host=.*/xdebug\.remote_host=` + host + `/g`,
+						"/usr/local/etc/php/conf.d/xdebug.ini"},
+					Options: terminalOptions("")},
+				{Method: "Exec", Dir: root, Service: phpService,
+					Command: []string{"sed", "-i", `s/xdebug\.client_host=.*/xdebug\.client_host=` + host + `/g`,
+						"/usr/local/etc/php/conf.d/xdebug.ini"},
+					Options: terminalOptions("")},
+				{Method: "Exec", Dir: root, Service: phpService,
+					Command: []string{"sed", "-i", "-e", "s/^;zend_extension/zend_extension/g",
+						"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+					Options: terminalOptions("")},
+			}
+			want = append(want, macCopyCalls(cwd)...)
+			want = append(want,
+				call{Method: "Restart", Dir: root, Services: []string{phpService}},
+				call{Method: "Capture", Dir: root, Service: phpService, Command: []string{"php", "-v"}},
+				call{Method: "Capture", Dir: root, Service: phpService, Command: []string{"php", "-i"}},
+			)
+
+			if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
+				t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+			}
+
+			printed := stdout.String()
+
+			if !strings.Contains(printed, tt.wantKey) {
+				t.Fatalf("stdout = %q, want it to carry %q", printed, tt.wantKey)
+			}
+
+			if strings.Contains(printed, tt.wantAbsent) {
+				t.Fatalf("stdout = %q, wrongly carries the other family's key %q", printed, tt.wantAbsent)
+			}
+
+			if !strings.Contains(printed, "xdebug.idekey") {
+				t.Fatalf("stdout = %q, want the shared idekey line too", printed)
+			}
+		})
+
+		t.Run(tt.name+"/json", func(t *testing.T) {
+			fake := answering(t)
+			fake.project = core.Project{Name: "shop", Root: root}
+
+			outcomes := []outcome{{}, {captured: host}, {}, {}, {}}
+			outcomes = append(outcomes, macCopyOutcomes()...)
+			outcomes = append(outcomes, outcome{}, outcome{captured: tt.phpV}, outcome{captured: phpIWithBothVersionFamilies})
+			fake.outcomes = outcomes
+
+			stdout := &strings.Builder{}
+
+			code := debugOn(stdout, io.Discard, true)
+
+			if code != exitOK {
+				t.Fatalf("debug-on --json = %d, want exitOK", code)
+			}
+
+			var envelope debugOnDocument
+			if err := json.Unmarshal([]byte(stdout.String()), &envelope); err != nil {
+				t.Fatalf("json.Unmarshal(%q) = %v, want valid JSON", stdout.String(), err)
+			}
+
+			if !envelope.Data.Xdebug {
+				t.Fatalf("data.xdebug = false, want true")
+			}
+
+			if envelope.Data.Version != tt.version {
+				t.Fatalf("data.version = %q, want the verbatim line %q", envelope.Data.Version, tt.version)
+			}
+
+			if envelope.Data.Host == nil || *envelope.Data.Host != host {
+				t.Fatalf("data.host = %v, want %q", envelope.Data.Host, host)
+			}
+
+			if _, wrong := envelope.Data.Settings[tt.wantAbsent]; wrong {
+				t.Fatalf("data.settings wrongly carries the other family's key %q", tt.wantAbsent)
+			}
+
+			if _, ok := envelope.Data.Settings[tt.wantKey]; !ok {
+				t.Fatalf("data.settings is missing %q: %v", tt.wantKey, envelope.Data.Settings)
+			}
+		})
+	}
+}
+
+// TestWhatDebugOnAsksXdebugAbsent covers Decision 1, made observable for the first time: the
+// enabling work already completed is recorded exactly as in the installed case, no second
+// Capture call is ever recorded, and the command still exits 0 — for both the fixture with no
+// Xdebug line at all and the one matching neither v2 nor v3.
+func TestWhatDebugOnAsksXdebugAbsent(t *testing.T) {
+	root := "/code/shop"
+	host := "172.17.0.1"
+
+	cases := []struct {
+		name string
+		phpV string
+	}{
+		{"not installed at all", phpVWithNoXdebugAtAll},
+		{"an unrecognized version", phpVWithUnrecognizedXdebugVersion},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name+"/text", func(t *testing.T) {
+			fake := answering(t)
+			fake.project = core.Project{Name: "shop", Root: root}
+			cwd := here()
+
+			outcomes := []outcome{{}, {captured: host}, {}, {}, {}}
+			outcomes = append(outcomes, macCopyOutcomes()...)
+			outcomes = append(outcomes, outcome{}, outcome{captured: tt.phpV})
+			fake.outcomes = outcomes
+
+			stdout := &strings.Builder{}
+
+			code := debugOn(stdout, io.Discard, false)
+
+			if code != exitOK {
+				t.Fatalf("debug-on with %s = %d, want exitOK", tt.name, code)
+			}
+
+			want := []call{
+				{Method: "Resolve", Dir: cwd},
+				{Method: "XdebugHost"},
+				{Method: "Exec", Dir: root, Service: phpService,
+					Command: []string{"sed", "-i", `s/xdebug\.remote_host=.*/xdebug\.remote_host=` + host + `/g`,
+						"/usr/local/etc/php/conf.d/xdebug.ini"},
+					Options: terminalOptions("")},
+				{Method: "Exec", Dir: root, Service: phpService,
+					Command: []string{"sed", "-i", `s/xdebug\.client_host=.*/xdebug\.client_host=` + host + `/g`,
+						"/usr/local/etc/php/conf.d/xdebug.ini"},
+					Options: terminalOptions("")},
+				{Method: "Exec", Dir: root, Service: phpService,
+					Command: []string{"sed", "-i", "-e", "s/^;zend_extension/zend_extension/g",
+						"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+					Options: terminalOptions("")},
+			}
+			want = append(want, macCopyCalls(cwd)...)
+			want = append(want,
+				call{Method: "Restart", Dir: root, Services: []string{phpService}},
+				call{Method: "Capture", Dir: root, Service: phpService, Command: []string{"php", "-v"}},
+			)
+
+			if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
+				t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+			}
+
+			if !strings.Contains(stdout.String(), "Xdebug is not installed") {
+				t.Fatalf("stdout = %q, want it to report Xdebug as not installed", stdout.String())
+			}
+		})
+
+		t.Run(tt.name+"/json", func(t *testing.T) {
+			fake := answering(t)
+			fake.project = core.Project{Name: "shop", Root: root}
+
+			outcomes := []outcome{{}, {captured: host}, {}, {}, {}}
+			outcomes = append(outcomes, macCopyOutcomes()...)
+			outcomes = append(outcomes, outcome{}, outcome{captured: tt.phpV})
+			fake.outcomes = outcomes
+
+			stdout := &strings.Builder{}
+
+			code := debugOn(stdout, io.Discard, true)
+
+			if code != exitOK {
+				t.Fatalf("debug-on --json with %s = %d, want exitOK", tt.name, code)
+			}
+
+			var envelope struct {
+				Data struct {
+					Xdebug bool `json:"xdebug"`
+				} `json:"data"`
+			}
+
+			if err := json.Unmarshal([]byte(stdout.String()), &envelope); err != nil {
+				t.Fatalf("json.Unmarshal(%q) = %v, want valid JSON", stdout.String(), err)
+			}
+
+			if envelope.Data.Xdebug {
+				t.Fatalf("data.xdebug = true, want false")
+			}
+
+			if strings.Contains(stdout.String(), `"version"`) || strings.Contains(stdout.String(), `"settings"`) {
+				t.Fatalf("stdout = %q, want no version/host/settings keys at all", stdout.String())
+			}
+		})
+	}
+}
+
+// TestWhatDebugOnAsksOnMac proves the macOS success path end to end: no host-patching Exec
+// calls, but the uncomment Exec, the warning line, CopyFrom, Restart, and the completed readback
+// with host reported as absent. Skipped off macOS the same way TestTheInvocationsThatRewriteThe
+// HostsTree is: debug-on branches on the real runtime.GOOS, with no override.
+func TestWhatDebugOnAsksOnMac(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("the macOS copy branch only exists on macOS")
+	}
+
+	root := "/code/shop"
+
+	fake := answering(t)
+	fake.project = core.Project{Name: "shop", Root: root}
+	cwd := here()
+	fake.outcomes = []outcome{
+		{}, {captured: ""}, {},
+		{}, {},
+		{}, {captured: phpVWithXdebugV3}, {captured: phpIWithBothVersionFamilies},
+	}
+
+	stdout := &strings.Builder{}
+
+	code := debugOn(stdout, io.Discard, false)
+
+	if code != exitOK {
+		t.Fatalf("debug-on on macOS = %d, want exitOK", code)
+	}
+
+	want := []call{
+		{Method: "Resolve", Dir: cwd},
+		{Method: "XdebugHost"},
+		{Method: "Exec", Dir: root, Service: phpService,
+			Command: []string{"sed", "-i", "-e", "s/^;zend_extension/zend_extension/g",
+				"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
+			Options: terminalOptions("")},
+		{Method: "Resolve", Dir: cwd},
+		{Method: "CopyFrom", Dir: cwd, Paths: []string{"generated"}},
+		{Method: "Restart", Dir: root, Services: []string{phpService}},
+		{Method: "Capture", Dir: root, Service: phpService, Command: []string{"php", "-v"}},
+		{Method: "Capture", Dir: root, Service: phpService, Command: []string{"php", "-i"}},
+	}
+
+	if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
+		t.Fatalf("asked of the engine on macOS (-want +got):\n%s", diff)
+	}
+
+	printed := stdout.String()
+
+	if !strings.Contains(printed, "Copying generated code into host") {
+		t.Fatalf("stdout = %q, want the warning line before the copy", printed)
+	}
+
+	if !strings.Contains(printed, "xdebug.client_host") {
+		t.Fatalf("stdout = %q, want the v3 settings read back", printed)
+	}
+}
+
+// TestAFailedDebugOnCaptureIsReported proves both Capture calls are wrapped through failure()
+// with a named step, whether they answer a non-zero status or a Go-level error — unlike the
+// restart's own raw-passthrough status — and that a failing first call never lets a second one
+// happen.
+func TestAFailedDebugOnCaptureIsReported(t *testing.T) {
+	root := "/code/shop"
+	host := "172.17.0.1"
+
+	baseOutcomes := func() []outcome {
+		outcomes := []outcome{{}, {captured: host}, {}, {}, {}}
+		outcomes = append(outcomes, macCopyOutcomes()...)
+		outcomes = append(outcomes, outcome{})
+
+		return outcomes
+	}
+
+	t.Run("the first capture, status", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+		fake.outcomes = append(baseOutcomes(), outcome{status: 7})
+		wantLen := len(fake.outcomes)
+		stderr := &strings.Builder{}
+
+		code := debugOn(io.Discard, stderr, false)
+
+		if code != 7 {
+			t.Fatalf("debug-on with a failed first capture = %d, want the container's own 7", code)
+		}
+
+		if len(fake.calls) != wantLen {
+			t.Fatalf("debug-on asked the engine %d things, want exactly %d — no second Capture",
+				len(fake.calls), wantLen)
+		}
+
+		if !strings.Contains(stderr.String(), "Xdebug version") {
+			t.Fatalf("stderr = %q, want a line naming the version read as the failing step", stderr.String())
+		}
+	})
+
+	t.Run("the first capture, error", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+		fake.outcomes = append(baseOutcomes(), outcome{err: errors.New("docker: no")})
+		wantLen := len(fake.outcomes)
+
+		code := debugOn(io.Discard, io.Discard, false)
+
+		if code != exitDocker {
+			t.Fatalf("debug-on with a first-capture error = %d, want exitDocker", code)
+		}
+
+		if len(fake.calls) != wantLen {
+			t.Fatalf("debug-on asked the engine %d things, want exactly %d — no second Capture",
+				len(fake.calls), wantLen)
+		}
+	})
+
+	t.Run("the second capture, status", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+		fake.outcomes = append(baseOutcomes(), outcome{captured: phpVWithXdebugV2}, outcome{status: 9})
+		stderr := &strings.Builder{}
+
+		code := debugOn(io.Discard, stderr, false)
+
+		if code != 9 {
+			t.Fatalf("debug-on with a failed second capture = %d, want the container's own 9", code)
+		}
+
+		if !strings.Contains(stderr.String(), "settings") {
+			t.Fatalf("stderr = %q, want a line naming the settings read as the failing step", stderr.String())
+		}
+	})
+
+	t.Run("the second capture, error", func(t *testing.T) {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: root}
+		fake.outcomes = append(baseOutcomes(),
+			outcome{captured: phpVWithXdebugV3}, outcome{err: errors.New("docker: no")})
+
+		code := debugOn(io.Discard, io.Discard, false)
+
+		if code != exitDocker {
+			t.Fatalf("debug-on with a second-capture error = %d, want exitDocker", code)
+		}
+	})
+}
+
 func TestOutsideAProjectNothingIsAsked(t *testing.T) {
 	fake := answering(t) // fake.project stays at its zero value: no project
 	cwd := here()
