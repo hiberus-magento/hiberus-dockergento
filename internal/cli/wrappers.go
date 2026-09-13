@@ -266,6 +266,112 @@ func debugOff(stdout, stderr io.Writer, jsonOutput bool) int {
 }
 
 //
+// Parsing php -v and php -i for debug-on's readback. Pure string -> value functions with no
+// engine and no caller yet: debug-on itself lands in a later slice.
+//
+
+// xdebugVersion is the `grep "Xdebug v"` equivalent (debug-on.sh:27): it finds the line inside
+// php -v's output that names Xdebug and its version, verbatim, and classifies it.
+//
+// version is that line, or "" when php -v carries no such line at all — the case the shell's own
+// `set -euo pipefail` aborted on before ever reaching its own else clause (debug-on.sh:36).
+// family is "v2" or "v3" when the line contains that substring, or "" for either an absent line
+// or one that matches neither — the shell's own if/elif/else chain (debug-on.sh:31-36), ported
+// directly rather than reinterpreted.
+func xdebugVersion(phpVOutput string) (version, family string) {
+	for _, line := range strings.Split(phpVOutput, "\n") {
+		if strings.Contains(line, "Xdebug v") {
+			version = line
+
+			break
+		}
+	}
+
+	switch {
+	case strings.Contains(version, "v2."):
+		family = "v2"
+	case strings.Contains(version, "v3."):
+		family = "v3"
+	}
+
+	return version, family
+}
+
+// xdebugSettingKeys is which ini keys each version family reads back — the exact sets
+// debug-on.sh:32 and :34 grep for. v2 and v3 share xdebug.idekey and otherwise disagree: v2's
+// settings are named remote_host/remote_port, v3's client_host/client_port. An unrecognized
+// family, including "" for Xdebug absent, selects nothing.
+func xdebugSettingKeys(family string) []string {
+	switch family {
+	case "v2":
+		return []string{"xdebug.idekey", "xdebug.remote_host", "xdebug.remote_port"}
+	case "v3":
+		return []string{"xdebug.idekey", "xdebug.client_host", "xdebug.client_port"}
+	default:
+		return nil
+	}
+}
+
+// xdebugSetting is one selected line of php -i's output, its ini key and the value read back for
+// it — already split apart, rather than left as one "key=value" string, because a caller (the
+// --json envelope) wants the value on its own.
+type xdebugSetting struct {
+	Key   string
+	Value string
+}
+
+// xdebugSettings is the `php -i | grep -e ... -e ... -e ... | cut -d= -f1-2` equivalent
+// (debug-on.sh:32, :34): for a recognized family it selects only the lines naming its own keys,
+// in the order php -i itself printed them, and trims each to its key and value. A line naming a
+// key outside the given family's set — the other family's host/port pair, on a fixture carrying
+// both — is never selected, regardless of where it sits in the output.
+func xdebugSettings(phpIOutput, family string) []xdebugSetting {
+	keys := xdebugSettingKeys(family)
+	if len(keys) == 0 {
+		return nil
+	}
+
+	var selected []xdebugSetting
+
+	for _, line := range strings.Split(phpIOutput, "\n") {
+		key, ok := xdebugSettingKeyIn(line, keys)
+		if !ok {
+			continue
+		}
+
+		selected = append(selected, xdebugSetting{Key: key, Value: xdebugSettingValue(line)})
+	}
+
+	return selected
+}
+
+// xdebugSettingKeyIn reports which of the wanted keys, if any, this php -i line names.
+func xdebugSettingKeyIn(line string, keys []string) (string, bool) {
+	for _, key := range keys {
+		if strings.Contains(line, key) {
+			return key, true
+		}
+	}
+
+	return "", false
+}
+
+// xdebugSettingValue trims a php -i line to its value — the `cut -d= -f1-2` equivalent's second
+// half. php -i prints each setting's local value and its master value duplicated
+// ("key => value => value"); this keeps only the first, with the stray leading ">" — php -i's
+// own "key => value" column separator — and surrounding whitespace removed from both cuts.
+func xdebugSettingValue(line string) string {
+	_, after, found := strings.Cut(line, "=")
+	if !found {
+		return ""
+	}
+
+	value, _, _ := strings.Cut(after, "=")
+
+	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(value), ">"))
+}
+
+//
 // Moving a project's files between this machine and its container.
 //
 // Only on macOS is this something anybody has to think about: there the code lives in a volume

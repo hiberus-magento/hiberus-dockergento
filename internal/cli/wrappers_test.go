@@ -771,3 +771,157 @@ func TestMysqldumpWithNoPathIsRefused(t *testing.T) {
 		t.Fatalf("mysqldump with no path asked the engine %v, want nothing asked at all", fake.calls)
 	}
 }
+
+//
+// The two pure parsers debug-on's readback will use: no engine, no caller yet. Fixture-testable
+// on any runner, no t.Skip.
+//
+
+const phpVWithXdebugV2 = `PHP 7.4.33 (cli) (built: Nov 14 2022 18:31:42) ( NTS )
+Copyright (c) The PHP Group
+Zend Engine v3.4.0, Copyright (c) Zend Technologies
+    with Zend OPcache v7.4.33, Copyright (c), by Zend Technologies
+    with Xdebug v2.9.8, Copyright (c) 2020, by Derick Rethans
+`
+
+const phpVWithXdebugV3 = `PHP 8.1.27 (cli) (built: Nov 19 2023 00:00:00) (NTS)
+Copyright (c) The PHP Group
+Zend Engine v4.1.27, Copyright (c) Zend Technologies
+    with Zend OPcache v8.1.27, Copyright (c), by Zend Technologies
+    with Xdebug v3.1.5, Copyright (c) 2002-2021, by Derick Rethans
+`
+
+// phpVWithNoXdebugAtAll carries no line containing "Xdebug v" at all — not one where such a line
+// merely sits late — the case the shell's own `set -euo pipefail` aborted on before ever reaching
+// its own else clause (debug-on.sh:27, :36).
+const phpVWithNoXdebugAtAll = `PHP 8.1.27 (cli) (built: Nov 19 2023 00:00:00) (NTS)
+Copyright (c) The PHP Group
+Zend Engine v4.1.27, Copyright (c) Zend Technologies
+    with Zend OPcache v8.1.27, Copyright (c), by Zend Technologies
+`
+
+// phpVWithUnrecognizedXdebugVersion matches "Xdebug v" but neither "v2." nor "v3." — the only
+// case the shell's own else branch (debug-on.sh:35-36) could ever actually reach.
+const phpVWithUnrecognizedXdebugVersion = `PHP 8.3.0 (cli) (built: Nov 19 2024 00:00:00) (NTS)
+Copyright (c) The PHP Group
+Zend Engine v4.3.0, Copyright (c) Zend Technologies
+    with Zend OPcache v8.3.0, Copyright (c), by Zend Technologies
+    with Xdebug v4.0.0, Copyright (c) 2002-2024, by Derick Rethans
+`
+
+func TestXdebugVersionClassifiesPhpVOutput(t *testing.T) {
+	cases := []struct {
+		name       string
+		output     string
+		wantFamily string
+	}{
+		{"a v2 version line", phpVWithXdebugV2, "v2"},
+		{"a v3 version line", phpVWithXdebugV3, "v3"},
+		{"no Xdebug line at all", phpVWithNoXdebugAtAll, ""},
+		{"Xdebug v4, matching neither v2 nor v3", phpVWithUnrecognizedXdebugVersion, ""},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			_, family := xdebugVersion(tt.output)
+
+			if family != tt.wantFamily {
+				t.Fatalf("xdebugVersion(%q) family = %q, want %q", tt.output, family, tt.wantFamily)
+			}
+		})
+	}
+}
+
+func TestXdebugVersionExtractsTheLineVerbatim(t *testing.T) {
+	version, _ := xdebugVersion(phpVWithXdebugV3)
+
+	want := "    with Xdebug v3.1.5, Copyright (c) 2002-2021, by Derick Rethans"
+	if version != want {
+		t.Fatalf("xdebugVersion(...) version = %q, want %q", version, want)
+	}
+
+	if version, _ := xdebugVersion(phpVWithNoXdebugAtAll); version != "" {
+		t.Fatalf("xdebugVersion(no Xdebug line) version = %q, want \"\"", version)
+	}
+}
+
+// phpIWithBothVersionFamilies is the discriminating fixture: it carries both
+// xdebug.remote_host/xdebug.remote_port (v2) and xdebug.client_host/xdebug.client_port (v3),
+// alongside the idekey they share and an unrelated key neither selection should ever return. A
+// v3 selection that wrongly also accepted a v2 key cannot pass here by the v2 key merely being
+// absent — and the same holds in the opposite direction.
+const phpIWithBothVersionFamilies = `xdebug.mode => debug,develop => debug,develop
+xdebug.client_host => no value => no value
+xdebug.client_port => 9003 => 9003
+xdebug.idekey => VSCODE => VSCODE
+xdebug.remote_host => no value => no value
+xdebug.remote_port => 9000 => 9000
+xdebug.start_with_request => yes => yes
+`
+
+func TestXdebugSettingsSelectsOnlyTheGivenFamilysKeys(t *testing.T) {
+	t.Run("v2 selects only the remote_* pair and idekey", func(t *testing.T) {
+		got := xdebugSettings(phpIWithBothVersionFamilies, "v2")
+
+		keys := xdebugSettingKeysOf(got)
+		want := []string{"xdebug.idekey", "xdebug.remote_host", "xdebug.remote_port"}
+
+		if diff := cmp.Diff(want, keys); diff != "" {
+			t.Fatalf("xdebugSettings(..., \"v2\") keys (-want +got):\n%s", diff)
+		}
+
+		for _, setting := range got {
+			if setting.Key == "xdebug.client_host" || setting.Key == "xdebug.client_port" {
+				t.Fatalf("xdebugSettings(..., \"v2\") wrongly selected the v3 key %q", setting.Key)
+			}
+		}
+	})
+
+	t.Run("v3 selects only the client_* pair and idekey, on the same fixture", func(t *testing.T) {
+		got := xdebugSettings(phpIWithBothVersionFamilies, "v3")
+
+		// Selection order follows php -i's own line order, the same as the shell's
+		// `grep -e ... -e ... -e ...` does — not the order the wanted keys are listed in. On
+		// this fixture that means client_host and client_port (which sit earlier in the
+		// output) before idekey.
+		keys := xdebugSettingKeysOf(got)
+		want := []string{"xdebug.client_host", "xdebug.client_port", "xdebug.idekey"}
+
+		if diff := cmp.Diff(want, keys); diff != "" {
+			t.Fatalf("xdebugSettings(..., \"v3\") keys (-want +got):\n%s", diff)
+		}
+
+		for _, setting := range got {
+			if setting.Key == "xdebug.remote_host" || setting.Key == "xdebug.remote_port" {
+				t.Fatalf("xdebugSettings(..., \"v3\") wrongly selected the v2 key %q", setting.Key)
+			}
+		}
+	})
+
+	t.Run("neither family selects nothing", func(t *testing.T) {
+		if got := xdebugSettings(phpIWithBothVersionFamilies, ""); len(got) != 0 {
+			t.Fatalf("xdebugSettings(..., \"\") = %v, want nothing selected", got)
+		}
+	})
+}
+
+func TestXdebugSettingsTrimsToKeyAndValue(t *testing.T) {
+	got := xdebugSettings(phpIWithBothVersionFamilies, "v2")
+
+	for _, setting := range got {
+		if setting.Key == "xdebug.remote_port" && setting.Value != "9000" {
+			t.Fatalf("xdebugSettings(...) xdebug.remote_port value = %q, want %q", setting.Value, "9000")
+		}
+	}
+}
+
+// xdebugSettingKeysOf is a small test helper: the key half of each selected setting, in
+// selection order, which is what the discriminating assertions above compare.
+func xdebugSettingKeysOf(settings []xdebugSetting) []string {
+	keys := make([]string, len(settings))
+	for i, setting := range settings {
+		keys[i] = setting.Key
+	}
+
+	return keys
+}
