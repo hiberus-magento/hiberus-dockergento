@@ -243,6 +243,23 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         itself» —, porque vive dentro de un requisito de unas 600 líneas que cubre `debug-off`,
         `magento` y `logs`, y el flujo de MODIFIED obligaría a copiarlo entero para arreglar una
         cláusula cuya conclusión el borrado sólo refuerza.
+  - [x] El mismo paso, para `debug-off` — decimonoveno comando retirado así.
+        `console/commands/debug-off.sh` (9 líneas) está borrado; quedan 48 ficheros en
+        `console/commands/`. Nada en el repositorio lo nombraba: ni una suite, ni el dashboard, ni
+        otro script. Como con `debug-on`, apartarlo y correr la suite entera no cambió nada — 59 de
+        1006 aserciones fallaban antes y después, las mismas siete suites, diff vacío entre las dos
+        corridas contra un `DOCKER_HOST` inalcanzable. Tampoco aquí se retira comparación de
+        paridad alguna, porque nunca la hubo.
+
+        Con él se va **uno de los cinco llamadores de `exec.sh`**. Quedan cuatro: `magento.sh`,
+        `bash.sh`, `create-project.sh` y `composer.sh`. `exec.sh` no puede retirarse hasta que se
+        vayan los cuatro, y ninguno está portado todavía.
+
+        El script llevaba un escape muerto que el port ya había dejado fuera:
+        `s/^\zend_extension/;zend_extension/g`, donde `\z` no significa nada en una expresión
+        regular de `sed` y sólo funcionaba porque se reduce a la `z` literal. Queda dicho aquí
+        porque es el mismo hallazgo que `varnish-on` dio en su día, y es el tipo de detalle que un
+        port transcrito arrastraría sin mirarlo.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
