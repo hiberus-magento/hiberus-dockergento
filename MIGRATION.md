@@ -69,6 +69,35 @@ sus entradas son funciones de bash.
 como cobertura que desaparece. Las de Go van primero, porque son segundos y no tiene sentido
 enterarse de que fallan después de veinte minutos de Docker.
 
+### Cómo se ejecuta el tercer paso
+
+**Antes de borrar un gemelo de shell: apártalo, corre la suite entera, anota qué se rompe,
+restáuralo, repara, y entonces bórralo.** Una comprobación textual vale para saber dónde mirar.
+Nunca es prueba de ausencia.
+
+Está escrito porque costó tres intentos aprenderlo, en la retirada de `list`, `describe` y `logs`:
+
+1. **Sin comprobación.** Un ciclo anterior borró `version.sh` sin mirar nada. Cuatro aserciones
+   fallaron durante un día, y dos pasaron por el motivo equivocado.
+2. **Grep por nombre de comando.** Entre 21 y 34 ficheros, casi todos falsos positivos, porque
+   `list` es además subcomando de `db`, `worktree`, `proxy` y `snapshot`.
+3. **Grep resolviendo además la variable del punto de entrada.** Se escribió a mitad de ciclo como
+   "la comprobación que funciona" y **también estaba mal**: enumeraba los wrappers que alguien ya
+   conocía — `$HM`, `$SHELL_CLI`, `$GO_BINARY`, `run_in_lab`, `both` — y se dejó dos suites cuyo
+   helper se llama simplemente `run`. Una enumeración de los wrappers que conoces no puede
+   encontrar el que no conoces.
+4. **Apartar los ficheros y correrlo todo.** Encontró las dos suites perdidas, y una tercera que
+   ningún grep de invocaciones habría visto jamás: `tests/unit/tui_actions_test.sh` comprueba que
+   cada comando ofrecido por el dashboard tenga su `.sh`, y no invoca nada.
+
+Si la suite completa toca el daemon y no puedes dejarla, corre las dos veces —con los ficheros y
+sin ellos— contra un `DOCKER_HOST` inalcanzable, y quédate con la **diferencia**: el ruido aparece
+igual en ambas y se cancela. Restaura copiando el respaldo encima, nunca con `git checkout <fichero>`,
+que en este repo ya revirtió una unidad entera sin commitear dejando `git status` limpio.
+
+Y una lectura que conviene hacer cada vez: si borrar la implementación de shell no rompe **nada**,
+es que nadie la estaba probando. El verde es ausencia de cobertura, no presencia de prueba.
+
 ### Cómo se escriben
 
 Las convenciones son las de la comunidad de Go, no unas nuestras:

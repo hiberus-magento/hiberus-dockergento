@@ -204,7 +204,7 @@ DOCKER_COMPOSE="docker-compose -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_M
 | `REQUIREMENTS` | version_manager.sh | JSON with service versions | '{"php":"8.2-buster",...}' |
 | `MAGENTO_VERSION` | input_info.sh | Selected Magento version | "2.4.6" |
 | `MAGENTO_EDITION` | input_info.sh | Magento edition | "community" or "enterprise" |
-| `XDEBUG_HOST` | set_xdebug_host_property.sh | Host IP for xDebug | "host.docker.internal" |
+| `XDEBUG_HOST` | retired — see 5.8.1 | Host IP for xDebug, resolved in Go | empty on macOS; `docker0`'s inet address on Linux |
 | `USE_DEFAULT_SETTINGS` | Command arguments | Use default settings | true/false |
 
 #### 5.4.2 Color Variables (UI)
@@ -363,30 +363,55 @@ exit code 0 → Continue
 
 #### 5.8.1 xDebug
 
-**Configuration**: `console/tasks/set_xdebug_host_property.sh`
+**Owner**: the Go binary. `hm debug-on` is `internal/cli`'s `debugOn`, and the host is resolved by
+`dockergento/adapters/machine/xdebug_host.go`. The shell twin
+(`console/tasks/set_xdebug_host_property.sh`) was retired once the port was proved.
+
+> **This section was wrong in every particular until 2026-09-13**, and the correction is recorded
+> rather than quietly applied. It described a macOS default of `host.docker.internal`, a Linux
+> lookup of the **default gateway**, and activation by renaming a `.ini.disabled` file. None of
+> those was ever implemented — not by the shell, not by the Go port. Nothing enforces this document,
+> which is how it stayed wrong across three cycles while reading as authoritative.
+
+**Host resolution** — the address xdebug inside the container calls back to reach the IDE:
+
+| Platform | Answer | Why |
+|---|---|---|
+| macOS | **not applicable** — empty, and no patch is made | the IDE is reachable without one; the handler skips the host edit entirely |
+| WSL2 | `host.docker.internal` | matched on `microsoft-standard` in `/proc/version` |
+| WSL1 | `10.0.75.1` | matched on `Microsoft` in `/proc/version` |
+| Other Linux | `docker0`'s own **inet** address | `ip addr show docker0`, falling back to `ifconfig docker0` |
+| Linux, unresolvable | **a failure**, exit non-zero | `ErrNoBridgeAddress` |
+
+Three details are load-bearing and easy to get wrong when reading the code quickly:
+
+- **`microsoft-standard` is tested before `Microsoft`**, inverting the shell's original order. A WSL2
+  kernel string can carry a capital-M `Microsoft` token in a build-host field; checking the more
+  specific token first is what stops it being misdetected as WSL1 and handed the wrong address.
+- **The `docker0` lookup excludes `inet6`.** Both share the `inet` prefix and name different address
+  families. Real `ip` output lists `inet` before `inet6`, so a parser that matched both would
+  usually return the right address anyway — by ordering, not by correctness.
+- **"Not applicable" and "applicable but unresolved" are distinct answers.** macOS is `("", nil)`;
+  a Linux box whose bridge cannot be found is `("", ErrNoBridgeAddress)` and refuses. Collapsing
+  them would make a normal Mac indistinguishable from a broken Linux machine.
+
+**Activation / deactivation** — a `sed` on the extension's ini, not a rename:
 
 ```bash
-# macOS: Docker Desktop provides host.docker.internal
-if [[ "$MACHINE" == "mac" ]]; then
-    XDEBUG_HOST="host.docker.internal"
-# Linux: Get Docker gateway IP
-else
-    XDEBUG_HOST=$(/sbin/ip route | awk '/default/ { print $3 }')
-fi
+# hm debug-on  — uncomment the extension, patch the host if one resolved, restart phpfpm
+sed -i -e 's/^;zend_extension/zend_extension/g' /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
-export XDEBUG_HOST="$XDEBUG_HOST"
+# hm debug-off — comment it back out, restart phpfpm
+sed -i -e 's/^zend_extension/;zend_extension/g' /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 ```
 
-**Activation/Deactivation**:
-```bash
-# hm debug-on
-$DOCKER_COMPOSE exec phpfpm bash -c "rm /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini.disabled"
-hm restart phpfpm
+The host patch, when a host resolved, targets a **different file** — `xdebug.ini`, not
+`docker-php-ext-xdebug.ini` — and rewrites `xdebug.remote_host` (v2) and `xdebug.client_host` (v3).
 
-# hm debug-off
-$DOCKER_COMPOSE exec phpfpm bash -c "mv /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini.disabled"
-hm restart phpfpm
-```
+After the restart, `debug-on` reads back `php -v` for the Xdebug version and `php -i` for the
+relevant settings, whose key names differ between v2 (`remote_*`) and v3 (`client_*`). If Xdebug is
+not installed at all, it says so and exits **0** — the edits and the restart already succeeded, so
+there is nothing to report as failure.
 
 #### 5.8.2 Masquerade (Anonymization)
 
