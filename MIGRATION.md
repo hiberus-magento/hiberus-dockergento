@@ -83,7 +83,7 @@ Está escrito porque costó tres intentos aprenderlo, en la retirada de `list`, 
    `list` es además subcomando de `db`, `worktree`, `proxy` y `snapshot`.
 3. **Grep resolviendo además la variable del punto de entrada.** Se escribió a mitad de ciclo como
    "la comprobación que funciona" y **también estaba mal**: enumeraba los wrappers que alguien ya
-   conocía — `$HM`, `$SHELL_CLI`, `$GO_BINARY`, `run_in_lab`, `both` — y se dejó dos suites cuyo
+   conocía — `$HM`, `$SHELL_CLI`, `$GO_BINARY`, `run_in_lab`, `run_in`, `both` — y se dejó dos suites cuyo
    helper se llama simplemente `run`. Una enumeración de los wrappers que conoces no puede
    encontrar el que no conoces.
 4. **Apartar los ficheros y correrlo todo.** Encontró las dos suites perdidas, y una tercera que
@@ -215,6 +215,34 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         `tests/unit/command_safety_test.sh` ganó las tres en su lista `RETIRED`, en el mismo commit
         que borra los ficheros, para que la comprobación en ambas direcciones — fichero fuera,
         ruta dentro — también las cubra.
+  - [x] El mismo paso, para `debug-on` — decimoctavo comando retirado así. `console/commands/
+        debug-on.sh` (38 líneas) y `console/tasks/set_xdebug_host_property.sh` (19) están borrados;
+        quedan 49 ficheros en `console/commands/`. La tarea se va sin mecanismo propio: sólo la
+        cargaba `debug-on.sh` con `source`, y las tareas no se despachan, así que desaparece como
+        efecto del borrado del comando.
+
+        **Esta vez no hubo nada que reparar, y eso dice algo.** Apartar los dos ficheros y correr
+        la suite entera no cambió nada: 59 de 1003 aserciones fallaban antes y después, en las
+        mismas siete suites, con el diff entre las dos corridas vacío. Ninguna aserción de shell
+        nombraba este comando. No se retira ninguna comparación de paridad porque **nunca existió
+        ninguna**: `wrappers_test.go` prueba el handler de Go contra un fake, jamás contra la
+        salida real del script. Si borrar la implementación entera no rompe nada, es que nadie la
+        estaba probando — el verde es ausencia de cobertura, no presencia de prueba.
+
+        **Doce comentarios quedan citando un fichero que ya no está**, y es decisión, no descuido:
+        `internal/cli/wrappers.go` (`:376`, `:381`, `:468`, `:472`, `:474`, `:496`, `:519`),
+        `wrappers_test.go` (`:1476`, `:1484`) y `openspec/specs/go-entrypoint/spec.md` (`:466`,
+        `:570`, `:606`) citan `debug-on.sh:NN` como procedencia de un comportamiento portado. Siguen
+        siendo ciertos: afirman lo que el shell hacía, y borrarlo no lo desmiente. Los números de
+        línea son justo lo que los hace comprobables con `git show`. El coste, dicho y no escondido:
+        el primer instinto de quien los lea es abrir el fichero, y eso ahora falla doce veces —
+        `git show 8d0b74a^:console/commands/debug-on.sh` es donde está.
+
+        `openspec/specs/go-entrypoint/spec.md:606` conserva además una premisa que se queda vacía
+        — «GIVEN nothing in this repository sets `XDEBUG_HOST` except `set_xdebug_host_property.sh`
+        itself» —, porque vive dentro de un requisito de unas 600 líneas que cubre `debug-off`,
+        `magento` y `logs`, y el flujo de MODIFIED obligaría a copiarlo entero para arreglar una
+        cláusula cuya conclusión el borrado sólo refuerza.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.

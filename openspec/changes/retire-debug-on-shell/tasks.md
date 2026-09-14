@@ -20,20 +20,20 @@ Two commits, gated in this order because each half of commit 1 is red until the 
 Nothing in this commit may run against a live Docker daemon; every assertion added here refuses
 before reaching one.
 
-- [ ] **1.1** Delete `console/commands/debug-on.sh` (38 lines).
+- [x] **1.1** Delete `console/commands/debug-on.sh` (38 lines).
   - Spec: `openspec/changes/retire-debug-on-shell/specs/go-entrypoint/spec.md` — "Nothing under the
     shell tree implements it".
-- [ ] **1.2** Delete `console/tasks/set_xdebug_host_property.sh` (19 lines).
+- [x] **1.2** Delete `console/tasks/set_xdebug_host_property.sh` (19 lines).
   - Sourced only from `debug-on.sh:11`; disappears as a side effect, no retirement mechanism of its
     own, per the same spec scenario.
-- [ ] **1.3** `tests/unit/command_safety_test.sh` — add `debug-on` to the `RETIRED` array (currently
+- [x] **1.3** `tests/unit/command_safety_test.sh` — add `debug-on` to the `RETIRED` array (currently
     `:69-71`, 15 names). Update the stale count in the comment at `:64` ("over the twelve retired by
     name") to sixteen while those exact lines are open.
   - Must land in the **same commit** as 1.1/1.2: `command_safety_test.sh:76`
     (`[ -f "$COMMANDS_DIR/$name.sh" ] && drift="$drift ${name}(file)"`) reports `debug-on(file)` and
     goes red if `debug-on` is listed while the file still exists.
   - Spec: "The RETIRED list gains its name only once the file is gone".
-- [ ] **1.4** `tests/integration/cli_contract_test.sh` — add one `debug-on` pair immediately after the
+- [x] **1.4** `tests/integration/cli_contract_test.sh` — add one `debug-on` pair immediately after the
     `version` pair (`:87-94`, 8 lines), following that exact shape:
   - `test_case "and so does debug-on, once its own shell twin is gone"` / `run debug-on` /
     `assert_equals "2" "$STATUS"` / `assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"`
@@ -44,7 +44,7 @@ before reaching one.
     absent, and with it present the script would execute, reaching
     `start_service_if_not_running.sh` — a live-daemon touch this change forbids.
   - Spec: "Asking the shell entry point for a retired command".
-- [ ] **1.5** Merge the spec delta: fold
+- [x] **1.5** Merge the spec delta: fold
     `openspec/changes/retire-debug-on-shell/specs/go-entrypoint/spec.md`'s `MODIFIED Requirements`
     block into `openspec/specs/go-entrypoint/spec.md`, replacing the "A command proved in Go has no
     shell twin" requirement at `:1011-1063` (fifteen-name enumeration, singular-`describe` scenario
@@ -54,12 +54,12 @@ before reaching one.
 
 ### Mutation check for commit 1 (perform, do not skip)
 
-- [ ] **1.6** Restore `console/commands/debug-on.sh` from the parent commit
+- [x] **1.6** Restore `console/commands/debug-on.sh` from the parent commit
     (`git show <parent>:console/commands/debug-on.sh > console/commands/debug-on.sh`) with the
     `RETIRED` entry and both new assertions still in place. Run
     `./tests/run.sh unit` (not `tests/unit` — see Verification below) and confirm
     `command_safety_test.sh` reports `debug-on(file)` and the suite goes red.
-- [ ] **1.7** Remove the restored file again (`rm console/commands/debug-on.sh`, or `git checkout`
+- [x] **1.7** Remove the restored file again (`rm console/commands/debug-on.sh`, or `git checkout`
     only after confirming no other uncommitted change would be lost) and re-run
     `./tests/run.sh unit`; confirm it goes green again. This is the same check the previous cycle ran
     for its own three deletions (`command_safety_test.sh` reporting `list(file) describe(file)
@@ -67,22 +67,22 @@ before reaching one.
 
 ### Verification for commit 1
 
-- [ ] **1.8** `go test ./...` — compare against the baseline (461 across 24 packages); expect no
+- [x] **1.8** `go test ./...` — compare against the baseline (461 across 24 packages); expect no
     change, since no Go source is touched.
-- [ ] **1.9** `go vet ./...` — clean.
-- [ ] **1.10** `gofmt -l ./internal ./cmd` and `gofmt -l ./dockergento` — both empty, since no Go is
+- [x] **1.9** `go vet ./...` — clean.
+- [x] **1.10** `gofmt -l ./internal ./cmd` and `gofmt -l ./dockergento` — both empty, since no Go is
     written.
-- [ ] **1.11** `./tests/run.sh unit` — argument is exactly `unit`; `tests/unit` resolves to
+- [x] **1.11** `./tests/run.sh unit` — argument is exactly `unit`; `tests/unit` resolves to
     `tests/tests/unit` under `run.sh`'s own resolution (`:81` checks `-d "$TESTS_DIR/$target"`), which
     does not exist, silently falls through to `:83`, and runs the entire suite instead of the fast
     slice.
-- [ ] **1.12** `./tests/run.sh` (no argument, full suite) with `DOCKER_HOST` pinned at an unreachable
+- [x] **1.12** `./tests/run.sh` (no argument, full suite) with `DOCKER_HOST` pinned at an unreachable
     socket, exactly as the move-aside experiment was run — never against the live daemon. Diff the
     output (paths and timings filtered) against the recorded baseline (59 of 1003 assertions failing,
     the same seven suites: `cli_contract`, `concurrent_safety`, `go_engine`, `go_passthrough`,
     `logs_launch_version`, `tui_dashboard`, `worktree`). Any new failure or a changed failure count is
     a regression this change introduced; the experiment already measured that none should appear.
-- [ ] **1.13** `migration_status_test.sh` still passes with `MIGRATION.md`'s counter unchanged at
+- [x] **1.13** `migration_status_test.sh` still passes with `MIGRATION.md`'s counter unchanged at
     `34 de 65` — this cycle ports no command, and `debug-on` is already tabled `go` at
     `MIGRATION.md:261`, untouched by this cycle.
 
@@ -93,12 +93,12 @@ before reaching one.
 Strictly after commit 1: both edits below assert the shell script is gone, and asserting that before
 the commit that makes it true is the exact shape the previous cycle flagged as its own warning.
 
-- [ ] **2.1** `architecture/05-state-and-configuration.md:207` (the `XDEBUG_HOST` table row) — correct
+- [x] **2.1** `architecture/05-state-and-configuration.md:207` (the `XDEBUG_HOST` table row) — correct
     the example value. It currently reads `"host.docker.internal"`, presented as the general default;
     that is the WSL2 answer (`xdebug_host.go:62-64`, `hostFromProcVersion`'s `microsoft-standard`
     branch), not the general one. State that the value is host- and platform-dependent and point at
     §5.8.1 rather than giving one example as if it were universal.
-- [ ] **2.2** `architecture/05-state-and-configuration.md` §5.8.1 (`:364-389`, not `:364-384` — the
+- [x] **2.2** `architecture/05-state-and-configuration.md` §5.8.1 (`:364-389`, not `:364-384` — the
     section runs through the `hm debug-off` half of the activation snippet at `:386-388`, which is
     wrong in the same way as the rest and must be replaced too). Rewrite against
     `dockergento/adapters/machine/xdebug_host.go` (`Host.XdebugHost`, `hostFromProcVersion`,
@@ -123,12 +123,12 @@ the commit that makes it true is the exact shape the previous cycle flagged as i
   - State plainly that `console/commands/debug-on.sh` and
     `console/tasks/set_xdebug_host_property.sh` no longer exist.
   - Bound: 60 lines for this subsection; if the rewrite grows past that, trim rather than exceed.
-- [ ] **2.3** `MIGRATION.md` — add the third-step note for `debug-on`, beside the existing ones at
+- [x] **2.3** `MIGRATION.md` — add the third-step note for `debug-on`, beside the existing ones at
     `:157-188` (the twelve-command note and the `list`/`describe`/`logs` note), following their shape:
     name both deleted files and their line counts, state that `debug-on`'s own engine-interaction test
     already covers its behavior (from the earlier `debug-on-handler` cycle), and that
     `command_safety_test.sh` gained the name in the same commit that deleted the file.
-- [ ] **2.4** `MIGRATION.md` — add the move-aside rule itself, beside the note for the twelve
+- [x] **2.4** `MIGRATION.md` — add the move-aside rule itself, beside the note for the twelve
     (near `:62-66`, where the three-step port/prove/delete rule already lives, or immediately
     following the twelve-command note at `:157-167` — either is "beside" it). This is a correction,
     not new process: `openspec/changes/archive/2026-09-11-retire-read-only-shell-commands/archive-report.md:57-59`
@@ -155,12 +155,12 @@ the commit that makes it true is the exact shape the previous cycle flagged as i
 
 ### Verification for commit 2
 
-- [ ] **2.5** No test enforces prose. Confirm by rereading `xdebug_host.go` and `wrappers.go`'s
+- [x] **2.5** No test enforces prose. Confirm by rereading `xdebug_host.go` and `wrappers.go`'s
     `debugOn` against the new §5.8.1 text line by line; nothing else catches a documentation error
     here.
-- [ ] **2.6** `migration_status_test.sh` still passes (the two new notes are prose outside the table
+- [x] **2.6** `migration_status_test.sh` still passes (the two new notes are prose outside the table
     the test parses; the table row for `debug-on` at `:261` and the `34 de 65` counter are unchanged).
-- [ ] **2.7** `go test ./...`, `go vet ./...`, `gofmt -l ./internal ./cmd`, `gofmt -l ./dockergento` —
+- [x] **2.7** `go test ./...`, `go vet ./...`, `gofmt -l ./internal ./cmd`, `gofmt -l ./dockergento` —
     unchanged from commit 1's results, since commit 2 touches no source or test file.
 
 ---
