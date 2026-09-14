@@ -10,7 +10,21 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Both, and macOS is not decoration. The tool has code that only runs there — the
+    # copy-from-container branch, the platform checks — and until now no runner ever executed it,
+    # because this job was ubuntu-only and release.yml's macOS job never ran a test. A test gated
+    # on runtime.GOOS does not fail on the other platform; it does not run, and the suite goes
+    # green having exercised nothing.
+    #
+    # That is not hypothetical. `hm debug-on --json` shipped a double JSON envelope on macOS and was
+    # caught by luck, because the person who wrote the test happened to be on a Mac.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -21,9 +35,12 @@ jobs:
           go-version: "1.25"
           cache: true
 
+      # ./dockergento is included deliberately: it is the whole hexagonal core, and the previous
+      # version of this check named only ./cmd and ./internal, so the package holding most of the
+      # Go code was never formatted-checked at all.
       - name: formato
         run: |
-          unformatted=$(gofmt -l ./cmd ./internal)
+          unformatted=$(gofmt -l ./cmd ./internal ./dockergento)
           if [ -n "$unformatted" ]; then
             echo "sin formatear:"; echo "$unformatted"; exit 1
           fi
@@ -40,5 +57,10 @@ jobs:
       # The shell implementation is still most of the tool, and it is what the binary delegates
       # to. Its unit suite runs here too: the parts that need Docker do not, and they are the
       # ones a runner cannot give.
+      #
+      # The argument is `unit`, not `tests/unit`. run.sh tests `-d "$TESTS_DIR/$target"`, so
+      # `tests/unit` resolves to `tests/tests/unit`, misses, and falls through to the branch that
+      # runs *every* suite in the repository — including the ones that want a daemon. This job has
+      # been doing that, under a name saying it ran the unit suite.
       - name: suite de bash (unidad)
-        run: ./tests/run.sh tests/unit
+        run: ./tests/run.sh unit
