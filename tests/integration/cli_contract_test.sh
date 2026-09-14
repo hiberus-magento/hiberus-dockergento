@@ -102,4 +102,13 @@ test_case "and the readable hint for describe names the binary command too"
 run --no-json describe
 assert_contains "$STDERR" "hm describe"
 
+test_case "and so does debug-on, once its own shell twin is gone"
+run debug-on
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for debug-on names the binary command too"
+run --no-json debug-on
+assert_contains "$STDERR" "hm debug-on"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
