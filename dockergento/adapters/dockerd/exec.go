@@ -15,6 +15,21 @@ import (
 // attaching: the answer to a query is something a caller reads, not something a terminal shows.
 type Runner struct {
 	Timeout time.Duration
+
+	// User is who the command runs as; empty is the container's own user. Root is for what only
+	// root may do, such as giving back to PHP a file the daemon's copy left belonging to root.
+	User string
+}
+
+// options is the exec every one of these creates, with the output attached.
+func (r Runner) options(command, environment []string) container.ExecOptions {
+	return container.ExecOptions{
+		User:         r.User,
+		Cmd:          command,
+		Env:          environment,
+		AttachStdout: true,
+		AttachStderr: true,
+	}
 }
 
 // Run executes the command and returns its own exit code.
@@ -33,12 +48,7 @@ func (r Runner) Run(id string, command []string, environment []string, out io.Wr
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	created, err := docker.ContainerExecCreate(ctx, id, container.ExecOptions{
-		Cmd:          command,
-		Env:          environment,
-		AttachStdout: true,
-		AttachStderr: true,
-	})
+	created, err := docker.ContainerExecCreate(ctx, id, r.options(command, environment))
 	if err != nil {
 		return 0, err
 	}
@@ -78,11 +88,7 @@ func (r Runner) Capture(id string, command []string, out, errors io.Writer) (int
 
 	ctx := context.Background()
 
-	created, err := docker.ContainerExecCreate(ctx, id, container.ExecOptions{
-		Cmd:          command,
-		AttachStdout: true,
-		AttachStderr: true,
-	})
+	created, err := docker.ContainerExecCreate(ctx, id, r.options(command, nil))
 	if err != nil {
 		return 0, err
 	}
@@ -121,12 +127,10 @@ func (r Runner) Feed(id string, command []string, in io.Reader, out io.Writer) (
 	// timeout would leave a database half replaced
 	ctx := context.Background()
 
-	created, err := docker.ContainerExecCreate(ctx, id, container.ExecOptions{
-		Cmd:          command,
-		AttachStdin:  true,
-		AttachStdout: true,
-		AttachStderr: true,
-	})
+	options := r.options(command, nil)
+	options.AttachStdin = true
+
+	created, err := docker.ContainerExecCreate(ctx, id, options)
 	if err != nil {
 		return 0, err
 	}

@@ -21,9 +21,13 @@ type Transfer struct {
 	Engine ports.ContainerEngine
 	Files  ports.FileTransfer
 
-	// Runner is how the ownership is put right afterwards: a file copied in belongs to root, and
-	// PHP runs as somebody else.
+	// Runner runs as the container's own user, which is who PHP is: a directory it makes for a
+	// copy to land in belongs to PHP from the start.
 	Runner ports.ContainerRunner
+
+	// Root is how the ownership is put right afterwards: a file copied in belongs to root, PHP
+	// runs as somebody else, and only root may give a file away.
+	Root ports.ContainerRunner
 
 	// Workdir is where the code lives inside the container.
 	Workdir string
@@ -134,9 +138,16 @@ func (t Transfer) From(project core.Project, paths []string) error {
 
 // mkdir makes a directory inside the container, and says nothing when it is already there.
 func (t Transfer) mkdir(container, target string) error {
-	_, err := t.Runner.Run(container, []string{"sh", "-c", "mkdir -p " + target}, nil, io.Discard)
+	code, err := t.Runner.Run(container, []string{"sh", "-c", "mkdir -p " + target}, nil, io.Discard)
+	if err != nil {
+		return err
+	}
 
-	return err
+	if code != 0 {
+		return fmt.Errorf("mkdir -p %s inside the container exited with %d", target, code)
+	}
+
+	return nil
 }
 
 // own puts the ownership right, because a file the daemon wrote belongs to root and PHP does not
@@ -146,10 +157,18 @@ func (t Transfer) own(container, target, owner string) error {
 		return nil
 	}
 
-	_, err := t.Runner.Run(container,
+	code, err := t.Root.Run(container,
 		[]string{"sh", "-c", "chown -R " + owner + " " + target}, nil, os.Stderr)
+	if err != nil {
+		return err
+	}
 
-	return err
+	// Ignored, this is a copy that looks finished and a Composer that later cannot write a file
+	if code != 0 {
+		return fmt.Errorf("chown -R %s %s inside the container exited with %d", owner, target, code)
+	}
+
+	return nil
 }
 
 // boundAt reports where a container path comes from the host, or nothing when it does not.

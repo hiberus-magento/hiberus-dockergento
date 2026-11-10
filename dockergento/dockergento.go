@@ -602,6 +602,7 @@ func (e *Engine) transfer(project core.Project) app.Transfer {
 		Engine:   dockerd.Engine{Timeout: e.options.Timeout},
 		Files:    dockerd.Files{},
 		Runner:   dockerd.Runner{},
+		Root:     dockerd.Runner{User: "root"},
 		Workdir:  e.Property(project, "WORKDIR_PHP"),
 		Announce: e.options.Announce,
 		Binary:   e.options.Binary,
