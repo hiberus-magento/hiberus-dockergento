@@ -8,6 +8,9 @@ red="\033[0;31m"
 brown="\033[0;33m"
 colorReset="\033[0m"
 
+# Where the hm command is linked; overridable so the link logic can be exercised without root
+HM_LINK="${HM_LINK:-/usr/local/bin/hm}"
+
 #
 # Check if dependencies are installed before starting
 #
@@ -108,42 +111,66 @@ download_binary() {
 }
 
 #
+# Run a command as root only when it needs to be: the folder that holds the link may already be
+# the user's own, as /usr/local/bin is under Homebrew
+#
+as_needed() {
+    if [ -w "$(dirname "$HM_LINK")" ]; then
+        "$@"
+    else
+        sudo "$@"
+    fi
+}
+
+#
 # Create binary link to hm command
 #
 create_link_to_command() {
-   # Create /usr/local/bin if not exits
-    if [ ! -d /usr/local/bin ]; then
-        sudo mkdir -p /usr/local/bin
+    local home="$HOME/hm"
+    local shell_entry="$home/bin/run"
+    local binary_entry="$home/bin/hm"
+    local link_dir
+    link_dir="$(dirname "$HM_LINK")"
+
+    # Create the folder that holds the link if it does not exist
+    if [ ! -d "$link_dir" ]; then
+        sudo mkdir -p "$link_dir"
     fi
 
-    local target="$HOME/hm/bin/run"
+    local target="$shell_entry"
 
-    if [ -x "$HOME/hm/bin/hm" ] || download_binary; then
-        target="$HOME/hm/bin/hm"
+    if [ -x "$binary_entry" ] || download_binary; then
+        target="$binary_entry"
     else
         echo -e "${orange}Could not fetch the compiled command; using the shell one.${colorReset}"
     fi
 
     # Link hm command
-    if [ ! -e /usr/local/bin/hm ] && [ ! -L /usr/local/bin/hm ]; then
-        sudo ln -s "$target" /usr/local/bin/hm
+    if [ ! -e "$HM_LINK" ] && [ ! -L "$HM_LINK" ]; then
+        as_needed ln -s "$target" "$HM_LINK"
         return
     fi
 
     # A link this installer made earlier is moved to the current target: one made while hm was
-    # shell only points at bin/run, and the shell no longer has the commands ported to the binary
+    # shell only points at bin/run, and the shell no longer has the commands ported to the binary.
+    # The reverse move happens too, when the binary could not be fetched this time
     local current
-    current="$(readlink /usr/local/bin/hm || true)"
+    current="$(readlink "$HM_LINK" || true)"
 
     if [ "$current" == "$target" ]; then
         return
     fi
 
-    if [ "$current" == "$HOME/hm/bin/run" ] || [ "$current" == "$HOME/hm/bin/hm" ]; then
-        sudo ln -sfn "$target" /usr/local/bin/hm
-        echo -e "${green}/usr/local/bin/hm now points at $target${colorReset}"
+    if [ "$current" != "$shell_entry" ] && [ "$current" != "$binary_entry" ]; then
+        echo -e "${orange}$HM_LINK is not a link this installer made; left as it is. To use this install: sudo ln -sfn $target $HM_LINK${colorReset}"
+        return
+    fi
+
+    if as_needed ln -sfn "$target" "$HM_LINK"; then
+        echo -e "${green}$HM_LINK now points at $target${colorReset}"
     else
-        echo -e "${orange}/usr/local/bin/hm is not a link this installer made; left as it is. To use this install: sudo ln -sfn $target /usr/local/bin/hm${colorReset}"
+        echo -e "${red}Could not move $HM_LINK to $target; it still points at $current. Run: sudo ln -sfn $target $HM_LINK${colorReset}"
+        return 1
     fi
 }
 

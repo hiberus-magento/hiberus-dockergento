@@ -357,13 +357,63 @@ assert_contains "$(cat "$COMMAND_BIN_DIR/.github/workflows/release.yml")" "GOOS=
 assert_contains "$(cat "$COMMAND_BIN_DIR/.github/workflows/release.yml")" "GOOS=darwin"
 
 test_case "the installer prefers the binary and falls back to the shell"
-assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$HOME/hm/bin/hm"'
-assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$HOME/hm/bin/run"'
+assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$binary_entry"'
+assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$shell_entry"'
 
 # A link made while hm was shell only points at bin/run; reinstalling must move it to the binary,
-# or every command already ported answers "part of the hm binary now"
-test_case "the installer moves its own earlier link to the current target"
-assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'if [ "$current" == "$HOME/hm/bin/run" ] || [ "$current" == "$HOME/hm/bin/hm" ]; then'
-assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'sudo ln -sfn "$target" /usr/local/bin/hm'
+# or every command already ported answers "part of the hm binary now". The link logic runs for
+# real against a link in the lab, which is writable, so nothing asks for root
+INSTALLER_FUNCTIONS="$LAB/installer-functions.sh"
+awk '/^as_needed\(\) \{/,/^}/; /^create_link_to_command\(\) \{/,/^}/' \
+    "$COMMAND_BIN_DIR/installer.sh" > "$INSTALLER_FUNCTIONS"
+
+INSTALL_HOME="$LAB/install-home"
+mkdir -p "$INSTALL_HOME/hm/bin"
+printf '#!/bin/sh\n' > "$INSTALL_HOME/hm/bin/run"
+printf '#!/bin/sh\n' > "$INSTALL_HOME/hm/bin/hm"
+chmod +x "$INSTALL_HOME/hm/bin/run" "$INSTALL_HOME/hm/bin/hm"
+
+# Runs create_link_to_command against a link at $1 and prints where the link ends up, then its output
+link_after_install() {
+    HOME="$INSTALL_HOME" HM_LINK="$1" bash -c '
+        green= orange= red= colorReset=
+        download_binary() { return 1; }
+        source "$0"
+        create_link_to_command
+    ' "$INSTALLER_FUNCTIONS" 2>&1
+    echo "LINK=$(readlink "$1" || echo none)"
+}
+
+test_case "the installer links the binary where there is no link yet"
+mkdir -p "$LAB/links/none"
+assert_contains "$(link_after_install "$LAB/links/none/hm")" "LINK=$INSTALL_HOME/hm/bin/hm"
+
+test_case "the installer moves its own earlier shell link to the binary"
+mkdir -p "$LAB/links/shell"
+ln -s "$INSTALL_HOME/hm/bin/run" "$LAB/links/shell/hm"
+OUTPUT=$(link_after_install "$LAB/links/shell/hm")
+assert_contains "$OUTPUT" "LINK=$INSTALL_HOME/hm/bin/hm"
+assert_contains "$OUTPUT" "now points at $INSTALL_HOME/hm/bin/hm"
+
+test_case "the installer leaves a link it did not make alone"
+mkdir -p "$LAB/links/foreign"
+ln -s /opt/elsewhere/hm "$LAB/links/foreign/hm"
+OUTPUT=$(link_after_install "$LAB/links/foreign/hm")
+assert_contains "$OUTPUT" "LINK=/opt/elsewhere/hm"
+assert_contains "$OUTPUT" "is not a link this installer made"
+
+test_case "the installer does not claim a move it could not make"
+mkdir -p "$LAB/links/locked"
+ln -s "$INSTALL_HOME/hm/bin/run" "$LAB/links/locked/hm"
+chmod a-w "$LAB/links/locked"
+# Writable check fails, so the move goes through sudo; a sudo that refuses stands in for a cancelled prompt
+mkdir -p "$LAB/no-sudo"
+printf '#!/bin/sh\nexit 1\n' > "$LAB/no-sudo/sudo"
+chmod +x "$LAB/no-sudo/sudo"
+OUTPUT=$(PATH="$LAB/no-sudo:$PATH" link_after_install "$LAB/links/locked/hm")
+chmod u+w "$LAB/links/locked"
+assert_contains "$OUTPUT" "LINK=$INSTALL_HOME/hm/bin/run"
+assert_contains "$OUTPUT" "Could not move"
+assert_not_contains "$OUTPUT" "now points at"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
