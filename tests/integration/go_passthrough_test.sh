@@ -360,4 +360,10 @@ test_case "the installer prefers the binary and falls back to the shell"
 assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$HOME/hm/bin/hm"'
 assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$HOME/hm/bin/run"'
 
+# A link made while hm was shell only points at bin/run; reinstalling must move it to the binary,
+# or every command already ported answers "part of the hm binary now"
+test_case "the installer moves its own earlier link to the current target"
+assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'if [ "$current" == "$HOME/hm/bin/run" ] || [ "$current" == "$HOME/hm/bin/hm" ]; then'
+assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'sudo ln -sfn "$target" /usr/local/bin/hm'
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

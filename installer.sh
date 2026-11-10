@@ -125,8 +125,25 @@ create_link_to_command() {
     fi
 
     # Link hm command
-    if [ ! -e /usr/local/bin/hm ]; then
+    if [ ! -e /usr/local/bin/hm ] && [ ! -L /usr/local/bin/hm ]; then
         sudo ln -s "$target" /usr/local/bin/hm
+        return
+    fi
+
+    # A link this installer made earlier is moved to the current target: one made while hm was
+    # shell only points at bin/run, and the shell no longer has the commands ported to the binary
+    local current
+    current="$(readlink /usr/local/bin/hm || true)"
+
+    if [ "$current" == "$target" ]; then
+        return
+    fi
+
+    if [ "$current" == "$HOME/hm/bin/run" ] || [ "$current" == "$HOME/hm/bin/hm" ]; then
+        sudo ln -sfn "$target" /usr/local/bin/hm
+        echo -e "${green}/usr/local/bin/hm now points at $target${colorReset}"
+    else
+        echo -e "${orange}/usr/local/bin/hm is not a link this installer made; left as it is. To use this install: sudo ln -sfn $target /usr/local/bin/hm${colorReset}"
     fi
 }
 
