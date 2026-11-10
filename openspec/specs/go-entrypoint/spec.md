@@ -1010,14 +1010,14 @@ whose early-exiting consumer can send its producer a broken pipe.
 
 ### Requirement: A command proved in Go has no shell twin
 
-Once a command is proved in Go through the engine-interaction test seam (the seventeen retired in
+Once a command is proved in Go through the engine-interaction test seam (the eighteen retired in
 this change: `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-off`, `purge`,
 `npm`, `n98-magerun`, `test-unit`, `test-integration`, `mysqldump`, `version`, `set-host`,
-`list`, `describe`, `logs`, `debug-on`, `debug-off`), the shell tree SHALL NOT carry an
+`list`, `describe`, `logs`, `debug-on`, `debug-off`, `bash`), the shell tree SHALL NOT carry an
 implementation for it, and the shell entry point SHALL answer a request for that command by naming
 the binary as where it lives, rather than failing as though the command did not exist.
-(Previously: named sixteen commands. This adds `debug-off` — `console/commands/debug-off.sh`
-(9 lines). Before that it added `debug-on` — `console/commands/debug-on.sh` (38 lines), plus its
+(Previously: named seventeen commands. This adds `bash` — `console/commands/bash.sh` (8 lines).
+Before that it added `debug-off` — `console/commands/debug-off.sh` (9 lines). Before that it added `debug-on` — `console/commands/debug-on.sh` (38 lines), plus its
 sourced task `console/tasks/set_xdebug_host_property.sh` (19), which disappears as a side effect
 and needs no retirement mechanism of its own.)
 
@@ -1029,7 +1029,7 @@ and needs no retirement mechanism of its own.)
 - **AND** the router still answers for it, so the absence is a retirement and not a lost command
 
 Pinned by "and what the binary owns outright has no file to drift from" in
-`tests/unit/command_safety_test.sh`, which walks the seventeen by name (Previously: sixteen) and
+`tests/unit/command_safety_test.sh`, which walks the eighteen by name (Previously: seventeen) and
 fails in both directions: a resurrected `.sh` and a lost route are each a failure.
 
 #### Scenario: The RETIRED list gains its name only once the file is gone

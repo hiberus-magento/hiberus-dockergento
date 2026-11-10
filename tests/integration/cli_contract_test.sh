@@ -120,4 +120,13 @@ test_case "and the readable hint for debug-off names the binary command too"
 run --no-json debug-off
 assert_contains "$STDERR" "hm debug-off"
 
+test_case "and so does bash, once its own shell twin is gone"
+run bash
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for bash names the binary command too"
+run --no-json bash
+assert_contains "$STDERR" "hm bash"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

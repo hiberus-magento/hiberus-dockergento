@@ -203,8 +203,8 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         comportamiento no estaba cubierto en Go hasta `wrapper-exit-codes`, que lo cierra para
         `varnish-on` y `varnish-off`: antes, un `sed` o un `cache:enable`/`cache:disable` que
         fallaban sin error de Go se reportaban como éxito.
-  - [x] El mismo paso, para `list`, `describe` y `logs` — decimoquinto, decimosexto y
-        decimoséptimo comandos retirados así. `list.sh`, `describe.sh` y `logs.sh` (223 líneas)
+  - [x] El mismo paso, para `list`, `describe` y `logs` — decimotercero, decimocuarto y
+        decimoquinto comandos retirados así. `list.sh`, `describe.sh` y `logs.sh` (223 líneas)
         están borrados de `console/commands/`: las tres tienen su propia prueba de interacción con
         el motor, y todo lo que las invocaba a través de `bin/run` se corrigió antes de borrarlas.
         Las dos comparaciones de paridad que les quedaban — `tests/integration/
@@ -215,7 +215,7 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         `tests/unit/command_safety_test.sh` ganó las tres en su lista `RETIRED`, en el mismo commit
         que borra los ficheros, para que la comprobación en ambas direcciones — fichero fuera,
         ruta dentro — también las cubra.
-  - [x] El mismo paso, para `debug-on` — decimoctavo comando retirado así. `console/commands/
+  - [x] El mismo paso, para `debug-on` — decimosexto comando retirado así. `console/commands/
         debug-on.sh` (38 líneas) y `console/tasks/set_xdebug_host_property.sh` (19) están borrados;
         quedan 49 ficheros en `console/commands/`. La tarea se va sin mecanismo propio: sólo la
         cargaba `debug-on.sh` con `source`, y las tareas no se despachan, así que desaparece como
@@ -243,7 +243,7 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         itself» —, porque vive dentro de un requisito de unas 600 líneas que cubre `debug-off`,
         `magento` y `logs`, y el flujo de MODIFIED obligaría a copiarlo entero para arreglar una
         cláusula cuya conclusión el borrado sólo refuerza.
-  - [x] El mismo paso, para `debug-off` — decimonoveno comando retirado así.
+  - [x] El mismo paso, para `debug-off` — decimoséptimo comando retirado así.
         `console/commands/debug-off.sh` (9 líneas) está borrado; quedan 48 ficheros en
         `console/commands/`. Nada en el repositorio lo nombraba: ni una suite, ni el dashboard, ni
         otro script. Como con `debug-on`, apartarlo y correr la suite entera no cambió nada — 59 de
@@ -260,6 +260,23 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         regular de `sed` y sólo funcionaba porque se reduce a la `z` literal. Queda dicho aquí
         porque es el mismo hallazgo que `varnish-on` dio en su día, y es el tipo de detalle que un
         port transcrito arrastraría sin mirarlo.
+  - [x] El mismo paso, para `bash` — decimoctavo comando retirado así. `console/commands/bash.sh`
+        (8 líneas) está borrado; quedan 47 ficheros en `console/commands/`. `TestWhatBashAsks`
+        (`internal/cli/tools_test.go`) ya cubría lo que hacía: `bash` sin argumentos, `-r` como
+        usuario root, y que cualquier otro argumento se descarta igual que lo descartaba el script.
+        Apartarlo y correr la suite entera no cambió nada — 59 de 1017 aserciones fallaban antes y
+        después, las mismas siete suites, diff vacío entre las dos corridas contra un `DOCKER_HOST`
+        inalcanzable. Ningún script lo llamaba y el dashboard no lo ofrece; no hubo nada que
+        reparar ni comparación de paridad que retirar.
+
+        Con él se va **otro llamador de `exec.sh`**. Quedan tres: `magento.sh`, `create-project.sh`
+        y `composer.sh`.
+
+        Cuatro textos siguen nombrando el script, y se quedan: `tests/unit/skills_test.sh` (`:6`,
+        `:126`), `docs/skills.md:14`, `docs/research/backlog.md:664` y `changelogs/v1.7.0.md:166`
+        explican con él por qué `hm bash` no recibe nunca un comando. Lo que dicen sigue siendo
+        verdad del port, que descarta igual lo que no sea `-r`. El fichero está en
+        `git show fde5549:console/commands/bash.sh`.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
