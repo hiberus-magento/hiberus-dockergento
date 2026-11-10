@@ -403,17 +403,23 @@ assert_contains "$OUTPUT" "LINK=/opt/elsewhere/hm"
 assert_contains "$OUTPUT" "is not a link this installer made"
 
 test_case "the installer does not claim a move it could not make"
-mkdir -p "$LAB/links/locked"
-ln -s "$INSTALL_HOME/hm/bin/run" "$LAB/links/locked/hm"
-chmod a-w "$LAB/links/locked"
-# Writable check fails, so the move goes through sudo; a sudo that refuses stands in for a cancelled prompt
-mkdir -p "$LAB/no-sudo"
-printf '#!/bin/sh\nexit 1\n' > "$LAB/no-sudo/sudo"
-chmod +x "$LAB/no-sudo/sudo"
-OUTPUT=$(PATH="$LAB/no-sudo:$PATH" link_after_install "$LAB/links/locked/hm")
-chmod u+w "$LAB/links/locked"
-assert_contains "$OUTPUT" "LINK=$INSTALL_HOME/hm/bin/run"
-assert_contains "$OUTPUT" "Could not move"
-assert_not_contains "$OUTPUT" "now points at"
+# Root writes into a folder whatever its mode, so there the move cannot be made to fail this way
+if [ "$(id -u)" -eq 0 ]; then
+    echo "  - skipped: running as root, a read-only folder does not stop the move"
+else
+    mkdir -p "$LAB/links/locked"
+    ln -s "$INSTALL_HOME/hm/bin/run" "$LAB/links/locked/hm"
+    chmod a-w "$LAB/links/locked"
+    # Writable check fails, so the move goes through sudo; a sudo that refuses stands in for a
+    # cancelled prompt
+    mkdir -p "$LAB/no-sudo"
+    printf '#!/bin/sh\nexit 1\n' > "$LAB/no-sudo/sudo"
+    chmod +x "$LAB/no-sudo/sudo"
+    OUTPUT=$(PATH="$LAB/no-sudo:$PATH" link_after_install "$LAB/links/locked/hm")
+    chmod u+w "$LAB/links/locked"
+    assert_contains "$OUTPUT" "LINK=$INSTALL_HOME/hm/bin/run"
+    assert_contains "$OUTPUT" "Could not move"
+    assert_not_contains "$OUTPUT" "now points at"
+fi
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
