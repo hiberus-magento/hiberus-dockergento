@@ -4,7 +4,7 @@ Punto de entrada para una sesión nueva sin contexto. Dice **dónde estamos, qu�
 reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 `openspec/changes/archive/`; este fichero no lo repite.
 
-> Estado medido el **2026-11-10** sobre `release/2.0.0` (HEAD `c6beae7`, sincronizada con origin).
+> Estado medido el **2026-11-10** sobre `release/2.0.0` (HEAD `df912ec`, dos commits por delante de origin).
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
@@ -13,47 +13,46 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 |---|---|---|
 | Comandos respondidos por el binario | **34 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
 | Comandos aún en shell | **31** | `rg -c "\| shell \|" MIGRATION.md` |
-| Ficheros en `console/commands/` | **48** | `fd -e sh . console/commands \| wc -l` |
-| Gemelos de shell retirados | **17** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
-| Portados que **aún conservan** su `.sh` | **17** | ver tabla de la pista A |
-| Tests Go / aserciones de shell | 461 / 616 (al 2026-09-14) | `go test ./...` · `./tests/run.sh unit` |
+| Ficheros en `console/commands/` | **47** | `fd -e sh . console/commands \| wc -l` |
+| Gemelos de shell retirados | **18** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
+| Portados que **aún conservan** su `.sh` | **16** | ver la pista A, y `composer` en la B |
+| Tests Go / aserciones de shell | 475 / 616 | `go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 
 ## Qué hacer después, en orden
 
 1. **Pista A — retirar los gemelos de shell que ya tienen port en Go.** Es lo más barato y lo que
    más desbloquea. Empieza por los pequeños y ya probados.
-2. **Pista B — portar los 31 comandos que siguen en shell.** `create-project` primero: es el único
-   llamador de `exec.sh` que no está portado.
+2. **Pista B — portar los 31 comandos que siguen en shell, y el baile del vendor de `composer`.**
+   `create-project` primero: es el único llamador de `exec.sh` que no está portado.
 3. **Pista C — defectos conocidos.** Ninguno bloquea; varios llevan cinco ciclos aplazados.
 
 ## Pista A — gemelos de shell pendientes de retirar
 
-Estos 17 comandos están tabulados como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
+Estos 15 comandos están tabulados como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
+`composer` también lo está, pero no es un gemelo: está en la pista B.
 Antes de borrar cada uno hay que **confirmar que está probado en Go** (el segundo paso de la regla);
 algunos no lo están.
 
 | Comando | Líneas `.sh` | Notas |
 |---|---|---|
-| `magento` | 3 | llama a `exec.sh` |
+| `magento` | 3 | llama a `exec.sh`; probado en la costura (`magento_test.go`). **Bloqueado**: lo llaman directamente `console/commands/install.sh` (`:119-120`) y las tareas `magento_installation.sh`, `set_magento_configs.sh` y `admin_bootstrap.sh`, y `tests/integration/worktree_test.sh:145` lo invoca por el shell; hay que repararlos antes |
 | `restart` | 4 | |
-| `bash` | 8 | llama a `exec.sh`; probado en la costura (`exec-and-masquerade-go-tests`) |
 | `docker-compose` | 20 | |
 | `docker-stop-all` | 20 | **peligroso**: nunca ejecutarlo de forma que pueda confirmar |
-| `exec` | 22 | último de su cadena: lo llaman `bash`, `composer`, `magento`, `create-project` |
+| `exec` | 22 | último de su cadena: lo llaman `magento`, `composer`, `create-project` |
 | `masquerade` | 22 | probado en la costura; ejecuta un anonimizador real |
 | `web` | 23 | |
 | `worktree` | 26 | |
 | `stop` | 34 | |
 | `start` | 61 | |
 | `down` | 78 | |
-| `composer` | 104 | llama a `exec.sh` |
 | `mysql` | 122 | |
 | `setup` | 144 | pendiente de pruebas Go (`setup/doctor/clean-go-tests`) |
 | `doctor` | 185 | pendiente de pruebas Go |
 | `clean` | 335 | pendiente de pruebas Go |
 
-Orden sugerido: `magento`, `bash`, `composer` (y con ellos se van tres de los cuatro llamadores de
-`exec.sh`), luego el resto por tamaño. `exec.sh` cae cuando caiga `create-project.sh`.
+Orden sugerido: `magento` en cuanto se reparen sus llamadores, luego el resto por tamaño. `exec.sh`
+cae cuando caigan `magento.sh`, `create-project.sh` y `composer.sh`: los dos últimos son pista B.
 
 Medir la lista de nuevo:
 
@@ -73,6 +72,7 @@ done
 | magento | `grunt`, **`install`** |
 | ai | `ai-context`, `ai-doctor`, `ai-init`, `ai-pull`, `ai-reset`, `mcp`, `permissions` |
 | files / versions | `transfer-media`, `switch`, `update` |
+| composer | **portar el baile del vendor de macOS**: `install`, `update`, `require` y `remove` siguen cayendo a `composer.sh` en darwin (`mirrorsVendor`, `internal/cli/php.go`; `internal/cli/run.go:67-72`). Es la implementación viva ahí, no un gemelo, y no se retira hasta portarlo |
 
 Ciclos ya identificados: `create-project-in-go`, `install-and-ssl-in-go`, `hosts-config-in-go`, y
 que `Configuration` entre en la costura de `internal/cli`.
@@ -88,6 +88,7 @@ que `Configuration` entre en la costura de `internal/cli`.
 | `tests/run.sh` con un argumento no reconocido corre **todo** en vez de fallar | `tests/run.sh` (~`:81-83`) | Un error tipográfico no se nota nunca |
 | El número de métodos de la interfaz `commands` (18) solo está en prosa | `internal/cli/engine.go` | Nada lo vigila |
 | `architecture/` puede describir comportamiento que el código no tiene | `architecture/*.md` | Ningún test vigila la documentación; §5.8.1 estuvo mal tres ciclos |
+| Apartar un `.sh` no ve a los scripts que lo llaman directamente si ninguna suite los ejecuta, o si lo sustituyen por un stub | `magento.sh`: lo llaman `install.sh` y tres tareas, y apartarlo sólo rompió `worktree_test.sh:145` | Antes de borrar, además de la suite: `rg '"\$COMMANDS_DIR"/<nombre>\.sh' console` |
 
 Ya resueltos (no reabrir): CI sin macOS, `gofmt` sin `./dockergento`, CI corriendo `tests/unit`
 como "todo" — los tres en `d03d54c`.

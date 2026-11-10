@@ -253,7 +253,11 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
 
         Con él se va **uno de los cinco llamadores de `exec.sh`**. Quedan cuatro: `magento.sh`,
         `bash.sh`, `create-project.sh` y `composer.sh`. `exec.sh` no puede retirarse hasta que se
-        vayan los cuatro, y ninguno está portado todavía.
+        vayan los cuatro. (Corregido después: aquí decía que ninguno estaba portado, y no era
+        verdad. `magento` y `bash` ya los respondía el binario; `composer` también, salvo
+        `install`, `update`, `require` y `remove` en macOS, que siguen cayendo a `composer.sh`
+        — `mirrorsVendor`, `internal/cli/php.go` — porque el baile del vendor sigue en shell. El
+        único sin port es `create-project`.)
 
         El script llevaba un escape muerto que el port ya había dejado fuera:
         `s/^\zend_extension/;zend_extension/g`, donde `\z` no significa nada en una expresión
