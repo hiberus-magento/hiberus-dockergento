@@ -4,8 +4,8 @@ Punto de entrada para una sesión nueva sin contexto. Dice **dónde estamos, qu�
 reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 `openspec/changes/archive/`; este fichero no lo repite.
 
-> Estado medido el **2026-11-11** sobre `release/2.0.0` (HEAD `f03a5e4` más la retirada de
-> `magento`, sin subir a origin).
+> Estado medido el **2026-11-11** sobre `release/2.0.0` (HEAD `825ad8b` más la retirada de
+> `docker-compose`; `cd0afc8` es lo último subido a origin).
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
@@ -14,10 +14,10 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 |---|---|---|
 | Comandos respondidos por el binario | **34 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
 | Comandos aún en shell | **31** | `rg -c "\| shell \|" MIGRATION.md` |
-| Ficheros en `console/commands/` | **46** | `fd -e sh . console/commands \| wc -l` |
-| Gemelos de shell retirados | **19** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
-| Portados que **aún conservan** su `.sh` | **15** | ver la pista A, y `composer` en la B |
-| Tests Go / aserciones de shell | 489 / 620 | `go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
+| Ficheros en `console/commands/` | **45** | `fd -e sh . console/commands \| wc -l` |
+| Gemelos de shell retirados | **20** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
+| Portados que **aún conservan** su `.sh` | **14** | ver la pista A, y `composer` en la B |
+| Tests Go / aserciones de shell | 496 / 620 | `go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 
 ## Qué hacer después, en orden
 
@@ -29,15 +29,14 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 ## Pista A — gemelos de shell pendientes de retirar
 
-Estos 14 comandos están tabulados como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
+Estos 13 comandos están tabulados como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
 `composer` también lo está, pero no es un gemelo: está en la pista B.
 Antes de borrar cada uno hay que **confirmar que está probado en Go** (el segundo paso de la regla);
 algunos no lo están.
 
 | Comando | Líneas `.sh` | Notas |
 |---|---|---|
-| `restart` | 4 | |
-| `docker-compose` | 20 | |
+| `restart` | 4 | probado en la costura (`restart_test.go`). **Pendiente de decisión**: `composer.sh:93`, `create-project.sh:69,74` y `magento_installation.sh:29` lo llaman directamente, saltándose la protección de worktree de `bin/run`; el `restart` del binario la aplica (6 desde un worktree sin entorno propio), así que mandarlos al binario haría que `hm composer install` en macOS se niegue desde un worktree así |
 | `docker-stop-all` | 20 | **peligroso**: nunca ejecutarlo de forma que pueda confirmar |
 | `exec` | 22 | último de su cadena: lo llaman `composer` y `create-project`, los dos de la pista B |
 | `masquerade` | 22 | probado en la costura; ejecuta un anonimizador real |
@@ -51,7 +50,8 @@ algunos no lo están.
 | `doctor` | 185 | pendiente de pruebas Go |
 | `clean` | 335 | pendiente de pruebas Go |
 
-Orden sugerido: por tamaño, empezando por `restart`. Antes de cada uno, además de apartarlo, busca
+Orden sugerido: por tamaño — `restart` en cuanto se decida lo de arriba. Antes de cada uno, además
+de apartarlo, busca
 quién lo llama directamente (`rg '"\$COMMANDS_DIR"/<nombre>\.sh' console`). `exec.sh` cae cuando
 caigan `create-project.sh` y `composer.sh`, los dos de la pista B.
 
@@ -90,6 +90,7 @@ que `Configuration` entre en la costura de `internal/cli`.
 | El número de métodos de la interfaz `commands` (18) solo está en prosa | `internal/cli/engine.go` | Nada lo vigila |
 | `architecture/` puede describir comportamiento que el código no tiene | `architecture/*.md` | Ningún test vigila la documentación; §5.8.1 estuvo mal tres ciclos |
 | Apartar un `.sh` no ve a los scripts que lo llaman directamente si ninguna suite los ejecuta, o si lo sustituyen por un stub | Pasó con `magento.sh`: lo llamaban `install.sh` y tres tareas, y apartarlo sólo rompió `worktree_test.sh:145`. Esas llamadas ya van por el binario; el punto ciego de la regla sigue | Antes de borrar, además de la suite: `rg '"\$COMMANDS_DIR"/<nombre>\.sh' console` |
+| Apartar un `.sh` tampoco ve a las suites que ya fallan o se saltan sin daemon | `docker-compose.sh`: `go_passthrough_test.sh` lo comparaba y ya fallaba sin Docker, y `worktree_environments_test.sh` se salta entera; las dos le preguntaban a `bin/run docker-compose` | Antes de borrar, también `rg '<nombre>' tests` y leer lo que salga en suites que fallen o se salten en la línea base |
 
 Ya resueltos (no reabrir): CI sin macOS, `gofmt` sin `./dockergento`, CI corriendo `tests/unit`
 como "todo" — los tres en `d03d54c`. El aviso de worktree «los contenedores sirven el código de…»,

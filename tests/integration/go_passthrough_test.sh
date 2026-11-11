@@ -226,17 +226,27 @@ assert_equals "0" "$(printf '%s' "$answer" | grep -qE 'Nothing was stopped|No co
 # ---------------------------------------------------------------- ported: docker-compose
 #
 # A Compose subcommand this tool does not implement itself, run exactly the way `docker compose`
-# would run it. Read-only both ways — config resolves the files, ps lists what is there — so
-# nothing here asks about anything running, and the comparison only holds if the caller's own
-# streams were kept rather than captured.
+# would run it. Read-only — config resolves the files, ps lists what is there — so nothing here
+# asks about anything running.
+#
+# This used to compare the binary with `bin/run docker-compose`, whose shell twin did nothing but
+# exec the binary: a comparison of the binary with itself. With the twin retired the oracle is
+# the project the lab wrote and `docker compose` itself, neither of them this tool.
 
-both docker-compose config --format json
+go_compose() {
+    ( cd "$DIR" && "$GO_BINARY" docker-compose "$@" >"$LAB/go.out" 2>"$LAB/go.err" ); GO_STATUS=$?
+}
+
+go_compose config --format json
 test_case "compose keeps the caller's streams"
-assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
+assert_equals "0" "$GO_STATUS"
+assert_equals "$PROJECT" "$(jq -r '.name' "$LAB/go.out" 2>/dev/null)"
+assert_equals "phpfpm" "$(jq -r '.services | keys | join(" ")' "$LAB/go.out" 2>/dev/null)"
 
-both docker-compose ps
-test_case "and so does a read-only subcommand that lists something"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
+go_compose ps
+( cd "$DIR" && docker compose -p "$PROJECT" ps >/dev/null 2>&1 ); COMPOSE_STATUS=$?
+test_case "and a read-only subcommand that lists something answers with Compose's own status"
+assert_equals "$COMPOSE_STATUS" "$GO_STATUS"
 
 # ---------------------------------------------------------------- the same refusals
 #

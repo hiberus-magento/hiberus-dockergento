@@ -138,4 +138,13 @@ test_case "and the readable hint for magento names the binary command too"
 run --no-json magento
 assert_contains "$STDERR" "hm magento"
 
+test_case "and so does docker-compose, once its own shell twin is gone"
+run docker-compose
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for docker-compose names the binary command too"
+run --no-json docker-compose
+assert_contains "$STDERR" "hm docker-compose"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

@@ -169,7 +169,8 @@ assert_equals "feature/x" "$( cd "$TREE" && git rev-parse --abbrev-ref HEAD )" \
 
 # ---------------------------------------------------------------- what it resolves to
 
-hm_in "$TREE" docker-compose config --format json
+# docker-compose is the binary's, with no shell twin left to ask
+binario_en "$TREE" docker-compose config --format json
 assert_equals "0" "$STATUS" "the branch environment has a valid configuration"
 
 assert_equals "$PROJECT-feature-x" "$(printf '%s' "$STDOUT" | jq -r '.name')" \

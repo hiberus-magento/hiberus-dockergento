@@ -292,10 +292,10 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         llamaban a `"$COMMANDS_DIR"/magento.sh` directamente, sin pasar por `bin/run`: siete
         llamadas que el borrado habría roto en `hm install`, `hm setup`, `hm create-project` y
         `hm config-env`. La suite entera no vio ninguna, porque ninguna suite ejecuta esos scripts
-        sin Docker y las dos de `admin_bootstrap` sustituían `magento.sh` por un stub. Las encontró un grep. Ahora van por
-        `hm_run_binary magento`, y las suites de `admin_bootstrap` falsean el binario en vez del
-        script, así que comprueban la llamada y no sólo su resultado. Apartar el fichero sigue
-        siendo la regla, pero no basta: antes de borrar, también
+        sin Docker y las dos de `admin_bootstrap` sustituían `magento.sh` por un stub. Las encontró
+        un grep. Ahora van por `hm_run_binary magento`, y las suites de `admin_bootstrap` falsean el
+        binario en vez del script, así que comprueban la llamada y no sólo su resultado. Apartar el
+        fichero sigue siendo la regla, pero no basta: antes de borrar, también
         `rg '"\$COMMANDS_DIR"/<nombre>\.sh' console`.
 
         Lo único que la suite sí vio fue `tests/integration/worktree_test.sh` («a command touching
@@ -313,6 +313,38 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
 
         Con él se va **otro llamador de `exec.sh`**. Quedan dos: `composer.sh`, que en macOS sigue
         siendo la implementación viva del baile del vendor, y `create-project.sh`, sin portar.
+  - [x] El mismo paso, para `docker-compose` — vigésimo comando retirado así.
+        `console/commands/docker-compose.sh` (20 líneas) está borrado; quedan 45 ficheros en
+        `console/commands/`. No era más que un `exec` del binario: lo único que hacía por su cuenta
+        era negarse con `binary_missing` si el binario no estaba, y eso desaparece con él —
+        `bin/run docker-compose` contesta ahora `command_moved_to_binary`, como los otros
+        diecinueve. Ninguna prueba dependía de ese mensaje suyo (`tests/unit/exit_codes_test.sh`
+        prueba el de `hm_run_binary`, que es otro). `docker_compose_test.go` ya cubría los
+        argumentos tal cual, el código de salida de Compose sin traducir (17), la negativa fuera de
+        un proyecto y la falta de Compose.
+
+        **Apartarlo no cambió nada, y esta vez eso no bastaba.** Ningún script lo llamaba
+        directamente, pero dos suites le preguntaban a `bin/run docker-compose`, y ninguna de las
+        dos lo dice sin un daemon: las dos comparaciones de
+        `tests/integration/go_passthrough_test.sh` ya fallaban antes (`bin/run` valida Docker antes
+        de nada), y `tests/integration/worktree_environments_test.sh` se salta entera. Las dos
+        comparaciones eran además del binario consigo mismo, porque el gemelo sólo lo ejecutaba; se
+        reescribieron contra un oráculo que no es ninguno de los dos — el proyecto que escribe el
+        laboratorio y el propio `docker compose` —, y ahora pasan también sin daemon. La de
+        `worktree_environments` le pregunta al binario. Con esas reparaciones, apartarlo y correr la
+        suite entera: 57 de 1030 aserciones fallaban antes y después, las mismas siete suites, diff
+        vacío.
+
+        `restart` iba antes en la lista y **sigue en el árbol**: sus llamadores directos — el baile
+        del vendor de `composer.sh` (`:93`), `create-project.sh` (`:69`, `:74`) y
+        `magento_installation.sh` (`:29`) — no pasan por la protección de worktree de `bin/run`, y
+        el `restart` del binario sí la aplica: desde un worktree sin entorno propio se niega con
+        `blocked_in_worktree` (6). Mandarlos al binario cambiaría `hm composer install` en macOS
+        desde un worktree así, que hoy reinicia el `phpfpm` del checkout principal y a partir de
+        entonces se negaría. Es una decisión, no una reparación, y queda pendiente. Lo que sí queda
+        hecho es la costura: el `restart` de Go pedía la operación al motor concreto, así que
+        ninguna prueba podía decir qué pedía; ahora la pide por `newEngine` y `restart_test.go` lo
+        fija.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
