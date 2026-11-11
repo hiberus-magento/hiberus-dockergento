@@ -90,7 +90,7 @@ composer_excute() {
         
         # Execute install con mirror wrapper
         if [[ "$#" != 0 && ("$MACHINE" == "mac") ]]; then
-            "$COMMANDS_DIR"/restart.sh "phpfpm"
+            hm_run_binary restart "phpfpm"
             copy_vendor_to_container
             "$COMMANDS_DIR"/exec.sh composer "$@"
             sync_all_from_container_to_host

@@ -26,7 +26,7 @@ hm_run_binary magento setup:upgrade
 hm_run_binary magento deploy:mode:set developer
 
 # Consolidate environment
-"$COMMANDS_DIR"/restart.sh
+hm_run_binary restart
 
 # Domain and certificate
 "$COMMANDS_DIR"/ssl.sh "$DOMAIN"

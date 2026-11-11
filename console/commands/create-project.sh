@@ -3,6 +3,7 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/binary.sh
 
 project_name=""
 domain=""
@@ -66,12 +67,12 @@ create_project_execute() {
     echo "{}" > "$MAGENTO_DIR"/composer.lock
     
     # Run docker-compose specified files of OS
-    "$COMMANDS_DIR"/restart.sh "phpfpm"
+    hm_run_binary restart "phpfpm"
 
     # Magento installation
     "$TASKS_DIR"/magento_installation.sh
 
-    "$COMMANDS_DIR"/restart.sh
+    hm_run_binary restart
     print_info "Open "
     print_link "https://$DOMAIN/\n"
 }
