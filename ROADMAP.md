@@ -4,7 +4,8 @@ Punto de entrada para una sesión nueva sin contexto. Dice **dónde estamos, qu�
 reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 `openspec/changes/archive/`; este fichero no lo repite.
 
-> Estado medido el **2026-11-10** sobre `release/2.0.0` (HEAD `df912ec`, dos commits por delante de origin).
+> Estado medido el **2026-11-11** sobre `release/2.0.0` (HEAD `f03a5e4` más la retirada de
+> `magento`, sin subir a origin).
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
@@ -13,10 +14,10 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 |---|---|---|
 | Comandos respondidos por el binario | **34 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
 | Comandos aún en shell | **31** | `rg -c "\| shell \|" MIGRATION.md` |
-| Ficheros en `console/commands/` | **47** | `fd -e sh . console/commands \| wc -l` |
-| Gemelos de shell retirados | **18** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
-| Portados que **aún conservan** su `.sh` | **16** | ver la pista A, y `composer` en la B |
-| Tests Go / aserciones de shell | 475 / 616 | `go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
+| Ficheros en `console/commands/` | **46** | `fd -e sh . console/commands \| wc -l` |
+| Gemelos de shell retirados | **19** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
+| Portados que **aún conservan** su `.sh` | **15** | ver la pista A, y `composer` en la B |
+| Tests Go / aserciones de shell | 489 / 620 | `go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 
 ## Qué hacer después, en orden
 
@@ -28,18 +29,17 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 ## Pista A — gemelos de shell pendientes de retirar
 
-Estos 15 comandos están tabulados como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
+Estos 14 comandos están tabulados como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
 `composer` también lo está, pero no es un gemelo: está en la pista B.
 Antes de borrar cada uno hay que **confirmar que está probado en Go** (el segundo paso de la regla);
 algunos no lo están.
 
 | Comando | Líneas `.sh` | Notas |
 |---|---|---|
-| `magento` | 3 | llama a `exec.sh`; probado en la costura (`magento_test.go`). **Bloqueado**: lo llaman directamente `console/commands/install.sh` (`:119-120`) y las tareas `magento_installation.sh`, `set_magento_configs.sh` y `admin_bootstrap.sh`, y `tests/integration/worktree_test.sh:145` lo invoca por el shell; hay que repararlos antes |
 | `restart` | 4 | |
 | `docker-compose` | 20 | |
 | `docker-stop-all` | 20 | **peligroso**: nunca ejecutarlo de forma que pueda confirmar |
-| `exec` | 22 | último de su cadena: lo llaman `magento`, `composer`, `create-project` |
+| `exec` | 22 | último de su cadena: lo llaman `composer` y `create-project`, los dos de la pista B |
 | `masquerade` | 22 | probado en la costura; ejecuta un anonimizador real |
 | `web` | 23 | |
 | `worktree` | 26 | |
@@ -51,8 +51,9 @@ algunos no lo están.
 | `doctor` | 185 | pendiente de pruebas Go |
 | `clean` | 335 | pendiente de pruebas Go |
 
-Orden sugerido: `magento` en cuanto se reparen sus llamadores, luego el resto por tamaño. `exec.sh`
-cae cuando caigan `magento.sh`, `create-project.sh` y `composer.sh`: los dos últimos son pista B.
+Orden sugerido: por tamaño, empezando por `restart`. Antes de cada uno, además de apartarlo, busca
+quién lo llama directamente (`rg '"\$COMMANDS_DIR"/<nombre>\.sh' console`). `exec.sh` cae cuando
+caigan `create-project.sh` y `composer.sh`, los dos de la pista B.
 
 Medir la lista de nuevo:
 
@@ -88,10 +89,11 @@ que `Configuration` entre en la costura de `internal/cli`.
 | `tests/run.sh` con un argumento no reconocido corre **todo** en vez de fallar | `tests/run.sh` (~`:81-83`) | Un error tipográfico no se nota nunca |
 | El número de métodos de la interfaz `commands` (18) solo está en prosa | `internal/cli/engine.go` | Nada lo vigila |
 | `architecture/` puede describir comportamiento que el código no tiene | `architecture/*.md` | Ningún test vigila la documentación; §5.8.1 estuvo mal tres ciclos |
-| Apartar un `.sh` no ve a los scripts que lo llaman directamente si ninguna suite los ejecuta, o si lo sustituyen por un stub | `magento.sh`: lo llaman `install.sh` y tres tareas, y apartarlo sólo rompió `worktree_test.sh:145` | Antes de borrar, además de la suite: `rg '"\$COMMANDS_DIR"/<nombre>\.sh' console` |
+| Apartar un `.sh` no ve a los scripts que lo llaman directamente si ninguna suite los ejecuta, o si lo sustituyen por un stub | Pasó con `magento.sh`: lo llamaban `install.sh` y tres tareas, y apartarlo sólo rompió `worktree_test.sh:145`. Esas llamadas ya van por el binario; el punto ciego de la regla sigue | Antes de borrar, además de la suite: `rg '"\$COMMANDS_DIR"/<nombre>\.sh' console` |
 
 Ya resueltos (no reabrir): CI sin macOS, `gofmt` sin `./dockergento`, CI corriendo `tests/unit`
-como "todo" — los tres en `d03d54c`.
+como "todo" — los tres en `d03d54c`. El aviso de worktree «los contenedores sirven el código de…»,
+que el binario no daba para ninguno de los ocho comandos de código que responde, en `f03a5e4`.
 
 ## Reglas que no se negocian
 

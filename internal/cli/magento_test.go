@@ -15,9 +15,9 @@ import (
 // What magento asks of the engine. magento (php.go:16) reaches the container only through
 // inside (php.go:57), the same as purge and the other wrappers in inside_test.go, so Dir is the
 // resolved project's root rather than the working directory, and the command is the Magento CLI
-// with every argument handed on untouched. The shell twin it is measured against is
+// with every argument handed on untouched. The shell twin it was measured against was
 // console/commands/magento.sh: `exec.sh php ./bin/magento "$@"`, which execs into phpfpm as the
-// default user.
+// default user (`git show f03a5e4:console/commands/magento.sh`).
 //
 
 // TestWhatMagentoAsks asserts Resolve first, then one Exec in phpfpm that runs php ./bin/magento

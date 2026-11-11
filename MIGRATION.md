@@ -281,6 +281,38 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         explican con él por qué `hm bash` no recibe nunca un comando. Lo que dicen sigue siendo
         verdad del port, que descarta igual lo que no sea `-r`. El fichero está en
         `git show fde5549:console/commands/bash.sh`.
+  - [x] El mismo paso, para `magento` — decimonoveno comando retirado así.
+        `console/commands/magento.sh` (3 líneas) está borrado; quedan 46 ficheros en
+        `console/commands/`. `TestWhatMagentoAsks` y sus vecinos (`internal/cli/magento_test.go`)
+        lo prueban contra el fake: `php ./bin/magento` en `phpfpm` con los argumentos tal cual, el
+        código de salida del propio Magento sin traducir y nada ejecutado fuera de un proyecto.
+
+        **Éste no era un gemelo puro, y apartarlo no lo dijo.** `install.sh` (`:119-120`) y tres
+        tareas — `magento_installation.sh`, `set_magento_configs.sh` y `admin_bootstrap.sh` —
+        llamaban a `"$COMMANDS_DIR"/magento.sh` directamente, sin pasar por `bin/run`: siete
+        llamadas que el borrado habría roto en `hm install`, `hm setup`, `hm create-project` y
+        `hm config-env`. La suite entera no vio ninguna, porque ninguna suite ejecuta esos scripts
+        sin Docker y las dos de `admin_bootstrap` sustituían `magento.sh` por un stub. Las encontró un grep. Ahora van por
+        `hm_run_binary magento`, y las suites de `admin_bootstrap` falsean el binario en vez del
+        script, así que comprueban la llamada y no sólo su resultado. Apartar el fichero sigue
+        siendo la regla, pero no basta: antes de borrar, también
+        `rg '"\$COMMANDS_DIR"/<nombre>\.sh' console`.
+
+        Lo único que la suite sí vio fue `tests/integration/worktree_test.sh` («a command touching
+        code warns about whose code it is»), y **destapó un hueco del binario**: el aviso de que,
+        desde un worktree sin entorno propio, los contenedores sirven el código del checkout
+        principal sólo lo daba `bin/run`. Los ocho comandos de esa lista que ya responde el binario
+        — `magento`, `composer`, `npm`, `n98-magerun`, `test-unit`, `test-integration`, `exec` y
+        `bash` — lo habían perdido al portarse, y el único que lo seguía comprobando era el gemelo.
+        El binario lo da ahora (`codeProjectOr`, `internal/cli/engine.go`), por stderr como el
+        shell, y la prueba de `worktree_test.sh` le pregunta al binario.
+
+        Con la repetición del paso — con el aviso portado y la prueba apuntando al binario —,
+        apartarlo y correr la suite entera no cambió nada: 59 de 1025 aserciones fallaban antes y
+        después, las mismas siete suites, diff vacío contra un `DOCKER_HOST` inalcanzable.
+
+        Con él se va **otro llamador de `exec.sh`**. Quedan dos: `composer.sh`, que en macOS sigue
+        siendo la implementación viva del baile del vendor, y `create-project.sh`, sin portar.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.

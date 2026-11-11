@@ -10,8 +10,8 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
-# `describe` and `list` are the binary's now; the guardrail cases below (start/stop/down/setup)
-# stay the shell implementation's and keep asking bin/run through `$HM`.
+# `describe`, `list` and `magento` are the binary's now; the guardrail cases below
+# (start/stop/down/setup) stay the shell implementation's and keep asking bin/run through `$HM`.
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 # Canonical path: on macOS /var is a symlink to /private/var, and git reports the resolved
 # path. Comparing against the unresolved one makes assertions pass or fail for the wrong
@@ -63,7 +63,7 @@ run_in() {
     return 0
 }
 
-# The binary's twin of run_in, for the calls that are the binary's now (describe, list).
+# The binary's twin of run_in, for the calls that are the binary's now (describe, list, magento).
 run_in_go() {
     local dir="$1"
     shift
@@ -141,9 +141,14 @@ test_case "doctor works from a worktree"
 run_in "$LAB/wt" doctor --json
 assert_equals "0" "$STATUS"
 
+# magento is the binary's, and so is the note: codeProjectOr (internal/cli/engine.go) prints it
+# before anything reaches a container, so it is there even with no daemon to answer
 test_case "a command touching code warns about whose code it is"
-run_in "$LAB/wt" magento --version
-assert_contains "$STDERR" "$LAB/main"
+run_in_go "$LAB/wt" magento --version
+assert_contains "$STDERR" "the containers serve the code of $LAB/main"
+
+test_case "and keeps the warning off stdout, where a pipe would read it"
+assert_not_contains "$STDOUT" "serve the code"
 
 # ------------------------------------------------------------------ the mounts
 

@@ -129,4 +129,13 @@ test_case "and the readable hint for bash names the binary command too"
 run --no-json bash
 assert_contains "$STDERR" "hm bash"
 
+test_case "and so does magento, once its own shell twin is gone"
+run magento
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for magento names the binary command too"
+run --no-json magento
+assert_contains "$STDERR" "hm magento"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
