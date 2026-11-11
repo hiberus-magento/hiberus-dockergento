@@ -37,7 +37,7 @@ func purge(stdout, stderr io.Writer, jsonOutput bool) int {
 
 // npm runs the front-end's package manager where the front end is built.
 func npm(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
-	project, code := projectOr(stderr, jsonOutput, "npm")
+	project, code := codeProjectOr(stderr, jsonOutput, "npm")
 	if code != 0 {
 		return code
 	}
@@ -48,7 +48,7 @@ func npm(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 // magerun is n98-magerun, which is in the image because half of what people ask Magento to do is
 // quicker through it.
 func magerun(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
-	project, code := projectOr(stderr, jsonOutput, "n98-magerun")
+	project, code := codeProjectOr(stderr, jsonOutput, "n98-magerun")
 	if code != 0 {
 		return code
 	}
@@ -62,7 +62,7 @@ func magerun(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 // The unit suite runs from the project root and the integration one from its own directory, which
 // is not a preference: the integration configuration resolves paths relative to itself.
 func tests(kind string, args []string, stdout, stderr io.Writer, jsonOutput bool) int {
-	project, code := projectOr(stderr, jsonOutput, "test-"+kind)
+	project, code := codeProjectOr(stderr, jsonOutput, "test-"+kind)
 	if code != 0 {
 		return code
 	}

@@ -82,6 +82,13 @@ y las alternativas disponibles.
 #### Scenario: Aviso sobre el código servido
 - **WHEN** se ejecuta un comando permitido desde un worktree que opera sobre el código
 - **THEN** se advierte de que los contenedores sirven el código del checkout principal, no el del worktree
+- **AND** el aviso sale por la salida de errores, nunca por la estándar, la responda el binario o el
+  shell
+(Previously: sólo lo daba `bin/run`, así que los comandos que responde el binario — `magento`,
+`composer`, `npm`, `n98-magerun`, `test-unit`, `test-integration`, `exec` y `bash` — lo habían
+perdido sin que nada lo notase. Los cubre
+`TestACodeCommandFromABorrowingWorktreeSaysWhoseCodeItIs` en
+`internal/cli/worktree_note_test.go`; un worktree con entorno propio no lo da, igual que en shell.)
 
 ### Requirement: Forzado consciente
 

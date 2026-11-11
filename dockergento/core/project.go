@@ -91,3 +91,10 @@ type Worktree struct {
 func (p Project) IsWorktree() bool {
 	return p.Worktree != nil
 }
+
+// ServesAnotherCheckout reports whether the command was run from a git worktree that has no
+// environment of its own. It resolves to the main checkout, so the containers it reaches are the
+// main checkout's and serve the code at Root — not the code in the worktree it was run from.
+func (p Project) ServesAnotherCheckout() bool {
+	return p.InWorktree && p.Worktree == nil
+}

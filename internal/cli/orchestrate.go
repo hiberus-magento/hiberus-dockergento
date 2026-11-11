@@ -181,7 +181,7 @@ func execute(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			"There is no command to run", binaryName()+" exec ls -lah")
 	}
 
-	if _, code := projectOr(stderr, jsonOutput, "exec"); code != 0 {
+	if _, code := codeProjectOr(stderr, jsonOutput, "exec"); code != 0 {
 		return code
 	}
 

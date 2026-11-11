@@ -14,7 +14,7 @@ const phpService = "phpfpm"
 
 // magento is the Magento CLI, which is the command people run most of all.
 func magento(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
-	project, code := projectOr(stderr, jsonOutput, "magento")
+	project, code := codeProjectOr(stderr, jsonOutput, "magento")
 	if code != 0 {
 		return code
 	}
@@ -31,7 +31,7 @@ func composer(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			binaryName()+" create-project")
 	}
 
-	project, code := projectOr(stderr, jsonOutput, "composer")
+	project, code := codeProjectOr(stderr, jsonOutput, "composer")
 	if code != 0 {
 		return code
 	}

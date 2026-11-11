@@ -97,6 +97,26 @@ func projectOr(stderr io.Writer, jsonOutput bool, command string) (core.Project,
 	return project, 0
 }
 
+// codeProjectOr is projectOr for the commands that work on the code, and it says whose code that
+// is when it is not the code in front of the person: from a worktree with no environment of its
+// own, the containers are the main checkout's.
+//
+// Ported from bin/run's validate_worktree (:261-262), for the names hm_operates_on_code lists
+// (console/helpers/worktree.sh:99-108) that this binary answers: magento, composer, npm,
+// n98-magerun, test-unit, test-integration, exec and bash, which reaches the container through
+// exec. The same text, on stderr like the shell's print_warning_line, and under --json too, as
+// there: stdout is the container's, and a pipe reading it must not find a note in it.
+func codeProjectOr(stderr io.Writer, jsonOutput bool, command string) (core.Project, int) {
+	project, code := projectOr(stderr, jsonOutput, command)
+
+	if code == 0 && project.ServesAnotherCheckout() {
+		fmt.Fprint(stderr, warning(fmt.Sprintf(
+			"Note: the containers serve the code of %s, not this worktree.", project.Root))+"\n")
+	}
+
+	return project, code
+}
+
 // here is the directory the command was run in, which is what every question is asked about.
 func here() string {
 	directory, err := os.Getwd()
