@@ -22,8 +22,8 @@ create_database() {
 create_database "$@"
 
 # Magento commands
-"$COMMANDS_DIR"/magento.sh setup:upgrade
-"$COMMANDS_DIR"/magento.sh deploy:mode:set developer
+hm_run_binary magento setup:upgrade
+hm_run_binary magento deploy:mode:set developer
 
 # Consolidate environment
 "$COMMANDS_DIR"/restart.sh

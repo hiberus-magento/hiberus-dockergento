@@ -81,13 +81,15 @@ render_qr() {
 }
 
 DOMAIN="shop.local"
-COMMANDS_DIR_REAL="$COMMANDS_DIR"
-COMMANDS_DIR="$LAB/fake"
-mkdir -p "$COMMANDS_DIR"
-printf '#!/usr/bin/env bash\nexit 0\n' > "$COMMANDS_DIR/magento.sh"
-chmod +x "$COMMANDS_DIR/magento.sh"
+# Magento is reached through the binary (`hm_run_binary magento`), so a stand-in binary that
+# accepts the registration is what lets the URI be built without a Magento behind it
+COMMAND_BIN_DIR_REAL="$COMMAND_BIN_DIR"
+COMMAND_BIN_DIR="$LAB/fake"
+mkdir -p "$COMMAND_BIN_DIR/bin"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$COMMAND_BIN_DIR/bin/hm"
+chmod +x "$COMMAND_BIN_DIR/bin/hm"
 hm_register_second_factor "admin"
-COMMANDS_DIR="$COMMANDS_DIR_REAL"
+COMMAND_BIN_DIR="$COMMAND_BIN_DIR_REAL"
 
 test_case "the library every Magento ships can draw the registration code"
 qr=$(render_qr "$HM_ADMIN_OTP_URI")

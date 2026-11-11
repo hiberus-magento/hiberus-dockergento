@@ -11,6 +11,10 @@
 # module's own command, and the QR is drawn by `endroid/qr-code`, which ships in every Magento's
 # vendor directory: no dependency on the host, and the same result on anybody's machine.
 #
+# Magento itself is reached through the binary, which owns `magento`: there is no shell twin of
+# it to call.
+#
+declare -F hm_run_binary >/dev/null 2>&1 || source "$HELPERS_DIR"/binary.sh
 
 #
 # A password Magento accepts, in HM_ADMIN_PASSWORD.
@@ -47,7 +51,7 @@ hm_generate_otp_secret() {
 # Is the two factor module active in this project?
 #
 hm_two_factor_enabled() {
-    "$COMMANDS_DIR"/magento.sh module:status Magento_TwoFactorAuth 2>/dev/null |
+    hm_run_binary magento module:status Magento_TwoFactorAuth 2>/dev/null |
         grep -qi "module is enabled"
 }
 
@@ -60,7 +64,7 @@ hm_register_second_factor() {
 
     hm_generate_otp_secret
 
-    if ! "$COMMANDS_DIR"/magento.sh security:tfa:google:set-secret "$user" "$HM_ADMIN_OTP_SECRET" \
+    if ! hm_run_binary magento security:tfa:google:set-secret "$user" "$HM_ADMIN_OTP_SECRET" \
         >/dev/null 2>&1; then
         HM_ADMIN_OTP_URI=""
         return 1

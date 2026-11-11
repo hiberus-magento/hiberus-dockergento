@@ -81,15 +81,28 @@ assert_equals "different" "$r"
 
 # ---------------------------------------------------------------- the registration URI
 
+# Magento is reached through the binary (`hm_run_binary magento`), so the binary is what is faked:
+# a stand-in at $COMMAND_BIN_DIR/bin/hm that records its arguments and answers what it is told.
+COMMAND_BIN_DIR_REAL="$COMMAND_BIN_DIR"
+COMMAND_BIN_DIR="$HM_TEST_HOME/fake-binary"
+FAKE_CALLS="$HM_TEST_HOME/fake-binary.calls"
+mkdir -p "$COMMAND_BIN_DIR/bin"
+
+# fake_binary <exit status> [what it prints on stdout]
+fake_binary() {
+    cat > "$COMMAND_BIN_DIR/bin/hm" <<FAKE
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$FAKE_CALLS"
+printf '%s\n' "${2:-}"
+exit $1
+FAKE
+    chmod +x "$COMMAND_BIN_DIR/bin/hm"
+    : > "$FAKE_CALLS"
+}
+
 test_case "the registration URI carries the secret and the issuer"
 DOMAIN="shop.local"
-COMMANDS_DIR="$HM_TEST_HOME/fake-commands"
-mkdir -p "$COMMANDS_DIR"
-cat > "$COMMANDS_DIR/magento.sh" <<'FAKE'
-#!/usr/bin/env bash
-exit 0
-FAKE
-chmod +x "$COMMANDS_DIR/magento.sh"
+fake_binary 0
 hm_register_second_factor "admin"
 assert_contains "$HM_ADMIN_OTP_URI" "otpauth://totp/shop.local:admin"
 
@@ -99,17 +112,33 @@ assert_contains "$HM_ADMIN_OTP_URI" "issuer=shop.local"
 test_case "the secret in the URI is the one that was registered"
 assert_contains "$HM_ADMIN_OTP_URI" "secret=$HM_ADMIN_OTP_SECRET"
 
+test_case "and it is registered through the binary's magento command"
+assert_equals "magento security:tfa:google:set-secret admin $HM_ADMIN_OTP_SECRET" "$(cat "$FAKE_CALLS")"
+
 test_case "a failed registration reports it instead of showing a URI that does nothing"
-cat > "$COMMANDS_DIR/magento.sh" <<'FAKE'
-#!/usr/bin/env bash
-exit 1
-FAKE
-chmod +x "$COMMANDS_DIR/magento.sh"
+fake_binary 1
 hm_register_second_factor "admin" && r=succeeded || r=refused
 assert_equals "refused" "$r"
 
 test_case "and leaves no URI behind"
 assert_empty "$HM_ADMIN_OTP_URI"
+
+# ---------------------------------------------------------------- is the second factor there
+
+test_case "an enabled two factor module is recognised from what magento prints"
+fake_binary 0 "Module is enabled"
+hm_two_factor_enabled && r=enabled || r=disabled
+assert_equals "enabled" "$r"
+
+test_case "and the module is asked about through the binary's magento command"
+assert_equals "magento module:status Magento_TwoFactorAuth" "$(cat "$FAKE_CALLS")"
+
+test_case "a disabled one is not taken for enabled"
+fake_binary 0 "Module is disabled"
+hm_two_factor_enabled && r=enabled || r=disabled
+assert_equals "disabled" "$r"
+
+COMMAND_BIN_DIR="$COMMAND_BIN_DIR_REAL"
 
 # ---------------------------------------------------------------- the summary
 

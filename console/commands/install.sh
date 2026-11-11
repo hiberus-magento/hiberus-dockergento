@@ -6,6 +6,7 @@ source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 source "$HELPERS_DIR"/docker.sh
 source "$HELPERS_DIR"/version.sh
+source "$HELPERS_DIR"/binary.sh
 source "$TASKS_DIR"/admin_bootstrap.sh
 
 # Cache/session backend service name. Magento 2.4.9+ ships Valkey (a drop-in Redis
@@ -116,8 +117,8 @@ run_install_magento_command() {
 
     admin_user=$(jq -r '."admin-user" // "admin"' "$DATA_DIR/config.json")
 
-    "$COMMANDS_DIR"/magento.sh setup:install $command_arguments $config
-    "$COMMANDS_DIR"/magento.sh config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
+    hm_run_binary magento setup:install $command_arguments $config
+    hm_run_binary magento config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
 
     # If config.php backup file exists, restore it
     if [ -f "$MAGENTO_DIR/app/etc/_config.php" ]; then

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$HELPERS_DIR"/binary.sh
+
 #
 # Set Domain in properties project file if DOMAIN variable is not setted
 #
@@ -65,7 +67,7 @@ set_settings_for_develop() {
         for data in $command_data; do
             final_command=$(echo "$data" | sed 's/%/ /g')
             print_processing "bin/magento $final_command"
-            "$COMMANDS_DIR"/magento.sh $final_command
+            hm_run_binary magento $final_command
         done
     done
 }
