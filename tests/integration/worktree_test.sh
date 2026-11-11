@@ -79,7 +79,8 @@ run_in_go() {
 # A worktree with no environment of its own keeps resolving against the main checkout
 # (`app/resolve.go:59-63`), and the binary names a worktree only when it has one
 # (`app/describe.go:108-110`). That a worktree is recognised at all is proved below, by the eight
-# commands refused from it with exit 6 — through `bin/run`, which still owns them.
+# commands refused from it with exit 6 — seven through `bin/run`, which still has their shell
+# twins, and `restart` through the binary, which has the only one left.
 test_case "a worktree with no environment of its own resolves to the main checkout"
 run_in_go "$LAB/wt" describe --json
 assert_json_field "$STDOUT" '.data.project.worktree' ""
@@ -96,11 +97,17 @@ assert_json_field "$STDOUT" '.data.project.name' "$PROJECT"
 
 # ------------------------------------------------------------------ guardrails
 
-for command in start stop restart rebuild down setup install docker-stop-all; do
+for command in start stop rebuild down setup install docker-stop-all; do
     test_case "$command is refused from a worktree"
     run_in "$LAB/wt" "$command"
     assert_equals "6" "$STATUS"
 done
+
+# restart has no shell twin left: the binary refuses it, before anything reaches Docker
+test_case "restart is refused from a worktree"
+run_in_go "$LAB/wt" restart
+assert_equals "6" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "blocked_in_worktree"
 
 test_case "the refusal is machine readable"
 run_in "$LAB/wt" down --json -v

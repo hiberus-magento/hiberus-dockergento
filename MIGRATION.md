@@ -345,6 +345,37 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         hecho es la costura: el `restart` de Go pedía la operación al motor concreto, así que
         ninguna prueba podía decir qué pedía; ahora la pide por `newEngine` y `restart_test.go` lo
         fija.
+  - [x] El mismo paso, para `restart` — vigésimo primer comando retirado así.
+        `console/commands/restart.sh` (4 líneas) está borrado; quedan 44 ficheros en
+        `console/commands/`. Era `stop.sh` y luego `start.sh`, y el binario hace lo mismo:
+        `Operator.Restart` para y arranca, y en Linux devuelve `post-start` al shell como
+        `start.sh`. `restart_test.go` fija lo que pide el handler y `orchestrate_test.go` el orden y
+        la protección de worktree.
+
+        Cuatro llamadas lo ejecutaban directamente, sin pasar por `bin/run`: `composer.sh:93`,
+        `create-project.sh:69` y `:74`, y `magento_installation.sh:29`. Ahora van por
+        `hm_run_binary restart`. **Eso cambia una cosa, aceptada a sabiendas:** en macOS,
+        `hm composer install|update|require|remove` desde un worktree sin entorno propio se niega
+        ahora con 6 (`blocked_in_worktree`) en el reinicio, antes de copiar el vendor. Antes
+        reiniciaba el `phpfpm` del checkout principal y sincronizaba el vendor a través de él,
+        porque la llamada directa se saltaba la protección de worktree que `bin/run` aplica a
+        `restart`. El binario la aplica y nada la fuerza; se queda así hasta que el baile del vendor
+        esté portado. Las otras tres sólo se alcanzan desde `setup` y `create-project`, que ya se
+        niegan en un worktree así. `tests/unit/composer_vendor_test.sh` lo fija sin Docker.
+
+        Apartarlo antes de las reparaciones rompió una aserción, `worktree_test.sh` «restart is
+        refused from a worktree», que le preguntaba a `bin/run`. Otra suite,
+        `go_orchestration_test.sh`, comparaba `bin/run restart` con el binario desde un worktree y
+        no lo dijo porque sin daemon se salta entera. Las dos le preguntan ahora al binario y
+        comprueban su negativa contra el contrato — 6 y `blocked_in_worktree` —; con el binario
+        compilado para forzar siempre, la de `worktree_test.sh` falla. Con las reparaciones,
+        apartarlo y correr la suite entera: 57 de 1038 aserciones fallaban antes y después, las
+        mismas siete suites, diff vacío.
+
+        Cuatro sitios siguen citando `restart.sh` como procedencia —
+        `internal/cli/wrappers.go:345`, `wrappers_test.go:822` y
+        `openspec/specs/go-entrypoint/spec.md` (`:465`, `:570`) — y se quedan, como los de
+        `debug-on`: dicen lo que el shell hacía.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.

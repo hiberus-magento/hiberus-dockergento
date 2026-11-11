@@ -301,7 +301,7 @@ RAMA="$LAB/rama"
 if [ -d "$RAMA" ]; then
     # `down` belongs in this list more than any of them: from a worktree with no environment of
     # its own it would be destroying the main checkout's
-    for QUE in start stop restart down; do
+    for QUE in start stop down; do
         ( cd "$RAMA" && "$SHELL_CLI" "$QUE" >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
         ( cd "$RAMA" && "$GO_BINARY"  "$QUE" >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
 
@@ -310,6 +310,14 @@ if [ -d "$RAMA" ]; then
         assert_equals "$SHELL_STATUS" "$GO_STATUS"
         assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
     done
+
+    # restart's shell twin is retired, so there is nothing left to compare it with: the binary's
+    # refusal is checked against the contract instead
+    ( cd "$RAMA" && "$GO_BINARY" restart >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
+
+    test_case "restart from a worktree with no environment is refused"
+    assert_equals "6" "$GO_STATUS"
+    assert_equals "blocked_in_worktree" "$(jq -r '.error.type' < "$LAB/go.err")"
 
     #
     # Forced is a decision about one invocation: there is no variable and no file that turns the
