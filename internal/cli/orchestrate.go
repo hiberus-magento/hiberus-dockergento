@@ -78,7 +78,7 @@ func restart(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return code
 	}
 
-	return report(stderr, jsonOutput, "restart", engine(stdout, stderr, jsonOutput).
+	return report(stderr, jsonOutput, "restart", newEngine(stdout, stderr, jsonOutput).
 		Restart(here(), services))
 }
 
