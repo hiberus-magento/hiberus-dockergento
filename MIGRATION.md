@@ -416,13 +416,14 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         `bin/run masquerade` no se queda esperando, y retirado, `bin/run` se niega al instante y
         la comprobación pasa sin probar nada. Ahora se la hace al binario, con `DOCKER_HOST`
         apuntando a un socket inexistente dentro de la propia comprobación: sin nadie que
-        conteste, `masquerade` toma el sí por respuesta.
+        conteste, `masquerade` toma el sí por respuesta. Y como medir sólo que vuelve lo aprobaría
+        cualquier negativa, también comprueba cuál: 4 y `project_not_configured`, antes de preguntar.
   - [x] El mismo paso, para `web` — vigésimo cuarto comando retirado así.
         `console/commands/web.sh` (23 líneas, sólo hacía `exec` del binario) está borrado; quedan
         41 ficheros en `console/commands/`. No tenía ninguna prueba Go: la única era
         `go_web_test.sh`, que se salta sin daemon. Antes de borrarlo, `internal/cli/web_test.go`
-        fija los argumentos, `status` y `down` contra un fichero de estado ausente, caducado o
-        vivo, que `up` encuentra el servidor que ya corre en vez de arrancar otro, y que un puerto
+        fija los argumentos, `status` contra un fichero de estado ausente, caducado o vivo,
+        `down` contra uno caducado (nunca contra un pid vivo: le mandaría SIGTERM), que `up` encuentra el servidor que ya corre en vez de arrancar otro, y que un puerto
         ocupado se niega antes de escribir estado. `HOME` es temporal en cada prueba y ninguna
         arranca ni señala procesos; cuatro mutaciones, cada una compilando, rompen la suya.
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -69,20 +70,18 @@ func writeWebState(t *testing.T, dir string, state running) {
 	}
 }
 
-// deadPID is a pid that is not running: a child that has already been reaped.
+// deadPID is a pid no process can have: above every system's pid limit, so kill answers ESRCH.
+//
+// Not the pid of a child that has already exited: the system may hand that pid to another process
+// before the test reads it, and `down` sends SIGTERM to a pid it believes is alive.
 func deadPID(t *testing.T) int {
 	t.Helper()
 
-	process, err := os.StartProcess("/usr/bin/true", []string{"true"}, &os.ProcAttr{})
-	if err != nil {
-		t.Fatal(err)
+	if alive(math.MaxInt32) {
+		t.Fatalf("pid %d answers signal 0; it cannot stand in for a dead server", math.MaxInt32)
 	}
 
-	if _, err := process.Wait(); err != nil {
-		t.Fatal(err)
-	}
-
-	return process.Pid
+	return math.MaxInt32
 }
 
 // TestWebRefusesWhatItDoesNotKnow pins the argument parsing (web.go:46-72): every malformed
