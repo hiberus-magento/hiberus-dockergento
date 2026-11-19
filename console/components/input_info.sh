@@ -52,7 +52,9 @@ get_equivalent_version_if_exit() {
 
         print_warning "\nWe don't have support for the version $1 "
         print_info "\nPlease, write any version between all versions supported or press Ctrl - C to exit"
-        "$COMMANDS_DIR"/compatibility.sh
+        # The table is the binary's now; console/commands/compatibility.sh is gone
+        declare -F hm_run_binary >/dev/null 2>&1 || source "$HELPERS_DIR"/binary.sh
+        hm_run_binary compatibility
         read -r MAGENTO_VERSION
         get_equivalent_version_if_exit "$MAGENTO_VERSION"
     fi
