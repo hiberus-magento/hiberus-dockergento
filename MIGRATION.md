@@ -534,6 +534,30 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         `set-host` escribía la URL base con `magento config:set` a través de `bin/run`, que desde
         `cd0afc8` sólo nombra el binario, y `hm set-host <dominio>` sin `--no-database` fallaba con
         `config_failed`. Ahora va por el propio binario, como los pasos de `setup` (`416f72b`).
+  - [x] El mismo paso, para `setup` — trigésimo comando retirado así.
+        `console/commands/setup.sh` (144 líneas) está borrado, con las dos tareas que sólo él
+        cargaba (`setup_options.sh`, `start_service_if_not_running.sh`); quedan 35 ficheros en
+        `console/commands/`. El handler pedía al motor concreto; ahora va por `newEngine` y
+        `setup_test.go` fija que la instrucción entera llega a un `Setup`, si puede preguntar, que
+        una mal formada no crea nada, el informe de dónde responde el proyecto y que un fallo sale
+        con su código. `setup_options_test.sh` probaba reglas que en Go no fijaba nadie: cada
+        opción en sus formas larga, con espacio y corta, que nada dado no decide nada, que un
+        argumento suelto se niega, que un volcado inexistente para el comando antes de nada y que
+        `~` se expande. Están en `core/setup_parse_test.go` y `app/setup_dump_test.go`, y la prueba
+        borrada se lleva sus 33 aserciones; la de que las opciones están declaradas en
+        `command_descriptions.json` sigue, en `setup_declared_options_test.sh`.
+
+        **Faltaba una protección:** `bin/run` negaba `setup` desde un worktree sin entorno propio;
+        el binario no, y desde uno así reescribía el `config/docker/properties.json` versionado con
+        el nombre de otro proyecto antes de fallar por cualquier otra cosa. Se vio porque
+        `worktree_test.sh` se quedó esperando una respuesta en vez de recibir el 6. Ahora
+        `Engine.Setup` aplica la misma negativa que `start`, `stop` y `down`, compartida con
+        `Operator`, y sólo `--force` la levanta (`2005a93`).
+
+        Las suites que le preguntaban a `bin/run setup` le preguntan al binario
+        (`worktree_test.sh`, `non_interactive_test.sh` y `tests/integration/setup_options_test.sh`,
+        que la primera corrida destapó). Con las reparaciones y el árbol ya sin los cuatro ficheros:
+        54 fallos antes y después, diff vacío.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072

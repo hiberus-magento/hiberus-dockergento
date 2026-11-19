@@ -4,8 +4,8 @@ Punto de entrada para una sesión nueva sin contexto. Dice **dónde estamos, qu�
 reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 `openspec/changes/archive/`; este fichero no lo repite.
 
-> Estado medido el **2026-11-19** sobre `release/2.0.0` (HEAD `416f72b` más la retirada de
-> `mysql`; `cd0afc8` es lo último subido a origin).
+> Estado medido el **2026-11-19** sobre `release/2.0.0` (HEAD `02a7403` más la retirada de
+> `setup`; `cd0afc8` es lo último subido a origin).
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
@@ -14,9 +14,9 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 |---|---|---|
 | Comandos respondidos por el binario | **34 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
 | Comandos aún en shell | **31** | `rg -c "\| shell \|" MIGRATION.md` |
-| Ficheros en `console/commands/` | **36** | `fd -e sh . console/commands \| wc -l` |
-| Gemelos de shell retirados | **29** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
-| Portados que **aún conservan** su `.sh` | **5** | ver la pista A, y `composer` en la B |
+| Ficheros en `console/commands/` | **35** | `fd -e sh . console/commands \| wc -l` |
+| Gemelos de shell retirados | **30** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
+| Portados que **aún conservan** su `.sh` | **4** | ver la pista A, y `composer` en la B |
 | Tests Go / aserciones de shell | 508 / 635 | `DOCKER_HOST=unix:///nonexistent go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 
 ## Qué hacer después, en orden
@@ -29,7 +29,7 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 ## Pista A — gemelos de shell pendientes de retirar
 
-Estos 4 comandos están tabulados como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
+Estos 3 comandos están tabulados como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
 `composer` también lo está, pero no es un gemelo: está en la pista B.
 Antes de borrar cada uno hay que **confirmar que está probado en Go** (el segundo paso de la regla);
 algunos no lo están.
@@ -37,7 +37,6 @@ algunos no lo están.
 | Comando | Líneas `.sh` | Notas |
 |---|---|---|
 | `exec` | 22 | último de su cadena: lo llaman `composer` y `create-project`, los dos de la pista B |
-| `setup` | 144 | pendiente de pruebas Go (`setup/doctor/clean-go-tests`) |
 | `doctor` | 185 | pendiente de pruebas Go |
 | `clean` | 335 | pendiente de pruebas Go |
 

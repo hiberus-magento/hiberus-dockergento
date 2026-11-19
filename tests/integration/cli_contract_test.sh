@@ -228,4 +228,13 @@ test_case "and the readable hint for mysql names the binary command too"
 run --no-json mysql -q "SELECT 1"
 assert_contains "$STDERR" "hm mysql"
 
+test_case "and so does setup, once its own shell twin is gone"
+run setup
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for setup names the binary command too"
+run --no-json setup
+assert_contains "$STDERR" "hm setup"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
