@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -24,125 +21,6 @@ func aiContextFor(t *testing.T, result core.AgentContextResult) *fakeEngine {
 	t.Setenv("NO_COLOR", "1")
 
 	return fake
-}
-
-// shellAIContext runs console/commands/ai-context.sh through the oracle harness in a directory
-// seeded with files, and answers with what it printed and the result its --json document carried.
-//
-// TEMPORARY SCAFFOLDING, removed with console/tasks/agent_context.sh: see
-// dockergento/core/testdata/ai_context_oracle.sh.
-func shellAIContext(t *testing.T, format string, files map[string]string) (stdout, stderr string) {
-	t.Helper()
-
-	if _, err := exec.LookPath("jq"); err != nil {
-		t.Skip("the shell implementation needs jq")
-	}
-
-	repository, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	work := t.TempDir()
-	root := filepath.Join(work, "shop")
-
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	for name, contents := range files {
-		if err := os.WriteFile(filepath.Join(root, name), []byte(contents), 0o644); err != nil { //nolint:gosec
-			t.Fatal(err)
-		}
-	}
-
-	info := `{"project":{"name":"shop","domain":"shop.test","status":"stopped",` +
-		`"urls":{"base":"https://shop.test/","admin":"https://shop.test/admin"}},` +
-		`"magento":{"version":"2.4.7","mode":"developer"},"data":{"anonymised":"unknown"},` +
-		`"services":[{"name":"phpfpm","image":"hiberusmagento/php:8.3-fpm"}]}`
-
-	if err := os.WriteFile(filepath.Join(work, "info.json"), []byte(info), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	command := exec.Command("bash", filepath.Join(repository, "dockergento", "core", "testdata", "ai_context_oracle.sh"))
-	command.Env = []string{
-		"PATH=" + os.Getenv("PATH"),
-		"HOME=" + work,
-		"ORACLE_REPO=" + repository,
-		"ORACLE_WORK=" + work,
-		"ORACLE_INFO=" + filepath.Join(work, "info.json"),
-		"HM_ROOT=" + root,
-		"HM_STATE_DIR=" + filepath.Join(work, "state"),
-		"COMPOSE_PROJECT_NAME=shop",
-		"COMMAND_BIN_NAME=hm",
-		"HM_OUTPUT_FORMAT=" + format,
-	}
-
-	var out, errs bytes.Buffer
-	command.Stdout, command.Stderr = &out, &errs
-
-	if err := command.Run(); err != nil {
-		t.Fatalf("the shell implementation failed: %v\n%s", err, errs.String())
-	}
-
-	return out.String(), errs.String()
-}
-
-// TestAIContextPrintsWhatTheShellPrinted compares the handler's output with the script's, in
-// both formats, for the two shapes it has: CLAUDE.md created, and CLAUDE.md somebody else's.
-//
-// TEMPORARY SCAFFOLDING, kept while console/commands/ai-context.sh exists and removed with it.
-func TestAIContextPrintsWhatTheShellPrinted(t *testing.T) {
-	cases := []struct {
-		name  string
-		files map[string]string
-	}{
-		{"nothing there yet", nil},
-		{"a CLAUDE.md of somebody's", map[string]string{"CLAUDE.md": "Mine.\n"}},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			shellJSON, _ := shellAIContext(t, "json", c.files)
-			shellText, shellErrors := shellAIContext(t, "text", c.files)
-
-			var answered struct {
-				Data core.AgentContextResult `json:"data"`
-			}
-			if err := json.Unmarshal([]byte(shellJSON), &answered); err != nil {
-				t.Fatalf("the shell implementation's answer is not JSON: %v\n%s", err, shellJSON)
-			}
-
-			// The same result, so that the only thing compared is how it is printed. Its root is
-			// the shell run's directory, which is in the document
-			aiContextFor(t, answered.Data)
-
-			var stdout, stderr bytes.Buffer
-			if code := aiContext(nil, &stdout, &stderr, true); code != exitOK {
-				t.Fatalf("ai-context --json = %d, want exitOK\n%s", code, stderr.String())
-			}
-
-			if diff := cmp.Diff(shellJSON, stdout.String()); diff != "" {
-				t.Errorf("the --json document differs (-shell +go):\n%s", diff)
-			}
-
-			stdout.Reset()
-			stderr.Reset()
-
-			if code := aiContext(nil, &stdout, &stderr, false); code != exitOK {
-				t.Fatalf("ai-context = %d, want exitOK\n%s", code, stderr.String())
-			}
-
-			if diff := cmp.Diff(shellText, stdout.String()); diff != "" {
-				t.Errorf("stdout differs (-shell +go):\n%s", diff)
-			}
-
-			if diff := cmp.Diff(shellErrors, stderr.String()); diff != "" {
-				t.Errorf("stderr differs (-shell +go):\n%s", diff)
-			}
-		})
-	}
 }
 
 func TestAIContextAsksTheEngineAboutThisDirectory(t *testing.T) {

@@ -55,26 +55,11 @@ hm_anonymisation_clear "tienda"
 assert_equals "mio" "$(jq -r '.algo' "$WORK/state/tienda.json")"
 
 # ---------------------------------------------------------------- the words in the context
-
-DATA_DIR="$COMMAND_BIN_DIR/data"
-source "$TASKS_DIR/agent_context.sh"
-
-INFO='{"project":{"name":"tienda","status":"running","domain":"t.test","urls":{"base":"https://t.test/","admin":"https://t.test/panel"}},"magento":{"version":"2.4.7","mode":"developer"},"data":{"anonymised":"unknown"},"services":[{"name":"phpfpm","image":"php"}]}'
-
-test_case "a database nobody anonymised is called what it is"
-HM_ANONYMISED="unknown" HM_ANONYMISED_AT=""
-assert_contains "$(hm_context_block "$INFO")" "has not been anonymised"
-assert_contains "$(hm_context_block "$INFO")" "real personal data"
-
-test_case "and one that was says so, with the date"
-HM_ANONYMISED="yes" HM_ANONYMISED_AT="2026-08-28 10:00"
-assert_contains "$(hm_context_block "$INFO")" "Anonymised on 2026-08-28"
-
-test_case "anonymising changes the fingerprint, so the context is regenerated"
-ANON='{"project":{"domain":"t.test","urls":{"admin":"https://t.test/panel"}},"magento":{"version":"2.4.7"},"data":{"anonymised":"yes"},"services":[{"name":"phpfpm","image":"php"}]}'
-PLAIN='{"project":{"domain":"t.test","urls":{"admin":"https://t.test/panel"}},"magento":{"version":"2.4.7"},"data":{"anonymised":"unknown"},"services":[{"name":"phpfpm","image":"php"}]}'
-assert_equals "distinto" \
-    "$([ "$(hm_context_fingerprint "$ANON")" != "$(hm_context_fingerprint "$PLAIN")" ] && echo distinto || echo igual)"
+#
+# What the agent context says about the data, and that anonymising changes its fingerprint, is the
+# binary's now: TestTheBlockSaysWhatTheDataIs and TestADatabaseNobodyAnonymisedIsCalledWhatItIs in
+# dockergento/core/agent_context_test.go.
+#
 
 # ---------------------------------------------------------------- the terminal bug
 #

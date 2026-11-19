@@ -56,6 +56,29 @@ func TestTheBlockSaysWhatTheDataIs(t *testing.T) {
 	}
 }
 
+// TestADatabaseNobodyAnonymisedIsCalledWhatItIs: real personal data, said in so many words, and a
+// fingerprint that changes when it is anonymised, so that the context is regenerated then.
+func TestADatabaseNobodyAnonymisedIsCalledWhatItIs(t *testing.T) {
+	plain := AgentContext{Binary: "hm"}
+	plain.Description.Project.Name = "shop"
+	plain.Description.Data.Anonymised = "unknown"
+
+	block := plain.Block()
+
+	for _, want := range []string{"This database has not been anonymised.", "real personal data"} {
+		if !strings.Contains(block, want) {
+			t.Errorf("block does not say %q:\n%s", want, block)
+		}
+	}
+
+	anonymised := plain
+	anonymised.Description.Data.Anonymised = "yes"
+
+	if plain.Fingerprint() == anonymised.Fingerprint() {
+		t.Error("anonymising leaves the fingerprint as it was; the context would not be regenerated")
+	}
+}
+
 // TestEverythingOutsideTheMarkersIsLeftAsItWas, byte for byte, including a last line with no
 // newline.
 func TestEverythingOutsideTheMarkersIsLeftAsItWas(t *testing.T) {

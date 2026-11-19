@@ -1,14 +1,10 @@
 package app
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -163,88 +159,6 @@ func snapshot(t *testing.T, root string) map[string]agentFile {
 	return found
 }
 
-// shellRun is what the oracle answered with.
-type shellRun struct {
-	code   int
-	stdout []byte
-	stderr []byte
-}
-
-// runShell runs console/commands/ai-context.sh through the oracle harness, with the description
-// the Go code is given as what collect_project_info answers.
-//
-// TEMPORARY SCAFFOLDING, removed with console/tasks/agent_context.sh: see
-// dockergento/core/testdata/ai_context_oracle.sh.
-func runShell(t *testing.T, s agentScene, root, repository string, description core.Description) shellRun {
-	t.Helper()
-
-	if _, err := exec.LookPath("jq"); err != nil {
-		t.Skip("the shell implementation needs jq")
-	}
-
-	work := t.TempDir()
-
-	info, err := json.Marshal(description)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := os.WriteFile(filepath.Join(work, "info.json"), info, 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	stateDir := filepath.Join(work, "state")
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	if s.anonymised != "" {
-		recorded, _ := json.Marshal(map[string]string{"anonymised_at": s.anonymised})
-		if err := os.WriteFile(filepath.Join(stateDir, "shop.json"), recorded, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	command := exec.Command("bash", filepath.Join(repository, "dockergento", "core", "testdata", "ai_context_oracle.sh"))
-	command.Env = []string{
-		"PATH=" + os.Getenv("PATH"),
-		"HOME=" + work,
-		"ORACLE_REPO=" + repository,
-		"ORACLE_WORK=" + work,
-		"ORACLE_INFO=" + filepath.Join(work, "info.json"),
-		"HM_ROOT=" + root,
-		"HM_STATE_DIR=" + stateDir,
-		"COMPOSE_PROJECT_NAME=shop",
-		"COMMAND_BIN_NAME=" + s.binary,
-		"HM_OUTPUT_FORMAT=json",
-	}
-
-	if s.version != "" {
-		command.Env = append(command.Env, "HM_VERSION="+s.version)
-	}
-
-	var stdout, stderr bytes.Buffer
-	command.Stdout, command.Stderr = &stdout, &stderr
-
-	run := shellRun{stdout: stdout.Bytes()}
-
-	err = command.Run()
-
-	var exited *exec.ExitError
-
-	switch {
-	case err == nil:
-	case errors.As(err, &exited):
-		run.code = exited.ExitCode()
-	default:
-		t.Fatalf("running the shell implementation: %v", err)
-	}
-
-	run.stdout, run.stderr = stdout.Bytes(), stderr.Bytes()
-
-	return run
-}
-
 func agentScenes() []agentScene {
 	plain := agentScene{
 		name:    "a plain project, nothing written yet",
@@ -337,85 +251,6 @@ func agentScenes() []agentScene {
 	}
 
 	return []agentScene{plain, changed, appended, empty, several, unclosed, reversed}
-}
-
-// TestAgentContextMatchesTheShellImplementation runs both implementations over the same project
-// and the same files, and compares every file in the directory afterwards — contents and modes —
-// and what each answered.
-//
-// TEMPORARY SCAFFOLDING, kept while console/tasks/agent_context.sh exists and removed with it.
-func TestAgentContextMatchesTheShellImplementation(t *testing.T) {
-	repository := repositoryRoot(t)
-
-	for _, scene := range agentScenes() {
-		t.Run(scene.name, func(t *testing.T) {
-			root := filepath.Join(t.TempDir(), "shop")
-			seed(t, root, scene.files)
-
-			writer := scene.writer(t, root, repository)
-
-			description, err := writer.Describe()
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			shell := runShell(t, scene, root, repository, description)
-			wanted := snapshot(t, root)
-
-			// The one difference on purpose: the server is the binary, not bin/run
-			if mcp, ok := wanted[".mcp.json"]; ok {
-				mcp.contents = strings.ReplaceAll(mcp.contents,
-					filepath.Join(repository, "bin", "run"), filepath.Join(repository, "bin", "hm"))
-				wanted[".mcp.json"] = mcp
-			}
-
-			seed(t, root, scene.files)
-
-			result, err := writer.Write()
-
-			if diff := cmp.Diff(wanted, snapshot(t, root), cmp.AllowUnexported(agentFile{})); diff != "" {
-				t.Errorf("the files differ from the shell implementation's (-shell +go):\n%s", diff)
-			}
-
-			code := contract.ExitOK
-
-			var refusal core.Refusal
-			if errors.As(err, &refusal) {
-				code = refusal.Code
-			} else if err != nil {
-				t.Fatalf("Write: %v", err)
-			}
-
-			if code != shell.code {
-				t.Fatalf("exit code = %d, the shell implementation's = %d (stderr: %s)", code, shell.code, shell.stderr)
-			}
-
-			if code != contract.ExitOK {
-				var failed contract.Envelope
-				if err := json.Unmarshal(shell.stderr, &failed); err != nil || failed.Error == nil {
-					t.Fatalf("the shell implementation's error is not an envelope: %v\n%s", err, shell.stderr)
-				}
-
-				got := contract.Fault{Code: refusal.Code, Type: refusal.Kind, Message: refusal.Message, Hint: refusal.Hint}
-				if diff := cmp.Diff(*failed.Error, got); diff != "" {
-					t.Errorf("the refusal differs from the shell implementation's (-shell +go):\n%s", diff)
-				}
-
-				return
-			}
-
-			var answered struct {
-				Data core.AgentContextResult `json:"data"`
-			}
-			if err := json.Unmarshal(shell.stdout, &answered); err != nil {
-				t.Fatalf("the shell implementation's answer is not JSON: %v\n%s", err, shell.stdout)
-			}
-
-			if diff := cmp.Diff(answered.Data, result); diff != "" {
-				t.Errorf("the result differs from the shell implementation's (-shell +go):\n%s", diff)
-			}
-		})
-	}
 }
 
 // TestTheDoctorAcceptsTheContextItWrites: the block's fingerprint is the one the staleness check
