@@ -210,6 +210,7 @@ assert_equals "0" "$(mounts_pointing_at "$LAB/wt")"
 
 test_case "even forcing a start does not repoint the environment"
 run_in_go "$LAB/wt" start --force
+assert_equals "0" "$STATUS"
 assert_equals "0" "$(mounts_pointing_at "$LAB/wt")"
 
 test_case "the mounts still point at the main checkout"

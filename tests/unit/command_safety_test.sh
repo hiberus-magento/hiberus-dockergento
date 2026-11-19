@@ -62,8 +62,8 @@ assert_empty "$orphaned"
 
 #
 # The reverse direction, over the twenty-eight retired by name and not "every routed command":
-# eight routed commands legitimately still have a file (`composer`, `start`, `mysql`, the
-# partials `db` and `proxy`, the delegating stubs), and a blanket rule would be false today.
+# eight routed commands legitimately still have a file (`clean`, `composer`, `doctor`, `exec`,
+# `mysql`, `setup`, and the partials `db` and `proxy`), and a blanket rule would be false today.
 #
 test_case "and what the binary owns outright has no file to drift from"
 RETIRED="copy-to-container copy-from-container varnish-on varnish-off purge npm

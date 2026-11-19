@@ -507,6 +507,11 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         worktree contra el contrato. `lifecycle_guard_test.sh` contesta a la pregunta con un
         número por stdin, que el `choose` del binario acepta igual que `custom_select`.
 
+        Revisado (`review-f1850f232ab7d6f2`). Queda una debilidad aceptada: en
+        `go_orchestration_test.sh`, `magento` y `bash` se comparan con el `exec` del mismo binario,
+        que es por donde pasan; el comando exacto que construyen lo fija `magento_test.go` en la
+        costura, no esa comparación.
+
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
         aserciones fallaban antes y después, diff vacío.
