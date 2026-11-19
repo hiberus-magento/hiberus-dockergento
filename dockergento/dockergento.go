@@ -692,6 +692,28 @@ func (e *Engine) CopyInto(dir string, paths []string, all bool) error {
 	return transfer.Into(project, paths, owner)
 }
 
+// CopyIntoService copies one file into a directory of a service's container, refusing when that
+// container is not running.
+func (e *Engine) CopyIntoService(dir, service, source, target string) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	return e.transfer(project).IntoService(project, service, source, target)
+}
+
+// ClearAnonymisation forgets that the project's database was anonymised, which is what everything
+// that replaces its contents has to do: whatever came in, nobody anonymised it.
+func (e *Engine) ClearAnonymisation(dir string) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	return toolinfo.State{Dir: e.options.StateDir}.Clear(project.Name)
+}
+
 // CopyFrom copies paths out of the container into the project.
 func (e *Engine) CopyFrom(dir string, paths []string) error {
 	project, err := e.Resolve(dir)

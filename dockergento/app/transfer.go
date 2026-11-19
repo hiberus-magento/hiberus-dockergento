@@ -136,6 +136,17 @@ func (t Transfer) From(project core.Project, paths []string) error {
 	return nil
 }
 
+// IntoService copies one file from this machine into a directory of another service's container: the
+// dump transfer-db brought over SSH, into the database container that restores it.
+func (t Transfer) IntoService(project core.Project, service, source, target string) error {
+	container, err := resolveContainer(t.Engine, project, service, t.Binary)
+	if err != nil {
+		return err
+	}
+
+	return t.Files.Into(container, source, target)
+}
+
 // mkdir makes a directory inside the container, and says nothing when it is already there.
 func (t Transfer) mkdir(container, target string) error {
 	code, err := t.Runner.Run(container, []string{"sh", "-c", "mkdir -p " + target}, nil, io.Discard)

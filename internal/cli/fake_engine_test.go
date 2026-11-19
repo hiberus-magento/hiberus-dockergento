@@ -726,3 +726,18 @@ func (f *fakeEngine) Compatibility() (string, error) {
 
 	return f.compatibility, f.outcomeFor(number).err
 }
+
+func (f *fakeEngine) CopyIntoService(dir, service, source, target string) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "CopyIntoService", Dir: dir, Service: service,
+		Paths: []string{source}, Path: target})
+
+	return f.outcomeFor(number).err
+}
+
+func (f *fakeEngine) ClearAnonymisation(dir string) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "ClearAnonymisation", Dir: dir})
+
+	return f.outcomeFor(number).err
+}

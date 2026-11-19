@@ -48,7 +48,7 @@ check "ai-reset does not block"     ai-reset
 check_go "bash does not block"         bash
 check_go "start does not block"        start
 check "install does not block"      install
-check "transfer-db does not block"  transfer-db
+check_go "transfer-db does not block" transfer-db
 check_go "transfer-media does not block" transfer-media
 check_go "masquerade does not block"   masquerade
 

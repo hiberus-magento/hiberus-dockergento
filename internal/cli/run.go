@@ -77,6 +77,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return launch(rest[1:], stdout, stderr, jsonOutput)
 		case "transfer-media":
 			return transferMedia(rest[1:], stdout, stderr, jsonOutput)
+		case "transfer-db":
+			return transferDB(rest[1:], stdout, stderr, jsonOutput)
 		case "grunt":
 			return grunt(rest[1:], stdout, stderr, jsonOutput)
 		case "update":

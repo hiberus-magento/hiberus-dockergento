@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,3 +119,56 @@ func TestCopiarPuntoTraeElContenidoDelWorkdirAlDirectorioDeMagento(t *testing.T)
 		t.Fatalf("copied %v, want only %v", copied, want)
 	}
 }
+
+// transfer-db copies the dump it brought over SSH into the database container, which is the
+// `docker cp db.sql.gz <db>:/tmp/db.sql.gz` of the shell: into the db service's container, not
+// php's, and refused when that container is not running.
+func TestUnFicheroSeCopiaAlContenedorDelServicioPedido(t *testing.T) {
+	transfer, project := transferencia(t, &runner{}, &runner{})
+	transfer.Engine = &engine{containers: []core.Container{
+		{ID: "php1", Project: "tienda", ComposeService: "phpfpm", Running: true},
+		{ID: "db1", Project: "tienda", ComposeService: "db", Running: true},
+	}}
+
+	recorder := &recordingFiles{}
+	transfer.Files = recorder
+
+	if err := transfer.IntoService(project, "db", "/aqui/db.sql.gz", "/tmp"); err != nil {
+		t.Fatal(err)
+	}
+
+	want := [3]string{"db1", "/aqui/db.sql.gz", "/tmp"}
+	if len(recorder.into) != 1 || recorder.into[0] != want {
+		t.Fatalf("copied %v, want only %v", recorder.into, want)
+	}
+}
+
+func TestCopiarAUnServicioParadoSeNiega(t *testing.T) {
+	transfer, project := transferencia(t, &runner{}, &runner{})
+	recorder := &recordingFiles{}
+	transfer.Files = recorder
+	transfer.Binary = "hm"
+
+	err := transfer.IntoService(project, "db", "/aqui/db.sql.gz", "/tmp")
+
+	var refused core.Refusal
+	if !errors.As(err, &refused) || refused.Kind != "service_not_running" || refused.Code != 5 ||
+		refused.Message != "Service 'db' is not running" || refused.Hint != "hm start db" {
+		t.Fatalf("err = %#v, want the service_not_running refusal for db", err)
+	}
+
+	if len(recorder.into) != 0 {
+		t.Fatalf("copied %v into a container that is not running", recorder.into)
+	}
+}
+
+// recordingFiles keeps the container each copy went to, which files does not.
+type recordingFiles struct{ into [][3]string }
+
+func (f *recordingFiles) Into(container, source, target string) error {
+	f.into = append(f.into, [3]string{container, source, target})
+
+	return nil
+}
+
+func (f *recordingFiles) From(string, string, string) error { return nil }
