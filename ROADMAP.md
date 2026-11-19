@@ -4,8 +4,8 @@ Punto de entrada para una sesión nueva sin contexto. Dice **dónde estamos, qu�
 reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 `openspec/changes/archive/`; este fichero no lo repite.
 
-> Estado medido el **2026-11-19** sobre `release/2.0.0` (HEAD `4cef0a9` más el port de
-> `create-project`; `cd0afc8` es lo último subido a origin).
+> Estado medido el **2026-11-19** sobre `release/2.0.0` (HEAD `23ce02d` más la retirada de
+> `composer` y `exec`; `cd0afc8` es lo último subido a origin).
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
@@ -14,41 +14,23 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 |---|---|---|
 | Comandos respondidos por el binario | **35 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
 | Comandos aún en shell | **30** | `rg -c "\| shell \|" MIGRATION.md` |
-| Ficheros en `console/commands/` | **32** | `fd -e sh . console/commands \| wc -l` |
-| Gemelos de shell retirados | **33** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
-| Portados que **aún conservan** su `.sh` | **2** | ver la pista A, y `composer` en la B |
+| Ficheros en `console/commands/` | **30** | `fd -e sh . console/commands \| wc -l` |
+| Gemelos de shell retirados | **35** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
+| Portados que **aún conservan** su `.sh` | **0** | pista A vacía |
 | Tests Go / aserciones de shell | 602 / 586 | `DOCKER_HOST=unix:///nonexistent go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 
 ## Qué hacer después, en orden
 
 1. **Pista A — retirar los gemelos de shell que ya tienen port en Go.** Es lo más barato y lo que
    más desbloquea. Empieza por los pequeños y ya probados.
-2. **Pista B — portar los 30 comandos que siguen en shell, y el baile del vendor de `composer`.**
-   El baile primero: `composer.sh` es el último llamador de `exec.sh`.
+2. **Pista B — portar los 30 comandos que siguen en shell.** Uno por unidad, de menor a mayor.
 3. **Pista C — defectos conocidos.** Ninguno bloquea; varios llevan cinco ciclos aplazados.
 
 ## Pista A — gemelos de shell pendientes de retirar
 
-Este comando está tabulado como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
-`composer` también lo está, pero no es un gemelo: está en la pista B.
-Antes de borrar cada uno hay que **confirmar que está probado en Go** (el segundo paso de la regla);
-algunos no lo están.
-
-| Comando | Líneas `.sh` | Notas |
-|---|---|---|
-| `exec` | 22 | último de su cadena: sólo lo llama ya `composer.sh` (el baile del vendor, pista B) |
-
-Orden sugerido: por tamaño. Antes de cada uno, además de apartarlo, busca quién lo llama
-directamente (`rg '"\$COMMANDS_DIR"/<nombre>\.sh' console`). `exec.sh` cae cuando caiga
-`composer.sh` (pista B).
-
-Medir la lista de nuevo:
-
-```bash
-for n in $(rg "\| go \|" MIGRATION.md | awk -F'|' '{gsub(/[ `]/,"",$2); print $2}'); do
-  [ -f console/commands/$n.sh ] && echo "$n $(wc -l < console/commands/$n.sh)"
-done
-```
+Vacía desde `exec` (ver `MIGRATION.md`). Si vuelve a haber un comando tabulado como `go` con su
+`.sh` en el árbol, la regla para retirarlo está abajo, en las reglas que no se negocian, y sus
+puntos ciegos en la pista C.
 
 ## Pista B — comandos aún en shell (30)
 
@@ -60,7 +42,6 @@ done
 | magento | `grunt`, **`install`** |
 | ai | `ai-context`, `ai-doctor`, `ai-init`, `ai-pull`, `ai-reset`, `mcp`, `permissions` |
 | files / versions | `transfer-media`, `switch`, `update` |
-| composer | **portar el baile del vendor de macOS**: `install`, `update`, `require` y `remove` siguen cayendo a `composer.sh` en darwin (`mirrorsVendor`, `internal/cli/php.go`; `internal/cli/run.go:67-72`). Es la implementación viva ahí, no un gemelo, y no se retira hasta portarlo. Mientras tanto, desde un worktree sin entorno propio esos cuatro se niegan en macOS (6, `blocked_in_worktree`, salvo `hm --force composer …`): el reinicio de `phpfpm` con el que empieza el baile va por el binario desde `de69f6b` |
 
 Ciclos ya identificados: `install-and-ssl-in-go`, `hosts-config-in-go`, y
 que `Configuration` entre en la costura de `internal/cli`.
@@ -89,11 +70,12 @@ que `Configuration` entre en la costura de `internal/cli`.
 | `hm stop -t 5` toma `-t` y `5` por servicios | `internal/cli/orchestrate.go` (`stop`) | `stop.sh` pasaba las opciones a `docker compose stop`; el port no. `restart` las niega con 2: decidir entre pasarlas o negarlas |
 | `docker-stop-all` con el daemon inaccesible responde «No containers running» y sale con 0 | `dockergento/app/orchestrate.go` (`StopEverything`, `containers, _ := o.Engine.Containers()`) | Heredado del shell (`docker ps -q 2>/dev/null`); un fallo de conexión se lee como éxito. `go_passthrough_test.sh` fija hoy ese comportamiento |
 | `docker-stop-all` no interactivo para todos los contenedores sin preguntar | `go_passthrough_test.sh` lo ejecutaba con `HM_NON_INTERACTIVE=1` y el daemon accesible | Corregido en `a4927e6` (la prueba fija un `DOCKER_HOST` inexistente). Queda la regla: ninguna suite corre un comando de máquina sin cortar el daemon dentro de la propia prueba |
-| `hm composer install\|update\|require\|remove` en macOS se niega desde un worktree sin entorno propio | El baile del vendor de `composer.sh` reinicia `phpfpm` por el binario, que aplica la protección de worktree; antes la llamada directa a `restart.sh` se la saltaba y tocaba el entorno del checkout principal | Aceptado en `de69f6b`; la negativa la da `composer.sh` con una salida que funciona (`hm --force composer …`); se resuelve al portar el baile del vendor (pista B) |
 
 Ya resueltos (no reabrir): CI sin macOS, `gofmt` sin `./dockergento`, CI corriendo `tests/unit`
 como "todo" — los tres en `d03d54c`. El aviso de worktree «los contenedores sirven el código de…»,
 que el binario no daba para ninguno de los ocho comandos de código que responde, en `f03a5e4`.
+El baile del vendor de `composer` en macOS desde un worktree sin entorno propio: se niega, con la
+salida `hm --force composer …`, y desde `28560a5` lo hace el binario.
 
 ## Reglas que no se negocian
 

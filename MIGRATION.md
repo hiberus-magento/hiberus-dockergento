@@ -621,6 +621,24 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         están portadas a Go (pista C). Con el árbol ya sin los tres ficheros: 52 de 1054 aserciones
         fallaban antes y después, diff vacío; la que falló de más en la línea base era que
         `create-project` seguía tabulado como `shell` aquí.
+  - [x] El baile del vendor de `composer` en macOS portado, y `composer` y `exec` retirados.
+        En darwin, `composer install|update|require|remove` caía a `composer.sh`; ahora el binario
+        hace los pasos él mismo por la costura del motor — reiniciar `phpfpm`, meter `vendor`,
+        ejecutar Composer, meter los ficheros por defecto de Magento, parar `phpfpm`, vaciar el
+        `vendor` del host, sacar el directorio de trabajo entero y arrancar `phpfpm` —, parando en
+        el primero que falla con su código, y responde a toda invocación de `composer`
+        (`28560a5`). Desde un worktree sin entorno propio se niega con la pista del shell
+        (`--force` delante de `composer`). `ClearVendor`, el único paso que borra en el host, se
+        niega a cualquier ruta que no sea exactamente el `vendor` del proyecto una vez resueltos
+        los enlaces y los `..`. `composer_vendor_test.go` fija cada paso, cada fallo y cada
+        negativa; `vendor_test.go`, las rutas.
+
+        `console/commands/composer.sh` (121 líneas) y `console/commands/exec.sh` (22), cuyo último
+        llamador directo era `composer.sh`, están borrados, con `tests/unit/composer_vendor_test.sh`
+        (10 aserciones, portadas); quedan 30 ficheros en `console/commands/`. `go_orchestration_test.sh`
+        compara ahora `exec` con el propio Compose y `composer show` con el `exec` que ejecutaba.
+        Con el árbol ya sin los tres ficheros: 51 fallos antes y después, diff vacío. Con esto la
+        pista A queda vacía.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
