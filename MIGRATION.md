@@ -702,6 +702,15 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         aserciones, portadas) están borrados; quedan 22 ficheros en `console/commands/`. La copia
         de los pasos de Linux que llevaba `rebuild.sh` desaparece con él. Apartados: 51 fallos antes
         y después, diff vacío.
+  - [x] `grunt` y `update` portados y retirados (`496aa91`). `grunt` ejecuta sus seis pasos en
+        el contenedor de PHP, las órdenes del shell una por `bash -c`, y para en el primero que
+        falla; sin tema o sin locale es un error de uso, donde el shell salía con 0. `update` hace
+        `git pull` de la instalación de la herramienta y regenera el autocompletado; niega una
+        instalación anclada a una etiqueta, una que no es un checkout y un `pull` que falla, con
+        los mensajes del shell, y se prueba contra un origen y un clon temporales.
+        `version_switching_test.sh` lo ejecuta desde una copia del binario dentro de su clon. Sus
+        dos ficheros (38 y 35 líneas) están borrados; quedan 20. Apartados: 51 fallos antes y
+        después, diff vacío.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
