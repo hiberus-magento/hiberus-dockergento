@@ -9,8 +9,8 @@ source "$HELPERS_DIR"/binary.sh
 #
 create_database() {
     if [[ $# -gt 0 && -n $1 ]]; then
-        "$COMMANDS_DIR"/mysql.sh < "$1"
-        "$COMMANDS_DIR"/mysql.sh -q "DELETE FROM admin_user;"
+        hm_run_binary mysql < "$1"
+        hm_run_binary mysql -q "DELETE FROM admin_user;"
     fi
     
     "$COMMANDS_DIR"/install.sh ${USE_DEFAULT_SETTINGS:+-u}

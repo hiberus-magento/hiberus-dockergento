@@ -4,6 +4,7 @@ set -euo pipefail
 source "$COMPONENTS_DIR"/input_info.sh
 source "$COMPONENTS_DIR"/print_message.sh
 source "$HELPERS_DIR"/docker.sh
+source "$HELPERS_DIR"/binary.sh
 
 is_run_service "phpfpm"
 
@@ -24,7 +25,7 @@ else
     DOCKER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$HITCH_CONTAINER")
 
     # Read domains from database and include them into /etc/hosts file of php container
-    for DOMAIN in `"$COMMANDS_DIR"/mysql.sh -q "SELECT DISTINCT value FROM core_config_data WHERE path like 'web/%/base_url'" 2> /dev/null`
+    for DOMAIN in `hm_run_binary mysql -q "SELECT DISTINCT value FROM core_config_data WHERE path like 'web/%/base_url'" 2> /dev/null`
     do
       if [[ "$DOMAIN" == *"://"* ]]; then
         DOMAIN=$(echo "$DOMAIN" | sed -e 's|^[^/]*//||' -e 's|/.*$||')

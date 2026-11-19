@@ -314,19 +314,21 @@ hm magento config:set web/unsecure/base_url https://myproject.local/
 
 #### 5.6.2 Extracting Domains from Database
 
-**Function**: `get_domains.sh`
+**Where**: `console/tasks/set_etc_hosts.sh`, on Linux after an environment starts
 
 ```bash
-# Read all domains configured in Magento
-for DOMAIN in `hm mysql -q "SELECT DISTINCT value FROM core_config_data WHERE path like 'web/%/base_url'"`
+# Read all domains configured in Magento, through the binary
+for DOMAIN in `hm_run_binary mysql -q "SELECT DISTINCT value FROM core_config_data WHERE path like 'web/%/base_url'"`
 do
   if [[ "$DOMAIN" == *"://"* ]]; then
-    DOMAINS+=($(echo "$DOMAIN" | sed -e 's|^[^/]*//||' -e 's|/.*$||'))
+    DOMAIN=$(echo "$DOMAIN" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
+    # ...written into the php container's /etc/hosts, pointing at the TLS terminator
   fi
 done
 ```
 
-**Usage**: Commands like `hm ssl` and `hm set-host` can operate on all configured domains.
+**Usage**: only the self-routing entries of the php container. A separate `get_domains.sh` task
+did the same read and was called by nothing; it was removed with `mysql`'s shell twin.
 
 ### 5.7 Docker Services State
 

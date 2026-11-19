@@ -11,7 +11,6 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
-SHELL_CLI="$COMMAND_BIN_DIR/bin/run"
 PROJECT="hm-go-basedatos"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 
@@ -49,17 +48,24 @@ cp "$DIR/docker-compose.yml" "$DIR/docker-compose.dev.linux.yml"
 printf '{"MAGENTO_DIR": "./src", "DOMAIN": "bd.test", "COMPOSE_PROJECT_NAME": "%s"}\n' "$PROJECT" \
     > "$DIR/config/docker/properties.json"
 
+#
+# mysql has no shell twin left. What it ran is the oracle now: the client inside the db container,
+# with the statement in the environment, exactly as console/commands/mysql.sh did it.
+#
+cliente() {
+    docker exec -e QUERY="$1" "$( cd "$DIR" && docker compose -p "$PROJECT" ps -q db )" bash -c \
+        'client=$(command -v mariadb || command -v mysql); "$client" -u"root" -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "$QUERY"'
+}
+
 # ---------------------------------------------------------------- with nothing running
 #
 # Any other answer would be a connection error three layers down.
 
-( cd "$DIR" && "$SHELL_CLI" mysql -q "SELECT 1" >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
-( cd "$DIR" && "$GO_BINARY"  mysql -q "SELECT 1" >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+( cd "$DIR" && "$GO_BINARY" mysql -q "SELECT 1" >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
 
-test_case "with the database down, both refuse the same way"
+test_case "with the database down, it refuses with the service code"
 assert_equals "5" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
-assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
+assert_equals "false" "$(jq -r '.ok' < "$LAB/go.err")"
 
 # ---------------------------------------------------------------- with it up
 
@@ -88,7 +94,7 @@ fi
 #
 CONSULTA='SELECT 1 AS uno, '"'"'con "comillas" y `acentos`'"'"' AS texto'
 
-( cd "$DIR" && "$SHELL_CLI" mysql -q "$CONSULTA" >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
+cliente "$CONSULTA" >"$LAB/shell.out" 2>&1; SHELL_STATUS=$?
 ( cd "$DIR" && "$GO_BINARY"  mysql -q "$CONSULTA" >"$LAB/go.out" 2>&1 );   GO_STATUS=$?
 
 test_case "a statement with quotes and backticks answers the same, character for character"
@@ -98,7 +104,7 @@ assert_equals "$SHELL_STATUS" "$GO_STATUS"
 test_case "and it really did reach the database"
 assert_contains "$(cat "$LAB/go.out")" 'con "comillas" y `acentos`'
 
-( cd "$DIR" && "$SHELL_CLI" mysql -q "SELECT * FROM no_existe" >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
+cliente "SELECT * FROM no_existe" >"$LAB/shell.out" 2>&1; SHELL_STATUS=$?
 ( cd "$DIR" && "$GO_BINARY"  mysql -q "SELECT * FROM no_existe" >"$LAB/go.out" 2>&1 );   GO_STATUS=$?
 
 test_case "a statement that fails keeps the client's own exit code and message"
@@ -118,17 +124,15 @@ printf 'DROP TABLE IF EXISTS prueba;\nCREATE TABLE prueba (id INT);\nINSERT INTO
 test_case "a dump on the input is imported"
 assert_contains "$( cd "$DIR" && "$GO_BINARY" mysql -q "SELECT id FROM prueba" 2>&1 )" "7"
 
-test_case "and the shell implementation reads the same database"
-assert_contains "$( cd "$DIR" && "$SHELL_CLI" mysql -q "SELECT id FROM prueba" 2>&1 )" "7"
+test_case "and the client itself reads the same database"
+assert_contains "$(cliente "SELECT id FROM prueba" 2>&1)" "7"
 
 # ---------------------------------------------------------------- and the refusals
 
-( cd "$DIR" && "$SHELL_CLI" mysql -z >/dev/null 2>&1 ); SHELL_STATUS=$?
-( cd "$DIR" && "$GO_BINARY"  mysql -z >/dev/null 2>&1 ); GO_STATUS=$?
+( cd "$DIR" && "$GO_BINARY" mysql -z >/dev/null 2>&1 ); GO_STATUS=$?
 
 test_case "an option nobody declared is refused with the usage code"
 assert_equals "2" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
 
 # ---------------------------------------------------------------- the import
 #
@@ -149,7 +153,7 @@ INSERT INTO cosas VALUES (1, 'uno');
 /*!50001 CREATE*/ /*!50013 DEFINER=`alguien`@`otro-sitio` SQL SECURITY DEFINER*/ /*!50001 VIEW `vista` AS SELECT 1 AS `x` */;
 EOF
 
-for CUAL in "$SHELL_CLI" "$GO_BINARY"; do
+for CUAL in "$GO_BINARY"; do
     ( cd "$DIR" && "$CUAL" mysql -q "DROP VIEW IF EXISTS vista; DROP TABLE IF EXISTS cosas;" ) >/dev/null 2>&1
     ( cd "$DIR" && "$CUAL" mysql -d -i "$LAB/vistas.sql" ) >/dev/null 2>&1
 
@@ -175,8 +179,7 @@ assert_equals "no" "$([ -f "$LAB/estado/$PROJECT.json" ] && echo yes || echo no)
 
 test_case "a file that is not there is said, not crashed on"
 ( cd "$DIR" && "$GO_BINARY" mysql -i "$LAB/no-existe.sql" >"$LAB/go.out" 2>&1 ); GO_STATUS=$?
-( cd "$DIR" && "$SHELL_CLI" mysql -i "$LAB/no-existe.sql" >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
 assert_contains "$(cat "$LAB/go.out")" "No such file"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
+assert_equals "0" "$GO_STATUS"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
