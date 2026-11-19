@@ -282,7 +282,9 @@ printf "%%s\\n" "$HM_REGISTERED" "$HM_REGISTERED_PROJECT"
 ' \
     > "$LAB/fake/bin/run"
 chmod +x "$LAB/fake/bin/run"
-( cd "$TREE" && HM_LEGACY_ROOT="$LAB/fake" "$COMMAND_BIN_DIR/bin/hm" compatibility >"$LAB/out" 2>&1 )
+# A name the binary will never answer for, so it always reaches the shell tree, whichever commands
+# are ported by then
+( cd "$TREE" && HM_LEGACY_ROOT="$LAB/fake" "$COMMAND_BIN_DIR/bin/hm" hm-never-a-command >"$LAB/out" 2>&1 )
 assert_equals "$PROJECT/feature-x" "$(sed -n 1p "$LAB/out")"
 assert_equals "$PROJECT-feature-x" "$(sed -n 2p "$LAB/out")"
 
