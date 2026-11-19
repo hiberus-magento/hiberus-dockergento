@@ -1942,6 +1942,28 @@ func answersLocally(port int) bool {
 	return true
 }
 
+// AIDoctor is what AI tooling the project in dir has, where each piece came from, and whether it
+// is still that.
+//
+// The project's root is the script's HM_ROOT: HM_PROJECT_DIR when it is set, the main checkout
+// from a worktree that borrows its environment, and dir otherwise. The registration is read from
+// dir itself, as the script read it relative to $PWD.
+func (e *Engine) AIDoctor(dir string) (core.AIDoctorReport, error) {
+	root := dir
+	if override := os.Getenv("HM_PROJECT_DIR"); override != "" {
+		root = override
+	} else if project, err := e.Resolve(dir); err == nil && project.Root != "" {
+		root = project.Root
+	}
+
+	return app.AIDoctor{
+		Root:      root,
+		Dir:       dir,
+		Tool:      e.options.Root,
+		Platforms: filepath.Join(e.options.Root, "data", "ai-platforms.json"),
+	}.Report()
+}
+
 // Compatibility is the table of the Magento releases this tool has images for, read from its own
 // data directory.
 func (e *Engine) Compatibility() (string, error) {

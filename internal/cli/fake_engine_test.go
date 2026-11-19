@@ -169,6 +169,8 @@ type fakeEngine struct {
 	// versions is what Versions answers with, and switched what Switch does.
 	versions core.Versions
 	switched core.Switched
+	// aiDoctor is what AIDoctor answers with.
+	aiDoctor core.AIDoctorReport
 
 	// tunnel is what Tunnel answers with, and tunnelsClosed what CloseTunnels does.
 	tunnel        core.Tunnel
@@ -750,6 +752,13 @@ func (f *fakeEngine) HoldTunnel(relay string) error {
 	f.calls = append(f.calls, call{Method: "HoldTunnel", Key: relay})
 
 	return f.outcomeFor(len(f.calls) - 1).err
+}
+
+func (f *fakeEngine) AIDoctor(dir string) (core.AIDoctorReport, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "AIDoctor", Dir: dir})
+
+	return f.aiDoctor, f.outcomeFor(number).err
 }
 
 func (f *fakeEngine) Compatibility() (string, error) {
