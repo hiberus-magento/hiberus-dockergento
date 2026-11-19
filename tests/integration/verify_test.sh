@@ -8,7 +8,8 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
+# verify is the binary's
+HM="$COMMAND_BIN_DIR/bin/hm"
 REAL_HOME=$(eval echo "~$(id -un)")
 LAB="$REAL_HOME/.hm/verify-selftest"
 PROJECT="hm-verify-selftest"

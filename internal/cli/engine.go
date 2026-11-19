@@ -66,6 +66,7 @@ type commands interface {
 	Compatibility() (string, error)
 	Versions() (core.Versions, error)
 	Switch(reference string) (core.Switched, error)
+	Verify(dir string, options core.VerifyOptions) (core.Verification, error)
 }
 
 var _ commands = (*dockergento.Engine)(nil)

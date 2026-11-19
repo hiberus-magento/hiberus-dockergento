@@ -77,6 +77,9 @@ type call struct {
 	// Only is the single check doctor was asked to run (--only), "" for all of them.
 	Only string
 
+	// VerifyOptions is what verify was asked to check, compared whole.
+	VerifyOptions core.VerifyOptions
+
 	// Collection is what clean asked to be collected, compared whole: what is deleted has to be
 	// exactly what the survey found, and a field that drifts shows up as a diff.
 	Collection core.Collection
@@ -147,6 +150,9 @@ type fakeEngine struct {
 
 	// compatibility is what Compatibility answers with.
 	compatibility string
+
+	// verification is what Verify answers with.
+	verification core.Verification
 
 	// versions is what Versions answers with, and switched what Switch does.
 	versions core.Versions
@@ -759,4 +765,11 @@ func (f *fakeEngine) Switch(reference string) (core.Switched, error) {
 	f.calls = append(f.calls, call{Method: "Switch", Key: reference})
 
 	return f.switched, f.outcomeFor(number).err
+}
+
+func (f *fakeEngine) Verify(dir string, options core.VerifyOptions) (core.Verification, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Verify", Dir: dir, VerifyOptions: options})
+
+	return f.verification, f.outcomeFor(number).err
 }

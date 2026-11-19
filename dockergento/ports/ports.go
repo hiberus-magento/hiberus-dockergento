@@ -50,6 +50,16 @@ type VCS interface {
 	AddWorktree(root, path, branch string) (string, error)
 }
 
+// Changes answers what a branch changed, for the checks that look only at that.
+type Changes interface {
+	// Exists reports whether a reference names something in the repository at dir.
+	Exists(dir, reference string) bool
+
+	// ChangedSince is the files the branch added, copied, modified or renamed since it left base,
+	// matching pathspec. Nothing, when git cannot say.
+	ChangedSince(dir, base, pathspec string) []string
+}
+
 // Registry is where branch environments are recorded, outside the checkout: properties.json is a
 // committed file, and a worktree's project name written there would travel in somebody's commit.
 type Registry interface {

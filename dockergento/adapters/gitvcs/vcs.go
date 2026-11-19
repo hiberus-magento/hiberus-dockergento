@@ -212,3 +212,29 @@ func line(output string, err error) string {
 
 	return strings.TrimSpace(output)
 }
+
+// Exists reports whether a reference names something in the repository at dir.
+func (Git) Exists(dir, reference string) bool {
+	_, err := run(dir, "rev-parse", "--verify", reference)
+
+	return err == nil
+}
+
+// ChangedSince is the files the branch added, copied, modified or renamed since it left base — the
+// merge base, not base's tip: what base did afterwards is not the branch's — matching pathspec.
+func (Git) ChangedSince(dir, base, pathspec string) []string {
+	output, err := run(dir, "diff", "--name-only", "--diff-filter=ACMR", base+"...HEAD", "--", pathspec)
+	if err != nil {
+		return nil
+	}
+
+	files := []string{}
+
+	for _, line := range strings.Split(output, "\n") {
+		if line != "" {
+			files = append(files, line)
+		}
+	}
+
+	return files
+}
