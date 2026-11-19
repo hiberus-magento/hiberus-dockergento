@@ -165,4 +165,13 @@ test_case "and the readable hint for docker-stop-all names the binary command to
 run --no-json docker-stop-all
 assert_contains "$STDERR" "hm docker-stop-all"
 
+test_case "and so does masquerade, once its own shell twin is gone"
+run masquerade
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for masquerade names the binary command too"
+run --no-json masquerade
+assert_contains "$STDERR" "hm masquerade"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

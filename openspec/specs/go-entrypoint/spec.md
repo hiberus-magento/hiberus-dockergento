@@ -1010,14 +1010,16 @@ whose early-exiting consumer can send its producer a broken pipe.
 
 ### Requirement: A command proved in Go has no shell twin
 
-Once a command is proved in Go through the engine-interaction test seam (the twenty-two retired in
+Once a command is proved in Go through the engine-interaction test seam (the twenty-three retired in
 this change: `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-off`, `purge`,
 `npm`, `n98-magerun`, `test-unit`, `test-integration`, `mysqldump`, `version`, `set-host`,
 `list`, `describe`, `logs`, `debug-on`, `debug-off`, `bash`, `magento`, `docker-compose`,
-`restart`, `docker-stop-all`), the shell tree SHALL NOT carry an implementation for it, and the
-shell entry point SHALL answer a request for that command by naming the binary as where it lives,
+`restart`, `docker-stop-all`, `masquerade`), the shell tree SHALL NOT carry an implementation for
+it, and the shell entry point SHALL answer a request for that command by naming the binary as where it lives,
 rather than failing as though the command did not exist.
-(Previously: named twenty-one commands. This adds `docker-stop-all` —
+(Previously: named twenty-two commands. This adds `masquerade` — `console/commands/masquerade.sh`
+(22 lines), which nothing called directly; `mysql.sh` and `transfer-db.sh` source the
+`console/components/masquerade.sh` component, which stays. Before that it added `docker-stop-all` —
 `console/commands/docker-stop-all.sh` (20 lines), which only exec'd the binary, once `start.sh -s`,
 which called it directly, went through the binary. Before that it added `restart` — `console/commands/restart.sh` (4 lines),
 once its four direct shell callers went through the binary. Before that it added `docker-compose` —
@@ -1038,7 +1040,7 @@ retirement mechanism of its own.)
 - **AND** the router still answers for it, so the absence is a retirement and not a lost command
 
 Pinned by "and what the binary owns outright has no file to drift from" in
-`tests/unit/command_safety_test.sh`, which walks the twenty-two by name (Previously: twenty-one) and
+`tests/unit/command_safety_test.sh`, which walks the twenty-three by name (Previously: twenty-two) and
 fails in both directions: a resurrected `.sh` and a lost route are each a failure.
 
 #### Scenario: The RETIRED list gains its name only once the file is gone

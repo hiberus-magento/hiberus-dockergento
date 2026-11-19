@@ -26,6 +26,17 @@ check() {
         bash -c 'cd "$HM_WORKDIR" && exec "$@"' _ "$HM" "$@"
 }
 
+# The same, for a command the binary answers and the shell entry point no longer does. The daemon
+# is cut inside the check: with nobody to answer, masquerade takes yes for an answer, and it must
+# never reach a real database even if the empty directory ever stopped being refused
+check_go() {
+    local label="$1"
+    shift
+    test_case "$label"
+    assert_does_not_block 20 env HM_NON_INTERACTIVE=1 DOCKER_HOST=unix:///nonexistent \
+        HM_WORKDIR="$WORKDIR" bash -c 'cd "$HM_WORKDIR" && exec "$@"' _ "$COMMAND_BIN_DIR/bin/hm" "$@"
+}
+
 # Commands that skip project validation and therefore reach their own prompts
 check "setup does not block"        setup
 check "compatibility does not block" compatibility
@@ -39,7 +50,7 @@ check "start does not block"        start
 check "install does not block"      install
 check "transfer-db does not block"  transfer-db
 check "transfer-media does not block" transfer-media
-check "masquerade does not block"   masquerade
+check_go "masquerade does not block"   masquerade
 check "mysql does not block"        mysql
 
 test_case "a question without a default fails with the usage code"

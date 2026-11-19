@@ -402,6 +402,21 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         la propia prueba, y comprueba que no hay nada que parar. La pregunta en la terminal del
         llamador era cosa del stub de delegación y la fija Go. Con las reparaciones, apartarlo y
         correr la suite entera: 57 de 1047 aserciones fallaban antes y después, diff vacío.
+  - [x] El mismo paso, para `masquerade` — vigésimo tercer comando retirado así.
+        `console/commands/masquerade.sh` (22 líneas) está borrado; quedan 42 ficheros en
+        `console/commands/`. `tools_test.go` (`TestWhatMasqueradeAsks`) fija lo que pide el handler
+        y que una opción desconocida no pide nada; `go_orchestration_test.sh`, que se salta sin
+        daemon, que un «no» deja los datos en paz. El port conserva la confirmación, el «sí» sin
+        terminal y el registro de la anonimización; declinar sale con 0 en vez del 1 accidental del
+        shell. Nadie llamaba al `.sh`: `mysql.sh` y `transfer-db.sh` cargan el componente
+        `console/components/masquerade.sh`, que se queda.
+
+        Apartarlo no rompió nada: 57 de 1050 aserciones fallaban antes y después, diff vacío. Ese
+        verde escondía un punto ciego: `non_interactive_test.sh` comprobaba que
+        `bin/run masquerade` no se queda esperando, y retirado, `bin/run` se niega al instante y
+        la comprobación pasa sin probar nada. Ahora se la hace al binario, con `DOCKER_HOST`
+        apuntando a un socket inexistente dentro de la propia comprobación: sin nadie que
+        conteste, `masquerade` toma el sí por respuesta.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
