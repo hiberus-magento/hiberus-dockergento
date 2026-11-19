@@ -64,6 +64,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return logs(rest[1:], stdout, stderr, jsonOutput)
 		case "magento":
 			return magento(rest[1:], stdout, stderr, jsonOutput)
+		case "cloud":
+			return cloud(rest[1:], stdout, stderr, jsonOutput)
+		case "cloud-login":
+			return cloudLogin(rest[1:], stdout, stderr, jsonOutput)
 		case "composer":
 			// All of it, the macOS vendor dance included: composer.sh has nothing left to answer
 			return composer(rest[1:], stdout, stderr, jsonOutput)
