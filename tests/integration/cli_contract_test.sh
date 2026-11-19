@@ -21,6 +21,15 @@ run() {
     return 0
 }
 
+# run_binary <args...> — the same, asking bin/hm
+run_binary() {
+    ( cd "$WORKDIR" && "$COMMAND_BIN_DIR/bin/hm" "$@" >"$OUT" 2>"$ERR" )
+    STATUS=$?
+    STDOUT=$(cat "$OUT")
+    STDERR=$(cat "$ERR")
+    return 0
+}
+
 test_case "an unknown command exits with the usage code"
 run noexiste
 assert_equals "2" "$STATUS"
@@ -44,8 +53,10 @@ assert_contains "$STDERR" "noexiste"
 test_case "a readable error still exits with the usage code"
 assert_equals "2" "$STATUS"
 
+# A command that needs a project, asked of the binary that answers it: bin/run only says the
+# command moved, which is what the retired-command contract below checks
 test_case "outside a project the exit code says so"
-run bash
+run_binary magento
 assert_equals "4" "$STATUS"
 
 test_case "outside a project the error is machine readable"
@@ -55,7 +66,7 @@ test_case "outside a project stdout stays empty"
 assert_empty "$STDOUT"
 
 test_case "the error names the command that failed"
-assert_json_field "$STDERR" '.command' "bash"
+assert_json_field "$STDERR" '.command' "magento"
 
 test_case "--help still works"
 run --help
