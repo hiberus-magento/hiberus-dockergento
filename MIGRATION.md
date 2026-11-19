@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 34 de 65 |
+| Comandos en Go | 35 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -602,6 +602,25 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         la pista C. Nadie llamaba al `.sh`; `clean_test.sh` y `concurrent_safety_test.sh` le
         preguntan al binario. Con el árbol ya sin él: 51 de 1051 aserciones fallaban antes y
         después, diff vacío.
+  - [x] `create-project` portado y su `.sh` retirado — primer comando de la pista B.
+        `console/commands/create-project.sh` (120 líneas) está borrado, con las dos tareas que sólo
+        él usaba, `version_manager.sh` y `magento_installation.sh`; quedan 32 ficheros en
+        `console/commands/`. Es `setup` con la versión elegida en vez de leída del `composer.lock`,
+        así que reutiliza `app.Setup` (`Decide`, `Save`, `requirementsFor`, `Write`, el proxy y los
+        pasos de instalación por el binario) y añade la edición y la versión, `composer
+        create-project` en un directorio temporal del contenedor copiado sobre el de trabajo,
+        `composer.json` traído al host y `-u` pasado a `install` (`4cef0a9`). Se niega desde un
+        worktree sin entorno propio, como `setup`. Diferencias con el shell, decididas: la última
+        versión es la mayor por orden de versiones (el `jq 'keys | last'` del shell ordenaba como
+        texto y elegía 2.4.9 sobre 2.4.10); una versión no soportada se niega con 2 en vez de volver
+        a preguntar; `Decide` pregunta también el capturador de correo; ya no se pregunta si las
+        versiones de los servicios convencen, como tampoco lo hace `setup`.
+
+        `write_from_docker-compose_templates.sh`, que sólo cargaba `version_manager.sh`, se queda
+        de momento: `mail_catcher_test.sh` genera con él los compose que prueba, y sus reglas no
+        están portadas a Go (pista C). Con el árbol ya sin los tres ficheros: 52 de 1054 aserciones
+        fallaban antes y después, diff vacío; la que falló de más en la línea base era que
+        `create-project` seguía tabulado como `shell` aquí.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
@@ -674,7 +693,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `config-env` | tools | 3 | shell |
 | `copy-from-container` | files | 3 | go |
 | `copy-to-container` | files | 3 | go |
-| `create-project` | tools | 3 | shell |
+| `create-project` | tools | 3 | go |
 | `db` | database | 2 | shell |
 | `dbeaver` | database | 3 | shell |
 | `debug-off` | tools | 3 | go |

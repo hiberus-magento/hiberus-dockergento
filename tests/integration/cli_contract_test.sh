@@ -255,4 +255,9 @@ test_case "and the readable hint for clean names the binary command too"
 run --no-json clean
 assert_contains "$STDERR" "hm clean"
 
+test_case "and so does create-project, once it is the binary's"
+run create-project
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
