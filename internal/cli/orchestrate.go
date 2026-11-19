@@ -58,7 +58,7 @@ func stop(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return code
 	}
 
-	return report(stderr, jsonOutput, "stop", engine(stdout, stderr, jsonOutput).
+	return report(stderr, jsonOutput, "stop", newEngine(stdout, stderr, jsonOutput).
 		Stop(here(), services, snapshot))
 }
 

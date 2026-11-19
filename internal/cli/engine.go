@@ -20,6 +20,7 @@ type commands interface {
 	Describe(dir string, withSecrets bool) (core.Description, error)
 	Exec(dir, service string, command []string, options core.ExecOptions) (int, error)
 	Restart(dir string, services []string) error
+	Stop(dir string, services []string, snapshot bool) error
 	CopyInto(dir string, paths []string, all bool) error
 	CopyFrom(dir string, paths []string) error
 	Property(project core.Project, key string) string

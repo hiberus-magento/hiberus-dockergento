@@ -33,6 +33,9 @@ type call struct {
 	Domain   string
 	Database bool
 
+	// Snapshot is whether stop was asked to save the database first.
+	Snapshot bool
+
 	// Interactive is what docker-stop-all was asked with: whether the stop may ask before doing
 	// it.
 	Interactive bool
@@ -151,6 +154,14 @@ func (f *fakeEngine) Exec(dir, service string, command []string, options core.Ex
 	out := f.outcomeFor(number)
 
 	return out.status, out.err
+}
+
+// Stop, like Restart, only ever answers with an error.
+func (f *fakeEngine) Stop(dir string, services []string, snapshot bool) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Stop", Dir: dir, Services: services, Snapshot: snapshot})
+
+	return f.outcomeFor(number).err
 }
 
 func (f *fakeEngine) Restart(dir string, services []string) error {
