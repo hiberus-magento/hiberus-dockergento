@@ -22,7 +22,10 @@ source "$TASKS_DIR"/mcp_tools.sh
 # a server that "just stopped working", and one command reading stdin would eat the conversation.
 #
 
-HM="$COMMAND_BIN_DIR/bin/run"
+# The binary, not bin/run: describe, list, logs, mysql, magento and the rest are the binary's, and
+# their shell twins are retired, so bin/run would only name the binary for each of them. The binary
+# still hands what it does not answer itself to the shell implementation.
+HM="$COMMAND_BIN_DIR/bin/hm"
 HM_MCP_VERSION="2025-06-18"
 HM_MCP_WRITE=false
 HM_MCP_KNOWN_VERSIONS='["2025-06-18","2025-03-26","2024-11-05"]'

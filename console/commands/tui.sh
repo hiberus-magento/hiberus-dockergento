@@ -16,7 +16,10 @@ source "$TASKS_DIR"/tui_frame.sh
 # protections —worktree guardrails, exit codes— are inherited rather than bypassed.
 #
 
-HM="$COMMAND_BIN_DIR/bin/run"
+# The binary, not bin/run: list, describe, doctor, start, stop and the rest are the binary's, and
+# their shell twins are retired, so bin/run would only name the binary for each of them. The binary
+# still hands what it does not answer itself to the shell implementation.
+HM="$COMMAND_BIN_DIR/bin/hm"
 
 VIEW="fleet"
 SELECTED=0
