@@ -17,7 +17,7 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 | Ficheros en `console/commands/` | **39** | `fd -e sh . console/commands \| wc -l` |
 | Gemelos de shell retirados | **26** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
 | Portados que **aún conservan** su `.sh` | **8** | ver la pista A, y `composer` en la B |
-| Tests Go / aserciones de shell | 508 / 630 | `DOCKER_HOST=unix:///nonexistent go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
+| Tests Go / aserciones de shell | 508 / 635 | `DOCKER_HOST=unix:///nonexistent go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 
 ## Qué hacer después, en orden
 
