@@ -23,11 +23,12 @@ assert_equals "0" "$?"
 
 # ---------------------------------------------------------------- one copy of the steps
 
-test_case "start does not carry its own copy of them"
-assert_equals "" "$(grep -c 'fix_linux_permissions' "$COMMAND_BIN_DIR/console/commands/start.sh" | grep -v '^0$')"
-
-test_case "it calls the command instead"
-assert_contains "$(cat "$COMMAND_BIN_DIR/console/commands/start.sh")" "post-start.sh"
+#
+# start has no shell twin left, so the other caller is the binary: its Start hands this back on
+# Linux, pinned in Go by TestLinuxIsHandedBackWhatIsNotPortedYet
+# (dockergento/app/orchestrate_test.go). rebuild.sh still carries a copy of the steps; that is in
+# the roadmap's Track C.
+#
 
 # ---------------------------------------------------------------- a project with no TLS terminator
 #
