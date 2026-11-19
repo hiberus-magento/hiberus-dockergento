@@ -1,7 +1,12 @@
 package cli
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -40,4 +45,71 @@ func TestTheRouterAnswersForTheDockerTools(t *testing.T) {
 			}
 		})
 	}
+}
+
+//
+// `hm <command> --help` is the command's help for every command, ported or not: bin/run answers
+// it from data/command_descriptions.json before any command runs, and a handler that took it as
+// an argument answered "unknown subcommand" or "not a project" instead. Every case of run.go's
+// switch is read from the source, so a command ported later is held to it without being listed.
+//
+
+func TestHelpAfterAnyRoutedCommandIsTheShellsHelp(t *testing.T) {
+	for _, command := range routedCommands(t) {
+		for _, flag := range []string{"--help", "-h"} {
+			t.Run(command+" "+flag, func(t *testing.T) {
+				fake := answering(t)
+
+				var stderr strings.Builder
+
+				code := Run([]string{command, flag}, io.Discard, &stderr)
+
+				// The fallback finds no bin/run in the directory answering(t) pins, which is
+				// how it shows: 3, a plain message and the fake asked nothing
+				if code != 3 || len(fake.calls) != 0 || strings.Contains(stderr.String(), `"schema_version"`) {
+					t.Fatalf("%s %s answered %d with %q and %d engine calls, want it handed to "+
+						"bin/run for the command's help", command, flag, code, stderr.String(), len(fake.calls))
+				}
+			})
+		}
+	}
+}
+
+// routedCommands are the string cases of Run's switch.
+func routedCommands(t *testing.T) []string {
+	t.Helper()
+
+	file, err := parser.ParseFile(token.NewFileSet(), "run.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var commands []string
+
+	ast.Inspect(file, func(node ast.Node) bool {
+		clause, ok := node.(*ast.CaseClause)
+		if !ok {
+			return true
+		}
+
+		for _, expression := range clause.List {
+			literal, ok := expression.(*ast.BasicLit)
+			if !ok || literal.Kind != token.STRING {
+				continue
+			}
+
+			name, _ := strconv.Unquote(literal.Value)
+			if !strings.HasPrefix(name, "_") {
+				commands = append(commands, name)
+			}
+		}
+
+		return true
+	})
+
+	if len(commands) < 40 {
+		t.Fatalf("read %d routed commands from run.go, want the whole switch", len(commands))
+	}
+
+	return commands
 }

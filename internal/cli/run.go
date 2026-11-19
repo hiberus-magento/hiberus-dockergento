@@ -31,7 +31,12 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	//
 	format, rest := globals(args)
 
-	if len(rest) > 0 {
+	//
+	// `hm <command> --help` is the command's help, for every command and before the command runs:
+	// bin/run answers it from data/command_descriptions.json, and a handler handed it as an
+	// argument would answer "unknown subcommand" or "not a project" instead.
+	//
+	if len(rest) > 0 && !(len(rest) > 1 && (rest[1] == "--help" || rest[1] == "-h")) {
 		jsonOutput := wanted(format, stdout)
 
 		switch rest[0] {
@@ -67,11 +72,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		case "permissions":
 			return permissions(rest[1:], stdout, stderr, jsonOutput)
 		case "ai-context":
-			// --help right after the command is still the shell implementation's: bin/run answers
-			// it with the command's help for every command, before the command itself runs
-			if len(rest) < 2 || (rest[1] != "--help" && rest[1] != "-h") {
-				return aiContext(rest[1:], stdout, stderr, jsonOutput)
-			}
+			return aiContext(rest[1:], stdout, stderr, jsonOutput)
 		case "launch":
 			return launch(rest[1:], stdout, stderr, jsonOutput)
 		case "transfer-media":
