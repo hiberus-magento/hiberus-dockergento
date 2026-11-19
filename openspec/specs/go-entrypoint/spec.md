@@ -1010,14 +1010,17 @@ whose early-exiting consumer can send its producer a broken pipe.
 
 ### Requirement: A command proved in Go has no shell twin
 
-Once a command is proved in Go through the engine-interaction test seam (the twenty-eight retired in
+Once a command is proved in Go through the engine-interaction test seam (the twenty-nine retired in
 this change: `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-off`, `purge`,
 `npm`, `n98-magerun`, `test-unit`, `test-integration`, `mysqldump`, `version`, `set-host`,
 `list`, `describe`, `logs`, `debug-on`, `debug-off`, `bash`, `magento`, `docker-compose`,
-`restart`, `docker-stop-all`, `masquerade`, `web`, `worktree`, `stop`, `start`, `down`), the shell
-tree SHALL NOT carry an implementation for it, and the shell entry point SHALL answer a request for that command by naming the binary as where it lives,
+`restart`, `docker-stop-all`, `masquerade`, `web`, `worktree`, `stop`, `start`, `down`, `mysql`), the
+shell tree SHALL NOT carry an implementation for it, and the shell entry point SHALL answer a request for that command by naming the binary as where it lives,
 rather than failing as though the command did not exist.
-(Previously: named twenty-seven commands. This adds `down` — `console/commands/down.sh` (78 lines),
+(Previously: named twenty-eight commands. This adds `mysql` — `console/commands/mysql.sh` (122
+lines), once the handler went through the engine-interaction seam and `set_etc_hosts.sh` and
+`magento_installation.sh`, which called it directly, went through the binary; `get_domains.sh`,
+which also called it and was called by nothing, was removed. Before that it added `down` — `console/commands/down.sh` (78 lines),
 which nothing called directly, once the handler went through the engine-interaction seam. Before
 that it added `start` — `console/commands/start.sh` (61 lines),
 once the handler went through the engine-interaction seam and composer's macOS vendor dance, which
@@ -1051,7 +1054,7 @@ retirement mechanism of its own.)
 - **AND** the router still answers for it, so the absence is a retirement and not a lost command
 
 Pinned by "and what the binary owns outright has no file to drift from" in
-`tests/unit/command_safety_test.sh`, which walks the twenty-eight by name (Previously: twenty-seven) and
+`tests/unit/command_safety_test.sh`, which walks the twenty-nine by name (Previously: twenty-eight) and
 fails in both directions: a resurrected `.sh` and a lost route are each a failure.
 
 #### Scenario: The RETIRED list gains its name only once the file is gone

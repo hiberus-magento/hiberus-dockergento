@@ -511,6 +511,29 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         `go_orchestration_test.sh`, `magento` y `bash` se comparan con el `exec` del mismo binario,
         que es por donde pasan; el comando exacto que construyen lo fija `magento_test.go` en la
         costura, no esa comparación.
+  - [x] El mismo paso, para `mysql` — vigésimo noveno comando retirado así.
+        `console/commands/mysql.sh` (122 líneas) está borrado; quedan 36 ficheros en
+        `console/commands/`. El handler de Go ya leía `-q`, `-i`, `-d` y `-a` y el `Import` del
+        motor hacía lo mismo que el `.sh` — conservar el dominio, olvidar la anonimización
+        anterior, anonimizar si se pide y dejar la tienda en desarrollo —, pero pedía al motor
+        concreto. Ahora va por `newEngine` y `mysql_test.go` fija la consulta con su estado y su
+        salida, las opciones de importación, la tilde, que un fichero que no existe no importa
+        nada, el volcado por stdin y que una invocación mal formada no pide nada. La sesión
+        interactiva no: necesita un terminal en stdin y `go test` nunca lo tiene.
+
+        Tres llamadores directos que la suite no ejecuta: `set_etc_hosts.sh` y los dos de
+        `magento_installation.sh` (uno importa por stdin). Van por `hm_run_binary mysql`. Un
+        cuarto, `get_domains.sh`, llamaba a `mysql.sh` **sin** `-q` y no lo llamaba nadie; está
+        borrado, y `architecture/05` dejó de atribuírselo a `ssl` y `set-host`.
+        `go_database_test.sh`, que necesita daemon, compara ahora el binario con el cliente dentro
+        del contenedor `db` — lo que ejecutaba `mysql.sh` — en vez de con `bin/run`;
+        `global_options_test.sh` dejó de leer el `getopts` de `mysql.sh`, cuyo orden `-d -i` fija
+        Go. Apartarlo: 54 de 1073 aserciones fallaban antes y después, diff vacío.
+
+        Buscando otros pasos delegados al shell salió una regresión de la retirada de `magento`:
+        `set-host` escribía la URL base con `magento config:set` a través de `bin/run`, que desde
+        `cd0afc8` sólo nombra el binario, y `hm set-host <dominio>` sin `--no-database` fallaba con
+        `config_failed`. Ahora va por el propio binario, como los pasos de `setup` (`416f72b`).
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072

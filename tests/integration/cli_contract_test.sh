@@ -219,4 +219,13 @@ test_case "and the readable hint for down names the binary command too"
 run --no-json down
 assert_contains "$STDERR" "hm down"
 
+test_case "and so does mysql, once its own shell twin is gone"
+run mysql -q "SELECT 1"
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for mysql names the binary command too"
+run --no-json mysql -q "SELECT 1"
+assert_contains "$STDERR" "hm mysql"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
