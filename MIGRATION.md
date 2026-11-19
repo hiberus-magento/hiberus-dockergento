@@ -492,6 +492,24 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         (`TestLinuxIsHandedBackWhatIsNotPortedYet`). Reemplazarla destapó que `rebuild.sh` lleva su
         propia copia de esos pasos: pista C. Con las reparaciones, apartarlo: 54 fallos antes y
         después, diff vacío.
+  - [x] El mismo paso, para `down` — vigésimo octavo comando retirado así.
+        `console/commands/down.sh` (78 líneas) está borrado; quedan 37 ficheros en
+        `console/commands/`. El `Down` de Go ya hacía lo del `.sh` — la pregunta de tres
+        respuestas antes de borrar volúmenes, la copia primero y nada destruido si falla, la
+        destrucción sin preguntar con `--yes` — pero el handler pedía al motor concreto. Ahora va
+        por `newEngine` y `down_engine_test.go` fija las opciones que pasa, si la pregunta puede
+        hacerse, el mensaje cuando no se destruye nada, el informe `--json` de volúmenes y copia, y
+        que una negativa conserva su código. `down_test.go` ya fijaba los rechazos al leer.
+
+        Nadie lo llamaba directamente. Las suites que le preguntaban a `bin/run down` le preguntan
+        al binario (`worktree_test.sh`, `project_name_test.sh`, `lifecycle_guard_test.sh`,
+        `db_snapshots_test.sh`), y `go_orchestration_test.sh` comprueba su negativa desde un
+        worktree contra el contrato. `lifecycle_guard_test.sh` contesta a la pregunta con un
+        número por stdin, que el `choose` del binario acepta igual que `custom_select`.
+
+        La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
+        suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
+        aserciones fallaban antes y después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
