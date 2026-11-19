@@ -35,6 +35,7 @@ type commands interface {
 	ConfigureForDevelopment(dir string) error
 	Update() error
 	AgentPermissions(strict bool) (core.AgentPermissions, error)
+	WriteAgentContext(dir string) (core.AgentContextResult, error)
 	CreateProject(dir string, options core.CreateProjectOptions, interactive bool) error
 	CopyInto(dir string, paths []string, all bool) error
 	CopyFrom(dir string, paths []string) error

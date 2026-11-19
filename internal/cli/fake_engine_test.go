@@ -139,6 +139,9 @@ type fakeEngine struct {
 
 	// permissions is what AgentPermissions answers with.
 	permissions core.AgentPermissions
+
+	// agentContext is what WriteAgentContext answers with, when its own outcome does not fail it.
+	agentContext core.AgentContextResult
 }
 
 var _ commands = (*fakeEngine)(nil)
@@ -205,6 +208,18 @@ func (f *fakeEngine) AgentPermissions(strict bool) (core.AgentPermissions, error
 	f.calls = append(f.calls, call{Method: "AgentPermissions", All: strict})
 
 	return f.permissions, f.outcomeFor(number).err
+}
+
+// WriteAgentContext answers from f.agentContext, and records the directory it was asked about.
+func (f *fakeEngine) WriteAgentContext(dir string) (core.AgentContextResult, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "WriteAgentContext", Dir: dir})
+
+	if out := f.outcomeFor(number); out.err != nil {
+		return core.AgentContextResult{}, out.err
+	}
+
+	return f.agentContext, nil
 }
 
 // Update only ever answers with an error.

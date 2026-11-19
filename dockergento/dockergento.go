@@ -157,6 +157,10 @@ func (e *Engine) Describe(dir string, withSecrets bool) (core.Description, error
 		return core.Description{}, err
 	}
 
+	return e.describer(project).Describe(project, e.ComposeFiles(project), withSecrets)
+}
+
+func (e *Engine) describer(project core.Project) app.Describer {
 	return app.Describer{
 		Engine:  dockerd.Engine{Timeout: e.options.Timeout},
 		Compose: composecfg.Loader{Environment: e.Environment(project)},
@@ -164,7 +168,32 @@ func (e *Engine) Describe(dir string, withSecrets bool) (core.Description, error
 		Tooling: toolinfo.Reader{Root: e.options.Root, WorkdirPHP: e.Property(project, "WORKDIR_PHP")},
 		State:   toolinfo.State{Dir: e.options.StateDir},
 		Machine: Platform(),
-	}.Describe(project, e.ComposeFiles(project), withSecrets)
+	}
+}
+
+// WriteAgentContext writes the project context an agent reads before it starts: AGENTS.md, a
+// CLAUDE.md pointing at it when there is none, and the MCP server in .mcp.json.
+//
+// The server is this binary, not the shell entry point: the binary hands `mcp` to the shell
+// implementation while that is where it lives, and goes on answering for it once it is not. The
+// version in the block is HM_VERSION as the environment has it, which is what the shell
+// implementation read — bin/run never set it.
+func (e *Engine) WriteAgentContext(dir string) (core.AgentContextResult, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return core.AgentContextResult{}, err
+	}
+
+	return app.AgentContext{
+		Daemon: dockerd.Daemon{Timeout: e.options.Timeout},
+		Describe: func() (core.Description, error) {
+			return e.describer(project).Describe(project, e.ComposeFiles(project), false)
+		},
+		Exclusions: filepath.Join(e.options.Root, "data", "ai-exclusions.json"),
+		Command:    filepath.Join(e.options.Root, "bin", "hm"),
+		Binary:     e.options.Binary,
+		Version:    os.Getenv("HM_VERSION"),
+	}.Write()
 }
 
 // Diagnose is what has to be true for an environment to work, asked all at once.

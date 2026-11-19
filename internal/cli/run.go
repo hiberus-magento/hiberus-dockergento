@@ -66,6 +66,12 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return magento(rest[1:], stdout, stderr, jsonOutput)
 		case "permissions":
 			return permissions(rest[1:], stdout, stderr, jsonOutput)
+		case "ai-context":
+			// --help right after the command is still the shell implementation's: bin/run answers
+			// it with the command's help for every command, before the command itself runs
+			if len(rest) < 2 || (rest[1] != "--help" && rest[1] != "-h") {
+				return aiContext(rest[1:], stdout, stderr, jsonOutput)
+			}
 		case "launch":
 			return launch(rest[1:], stdout, stderr, jsonOutput)
 		case "transfer-media":
