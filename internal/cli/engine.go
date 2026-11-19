@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/app"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -23,6 +24,10 @@ type commands interface {
 	Stop(dir string, services []string, snapshot bool) error
 	Start(dir string, options dockergento.StartOptions) error
 	Down(dir string, options core.DownOptions, interactive bool) (string, error)
+	Query(dir, statement string, out io.Writer) (int, error)
+	Import(dir string, options app.ImportOptions) error
+	Feed(dir string) (int, error)
+	Console(dir string) (int, error)
 	CopyInto(dir string, paths []string, all bool) error
 	CopyFrom(dir string, paths []string) error
 	Property(project core.Project, key string) string

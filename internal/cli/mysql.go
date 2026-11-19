@@ -50,7 +50,7 @@ func mysql(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return code
 	}
 
-	engine := engine(stdout, stderr, jsonOutput)
+	engine := newEngine(stdout, stderr, jsonOutput)
 
 	if options.File != "" {
 		if _, err := os.Stat(options.File); err != nil {

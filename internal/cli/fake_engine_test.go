@@ -2,12 +2,14 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/app"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
@@ -42,6 +44,12 @@ type call struct {
 
 	// DownOptions is what down was asked for, compared whole.
 	DownOptions core.DownOptions
+
+	// Statement is what mysql -q was asked to run.
+	Statement string
+
+	// ImportOptions is what mysql -i was asked to import, compared whole.
+	ImportOptions app.ImportOptions
 
 	// Interactive is what docker-stop-all was asked with: whether the stop may ask before doing
 	// it.
@@ -161,6 +169,42 @@ func (f *fakeEngine) Exec(dir, service string, command []string, options core.Ex
 	out := f.outcomeFor(number)
 
 	return out.status, out.err
+}
+
+// Query writes its outcome's captured string where the statement's output goes, and answers with
+// its status, the way the client's own exit code comes back.
+func (f *fakeEngine) Query(dir, statement string, out io.Writer) (int, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Query", Dir: dir, Statement: statement})
+	answer := f.outcomeFor(number)
+	fmt.Fprint(out, answer.captured)
+
+	return answer.status, answer.err
+}
+
+// Import only ever answers with an error.
+func (f *fakeEngine) Import(dir string, options app.ImportOptions) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Import", Dir: dir, ImportOptions: options})
+
+	return f.outcomeFor(number).err
+}
+
+// Feed and Console answer with the client's status.
+func (f *fakeEngine) Feed(dir string) (int, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Feed", Dir: dir})
+	answer := f.outcomeFor(number)
+
+	return answer.status, answer.err
+}
+
+func (f *fakeEngine) Console(dir string) (int, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Console", Dir: dir})
+	answer := f.outcomeFor(number)
+
+	return answer.status, answer.err
 }
 
 // Down answers with its outcome's captured string as what happened: "" for nothing destroyed,
