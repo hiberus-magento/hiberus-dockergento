@@ -36,6 +36,11 @@ type call struct {
 	Domain   string
 	Database bool
 
+	// Port is the port share was asked to tunnel to, and Confirm whether it was given a question
+	// to put before exposing anything.
+	Port    int
+	Confirm bool
+
 	// Snapshot is whether stop was asked to save the database first.
 	Snapshot bool
 
@@ -136,6 +141,10 @@ type fakeEngine struct {
 
 	// description is what Describe answers with, on the same terms.
 	description core.Description
+
+	// share is what Share answers with, and unshared what Unshare does.
+	share    core.Share
+	unshared bool
 
 	// permissions is what AgentPermissions answers with.
 	permissions core.AgentPermissions
@@ -635,4 +644,33 @@ func answering(t *testing.T) *fakeEngine {
 	t.Cleanup(func() { newEngine = original })
 
 	return fake
+}
+
+func (f *fakeEngine) Share(dir, service string, port int, confirm func(string) bool) (core.Share, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Share", Dir: dir, Service: service, Port: port, Confirm: confirm != nil})
+
+	if out := f.outcomeFor(number); out.err != nil {
+		return core.Share{}, out.err
+	}
+
+	return f.share, nil
+}
+
+func (f *fakeEngine) Unshare(dir string) (bool, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Unshare", Dir: dir})
+
+	if out := f.outcomeFor(number); out.err != nil {
+		return false, out.err
+	}
+
+	return f.unshared, nil
+}
+
+// HoldShare returns at once: the tunnel it holds is closed as soon as it is opened.
+func (f *fakeEngine) HoldShare(relay string) error {
+	f.calls = append(f.calls, call{Method: "HoldShare", Key: relay})
+
+	return f.outcomeFor(len(f.calls) - 1).err
 }

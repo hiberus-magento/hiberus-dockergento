@@ -272,3 +272,30 @@ type Credentials struct {
 		RootPassword string `json:"root_password"`
 	} `json:"database"`
 }
+
+// Relay is a container that belongs to no environment and stands between one and something else:
+// a public tunnel, or a port forwarded to this machine. It is attached to the environment's
+// network and found again by its name, which is how it is closed.
+type Relay struct {
+	Name    string
+	Image   string
+	Network string
+	Command []string
+
+	// Publish, when set, is a port of this machine forwarded to ContainerPort, on HostIP only.
+	HostIP        string
+	HostPort      int
+	ContainerPort int
+
+	// AutoRemove has Docker remove it when it stops, as `docker run --rm` does.
+	AutoRemove bool
+}
+
+// Share is a project put on the public internet: the address it answers at, and the relay that
+// holds it open. Declined is the person answering no, with nothing started.
+type Share struct {
+	URL      string `json:"url"`
+	Project  string `json:"project"`
+	Relay    string `json:"-"`
+	Declined bool   `json:"-"`
+}

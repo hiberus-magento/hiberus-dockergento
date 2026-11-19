@@ -1818,3 +1818,38 @@ func installedRoot() string {
 
 	return filepath.Dir(filepath.Dir(executable))
 }
+
+// Share puts the project's web service on a public address, through a tunnel that stays open
+// until Unshare closes it. confirm is asked before anything is exposed; nil means nobody is asked.
+func (e *Engine) Share(dir, service string, port int, confirm func(string) bool) (core.Share, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return core.Share{}, err
+	}
+
+	return e.sharer().Open(project, service, port, confirm)
+}
+
+// Unshare closes the project's tunnel and reports whether there was one.
+func (e *Engine) Unshare(dir string) (bool, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return false, err
+	}
+
+	return e.sharer().Close(project)
+}
+
+// HoldShare returns when the tunnel Share opened stops.
+func (e *Engine) HoldShare(relay string) error {
+	return e.sharer().Wait(relay)
+}
+
+func (e *Engine) sharer() app.Sharer {
+	return app.Sharer{
+		Engine: dockerd.Engine{Timeout: e.options.Timeout},
+		Relays: dockerd.Relays{},
+		Say:    e.options.Announce,
+		Binary: e.options.Binary,
+	}
+}

@@ -55,6 +55,9 @@ type commands interface {
 	Diagnose(dir, only string) (core.Diagnosis, error)
 	Survey() (core.Collection, error)
 	Collect(collection core.Collection) error
+	Share(dir, service string, port int, confirm func(string) bool) (core.Share, error)
+	Unshare(dir string) (bool, error)
+	HoldShare(relay string) error
 }
 
 var _ commands = (*dockergento.Engine)(nil)

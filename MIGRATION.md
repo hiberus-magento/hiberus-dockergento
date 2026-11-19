@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 51 de 65 |
+| Comandos en Go | 52 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -879,7 +879,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `web` | tools | 1 | go |
 | `set-host` | tools | 3 | go |
 | `setup` | environment | 2 | go |
-| `share` | environment | 3 | shell |
+| `share` | environment | 3 | go |
 | `ssl` | tools | 4 | go |
 | `start` | environment | 1 | go |
 | `stop` | environment | 1 | go |

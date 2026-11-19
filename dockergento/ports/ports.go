@@ -270,6 +270,23 @@ type OneOff interface {
 	Volumes(image string, command []string, mounts map[string]string, out io.Writer) (int, error)
 }
 
+// Relays are containers that belong to no environment and are found by name: what holds a
+// public tunnel or a forwarded port open for as long as somebody uses it.
+type Relays interface {
+	// Remove takes away, forcing them, the containers named name — or every one whose name starts
+	// with it, when prefix — and reports whether there was any.
+	Remove(name string, prefix bool) (bool, error)
+
+	// Start creates and starts one, detached, pulling its image first when it is not here.
+	Start(relay core.Relay) error
+
+	// Logs is everything it has written so far, both streams together.
+	Logs(name string) (string, error)
+
+	// Wait returns when it stops, which is when somebody closed it.
+	Wait(name string) error
+}
+
 // VolumeStore is the Docker volumes on this machine.
 type VolumeStore interface {
 	// Labelled returns every volume carrying a label, with the labels it carries.
