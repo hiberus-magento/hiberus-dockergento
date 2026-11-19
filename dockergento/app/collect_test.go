@@ -613,3 +613,40 @@ func TestCollectDeletesOnlyWhatTheCollectionLists(t *testing.T) {
 		t.Fatalf("volumes removed (-want +got):\n%s", diff)
 	}
 }
+
+// TestAnEmptyNameDeletesNothingByName: Collect deletes a branch environment's containers and
+// volumes by its compose project name, and a dead environment's containers by its hm.project name.
+// An empty name would match every container with no such label and every volume starting with "_"
+// — things that belong to nobody this tool knows. With no name there is nothing to match, so
+// nothing is deleted by name; a stale registration is still forgotten.
+func TestAnEmptyNameDeletesNothingByName(t *testing.T) {
+	s := sweepOf(
+		[]core.Container{
+			{ID: "someone-elses", Running: true},
+			{ID: "unlabelled-compose", ComposeProject: "", Project: ""},
+		},
+		[]string{"_scratch", "_data"},
+		map[string]map[string]string{},
+		map[string][]core.Worktree{"padre": {{Name: "rota", Project: "", Path: "/lab/no-existe"}}},
+		map[string]bool{},
+		nil,
+	)
+
+	collection := core.Collection{
+		Environments: []core.Abandoned{{Name: ""}},
+		Worktrees:    []core.AbandonedWorktree{{Name: "padre/rota", Project: "", Path: "/lab/no-existe"}},
+	}
+
+	if err := s.collector.Collect(collection); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(s.engine.removed) != 0 || len(s.volumes.removed) != 0 {
+		t.Fatalf("removed containers %v, volumes %v, want nothing matched by an empty name",
+			s.engine.removed, s.volumes.removed)
+	}
+
+	if !has(s.registry.forgotten, "padre/rota") {
+		t.Errorf("forgotten = %v, want the stale registration forgotten all the same", s.registry.forgotten)
+	}
+}

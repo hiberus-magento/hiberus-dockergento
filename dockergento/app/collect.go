@@ -208,6 +208,12 @@ func (c Collector) Collect(collection core.Collection) error {
 	}
 
 	for _, environment := range collection.Environments {
+		// No name, nothing to match: an empty one would match every container with no
+		// hm.project label, which is every container this tool did not make
+		if environment.Name == "" {
+			continue
+		}
+
 		if err := c.Engine.Remove(idsOf(containers, func(one core.Container) bool {
 			return one.Project == environment.Name
 		})); err != nil {
@@ -220,20 +226,12 @@ func (c Collector) Collect(collection core.Collection) error {
 	// Compose: the directory that held its configuration is exactly what is missing.
 	//
 	for _, worktree := range collection.Worktrees {
-		if err := c.Engine.Remove(idsOf(containers, func(one core.Container) bool {
-			return one.ComposeProject == worktree.Project
-		})); err != nil {
-			return err
-		}
-
-		all, err := c.Volumes.All()
-		if err != nil {
-			return err
-		}
-
-		for _, volume := range all {
-			if strings.HasPrefix(volume, worktree.Project+"_") {
-				c.Volumes.Remove(volume) //nolint:errcheck
+		// The same for a registration with no project name: matched by name, it would take
+		// every container with no compose label and every volume whose name starts with "_".
+		// The stale registration is still forgotten.
+		if worktree.Project != "" {
+			if err := c.removeByProject(containers, worktree.Project); err != nil {
+				return err
 			}
 		}
 
@@ -246,6 +244,28 @@ func (c Collector) Collect(collection core.Collection) error {
 
 	for _, volume := range collection.Volumes {
 		c.Volumes.Remove(volume) //nolint:errcheck
+	}
+
+	return nil
+}
+
+// removeByProject deletes a branch environment's containers and volumes by its compose project.
+func (c Collector) removeByProject(containers []core.Container, project string) error {
+	if err := c.Engine.Remove(idsOf(containers, func(one core.Container) bool {
+		return one.ComposeProject == project
+	})); err != nil {
+		return err
+	}
+
+	all, err := c.Volumes.All()
+	if err != nil {
+		return err
+	}
+
+	for _, volume := range all {
+		if strings.HasPrefix(volume, project+"_") {
+			c.Volumes.Remove(volume) //nolint:errcheck
+		}
 	}
 
 	return nil
