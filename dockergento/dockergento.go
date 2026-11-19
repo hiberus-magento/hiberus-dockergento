@@ -14,8 +14,10 @@ package dockergento
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -1970,4 +1972,47 @@ func (e *Engine) Compatibility() (string, error) {
 	}
 
 	return core.CompatibilityTable(requirements, equivalents), nil
+}
+
+// DockerReachable says whether the Docker daemon answers, which is what bin/run asked before any
+// command that needs it ran.
+func (e *Engine) DockerReachable() bool {
+	return dockerd.Daemon{Timeout: e.options.Timeout}.Reachable()
+}
+
+// Equivalents is the table that sends each Magento release to the row of images it uses, read
+// from the tool's own data directory.
+func (e *Engine) Equivalents() (map[string]string, error) {
+	contents, err := os.ReadFile(filepath.Join(e.options.Root, "data", "equivalent_versions.json"))
+	if err != nil {
+		return nil, err
+	}
+
+	return core.ReadEquivalents(string(contents))
+}
+
+// InstallSettings is data/config.json: the store and admin settings `install` passes to
+// setup:install. It is shared by every project, as it always was, and created with the tool's
+// defaults the first time it is asked for.
+func (e *Engine) InstallSettings() ([]core.Setting, error) {
+	path := filepath.Join(e.options.Root, "data", "config.json")
+
+	contents, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		defaults := core.DefaultInstallSettings()
+
+		return defaults, e.SaveInstallSettings(defaults)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return core.ReadInstallSettings(string(contents))
+}
+
+// SaveInstallSettings writes data/config.json back, the way jq printed it.
+func (e *Engine) SaveInstallSettings(settings []core.Setting) error {
+	return os.WriteFile(filepath.Join(e.options.Root, "data", "config.json"),
+		[]byte(core.RenderInstallSettings(settings)), 0o644) //nolint:gosec
 }

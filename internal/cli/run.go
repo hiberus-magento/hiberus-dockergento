@@ -153,6 +153,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return setup(rest[1:], stdout, stderr, jsonOutput)
 		case "create-project":
 			return createProject(rest[1:], stdout, stderr, jsonOutput)
+		case "install":
+			return install(rest[1:], stdout, stderr, jsonOutput)
 		case "proxy":
 			return proxy(rest[1:], stdout, stderr, jsonOutput)
 		case "share":

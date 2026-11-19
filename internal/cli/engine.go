@@ -64,6 +64,10 @@ type commands interface {
 	CloseTunnels(dir, service string) (bool, error)
 	HoldTunnel(relay string) error
 	Compatibility() (string, error)
+	DockerReachable() bool
+	Equivalents() (map[string]string, error)
+	InstallSettings() ([]core.Setting, error)
+	SaveInstallSettings(settings []core.Setting) error
 	Versions() (core.Versions, error)
 	Switch(reference string) (core.Switched, error)
 	Verify(dir string, options core.VerifyOptions) (core.Verification, error)

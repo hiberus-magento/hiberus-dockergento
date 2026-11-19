@@ -9,8 +9,8 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
-# setup is the binary's; install is still the shell implementation's. The daemon is cut for both:
-# nothing here should reach it, and --yes would let a step that did go ahead without asking
+# setup and install are the binary's. The daemon is cut for both: nothing here should reach it, and
+# --yes would let a step that did go ahead without asking
 export DOCKER_HOST=unix:///nonexistent
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$LAB"' EXIT
@@ -52,7 +52,7 @@ assert_equals "2" "$STATUS"
 assert_contains "$STDERR" "cannot choose"
 
 test_case "hm install takes the long form of its option"
-run install --use-default
+run_go install --use-default
 assert_equals "0" "$([ "$STATUS" != "2" ] && echo 0 || echo 1)"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

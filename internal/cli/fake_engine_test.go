@@ -151,6 +151,18 @@ type fakeEngine struct {
 	// compatibility is what Compatibility answers with.
 	compatibility string
 
+	// equivalents is what Equivalents answers with, and settings what InstallSettings does —
+	// SaveInstallSettings stores into it, so a later read sees what was saved, as with the file.
+	equivalents map[string]string
+	settings    []core.Setting
+
+	// byCommand, when set, answers Exec and Capture by the command they were given rather than by
+	// call number, for a test whose calls land at positions that depend on earlier answers.
+	byCommand func(command []string) (outcome, bool)
+
+	// dockerDown is the answer DockerReachable gives, negated so the zero value is a daemon up.
+	dockerDown bool
+
 	// verification is what Verify answers with.
 	verification core.Verification
 
@@ -223,6 +235,11 @@ func (f *fakeEngine) Exec(dir, service string, command []string, options core.Ex
 	f.calls = append(f.calls, call{Method: "Exec", Dir: dir, Service: service, Command: command, Options: options})
 
 	out := f.outcomeFor(number)
+	if f.byCommand != nil {
+		if answer, ok := f.byCommand(command); ok {
+			out = answer
+		}
+	}
 
 	return out.status, out.err
 }
@@ -502,6 +519,11 @@ func (f *fakeEngine) Capture(dir, service string, command []string) (string, int
 	f.calls = append(f.calls, call{Method: "Capture", Dir: dir, Service: service, Command: command})
 
 	out := f.outcomeFor(number)
+	if f.byCommand != nil {
+		if answer, ok := f.byCommand(command); ok {
+			out = answer
+		}
+	}
 
 	return out.captured, out.status, out.err
 }
@@ -735,6 +757,39 @@ func (f *fakeEngine) Compatibility() (string, error) {
 	f.calls = append(f.calls, call{Method: "Compatibility"})
 
 	return f.compatibility, f.outcomeFor(number).err
+}
+
+func (f *fakeEngine) DockerReachable() bool {
+	f.calls = append(f.calls, call{Method: "DockerReachable"})
+
+	return !f.dockerDown
+}
+
+func (f *fakeEngine) Equivalents() (map[string]string, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Equivalents"})
+
+	return f.equivalents, f.outcomeFor(number).err
+}
+
+func (f *fakeEngine) InstallSettings() ([]core.Setting, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "InstallSettings"})
+
+	if f.settings == nil {
+		f.settings = core.DefaultInstallSettings()
+	}
+
+	return append([]core.Setting(nil), f.settings...), f.outcomeFor(number).err
+}
+
+func (f *fakeEngine) SaveInstallSettings(settings []core.Setting) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "SaveInstallSettings"})
+
+	f.settings = append([]core.Setting(nil), settings...)
+
+	return f.outcomeFor(number).err
 }
 
 func (f *fakeEngine) CopyIntoService(dir, service, source, target string) error {
