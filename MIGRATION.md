@@ -507,6 +507,10 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         worktree contra el contrato. `lifecycle_guard_test.sh` contesta a la pregunta con un
         número por stdin, que el `choose` del binario acepta igual que `custom_select`.
 
+        La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
+        suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
+        aserciones fallaban antes y después, diff vacío.
+
         Revisado (`review-f1850f232ab7d6f2`). Queda una debilidad aceptada: en
         `go_orchestration_test.sh`, `magento` y `bash` se comparan con el `exec` del mismo binario,
         que es por donde pasan; el comando exacto que construyen lo fija `magento_test.go` en la
@@ -756,9 +760,16 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         oráculo están borrados; quedan 15. Tres suites que necesitan Docker le preguntan al
         binario. Apartados: 48 fallos antes y después, diff vacío.
 
-        La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
-        suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
-        aserciones fallaban antes y después, diff vacío.
+        Revisado de `931a66a` a `8008679` (`review-3e499cf488dd1eb6`): sin aprobación ni rechazo,
+        con un hallazgo escalado por causalidad desconocida, `R3-launch-permissions-help-refused`:
+        `hm launch --help` y `hm permissions --help` contestaban con un error en vez de la ayuda.
+        No eran sólo esos dos: ningún comando portado dejaba llegar `--help` a `bin/run`, que es
+        quien da la ayuda de cada comando, y `worktree`, `stop` o `magento` respondían como si fuera
+        un argumento. El router lo deja pasar ahora para todos (`1801487`), y una prueba lee los
+        casos del `switch` de `run.go` para que un comando portado después tampoco se lo quede.
+        Antes, `cli_contract_test.sh` le pedía `bash`, ya retirado, a `bin/run` para comprobar el
+        error fuera de un proyecto; ahora se lo pide al binario con `magento` (`8008679`), y la
+        base baja a 46 fallos.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
