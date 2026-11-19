@@ -1010,15 +1010,18 @@ whose early-exiting consumer can send its producer a broken pipe.
 
 ### Requirement: A command proved in Go has no shell twin
 
-Once a command is proved in Go through the engine-interaction test seam (the thirty-one retired in
+Once a command is proved in Go through the engine-interaction test seam (the thirty-two retired in
 this change: `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-off`, `purge`,
 `npm`, `n98-magerun`, `test-unit`, `test-integration`, `mysqldump`, `version`, `set-host`,
 `list`, `describe`, `logs`, `debug-on`, `debug-off`, `bash`, `magento`, `docker-compose`,
 `restart`, `docker-stop-all`, `masquerade`, `web`, `worktree`, `stop`, `start`, `down`, `mysql`,
-`setup`, `doctor`), the shell tree SHALL NOT carry an implementation for it, and the shell entry
-point SHALL answer a request for that command by naming the binary as where it lives,
+`setup`, `doctor`, `clean`), the shell tree SHALL NOT carry an implementation for it, and the shell
+entry point SHALL answer a request for that command by naming the binary as where it lives,
 rather than failing as though the command did not exist.
-(Previously: named thirty commands. This adds `doctor` — `console/commands/doctor.sh` (185 lines),
+(Previously: named thirty-one commands. This adds `clean` — `console/commands/clean.sh` (335 lines),
+which nothing called directly, once the handler went through the engine-interaction seam and the
+collector's selection and deletion rules, pinned until then only by a suite that needs a daemon,
+were pinned in Go. Before that it added `doctor` — `console/commands/doctor.sh` (185 lines),
 with `console/helpers/doctor.sh` and the seventeen checks under `console/tasks/doctor/`, which only
 it ran, once the handler went through the engine-interaction seam and the rules only the shell
 suites pinned were ported to Go. Before that it added `setup` — `console/commands/setup.sh` (144
@@ -1063,7 +1066,7 @@ retirement mechanism of its own.)
 - **AND** the router still answers for it, so the absence is a retirement and not a lost command
 
 Pinned by "and what the binary owns outright has no file to drift from" in
-`tests/unit/command_safety_test.sh`, which walks the thirty-one by name (Previously: thirty) and
+`tests/unit/command_safety_test.sh`, which walks the thirty-two by name (Previously: thirty-one) and
 fails in both directions: a resurrected `.sh` and a lost route are each a failure.
 
 #### Scenario: The RETIRED list gains its name only once the file is gone

@@ -4,8 +4,8 @@ Punto de entrada para una sesión nueva sin contexto. Dice **dónde estamos, qu�
 reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 `openspec/changes/archive/`; este fichero no lo repite.
 
-> Estado medido el **2026-11-19** sobre `release/2.0.0` (HEAD `4eae08a` más la retirada de
-> `doctor`; `cd0afc8` es lo último subido a origin).
+> Estado medido el **2026-11-19** sobre `release/2.0.0` (HEAD `c425248` más la retirada de
+> `clean`; `cd0afc8` es lo último subido a origin).
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
@@ -14,10 +14,10 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 |---|---|---|
 | Comandos respondidos por el binario | **34 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
 | Comandos aún en shell | **31** | `rg -c "\| shell \|" MIGRATION.md` |
-| Ficheros en `console/commands/` | **34** | `fd -e sh . console/commands \| wc -l` |
-| Gemelos de shell retirados | **31** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
-| Portados que **aún conservan** su `.sh` | **3** | ver la pista A, y `composer` en la B |
-| Tests Go / aserciones de shell | 508 / 635 | `DOCKER_HOST=unix:///nonexistent go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
+| Ficheros en `console/commands/` | **33** | `fd -e sh . console/commands \| wc -l` |
+| Gemelos de shell retirados | **32** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
+| Portados que **aún conservan** su `.sh` | **2** | ver la pista A, y `composer` en la B |
+| Tests Go / aserciones de shell | 602 / 586 | `DOCKER_HOST=unix:///nonexistent go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 
 ## Qué hacer después, en orden
 
@@ -29,7 +29,7 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 ## Pista A — gemelos de shell pendientes de retirar
 
-Estos 2 comandos están tabulados como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
+Este comando está tabulado como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
 `composer` también lo está, pero no es un gemelo: está en la pista B.
 Antes de borrar cada uno hay que **confirmar que está probado en Go** (el segundo paso de la regla);
 algunos no lo están.
@@ -37,7 +37,6 @@ algunos no lo están.
 | Comando | Líneas `.sh` | Notas |
 |---|---|---|
 | `exec` | 22 | último de su cadena: lo llaman `composer` y `create-project`, los dos de la pista B |
-| `clean` | 335 | pendiente de pruebas Go |
 
 Orden sugerido: por tamaño. Antes de cada uno, además de apartarlo, busca quién lo llama
 directamente (`rg '"\$COMMANDS_DIR"/<nombre>\.sh' console`). `exec.sh` cae cuando

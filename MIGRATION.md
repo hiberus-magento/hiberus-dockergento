@@ -580,6 +580,22 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         flota vacía o herramientas rotas (`f3ba798`); y `anonymisation_test.sh` importaba con
         `bin/run mysql`. Con el árbol ya sin los veintidós ficheros: 51 fallos antes y después, diff
         vacío.
+  - [x] El mismo paso, para `clean` — trigésimo segundo comando retirado así.
+        `console/commands/clean.sh` (335 líneas) está borrado; quedan 33 ficheros en
+        `console/commands/`. El colector de Go (`app/collect.go`) no tenía ninguna prueba: la única
+        era `clean_test.sh`, que necesita daemon. `collect_test.go` fija sobre la misma escena qué
+        selecciona `Survey` y qué borra `Collect` — lo muerto y sus volúmenes y plantilla sí, lo
+        vivo y lo suyo nunca, un volumen sin contenedores es no atribuible y no se borra, el
+        registro caducado se va y el vivo se queda, mirar no borra nada, ningún puerto puede hacer
+        un prune — y `clean_test.go` cuándo recoge el handler: sólo con `--force` o `HM_FORCE`,
+        también bajo `--json`, y preguntando sólo con un sí. Cada regla con su mutación.
+
+        Escribirlas destapó un peligro: `Collect` borraba por nombre, y un nombre vacío casaba con
+        todos los contenedores sin etiqueta y todos los volúmenes que empiezan por `_`. Ahora un
+        nombre vacío no borra nada (`c425248`). Dos comportamientos heredados del shell quedan en
+        la pista C. Nadie llamaba al `.sh`; `clean_test.sh` y `concurrent_safety_test.sh` le
+        preguntan al binario. Con el árbol ya sin él: 51 de 1051 aserciones fallaban antes y
+        después, diff vacío.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072

@@ -246,4 +246,13 @@ test_case "and the readable hint for doctor names the binary command too"
 run --no-json doctor
 assert_contains "$STDERR" "hm doctor"
 
+test_case "and so does clean, once its own shell twin is gone"
+run clean
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for clean names the binary command too"
+run --no-json clean
+assert_contains "$STDERR" "hm clean"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
