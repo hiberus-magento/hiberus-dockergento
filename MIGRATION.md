@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 58 de 65 |
+| Comandos en Go | 59 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -952,7 +952,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `test-unit` | magento | 3 | go |
 | `transfer-db` | database | 4 | go |
 | `transfer-media` | files | 4 | go |
-| `tui` | environment | 3 | shell |
+| `tui` | environment | 3 | go |
 | `tunnel` | environment | 3 | go |
 | `update` | versions | 3 | go |
 | `varnish-off` | tools | 3 | go |

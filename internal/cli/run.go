@@ -185,6 +185,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return dbClient("sequelace", rest[1:], stdout, stderr, jsonOutput)
 		case "tableplus":
 			return dbClient("tableplus", rest[1:], stdout, stderr, jsonOutput)
+		case "tui":
+			// Arguments are ignored, as tui.sh ignored them: the only question is whether there
+			// is a terminal to draw on
+			return tui(stdout, stderr, jsonOutput)
 		}
 	}
 
