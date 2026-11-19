@@ -146,6 +146,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return restart(rest[1:], stdout, stderr, jsonOutput)
 		case "post-start":
 			return postStart(stdout, stderr, jsonOutput)
+		case "ssl":
+			return ssl(rest[1:], stdout, stderr, jsonOutput)
 		case "rebuild":
 			return rebuild(rest[1:], stdout, stderr, jsonOutput)
 		case "docker-stop-all":

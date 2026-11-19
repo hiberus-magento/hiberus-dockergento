@@ -22,6 +22,7 @@ type commands interface {
 	Exec(dir, service string, command []string, options core.ExecOptions) (int, error)
 	Restart(dir string, services []string) error
 	AfterStart(dir string) error
+	InstallCertificate(dir, domain string) error
 	Rebuild(dir string, services []string) error
 	Stop(dir string, services []string, snapshot bool) error
 	Start(dir string, options dockergento.StartOptions) error

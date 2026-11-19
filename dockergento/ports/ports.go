@@ -321,6 +321,20 @@ type ComposeRunner interface {
 	Run(dir string, files []string, environment map[string]string, args []string) (int, error)
 }
 
+// HostPrograms finds and runs programs on this machine, outside every container.
+//
+// It is what `ssl` needs from the host: whether mkcert is there, installing it when it is not, and
+// running it. A port so that a test can say what each program answers without brew, apt, sudo,
+// curl or mkcert ever running.
+type HostPrograms interface {
+	// LookPath is where a program is on the PATH, or an error when it is not there.
+	LookPath(name string) (string, error)
+
+	// Run executes a program in dir, attached to this process's terminal, and fails when it
+	// cannot be started or exits with anything but 0.
+	Run(dir, name string, args ...string) error
+}
+
 // Legacy runs a command of the shell implementation.
 //
 // It exists because the migration is a strangler and not a rewrite: what has not been ported yet

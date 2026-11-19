@@ -85,6 +85,10 @@ type Operator struct {
 	// Errors is where a command run inside a container complains while its output is being read.
 	// Nil is this process's own stderr.
 	Errors io.Writer
+
+	// Programs is this machine's own programs, which is how `ssl` finds, installs and runs mkcert
+	// (certificate.go).
+	Programs ports.HostPrograms
 }
 
 // The name of the one proxy on the machine, and the ports it listens on.

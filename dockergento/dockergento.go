@@ -321,6 +321,37 @@ func (e *Engine) Restart(dir string, services []string) error {
 	return e.creating(project).Restart(project, e.ComposeFiles(project), services, e.UsesProxy(project))
 }
 
+// InstallCertificate generates a certificate for domain with mkcert, installing mkcert first when
+// this machine does not have it, puts it in the TLS terminator and restarts the terminator.
+func (e *Engine) InstallCertificate(dir, domain string) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	// Compose's own restart, as the shell did: the operator's stop and up would recreate a
+	// terminator whose configuration changed, and the certificate lives in its filesystem
+	restart := func() error {
+		code, err := e.Compose(dir, []string{"restart", "hitch"})
+		if err != nil {
+			return err
+		}
+
+		if code != 0 {
+			return core.Refusal{
+				Kind:    "restart_failed",
+				Code:    code,
+				Message: "The certificate is in place, but hitch did not restart",
+				Hint:    e.options.Binary + " docker-compose restart hitch",
+			}
+		}
+
+		return nil
+	}
+
+	return e.creating(project).InstallCertificate(project, e.ComposeFiles(project), domain, restart)
+}
+
 // Compose runs a Compose subcommand this tool does not implement itself, against exactly the
 // files and environment this project resolves to, and hands back that subcommand's own exit
 // code.
@@ -1643,6 +1674,7 @@ func (e *Engine) operator(project core.Project) app.Operator {
 		FS:         osfs.FS{},
 		Query:      e.database().Query,
 		Errors:     e.errors(),
+		Programs:   machine.Programs{Stdin: e.options.Stdin, Stdout: e.options.Stdout, Stderr: e.options.Stderr},
 	}
 }
 

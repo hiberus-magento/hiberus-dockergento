@@ -306,6 +306,15 @@ func (f *fakeEngine) AfterStart(dir string) error {
 	return f.outcomeFor(number).err
 }
 
+// InstallCertificate, like AfterStart, only ever answers with an error: what it generates and
+// where it copies it is app.Operator.InstallCertificate's, and this seam proves the domain arrives.
+func (f *fakeEngine) InstallCertificate(dir, domain string) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "InstallCertificate", Dir: dir, Domain: domain})
+
+	return f.outcomeFor(number).err
+}
+
 func (f *fakeEngine) Rebuild(dir string, services []string) error {
 	number := len(f.calls)
 	f.calls = append(f.calls, call{Method: "Rebuild", Dir: dir, Services: services})
