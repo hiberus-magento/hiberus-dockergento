@@ -61,7 +61,7 @@ done <<< "$(commands_named)"
 assert_empty "$orphaned"
 
 #
-# The reverse direction, over the forty-seven retired by name and not "every routed command":
+# The reverse direction, over the forty-nine retired by name and not "every routed command":
 # two routed commands legitimately still have a file (the partials `db` and `proxy`), and a blanket rule would be false today.
 #
 test_case "and what the binary owns outright has no file to drift from"
@@ -70,7 +70,8 @@ RETIRED="copy-to-container copy-from-container varnish-on varnish-off purge npm
          list describe logs debug-on debug-off bash magento docker-compose restart
          docker-stop-all masquerade web worktree stop start down mysql setup doctor clean
          create-project composer exec cloud cloud-login dbeaver sequelace tableplus
-         config-env post-start rebuild grunt update ssl transfer-media"
+         config-env post-start rebuild grunt update ssl transfer-media
+         launch permissions"
 
 drift=""
 routed="$(hm_routed_commands)"

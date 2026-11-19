@@ -729,6 +729,20 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         shell byte a byte — «Transferring» en vez de la errata «Transfering», «Press enter to
         continue...» en vez de «Press any key continue...» (lo que espera es Intro), sin el espacio
         final del saludo —. Ningún script lee esos textos; queda anotado, sin cambio.
+  - [x] `launch` y `permissions` portados y retirados. `launch` (`a85a6af`) abre la dirección
+        pedida de la descripción — tienda, admin, correo, RabbitMQ, búsqueda — con `open` o
+        `xdg-open`, y bajo `--json` dice dónde sin abrir nada, con los códigos del shell para dos
+        destinos, una opción desconocida, una tienda sin dominio y un servicio sin puerto.
+        `permissions` (`f612e39`) construye los permisos de un agente desde
+        `command_descriptions.json` y `ai-exclusions.json`; bajo `--json` es la configuración sin
+        sobre, como el shell. Comparado con el shell sobre los datos reales, su salida JSON y de
+        texto es idéntica byte a byte con y sin `--strict`; esa comparación encontró que las notas
+        del fichero (claves con `_`) guardan listas, y el primer intento no las apartaba antes de
+        leer. Dos suites les preguntaban a `bin/run` (`13cb0fe`) y `validation_cache_test.sh`
+        prueba ahora la validación de `bin/run` con `switch` (`3b55b18`). Sus dos ficheros (86 y 91
+        líneas) están borrados; quedan 16. Apartados: 48 de 1048 aserciones fallaban antes y
+        después (tres menos que antes: las opciones mal formadas de `launch` se niegan ya sin
+        Docker), diff vacío.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
