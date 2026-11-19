@@ -103,9 +103,11 @@ for command in start stop rebuild down setup install; do
     assert_equals "6" "$STATUS"
 done
 
-# docker-stop-all has no shell twin left: the binary refuses it, before anything reaches Docker
+# docker-stop-all has no shell twin left: the binary refuses it, before anything reaches Docker.
+# Machine-wide, so the daemon is cut here too: if the guard ever regressed, a reachable daemon
+# would have every running container on it stopped instead of this assertion failing
 test_case "docker-stop-all is refused from a worktree"
-run_in_go "$LAB/wt" docker-stop-all --json
+DOCKER_HOST=unix:///nonexistent run_in_go "$LAB/wt" docker-stop-all --json
 assert_equals "6" "$STATUS"
 assert_json_field "$STDERR" '.error.type' "blocked_in_worktree"
 
