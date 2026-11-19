@@ -98,11 +98,17 @@ assert_json_field "$STDOUT" '.data.project.name' "$PROJECT"
 
 # ------------------------------------------------------------------ guardrails
 
-for command in rebuild install; do
+for command in install; do
     test_case "$command is refused from a worktree"
     run_in "$LAB/wt" "$command"
     assert_equals "6" "$STATUS"
 done
+
+# Neither has rebuild
+test_case "rebuild is refused from a worktree"
+run_in_go "$LAB/wt" rebuild --json
+assert_equals "6" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "blocked_in_worktree"
 
 # Neither has setup
 test_case "setup is refused from a worktree"
