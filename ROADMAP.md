@@ -4,18 +4,18 @@ Punto de entrada para una sesión nueva sin contexto. Dice **dónde estamos, qu�
 reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 `openspec/changes/archive/`; este fichero no lo repite.
 
-> Estado medido el **2026-11-19** sobre `release/2.0.0` (HEAD `fd41101` más la retirada de
-> `config-env`; `cd0afc8` es lo último subido a origin).
+> Estado medido el **2026-11-19** sobre `release/2.0.0` (HEAD `068162e` más la retirada de
+> `post-start` y `rebuild`; `cd0afc8` es lo último subido a origin).
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
 
 | Medida | Valor | Cómo comprobarlo |
 |---|---|---|
-| Comandos respondidos por el binario | **41 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
-| Comandos aún en shell | **24** | `rg -c "\| shell \|" MIGRATION.md` |
-| Ficheros en `console/commands/` | **24** | `fd -e sh . console/commands \| wc -l` |
-| Gemelos de shell retirados | **41** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
+| Comandos respondidos por el binario | **43 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
+| Comandos aún en shell | **22** | `rg -c "\| shell \|" MIGRATION.md` |
+| Ficheros en `console/commands/` | **22** | `fd -e sh . console/commands \| wc -l` |
+| Gemelos de shell retirados | **43** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
 | Portados que **aún conservan** su `.sh` | **0** | pista A vacía |
 | Tests Go / aserciones de shell | 602 / 586 | `DOCKER_HOST=unix:///nonexistent go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 
@@ -23,7 +23,7 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 1. **Pista A — retirar los gemelos de shell que ya tienen port en Go.** Es lo más barato y lo que
    más desbloquea. Empieza por los pequeños y ya probados.
-2. **Pista B — portar los 24 comandos que siguen en shell.** Uno por unidad, de menor a mayor.
+2. **Pista B — portar los 22 comandos que siguen en shell.** Uno por unidad, de menor a mayor.
 3. **Pista C — defectos conocidos.** Ninguno bloquea; varios llevan cinco ciclos aplazados.
 
 ## Pista A — gemelos de shell pendientes de retirar
@@ -32,11 +32,11 @@ Vacía desde `exec` (ver `MIGRATION.md`). Si vuelve a haber un comando tabulado 
 `.sh` en el árbol, la regla para retirarlo está abajo, en las reglas que no se negocian, y sus
 puntos ciegos en la pista C.
 
-## Pista B — comandos aún en shell (24)
+## Pista B — comandos aún en shell (22)
 
 | Área | Comandos |
 |---|---|
-| environment | `launch`, `post-start`, `proxy`, `rebuild`, `share`, `tui`, `tunnel` |
+| environment | `launch`, `proxy`, `share`, `tui`, `tunnel` |
 | tools | `compatibility`, `ssl`, `verify` |
 | database | `db`, `transfer-db` |
 | magento | `grunt`, **`install`** |
@@ -60,7 +60,6 @@ que `Configuration` entre en la costura de `internal/cli`.
 | Apartar un `.sh` no ve a los scripts que lo llaman directamente si ninguna suite los ejecuta, o si lo sustituyen por un stub | Pasó con `magento.sh`: lo llamaban `install.sh` y tres tareas, y apartarlo sólo rompió `worktree_test.sh:145`. Esas llamadas ya van por el binario; el punto ciego de la regla sigue | Antes de borrar, además de la suite: `rg '"\$COMMANDS_DIR"/<nombre>\.sh' console`, y la forma con llaves `${COMMANDS_DIR}/` — la que se escapó con `docker-compose.sh`; `no_dead_command_paths_test.sh` vigila ya las dos |
 | Retirar un gemelo no ve los pasos que el código Go delega en `bin/run` | `set-host` pedía `magento config:set` por `legacy.Runner` y falló desde `cd0afc8` hasta `416f72b` | Antes de borrar, `rg 'Legacy.Run\(' dockergento/app` y comprobar qué ejecutor recibe cada uno en `dockergento.go` (`legacy.Runner` es `bin/run`; `selfrun.Runner`, el binario) |
 | Apartar un `.sh` tampoco ve a las suites que ya fallan o se saltan sin daemon | `docker-compose.sh`: `go_passthrough_test.sh` lo comparaba y ya fallaba sin Docker, y `worktree_environments_test.sh` se salta entera; las dos le preguntaban a `bin/run docker-compose` | Antes de borrar, también `rg '<nombre>' tests` y leer lo que salga en suites que fallen o se salten en la línea base |
-| `rebuild.sh` lleva su propia copia de los pasos de Linux tras arrancar (`fix_linux_permissions`, `set_etc_hosts`) | `console/commands/rebuild.sh`; la copia única es `post-start.sh` | Dos copias derivan: `rebuild` debería llamar a `post-start` como hace el `Start` de Go |
 | La forma larga del `--force` propio de `setup` (regenerar los compose) nunca le llega: `--force` es global y se lo quedan `globals()` y `global_options.sh` | `internal/cli/globals.go`, `console/helpers/global_options.sh` | `-f` sí llega. Y `hm setup --force` desde un worktree levanta la protección, como en el shell. Decidir si `setup` pasa a ser transparente para su `--force` o se documenta `-f` |
 | `go_database_test.sh` con la base de datos parada sólo mira el código y `ok: false` | `tests/integration/go_database_test.sh` | La comparación con el shell cubría también el tipo de error; afirmarlo exige ver la negativa con daemon |
 | `clean` nunca recoge plantillas muertas solas: `Anything()` sólo cuenta entornos y entornos de rama | `dockergento/core/collection.go` (`Anything`); el shell decidía igual (`clean.sh:265`) | Con sólo plantillas que sobran, `clean --force` sale con 0 y no borra nada |

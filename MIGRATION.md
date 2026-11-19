@@ -682,6 +682,26 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         comprobaciones de suite que leían scripts borrados con `grep … || true` y pasaban sin mirar
         nada. Apartado: 51 fallos antes y después (las cinco aserciones nuevas entraron a mitad de
         la corrida y pasan), diff vacío.
+  - [x] `post-start` y `rebuild` portados y retirados (`f4ad14d`). Los pasos de Linux tras
+        arrancar — igualar los ids de usuario y grupo de los contenedores con los del host, meter
+        las autoridades de certificación y las entradas de autoenrutado en el `/etc/hosts` de
+        PHP — corren en Go con las órdenes de contenedor del shell byte a byte (también sus dos
+        rarezas, comentadas: `type apk /dev/null` y el `find` de grupo con `-user`), y `Start` y
+        `Restart` dejan de devolverle `post-start` al shell. `rebuild` para, levanta con las
+        imágenes construidas (`UpBuilding`, el `--build` de Compose), comprueba los bind mounts si
+        fue el entorno entero y corre los mismos pasos; se niega desde un worktree sin entorno
+        propio. Ninguna prueba los ejecuta contra un Linux de verdad.
+
+        De paso: `Engine.operator` le pasaba `runtime.GOOS` al operador y sus comprobaciones
+        comparan con `mac`, así que en macOS la de que `vendor` no esté montado desde el host no
+        corría nunca, ni en `start` ni en `rebuild`; `validate_bind_mounts.sh` sí corría en el
+        shell. Vuelve a correr.
+
+        `post-start.sh`, `rebuild.sh`, `fix_linux_permissions.sh`, `set_etc_hosts.sh`,
+        `validate_bind_mounts.sh`, `get_bind_mount_path.sh` y sus tres pruebas unitarias (14
+        aserciones, portadas) están borrados; quedan 22 ficheros en `console/commands/`. La copia
+        de los pasos de Linux que llevaba `rebuild.sh` desaparece con él. Apartados: 51 fallos antes
+        y después, diff vacío.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
