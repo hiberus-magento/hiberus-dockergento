@@ -57,10 +57,11 @@ echo "this: is: not: valid: yaml:" >> docker-compose.yml
 run db list --json
 assert_equals "4" "$STATUS"
 
-# One that bin/run still runs itself: switch, which was used here, is the binary's now. When the
-# last of them is ported, bin/run validates nothing and this suite goes with it
+# One that bin/run still runs itself: switch and then mcp, which were used here, are the binary's
+# now; ai-doctor is still shell and only reads. When the last of them is ported, bin/run validates
+# nothing and this suite goes with it
 test_case "a command that does not need the project still works"
-run mcp --config
+run ai-doctor --json
 assert_equals "0" "$STATUS"
 
 test_case "and the broken configuration keeps being detected"

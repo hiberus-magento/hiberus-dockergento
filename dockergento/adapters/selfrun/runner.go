@@ -1,4 +1,4 @@
-// Package selfrun runs this binary again, for the install door.
+// Package selfrun runs this binary again, for the install door and for the MCP server's tools.
 //
 // `setup`'s install steps are commands of this same tool — `start`, `install`, `set-host` and the
 // rest — so the door that runs them is this executable, not the shell CLI directly. What is not
@@ -7,6 +7,7 @@
 package selfrun
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -47,6 +48,36 @@ func (r Runner) Run(args []string) (int, error) {
 	}
 
 	return 0, nil
+}
+
+// Capture executes the resolved executable with these arguments and its standard input closed,
+// and returns what it printed: standard output, and standard error with it when combined —
+// otherwise standard error is dropped. An exit code is not an error: the output says how it went.
+//
+// This is the MCP server's door, where each tool is a command of this same binary whose answer
+// becomes a protocol message, and nothing may reach the terminal or read the conversation.
+func (r Runner) Capture(args []string, combined bool) ([]byte, error) {
+	executable, err := r.resolve()
+	if err != nil {
+		return nil, err
+	}
+
+	var output bytes.Buffer
+
+	command := exec.Command(executable, args...)
+	command.Stdout = &output
+	if combined {
+		command.Stderr = &output
+	}
+
+	if err := command.Run(); err != nil {
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) {
+			return output.Bytes(), err
+		}
+	}
+
+	return output.Bytes(), nil
 }
 
 // resolve answers what runs, in a fail-safe order:

@@ -1,0 +1,60 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{}}}
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"1999-01-01"}}
+{"jsonrpc":"2.0","id":1,"method":"initialize"}
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":"x"}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":9,"method":"ping"}
+{"jsonrpc":"2.0","id":2,"method":"tools/list"}
+{"jsonrpc":"2.0","id":3,"method":"resources/list"}
+{"jsonrpc":"2.0","id":5}
+{"jsonrpc":"2.0"}
+
+esto no es json
+   
+null
+false
+[1,2]
+42
+"str"
+true
+{"jsonrpc":"2.0","id":"a<b>&cé /","method":"ping"}
+{"jsonrpc":"2.0","id":false,"method":"ping"}
+{"jsonrpc":"2.0","id":0,"method":"ping"}
+{"jsonrpc":"2.0","id":1.0,"method":"ping"}
+{"jsonrpc":"2.0","id":1e2,"method":"ping"}
+{"jsonrpc":"2.0","id":{"b":1,"a":[true,null]},"method":"ping"}
+{"jsonrpc":"2.0","id":6,"method":5}
+{"jsonrpc":"2.0","id":6,"method":{"x":1}}
+{"jsonrpc":"2.0","id":6,"method":"método/x"}
+{"jsonrpc":"2.0","id":6,"method":"a\u0001b\u007fc\td"}
+{"jsonrpc":"2.0","id":11,"method":"ping"}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"delete_everything","arguments":{}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"cache_flush","arguments":{}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"config_set","arguments":{"path":"web/a","value":"1"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call"}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"nope\n\n"}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"service_logs","arguments":{}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"service_logs","arguments":"phpfpm"}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"service_logs","arguments":{"service":"\n"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"DROP TABLE core_config_data"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"SELECT 1; DROP TABLE x"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"   ;  "}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"/* SELECT */ DROP TABLE sales_order"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"/* a*b */ SELECT 1"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"-- SELECT 1\nDELETE FROM sales_order"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"# SELECT 1\nDELETE FROM x"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"SELECT 1 into outfile '/tmp/x'"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"SELECT 1 INTO DUMPFILE '/tmp/x'"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"select load_file('/etc/passwd')"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"DESC"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"selectx 1"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"SELECT 1;;"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"SELECT 1 /* ; */ ; DROP"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"/* x */\n/* y */"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":5}}}
+{"jsonrpc":"2.0","id":12,"method":"ping"}
+{"jsonrpc":"2.0","id":99,"method":"ping"}

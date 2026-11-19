@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 57 de 65 |
+| Comandos en Go | 58 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -927,7 +927,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `logs` | environment | 1 | go |
 | `magento` | magento | 1 | go |
 | `masquerade` | database | 3 | go |
-| `mcp` | ai | 3 | shell |
+| `mcp` | ai | 3 | go |
 | `mysql` | database | 3 | go |
 | `mysqldump` | database | 3 | go |
 | `n98-magerun` | magento | 3 | go |

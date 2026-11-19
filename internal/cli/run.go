@@ -5,6 +5,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 )
 
 // Version is stamped at build time. Empty means a build nobody released.
@@ -73,6 +74,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return permissions(rest[1:], stdout, stderr, jsonOutput)
 		case "ai-context":
 			return aiContext(rest[1:], stdout, stderr, jsonOutput)
+		case "mcp":
+			// The protocol is on standard input, which is the one stream Run is not handed
+			return mcp(rest[1:], os.Stdin, stdout, stderr, jsonOutput)
 		case "launch":
 			return launch(rest[1:], stdout, stderr, jsonOutput)
 		case "transfer-media":

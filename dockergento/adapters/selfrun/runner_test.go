@@ -72,3 +72,40 @@ func TestAnExecutableThatIsNotThereIsAnError(t *testing.T) {
 		}
 	})
 }
+
+func TestCaptureReturnsWhatTheExecutablePrinted(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "talker")
+	script := "#!/bin/sh\nread line && echo \"read $line\"\necho out\necho err >&2\nexit 3\n"
+
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("standard output alone, standard error dropped, standard input closed", func(t *testing.T) {
+		output, err := (Runner{Executable: path}).Capture([]string{"x"}, false)
+		if err != nil {
+			t.Fatalf("= %v, want a failing exit code not to be an error", err)
+		}
+
+		if string(output) != "out\n" {
+			t.Fatalf("output = %q, want only stdout", output)
+		}
+	})
+
+	t.Run("both, in order, when combined", func(t *testing.T) {
+		output, err := (Runner{Executable: path}).Capture(nil, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if string(output) != "out\nerr\n" {
+			t.Fatalf("output = %q, want stdout and stderr together", output)
+		}
+	})
+
+	t.Run("nothing to run is an error", func(t *testing.T) {
+		if _, err := (Runner{Executable: filepath.Join(t.TempDir(), "no")}).Capture(nil, false); err == nil {
+			t.Fatal("= nil, want it said")
+		}
+	})
+}

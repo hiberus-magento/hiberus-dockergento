@@ -1,0 +1,10 @@
+{"jsonrpc":"2.0","id":2,"method":"tools/list"}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"delete_everything","arguments":{}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"config_set","arguments":{"path":"no es una ruta","value":"1"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"config_set","arguments":{"path":"web/secure/","value":"1"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"config_set","arguments":{"path":"/web/secure","value":"1"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"config_set","arguments":{"path":"WEB/SECURE/X","value":"1"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"config_set","arguments":{"path":"web","value":"1"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"config_set","arguments":{}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"config_set","arguments":{"path":"web/secure;rm -rf /","value":"1"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"database_query","arguments":{"sql":"DROP TABLE x"}}}
