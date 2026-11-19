@@ -192,4 +192,13 @@ test_case "and the readable hint for worktree names the binary command too"
 run --no-json worktree list
 assert_contains "$STDERR" "hm worktree"
 
+test_case "and so does stop, once its own shell twin is gone"
+run stop
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for stop names the binary command too"
+run --no-json stop
+assert_contains "$STDERR" "hm stop"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

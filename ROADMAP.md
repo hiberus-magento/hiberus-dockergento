@@ -4,8 +4,8 @@ Punto de entrada para una sesión nueva sin contexto. Dice **dónde estamos, qu�
 reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 `openspec/changes/archive/`; este fichero no lo repite.
 
-> Estado medido el **2026-11-19** sobre `release/2.0.0` (HEAD `c1d01ec` más la retirada de
-> `worktree`; `cd0afc8` es lo último subido a origin).
+> Estado medido el **2026-11-19** sobre `release/2.0.0` (HEAD `7b6a475` más la retirada de
+> `stop`; `cd0afc8` es lo último subido a origin).
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
@@ -14,9 +14,9 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 |---|---|---|
 | Comandos respondidos por el binario | **34 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
 | Comandos aún en shell | **31** | `rg -c "\| shell \|" MIGRATION.md` |
-| Ficheros en `console/commands/` | **40** | `fd -e sh . console/commands \| wc -l` |
-| Gemelos de shell retirados | **25** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
-| Portados que **aún conservan** su `.sh` | **9** | ver la pista A, y `composer` en la B |
+| Ficheros en `console/commands/` | **39** | `fd -e sh . console/commands \| wc -l` |
+| Gemelos de shell retirados | **26** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
+| Portados que **aún conservan** su `.sh` | **8** | ver la pista A, y `composer` en la B |
 | Tests Go / aserciones de shell | 508 / 630 | `DOCKER_HOST=unix:///nonexistent go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 
 ## Qué hacer después, en orden
@@ -29,7 +29,7 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 ## Pista A — gemelos de shell pendientes de retirar
 
-Estos 8 comandos están tabulados como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
+Estos 7 comandos están tabulados como `go` en `MIGRATION.md`, pero su `.sh` sigue en el árbol.
 `composer` también lo está, pero no es un gemelo: está en la pista B.
 Antes de borrar cada uno hay que **confirmar que está probado en Go** (el segundo paso de la regla);
 algunos no lo están.
@@ -37,7 +37,6 @@ algunos no lo están.
 | Comando | Líneas `.sh` | Notas |
 |---|---|---|
 | `exec` | 22 | último de su cadena: lo llaman `composer` y `create-project`, los dos de la pista B |
-| `stop` | 34 | |
 | `start` | 61 | |
 | `down` | 78 | |
 | `mysql` | 122 | |
@@ -85,6 +84,7 @@ que `Configuration` entre en la costura de `internal/cli`.
 | `architecture/` puede describir comportamiento que el código no tiene | `architecture/*.md` | Ningún test vigila la documentación; §5.8.1 estuvo mal tres ciclos |
 | Apartar un `.sh` no ve a los scripts que lo llaman directamente si ninguna suite los ejecuta, o si lo sustituyen por un stub | Pasó con `magento.sh`: lo llamaban `install.sh` y tres tareas, y apartarlo sólo rompió `worktree_test.sh:145`. Esas llamadas ya van por el binario; el punto ciego de la regla sigue | Antes de borrar, además de la suite: `rg '"\$COMMANDS_DIR"/<nombre>\.sh' console` |
 | Apartar un `.sh` tampoco ve a las suites que ya fallan o se saltan sin daemon | `docker-compose.sh`: `go_passthrough_test.sh` lo comparaba y ya fallaba sin Docker, y `worktree_environments_test.sh` se salta entera; las dos le preguntaban a `bin/run docker-compose` | Antes de borrar, también `rg '<nombre>' tests` y leer lo que salga en suites que fallen o se salten en la línea base |
+| `hm stop -t 5` toma `-t` y `5` por servicios | `internal/cli/orchestrate.go` (`stop`) | `stop.sh` pasaba las opciones a `docker compose stop`; el port no. `restart` las niega con 2: decidir entre pasarlas o negarlas |
 | `docker-stop-all` con el daemon inaccesible responde «No containers running» y sale con 0 | `dockergento/app/orchestrate.go` (`StopEverything`, `containers, _ := o.Engine.Containers()`) | Heredado del shell (`docker ps -q 2>/dev/null`); un fallo de conexión se lee como éxito. `go_passthrough_test.sh` fija hoy ese comportamiento |
 | `docker-stop-all` no interactivo para todos los contenedores sin preguntar | `go_passthrough_test.sh` lo ejecutaba con `HM_NON_INTERACTIVE=1` y el daemon accesible | Corregido en `a4927e6` (la prueba fija un `DOCKER_HOST` inexistente). Queda la regla: ninguna suite corre un comando de máquina sin cortar el daemon dentro de la propia prueba |
 | `hm composer install\|update\|require\|remove` en macOS se niega desde un worktree sin entorno propio | El baile del vendor de `composer.sh` reinicia `phpfpm` por el binario, que aplica la protección de worktree; antes la llamada directa a `restart.sh` se la saltaba y tocaba el entorno del checkout principal | Aceptado en `de69f6b`; la negativa la da `composer.sh` con una salida que funciona (`hm --force composer …`); se resuelve al portar el baile del vendor (pista B) |

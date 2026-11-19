@@ -450,6 +450,25 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         de uso del binario (2), y sin él la negativa de comando retirado, que también sale con 2,
         por casualidad. Ahora sólo le pregunta al binario. Con las reparaciones, apartarlo y correr
         la suite entera: 54 de 1057 aserciones fallaban antes y después, diff vacío.
+  - [x] El mismo paso, para `stop` — vigésimo sexto comando retirado así.
+        `console/commands/stop.sh` (34 líneas) está borrado; quedan 39 ficheros en
+        `console/commands/`. El handler de Go le pedía la parada al motor concreto, como `restart`,
+        así que ninguna prueba podía decir qué pedía; ahora va por `newEngine` y `stop_test.go`
+        fija los servicios y `--snapshot` que pasa, que fuera de un proyecto no pide nada y que una
+        negativa de worktree conserva su código y su tipo. Lo que es una parada — la copia antes
+        y nada parado si falla, la protección de worktree — es de `app.Operator`.
+
+        Dos llamadores directos que la suite no ejecuta: `rebuild.sh` y el baile del vendor de
+        `composer.sh` en macOS. Van por `hm_run_binary stop`; `rebuild` ya lo niega `bin/run`
+        desde un worktree y el baile se niega antes, así que la protección del binario no añade
+        ninguna negativa. Cuatro suites le preguntaban a `bin/run stop` y le preguntan al binario
+        (`worktree_test.sh`, `tui_dashboard_test.sh`, `lifecycle_guard_test.sh`,
+        `go_orchestration_test.sh`); varias se saltan o fallan sin daemon y no lo habrían dicho.
+        Apartarlo, ya reparadas: 54 de 1061 aserciones fallaban antes y después, diff vacío.
+
+        Una diferencia con el shell, heredada del port y no de esta retirada: `stop.sh` pasaba a
+        `docker compose stop` cualquier opción (`hm stop -t 5`); el binario la toma por un
+        servicio. Queda en la pista C.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
