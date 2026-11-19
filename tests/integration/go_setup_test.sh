@@ -147,8 +147,9 @@ assert_not_contains "$(cat "$HM_FAKE_LOG")" "mysql -i"
 #
 test_case "a step the binary does not route reaches the bridge"
 : > "$HM_FAKE_LOG"
-"$GO_BINARY" --no-json ai-doctor >/dev/null 2>&1
-assert_equals "--no-json ai-doctor" "$(cat "$HM_FAKE_LOG")"
+# A name the binary will never route, so it reaches the bridge whichever commands are ported
+"$GO_BINARY" --no-json hm-never-a-command >/dev/null 2>&1
+assert_equals "--no-json hm-never-a-command" "$(cat "$HM_FAKE_LOG")"
 
 # ---------------------------------------------------------------- a dump instead of an install
 

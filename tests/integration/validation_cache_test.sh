@@ -57,12 +57,13 @@ echo "this: is: not: valid: yaml:" >> docker-compose.yml
 run db list --json
 assert_equals "4" "$STATUS"
 
-# One that bin/run still runs itself: switch and then mcp, which were used here, are the binary's
-# now; ai-doctor is still shell and only reads. When the last of them is ported, bin/run validates
-# nothing and this suite goes with it
-test_case "a command that does not need the project still works"
-run ai-doctor --json
-assert_equals "0" "$STATUS"
+# One that bin/run still runs itself: switch, mcp and ai-doctor, which were used here, are the
+# binary's now. ai-reset with an option it does not know reaches the command and is refused there,
+# with 2 — not with the 4 a configuration refusal would give. When the last of them is ported,
+# bin/run validates nothing and this suite goes with it
+test_case "a command that does not need the project still reaches the command"
+run ai-reset --not-an-option
+assert_equals "2" "$STATUS"
 
 test_case "and the broken configuration keeps being detected"
 run db list --json
