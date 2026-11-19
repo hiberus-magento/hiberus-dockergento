@@ -724,6 +724,12 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         ficheros (65 y 71 líneas) están borrados; quedan 18. Apartados: 51 de 1044 aserciones
         fallaban antes y después, diff vacío.
 
+        Revisado (`review-8ef8376d6e2bb543`): sin aprobación ni rechazo, con un hallazgo escalado por causalidad
+        desconocida, `R3-transfer-media-output-drift`: los textos de `transfer-media` no son los del
+        shell byte a byte — «Transferring» en vez de la errata «Transfering», «Press enter to
+        continue...» en vez de «Press any key continue...» (lo que espera es Intro), sin el espacio
+        final del saludo —. Ningún script lee esos textos; queda anotado, sin cambio.
+
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
         aserciones fallaban antes y después, diff vacío.
