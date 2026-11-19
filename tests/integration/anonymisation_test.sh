@@ -37,8 +37,8 @@ printf '{"MAGENTO_DIR": ".", "DOMAIN": "anon.test", "COMPOSE_PROJECT_NAME": "%s"
     > "$DIR/config/docker/properties.json"
 
 run() { ( cd "$DIR" && "$HM" "$@" >"$LAB/out" 2>"$LAB/err" ); STATUS=$?; STDOUT=$(cat "$LAB/out"); STDERR=$(cat "$LAB/err"); return 0; }
-# describe is the binary's now; ai-context, doctor, and mysql below are still the shell
-# implementation's and keep asking bin/run through run().
+# describe, doctor and mysql are the binary's now; ai-context below is still the shell
+# implementation's and keeps asking bin/run through run().
 run_go() { ( cd "$DIR" && "$GO_BINARY" "$@" >"$LAB/out" 2>"$LAB/err" ); STATUS=$?; STDOUT=$(cat "$LAB/out"); STDERR=$(cat "$LAB/err"); return 0; }
 
 # ---------------------------------------------------------------- what describe says
@@ -69,13 +69,13 @@ assert_contains "$(cat "$DIR/AGENTS.md")" "real personal data"
 
 test_case "changing it makes the context stale, so it is regenerated"
 printf '{"anonymised_at": "2026-08-28 09:00"}\n' > "$LAB/state/$PROJECT.json"
-run doctor --json
+run_go doctor --json
 assert_equals "error" \
     "$(printf '%s' "$STDOUT" | jq -r '.data.checks[] | select(.message | test("agent context")) | .severity' | head -1)"
 
 # ---------------------------------------------------------------- what clears it
 
-run mysql -i "$LAB/nada.sql"
+run_go mysql -i "$LAB/nada.sql"
 test_case "an import of a file that does not exist changes nothing"
 assert_equals "yes" "$(jq -r 'if .anonymised_at then "yes" else "no" end' "$LAB/state/$PROJECT.json")"
 
@@ -89,18 +89,18 @@ cleanup_containers() { ( cd "$DIR" && docker compose -p "$PROJECT" down -v --rem
 trap 'cleanup_containers; rm -rf "$LAB"' EXIT
 
 printf 'CREATE TABLE prueba (id INT);\n' > "$LAB/dump.sql"
-run mysql -i "$LAB/dump.sql"
+run_go mysql -i "$LAB/dump.sql"
 
 test_case "importing a dump clears it, because nobody anonymised what it brought in"
 assert_equals "no" "$(jq -r 'if .anonymised_at then "yes" else "no" end' "$LAB/state/$PROJECT.json")"
 
 test_case "the doctor does not complain about a project that is not an agent's"
-run doctor --json
+run_go doctor --json
 assert_equals "ok" \
     "$(printf '%s' "$STDOUT" | jq -r '.data.checks[] | select(.message | test("anonymis")) | .severity' | head -1)"
 
 test_case "and does complain when the environment is an agent's"
-( cd "$DIR" && HM_PROFILE=agent "$HM" doctor --json >"$LAB/out" 2>"$LAB/err" )
+( cd "$DIR" && HM_PROFILE=agent "$COMMAND_BIN_DIR/bin/hm" doctor --json >"$LAB/out" 2>"$LAB/err" )
 assert_equals "error" \
     "$(jq -r '.data.checks[] | select(.message | test("anonymis")) | .severity' "$LAB/out" | head -1)"
 

@@ -46,6 +46,8 @@ return [
 PHP
 
 run() { ( cd "$DIR" && "$HM" "$@" >"$LAB/out" 2>"$LAB/err" ); STATUS=$?; STDOUT=$(cat "$LAB/out"); STDERR=$(cat "$LAB/err"); return 0; }
+# doctor is the binary's; ai-context is still the shell implementation's and keeps going through run
+run_go() { ( cd "$DIR" && "$COMMAND_BIN_DIR/bin/hm" "$@" >"$LAB/out" 2>"$LAB/err" ); STATUS=$?; STDOUT=$(cat "$LAB/out"); STDERR=$(cat "$LAB/err"); return 0; }
 
 # ---------------------------------------------------------------- generating
 
@@ -107,17 +109,17 @@ assert_equals "mcp" "$(jq -r '.mcpServers.hm.args[0]' "$DIR/.mcp.json")"
 
 # ---------------------------------------------------------------- staleness
 
-run doctor --json
+run_go doctor --json
 test_case "the doctor sees the context as current"
 assert_equals "ok" "$(printf '%s' "$STDOUT" | jq -r '.data.checks[] | select(.message | test("agent context")) | .severity' | head -1)"
 
 sed -i.bak "s|'panel-secreto'|'otro-panel'|" "$DIR/app/etc/env.php"
-run doctor --json
+run_go doctor --json
 test_case "and sees it go stale when the project changes"
 assert_equals "error" "$(printf '%s' "$STDOUT" | jq -r '.data.checks[] | select(.message | test("agent context")) | .severity' | head -1)"
 
 run ai-context
-run doctor --json
+run_go doctor --json
 test_case "regenerating settles it"
 assert_equals "ok" "$(printf '%s' "$STDOUT" | jq -r '.data.checks[] | select(.message | test("agent context")) | .severity' | head -1)"
 

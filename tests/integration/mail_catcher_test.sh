@@ -210,13 +210,13 @@ test_case "and the key that existed before still carries it"
 assert_equals "http://localhost:8025" "$(printf '%s' "$urls" | jq -r '.mailhog')"
 
 test_case "the diagnosis flags an image that cannot be obtained"
-check=$( cd "$LAB/reported" && "$HM" doctor --json 2>/dev/null |
+check=$( cd "$LAB/reported" && "$COMMAND_BIN_DIR/bin/hm" doctor --json 2>/dev/null |
     jq -r '.data.checks[] | select(.id | test("mail")) | .severity' )
 assert_equals "error" "$check"
 
 test_case "and says nothing when the image is there"
 make_project fine mailhog "hiberusmagento/mailhog:1"
-check=$( cd "$LAB/fine" && "$HM" doctor --json 2>/dev/null |
+check=$( cd "$LAB/fine" && "$COMMAND_BIN_DIR/bin/hm" doctor --json 2>/dev/null |
     jq -r '.data.checks[] | select(.id | test("mail")) | .severity' )
 assert_equals "ok" "$check"
 

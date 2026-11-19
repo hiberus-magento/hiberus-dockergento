@@ -177,7 +177,7 @@ run_in_go "$LAB/wt" list --json
 assert_equals "0" "$STATUS"
 
 test_case "doctor works from a worktree"
-run_in "$LAB/wt" doctor --json
+run_in_go "$LAB/wt" doctor --json
 assert_equals "0" "$STATUS"
 
 # magento is the binary's, and so is the note: codeProjectOr (internal/cli/engine.go) prints it
@@ -211,7 +211,7 @@ assert_equals "yes" "$r"
 
 test_case "allowed commands from a worktree leave the mounts alone"
 run_in_go "$LAB/wt" describe --json
-run_in "$LAB/wt" doctor --json
+run_in_go "$LAB/wt" doctor --json
 assert_equals "0" "$(mounts_pointing_at "$LAB/wt")"
 
 test_case "even forcing a start does not repoint the environment"

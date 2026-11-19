@@ -37,7 +37,7 @@ assert_faster_than 800 "listing the commands stays fast" "$HM" --help
 # the measurement fails on a loaded laptop instead of on a regression, which is the opposite of
 # what these tests are for.
 assert_faster_than 900 "the startup floor stays low" "$HM" --version
-assert_faster_than 2500 "the diagnosis stays fast" "$HM" doctor --json
+assert_faster_than 2500 "the diagnosis stays fast" "$COMMAND_BIN_DIR/bin/hm" doctor --json
 
 test_case "listing the commands spawns few processes"
 spawned=$(count_spawned jq "$HM" --help)

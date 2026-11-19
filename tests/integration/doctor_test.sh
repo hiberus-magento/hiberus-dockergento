@@ -5,16 +5,10 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
-DOCTOR_DIR="$COMMAND_BIN_DIR/console/tasks/doctor"
+HM="$COMMAND_BIN_DIR/bin/hm"
 WORKDIR=$(mktemp -d)
 
-# Temporary checks used to exercise the runner's own robustness
-SLOW_CHECK="$DOCTOR_DIR/99-selftestslow.sh"
-BROKEN_CHECK="$DOCTOR_DIR/99-selftestbroken.sh"
-
 cleanup() {
-    rm -f "$SLOW_CHECK" "$BROKEN_CHECK"
     rm -rf "$WORKDIR"
 }
 trap cleanup EXIT
@@ -68,37 +62,10 @@ test_case "an unknown option is rejected"
 run_in "$WORKDIR" doctor --nope
 assert_equals "2" "$STATUS"
 
-test_case "a check that hangs is reported without blocking the rest"
-cat > "$SLOW_CHECK" <<'CHECK'
-#!/usr/bin/env bash
-source "$HELPERS_DIR"/doctor.sh
-sleep 30
-doctor_ok "never reached"
-CHECK
-run_in "$WORKDIR" doctor --json
-assert_json_field "$STDOUT" '[.data.checks[] | select(.id == "selftestslow")] | length' "1"
-
-test_case "a hanging check is a warning, not a failure"
-assert_json_field "$STDOUT" '.data.checks[] | select(.id == "selftestslow") | .severity' "warning"
-
-test_case "the rest of the diagnosis still ran"
-assert_json_field "$STDOUT" '[.data.checks[] | select(.id == "docker-daemon")] | length' "1"
-
-test_case "a hanging check does not fail the command"
-assert_equals "0" "$STATUS"
-rm -f "$SLOW_CHECK"
-
-test_case "a check that crashes is reported as a warning"
-cat > "$BROKEN_CHECK" <<'CHECK'
-#!/usr/bin/env bash
-exit 3
-CHECK
-run_in "$WORKDIR" doctor --json
-assert_json_field "$STDOUT" '.data.checks[] | select(.id == "selftestbroken") | .severity' "warning"
-
-test_case "a crashing check does not stop the others"
-assert_json_field "$STDOUT" '[.data.checks[] | select(.id == "certificates")] | length' "1"
-rm -f "$BROKEN_CHECK"
+# A check that hangs or crashes was the shell runner's to survive, with checks dropped into its
+# directory. The binary runs its checks in-process: that it survives one that hangs or panics is
+# pinned in Go (TestACheckThatHangsDoesNotTakeTheDiagnosisWithIt, and
+# TestACheckThatPanicsIsAWarningAndTheRestStillRun in dockergento/app).
 
 test_case "warnings alone keep the exit code at zero"
 run_in "$WORKDIR" doctor --only=disk-usage --json
