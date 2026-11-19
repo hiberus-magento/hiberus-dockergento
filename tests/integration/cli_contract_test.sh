@@ -271,7 +271,7 @@ run create-project
 assert_equals "2" "$STATUS"
 assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
 
-for command in composer exec cloud cloud-login dbeaver sequelace tableplus config-env post-start rebuild grunt update ssl transfer-media launch permissions ai-context proxy share tunnel compatibility transfer-db; do
+for command in composer exec cloud cloud-login dbeaver sequelace tableplus config-env post-start rebuild grunt update ssl transfer-media launch permissions ai-context proxy share tunnel compatibility transfer-db switch verify; do
     test_case "and so does $command, once its own shell twin is gone"
     run "$command" --version
     assert_equals "2" "$STATUS"

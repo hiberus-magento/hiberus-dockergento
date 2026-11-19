@@ -828,6 +828,19 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         la primera: lo arregla `727d849` para todos los comandos. `transfer-db.sh` (217 líneas)
         está borrado; quedan 10. Apartados: 46 de 1040 aserciones fallaban antes y después, diff
         vacío.
+  - [x] `switch` y `verify` portados y retirados (`b051bfb`, `32d5cda`, escritos por un subagente
+        en su propio worktree e integrados aquí). `switch` lista y cambia la versión instalada de la
+        herramienta —etiqueta, rama, `--stable`— con los mismos rechazos ante una referencia
+        desconocida, cambios sin confirmar o una instalación que no es un checkout; comparado con el
+        shell en clones temporales, stdout, stderr y código coinciden. `verify` corre las
+        comprobaciones del proyecto dentro del contenedor php sobre los ficheros cambiados (un puerto
+        nuevo, `Changes`, los pide a git). Diferencias buscadas: una opción desconocida se niega antes
+        de mirar Docker, la salida de una comprobación fallida se imprime línea a línea (el shell la
+        pegaba en una) y tal cual (el shell la pasaba como formato a `printf`). Su ejecución real
+        dentro de un contenedor no se ha probado aquí: `verify_test.sh` necesita Docker.
+        `validation_cache_test.sh` usa ahora `mcp --config` como comando del shell sin proyecto
+        (`957f2b3`). `switch.sh` (227 líneas) y `verify.sh` (234) están borrados; quedan 8.
+        Apartados: 46 de 1042 aserciones fallaban antes y después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
