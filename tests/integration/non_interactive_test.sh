@@ -49,7 +49,7 @@ check_go "bash does not block"         bash
 check_go "start does not block"        start
 check "install does not block"      install
 check "transfer-db does not block"  transfer-db
-check "transfer-media does not block" transfer-media
+check_go "transfer-media does not block" transfer-media
 check_go "masquerade does not block"   masquerade
 
 # And not returning is not enough: it has to be the project refusal, before the question, or a
