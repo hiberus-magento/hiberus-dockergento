@@ -65,11 +65,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		case "magento":
 			return magento(rest[1:], stdout, stderr, jsonOutput)
 		case "composer":
-			// The invocation that rewrites the host's dependency tree stays with the shell
-			// implementation, and only that one
-			if !mirrorsVendor(rest[1:]) {
-				return composer(rest[1:], stdout, stderr, jsonOutput)
-			}
+			// All of it, the macOS vendor dance included: composer.sh has nothing left to answer
+			return composer(rest[1:], stdout, stderr, jsonOutput)
 		case "clean":
 			return clean(rest[1:], stdout, stderr, jsonOutput)
 		case "worktree":

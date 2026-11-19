@@ -13,6 +13,8 @@
 package dockergento
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -597,6 +599,130 @@ func (e *Engine) CopyFrom(dir string, paths []string) error {
 	}
 
 	return e.transfer(project).From(project, paths)
+}
+
+// DefaultMagentoFiles is the list of files and directories a Magento project ships at its root,
+// read from the tool's own data/default_files_magento.json.
+//
+// Composer's macOS dance copies them into the container after Composer has run: they are what a
+// package such as magento/magento2-base may have rewritten, and the copy back out covers the whole
+// workdir, so the host's own copies have to be in there first or they come back as Composer left
+// them. Sorted, the way `jq 'keys'` answered it for the shell implementation.
+func (e *Engine) DefaultMagentoFiles() ([]string, error) {
+	contents, err := os.ReadFile(filepath.Join(e.options.Root, "data", "default_files_magento.json"))
+	if err != nil {
+		return nil, err
+	}
+
+	files := map[string]any{}
+	if err := json.Unmarshal(contents, &files); err != nil {
+		return nil, fmt.Errorf("reading default_files_magento.json: %w", err)
+	}
+
+	keys := make([]string, 0, len(files))
+	for key := range files {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	return keys, nil
+}
+
+// ClearVendor deletes what is inside the project's vendor directory on this machine, and keeps the
+// directory itself — the shell implementation's `rm -rf "$MAGENTO_DIR"/vendor/*`, which is why an
+// entry whose name starts with a dot is left where it is: that glob never matched one.
+//
+// It is the one step of Composer's macOS dance that deletes on the host, so it refuses anything
+// that is not exactly <project root>/<MagentoDir>/vendor: a MAGENTO_DIR that climbs out of the
+// project, a vendor that is a link to somewhere else, a root that did not resolve. A vendor that
+// is not there has nothing in it and is not an error.
+func (e *Engine) ClearVendor(dir string) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	target, err := vendorOf(project)
+	if err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(target)
+	if os.IsNotExist(err) {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if e.options.Announce != nil {
+		e.options.Announce("Removing vendor in host: " + target + "/*\n")
+	}
+
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+
+		if err := os.RemoveAll(filepath.Join(target, entry.Name())); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// vendorOf is the vendor directory ClearVendor may empty, or the refusal that says why there is
+// none it may. The check is made on the paths as the filesystem resolves them, so that neither a
+// `..` in MAGENTO_DIR nor a link anywhere on the way can point the deletion somewhere else.
+func vendorOf(project core.Project) (string, error) {
+	refuse := func(why string) error {
+		return core.Refusal{
+			Kind:    "unsafe_vendor_path",
+			Code:    6,
+			Message: "The host's vendor directory was not cleared: " + why,
+			Hint:    "Check MAGENTO_DIR in config/docker/properties.json",
+		}
+	}
+
+	if project.Root == "" || !filepath.IsAbs(project.Root) {
+		return "", refuse("the project's root did not resolve")
+	}
+
+	root, err := filepath.EvalSymlinks(project.Root)
+	if err != nil {
+		return "", err
+	}
+
+	target := filepath.Join(project.Root, project.MagentoDir, "vendor")
+
+	if info, err := os.Lstat(target); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return "", refuse(target + " is a link, and what it points to is not this project's")
+	}
+
+	// Resolved through whatever links MAGENTO_DIR itself goes through. A vendor that does not
+	// exist yet is judged by the directory that would hold it
+	resolved, err := filepath.EvalSymlinks(target)
+	if os.IsNotExist(err) {
+		parent, perr := filepath.EvalSymlinks(filepath.Dir(target))
+		if perr != nil {
+			parent = filepath.Clean(filepath.Dir(target))
+		}
+
+		resolved = filepath.Join(parent, "vendor")
+	} else if err != nil {
+		return "", err
+	}
+
+	relative, err := filepath.Rel(root, resolved)
+	if err != nil || relative == "." || relative == ".." ||
+		strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.Base(resolved) != "vendor" {
+		return "", refuse(target + " is not inside the project at " + project.Root)
+	}
+
+	return target, nil
 }
 
 func (e *Engine) transfer(project core.Project) app.Transfer {

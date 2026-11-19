@@ -1,21 +1,19 @@
 package cli
 
 import (
-	"runtime"
 	"testing"
 )
 
 //
 // On macOS those four subcommands do not simply run in the container: the dependencies are copied
 // in, Composer runs, and the whole tree is copied back out over the host's — deleting the host's
-// vendor directory on the way. That path is still the shell implementation's, and which
-// invocations take it is the decision worth pinning down.
+// vendor directory on the way. The dance is the binary's (composer_vendor_test.go pins its steps);
+// which invocations take it is the decision worth pinning down here.
 //
 
 func TestTheInvocationsThatRewriteTheHostsTree(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("el baile del vendor sólo existe en macOS")
-	}
+	defer func(previous string) { goos = previous }(goos)
+	goos = "darwin"
 
 	for _, subcomando := range []string{"install", "update", "require", "remove"} {
 		if !mirrorsVendor([]string{subcomando}) {

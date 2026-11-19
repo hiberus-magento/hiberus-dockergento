@@ -9,7 +9,13 @@ import (
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
-type files struct{ into []string }
+type files struct {
+	into []string
+
+	// from is every copy out, as source and target: what the daemon was asked for, and where on
+	// this machine it lands.
+	from [][2]string
+}
 
 func (f *files) Into(container, source, target string) error {
 	f.into = append(f.into, target)
@@ -17,7 +23,11 @@ func (f *files) Into(container, source, target string) error {
 	return nil
 }
 
-func (*files) From(container, source, target string) error { return nil }
+func (f *files) From(container, source, target string) error {
+	f.from = append(f.from, [2]string{source, target})
+
+	return nil
+}
 
 // transferencia sets up a project with a vendor directory and a running php container, and keeps
 // apart the runner that works as the container's own user and the one that works as root.
@@ -83,5 +93,28 @@ func TestElCodigoDeSalidaDelMkdirNoSeIgnora(t *testing.T) {
 	err := transfer.Into(project, []string{"vendor"}, "app:app")
 	if err == nil || !strings.Contains(err.Error(), "mkdir") {
 		t.Fatalf("error = %v, want the failed mkdir named", err)
+	}
+}
+
+// Composer's macOS dance copies the whole workdir back out with From(".") — composer.sh's
+// `docker cp phpfpm:$WORKDIR_PHP/. $MAGENTO_DIR` — and that has to read the workdir's contents
+// into the Magento directory, not nest the workdir inside it.
+func TestCopiarPuntoTraeElContenidoDelWorkdirAlDirectorioDeMagento(t *testing.T) {
+	transfer, project := transferencia(t, &runner{}, &runner{})
+	project.MagentoDir = "src"
+
+	if err := os.Mkdir(filepath.Join(project.Root, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := transfer.From(project, []string{"."}); err != nil {
+		t.Fatal(err)
+	}
+
+	copied := transfer.Files.(*files).from
+	want := [2]string{"/var/www/html/.", filepath.Join(project.Root, "src")}
+
+	if len(copied) != 1 || copied[0] != want {
+		t.Fatalf("copied %v, want only %v", copied, want)
 	}
 }

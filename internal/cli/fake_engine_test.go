@@ -98,6 +98,10 @@ type outcome struct {
 	// collection is what Survey answers with, per call like diagnosis: clean surveys once, and
 	// each test states what it wants found.
 	collection core.Collection
+
+	// files is what DefaultMagentoFiles answers with, per call like collection: composer's macOS
+	// dance asks once, and each test states the list it wants copied in.
+	files []string
 }
 
 // fakeEngine is a commands that never reaches Docker: everything asked of it lands in calls, and
@@ -288,6 +292,29 @@ func (f *fakeEngine) CopyInto(dir string, paths []string, all bool) error {
 func (f *fakeEngine) CopyFrom(dir string, paths []string) error {
 	number := len(f.calls)
 	f.calls = append(f.calls, call{Method: "CopyFrom", Dir: dir, Paths: paths})
+
+	return f.outcomeFor(number).err
+}
+
+// DefaultMagentoFiles answers from its outcome: the list, or the error that stopped the read. It
+// asks about no project, so the call records only its name.
+func (f *fakeEngine) DefaultMagentoFiles() ([]string, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "DefaultMagentoFiles"})
+
+	out := f.outcomeFor(number)
+	if out.err != nil {
+		return nil, out.err
+	}
+
+	return out.files, nil
+}
+
+// ClearVendor, like CopyFrom, only ever answers with an error: what it deletes is the engine's
+// decision, and this seam's job is to prove when it is asked and for which directory.
+func (f *fakeEngine) ClearVendor(dir string) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "ClearVendor", Dir: dir})
 
 	return f.outcomeFor(number).err
 }

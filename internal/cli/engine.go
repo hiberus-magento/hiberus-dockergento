@@ -32,6 +32,8 @@ type commands interface {
 	CreateProject(dir string, options core.CreateProjectOptions, interactive bool) error
 	CopyInto(dir string, paths []string, all bool) error
 	CopyFrom(dir string, paths []string) error
+	DefaultMagentoFiles() ([]string, error)
+	ClearVendor(dir string) error
 	Property(project core.Project, key string) string
 	Dump(dir, path string) error
 	Installed() (core.Installation, core.Tooling)
