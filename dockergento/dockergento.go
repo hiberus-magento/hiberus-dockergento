@@ -636,6 +636,21 @@ func (e *Engine) Setup(dir string, options core.SetupOptions, interactive bool) 
 	return e.setup().Run(dir, options, interactive)
 }
 
+// CreateProject makes a new Magento project and its environment, under the same worktree refusal
+// as Setup and for the same reason: it writes the committed properties and the compose files.
+func (e *Engine) CreateProject(dir string, options core.CreateProjectOptions, interactive bool) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		project = unresolvedWorktree(dir)
+	}
+
+	if err := app.RefuseFromAnUnregisteredWorktree(project, "create-project", e.options.Forced); err != nil {
+		return err
+	}
+
+	return e.setup().CreateProject(dir, options, interactive)
+}
+
 // unresolvedWorktree answers, from git and the main checkout's files alone, whether dir is a
 // worktree of a Dockergento project. The zero Project when it is not, which no refusal applies to.
 func unresolvedWorktree(dir string) core.Project {

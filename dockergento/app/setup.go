@@ -46,6 +46,11 @@ type Decided struct {
 	Mail       string
 	Dump       string
 	Install    bool
+
+	// InstallDefaults is whether Magento's own installation takes its defaults rather than asking.
+	// Only create-project's -u decides it: the shell implementation passed its -u on to `install`,
+	// and setup never did.
+	InstallDefaults bool
 }
 
 // Decide answers the three questions a project is, asking only what it cannot work out.
@@ -275,6 +280,15 @@ func (s Setup) Requirements(dir, magentoDir string, options core.SetupOptions) (
 
 	s.say(fmt.Sprintf("Magento version detected: %s\n", version))
 
+	return s.requirementsFor(version)
+}
+
+// requirementsFor is the row of the requirements table a Magento version resolves to.
+//
+// Apart from Requirements because there are two ways of knowing the version: setup reads it from
+// the project's composer.lock, and create-project is told it before there is any project to read.
+// Both refuse a version the table has no row for in the same words.
+func (s Setup) requirementsFor(version string) (map[string]string, error) {
 	equivalent := s.equivalent(version)
 	if equivalent == "" {
 		return nil, core.Refusal{
@@ -522,13 +536,21 @@ func (s Setup) install(decided Decided) error {
 	}
 
 	steps = append(steps,
-		[]string{"install"},
+		s.installStep(decided),
 		[]string{"magento", "setup:upgrade"},
 		[]string{"magento", "deploy:mode:set", "developer"},
 		[]string{"restart"},
 		[]string{"ssl", decided.Domain},
 		[]string{"set-host", decided.Domain, "--no-database"})
 
+	return s.run(steps)
+}
+
+// run takes steps through the same door one after another, and stops at the first that fails.
+//
+// The refusal names the step, because a run of ten commands that says only "it failed" leaves
+// somebody reading scrollback to find out which one, and how to run it again on its own.
+func (s Setup) run(steps [][]string) error {
 	for _, step := range steps {
 		code, err := s.Legacy.Run(step)
 		if err != nil {
@@ -546,4 +568,13 @@ func (s Setup) install(decided Decided) error {
 	}
 
 	return nil
+}
+
+// installStep is the step that installs Magento itself, with its defaults when that was decided.
+func (s Setup) installStep(decided Decided) []string {
+	if decided.InstallDefaults {
+		return []string{"install", "-u"}
+	}
+
+	return []string{"install"}
 }

@@ -54,6 +54,9 @@ type call struct {
 	// SetupOptions is what setup was asked for, compared whole.
 	SetupOptions core.SetupOptions
 
+	// CreateProjectOptions is what create-project was asked for, compared whole.
+	CreateProjectOptions core.CreateProjectOptions
+
 	// Interactive is what docker-stop-all was asked with: whether the stop may ask before doing
 	// it.
 	Interactive bool
@@ -193,6 +196,14 @@ func (f *fakeEngine) Exec(dir, service string, command []string, options core.Ex
 func (f *fakeEngine) Setup(dir string, options core.SetupOptions, interactive bool) error {
 	number := len(f.calls)
 	f.calls = append(f.calls, call{Method: "Setup", Dir: dir, SetupOptions: options, Interactive: interactive})
+
+	return f.outcomeFor(number).err
+}
+
+// CreateProject only ever answers with an error.
+func (f *fakeEngine) CreateProject(dir string, options core.CreateProjectOptions, interactive bool) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "CreateProject", Dir: dir, CreateProjectOptions: options, Interactive: interactive})
 
 	return f.outcomeFor(number).err
 }

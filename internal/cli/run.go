@@ -125,6 +125,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return debugOn(stdout, stderr, jsonOutput)
 		case "setup":
 			return setup(rest[1:], stdout, stderr, jsonOutput)
+		case "create-project":
+			return createProject(rest[1:], stdout, stderr, jsonOutput)
 		case "proxy":
 			// The usage text and an unknown subcommand are still the shell implementation's,
 			// which is what the router hands back when this does not recognise one
