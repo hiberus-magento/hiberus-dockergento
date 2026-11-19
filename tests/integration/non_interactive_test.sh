@@ -51,6 +51,15 @@ check "install does not block"      install
 check "transfer-db does not block"  transfer-db
 check "transfer-media does not block" transfer-media
 check_go "masquerade does not block"   masquerade
+
+# And not returning is not enough: it has to be the project refusal, before the question, or a
+# check that only times a refusal would pass for any refusal at all
+test_case "masquerade outside a project is refused as such, before anything is asked"
+status=0
+answer=$( cd "$WORKDIR" && DOCKER_HOST=unix:///nonexistent HM_NON_INTERACTIVE=1 \
+    "$COMMAND_BIN_DIR/bin/hm" --json masquerade 2>&1 ) || status=$?
+assert_equals "4" "$status"
+assert_json_field "$answer" '.error.type' "project_not_configured"
 check "mysql does not block"        mysql
 
 test_case "a question without a default fails with the usage code"
