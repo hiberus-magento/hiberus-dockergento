@@ -554,10 +554,12 @@ func (e *Engine) hosts() app.Hosts {
 	return app.Hosts{
 		Properties: e.properties(),
 		Resolver:   machine.Resolver{},
-		Legacy:     legacy.Runner{Root: e.options.ShellRoot},
-		File:       os.Getenv("HM_HOSTS_FILE"),
-		Announce:   e.options.Announce,
-		Binary:     e.options.Binary,
+		// This binary, not the shell entry point: the step is `magento config:set`, and magento's
+		// shell twin is retired, so bin/run would only name the binary
+		Legacy:   selfrun.Runner{},
+		File:     os.Getenv("HM_HOSTS_FILE"),
+		Announce: e.options.Announce,
+		Binary:   e.options.Binary,
 	}
 }
 
