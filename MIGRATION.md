@@ -646,6 +646,14 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         No cambia nada observable: un `docker cp` de un directorio vacío no borra lo que hay
         dentro, `Transfer.Into` se salta la ruta que no existe (`app/transfer.go:52-55`), Composer
         crea `vendor` en el contenedor y la copia final lo trae al host. Queda anotado, sin cambio.
+  - [x] `cloud` y `cloud-login` portados y retirados. Ejecutan la CLI de Magento Cloud en el
+        contenedor de PHP: `cloud` con sus argumentos unidos en un `bash -c`, como el shell, y
+        `cloud-login` después de decir dónde se genera el token (`25b80c8`); `cloud_test.go` fija
+        lo que piden, el estado de la CLI y que fuera de un proyecto no se ejecuta nada.
+        `console/commands/cloud.sh` (9 líneas) y `cloud-login.sh` (12) están borrados; quedan 28
+        ficheros en `console/commands/`. Siguen en `hm --help` porque están declarados en
+        `command_descriptions.json`. Apartados: 51 de 1050 aserciones fallaban antes y después,
+        diff vacío.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072

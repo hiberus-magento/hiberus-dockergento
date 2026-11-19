@@ -260,7 +260,7 @@ run create-project
 assert_equals "2" "$STATUS"
 assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
 
-for command in composer exec; do
+for command in composer exec cloud cloud-login; do
     test_case "and so does $command, once its own shell twin is gone"
     run "$command" --version
     assert_equals "2" "$STATUS"
