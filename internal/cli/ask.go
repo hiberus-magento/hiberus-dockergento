@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -42,7 +42,7 @@ func ask(text, suggestion string) (string, error) {
 	//
 	fmt.Fprint(os.Stderr, prompt(text+" ", suggestion))
 
-	answer, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	answer, err := readLine(os.Stdin)
 	if err != nil && strings.TrimSpace(answer) == "" {
 		return suggestion, nil //nolint:nilerr
 	}
@@ -53,4 +53,30 @@ func ask(text, suggestion string) (string, error) {
 	}
 
 	return answer, nil
+}
+
+// readLine reads one line, a byte at a time, the way the shell's `read` does.
+//
+// Not through a bufio.Reader: one made for a question reads ahead as far as its buffer goes, and
+// when the answers are piped in, the ones meant for the questions after it go with it and are lost
+// when the reader is.
+func readLine(in io.Reader) (string, error) {
+	var line []byte
+
+	one := make([]byte, 1)
+
+	for {
+		read, err := in.Read(one)
+		if read == 1 {
+			if one[0] == '\n' {
+				return string(line) + "\n", nil
+			}
+
+			line = append(line, one[0])
+		}
+
+		if err != nil {
+			return string(line), err
+		}
+	}
 }

@@ -191,8 +191,6 @@ func readKey(reader *bufio.Reader) string {
 // numbered is the list that works anywhere: what bash's own `select` draws, and what a terminal
 // that cannot be drawn on gets.
 func numbered(question string, options []string) (string, error) {
-	reader := bufio.NewReader(os.Stdin)
-
 	for {
 		fmt.Fprint(os.Stdout, section("✅ "+question+"\n"))
 
@@ -202,7 +200,7 @@ func numbered(question string, options []string) (string, error) {
 
 		fmt.Fprint(os.Stdout, "Option: ")
 
-		answer, err := reader.ReadString('\n')
+		answer, err := readLine(os.Stdin)
 		if err != nil && strings.TrimSpace(answer) == "" {
 			return "", errNothingChosen
 		}

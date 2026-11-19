@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -63,7 +62,7 @@ var readSecret = func(text string) (string, error) {
 		return strings.TrimSpace(string(answer)), err
 	}
 
-	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	answer, _ := readLine(os.Stdin)
 
 	return strings.TrimSpace(answer), nil
 }

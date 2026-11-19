@@ -119,3 +119,20 @@ func TestWithNobodyToAskTheSuggestionAnswers(t *testing.T) {
 		t.Errorf("answer = %q, want the suggestion", got)
 	}
 }
+
+// Answers piped in for several questions each reach their own question: reading the first one must
+// not swallow the ones after it, which is what a buffered reader made fresh for each question did.
+func TestEachPipedAnswerReachesItsOwnQuestion(t *testing.T) {
+	t.Setenv("HM_NON_INTERACTIVE", "")
+
+	var first, second string
+
+	askingWith(t, "shop.test\nn\n", func() {
+		first, _ = ask("Domain:", "")
+		second, _ = ask("Continue? [y/N]:", "")
+	})
+
+	if first != "shop.test" || second != "n" {
+		t.Errorf("answers = %q, %q, want shop.test then n", first, second)
+	}
+}
