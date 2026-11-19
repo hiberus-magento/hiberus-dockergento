@@ -196,6 +196,14 @@ func (f *fakeEngine) Exec(dir, service string, command []string, options core.Ex
 	return out.status, out.err
 }
 
+// ConfigureForDevelopment only ever answers with an error.
+func (f *fakeEngine) ConfigureForDevelopment(dir string) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "ConfigureForDevelopment", Dir: dir})
+
+	return f.outcomeFor(number).err
+}
+
 // Setup only ever answers with an error.
 func (f *fakeEngine) Setup(dir string, options core.SetupOptions, interactive bool) error {
 	number := len(f.calls)

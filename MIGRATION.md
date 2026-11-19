@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 40 de 65 |
+| Comandos en Go | 41 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -733,7 +733,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `cloud-login` | tools | 4 | go |
 | `compatibility` | tools | 4 | shell |
 | `composer` | magento | 1 | go |
-| `config-env` | tools | 3 | shell |
+| `config-env` | tools | 3 | go |
 | `copy-from-container` | files | 3 | go |
 | `copy-to-container` | files | 3 | go |
 | `create-project` | tools | 3 | go |

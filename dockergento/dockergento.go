@@ -436,6 +436,21 @@ func (e *Engine) Import(dir string, options app.ImportOptions) error {
 		return err
 	}
 
+	return e.importer(project).Import(project, e.ComposeFiles(project), options)
+}
+
+// ConfigureForDevelopment points the project's store at this machine: its base URLs, its cookie
+// domain and the rest of config/docker/local_settings.json, the same step an import ends with.
+func (e *Engine) ConfigureForDevelopment(dir string) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	return e.importer(project).ConfigureForDevelopment(project, e.ComposeFiles(project))
+}
+
+func (e *Engine) importer(project core.Project) app.Importer {
 	return app.Importer{
 		Database:     e.database(),
 		Orchestrator: e.orchestrator(project),
@@ -447,7 +462,7 @@ func (e *Engine) Import(dir string, options app.ImportOptions) error {
 		Announce:     e.options.Announce,
 		Errors:       e.errors(),
 		Binary:       e.options.Binary,
-	}.Import(project, e.ComposeFiles(project), options)
+	}
 }
 
 // Anonymise replaces the personal data of the project's database with data that looks like it.

@@ -12,8 +12,8 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 | Medida | Valor | Cómo comprobarlo |
 |---|---|---|
-| Comandos respondidos por el binario | **40 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
-| Comandos aún en shell | **25** | `rg -c "\| shell \|" MIGRATION.md` |
+| Comandos respondidos por el binario | **41 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
+| Comandos aún en shell | **24** | `rg -c "\| shell \|" MIGRATION.md` |
 | Ficheros en `console/commands/` | **25** | `fd -e sh . console/commands \| wc -l` |
 | Gemelos de shell retirados | **40** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
 | Portados que **aún conservan** su `.sh` | **0** | pista A vacía |
@@ -23,7 +23,7 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 1. **Pista A — retirar los gemelos de shell que ya tienen port en Go.** Es lo más barato y lo que
    más desbloquea. Empieza por los pequeños y ya probados.
-2. **Pista B — portar los 25 comandos que siguen en shell.** Uno por unidad, de menor a mayor.
+2. **Pista B — portar los 24 comandos que siguen en shell.** Uno por unidad, de menor a mayor.
 3. **Pista C — defectos conocidos.** Ninguno bloquea; varios llevan cinco ciclos aplazados.
 
 ## Pista A — gemelos de shell pendientes de retirar
@@ -32,12 +32,12 @@ Vacía desde `exec` (ver `MIGRATION.md`). Si vuelve a haber un comando tabulado 
 `.sh` en el árbol, la regla para retirarlo está abajo, en las reglas que no se negocian, y sus
 puntos ciegos en la pista C.
 
-## Pista B — comandos aún en shell (25)
+## Pista B — comandos aún en shell (24)
 
 | Área | Comandos |
 |---|---|
 | environment | `launch`, `post-start`, `proxy`, `rebuild`, `share`, `tui`, `tunnel` |
-| tools | `compatibility`, `config-env`, `ssl`, `verify` |
+| tools | `compatibility`, `ssl`, `verify` |
 | database | `db`, `transfer-db` |
 | magento | `grunt`, **`install`** |
 | ai | `ai-context`, `ai-doctor`, `ai-init`, `ai-pull`, `ai-reset`, `mcp`, `permissions` |
@@ -67,6 +67,7 @@ que `Configuration` entre en la costura de `internal/cli`.
 | `clean` borra los volúmenes de un entorno de rama muerto aunque la exploración los liste como no atribuibles | `dockergento/app/collect.go` (`removeByProject`); el shell hacía lo mismo | Ahora sólo los que Compose etiquetó con ese proyecto (no por prefijo, que alcanzaba a un `x_algo` vivo al recoger un `x` muerto), y un nombre vacío no casa con nada; que la exploración los dé por no atribuibles sigue siendo una contradicción de presentación |
 | `write_from_docker-compose_templates.sh` sólo lo usa ya una prueba | `tests/integration/mail_catcher_test.sh` genera con él los compose que comprueba | Portar a Go (`core.RenderCompose`) sus reglas del capturador de correo y quitar la tarea |
 | El paso `install` del `setup` de Go no pasa `-u` aunque se pida `--use-default` | `dockergento/app/setup.go` (`installStep` sólo lo pone `create-project`) | `install.sh` preguntará; el `setup.sh` del shell lo exportaba como `USE_DEFAULT_SETTINGS` |
+| `set_magento_configs.sh` sólo lo usa ya una prueba | `tests/unit/properties_migration_test.sh` (`set_current_domain`) | Su par en Go, `Importer.rememberDomain`, no tiene prueba: portar la de recuperar el dominio y quitar la tarea |
 | `hm stop -t 5` toma `-t` y `5` por servicios | `internal/cli/orchestrate.go` (`stop`) | `stop.sh` pasaba las opciones a `docker compose stop`; el port no. `restart` las niega con 2: decidir entre pasarlas o negarlas |
 | `docker-stop-all` con el daemon inaccesible responde «No containers running» y sale con 0 | `dockergento/app/orchestrate.go` (`StopEverything`, `containers, _ := o.Engine.Containers()`) | Heredado del shell (`docker ps -q 2>/dev/null`); un fallo de conexión se lee como éxito. `go_passthrough_test.sh` fija hoy ese comportamiento |
 | `docker-stop-all` no interactivo para todos los contenedores sin preguntar | `go_passthrough_test.sh` lo ejecutaba con `HM_NON_INTERACTIVE=1` y el daemon accesible | Corregido en `a4927e6` (la prueba fija un `DOCKER_HOST` inexistente). Queda la regla: ninguna suite corre un comando de máquina sin cortar el daemon dentro de la propia prueba |

@@ -32,6 +32,24 @@ type setting struct {
 }
 
 // configure runs the settings through Magento's own CLI.
+// ConfigureForDevelopment points the store at this machine, which is all `config-env` does.
+//
+// An import does the same afterwards and lets an empty domain pass, since the data is in either
+// way. Asked for on its own there is no other reason to run, so a project with no domain is told
+// how to get one instead of being configured with an empty address.
+func (d Importer) ConfigureForDevelopment(project core.Project, files core.ComposeFiles) error {
+	if project.Domain == "" {
+		return core.Refusal{
+			Kind:    "no_domain",
+			Code:    2,
+			Message: "This project has no domain, so there is no address to point the store at",
+			Hint:    d.Binary + " setup",
+		}
+	}
+
+	return d.configure(project, files)
+}
+
 func (d Importer) configure(project core.Project, files core.ComposeFiles) error {
 	domain := project.Domain
 	if domain == "" {
