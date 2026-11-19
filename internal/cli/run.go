@@ -73,12 +73,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		case "clean":
 			return clean(rest[1:], stdout, stderr, jsonOutput)
 		case "worktree":
-			// All three are ported, which is what will let the registry change underneath them:
-			// while one half wrote JSON and the other read SQLite there would be a branch
-			// environment `add` created that nothing else could see
-			if len(rest) > 1 && worktreeSubcommands[rest[1]] {
-				return worktree(rest[1:], stdout, stderr, jsonOutput)
-			}
+			// All of it, including no subcommand and one it does not know: the shell twin is
+			// retired, and while it existed a fallthrough reached worktree.sh, which exec'd this
+			// binary again with the same arguments — a loop for as long as Docker was up
+			return worktree(rest[1:], stdout, stderr, jsonOutput)
 		case "db":
 			// Both families of it. What is left over goes to the shell implementation, which is
 			// where the usage text and an unknown subcommand are still answered

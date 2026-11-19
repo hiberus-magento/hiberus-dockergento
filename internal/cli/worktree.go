@@ -7,16 +7,12 @@ import (
 	"strings"
 )
 
-// Branch environments.
-//
-// All three are here now, which is what lets the registry become the live source: while one half
-// wrote JSON and the other read SQLite there would be a branch environment `add` created that
-// nothing else could see.
-var worktreeSubcommands = map[string]bool{"list": true, "remove": true, "add": true}
-
 func worktree(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	usage := binaryName() + " worktree add|list|remove"
+
 	if len(args) == 0 {
-		return exitOK
+		return failure(stderr, jsonOutput, "worktree", exitUsage, "invalid_argument",
+			"worktree needs a subcommand", usage)
 	}
 
 	switch args[0] {
@@ -28,7 +24,8 @@ func worktree(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return worktreeRemove(args[1:], stdout, stderr, jsonOutput)
 	}
 
-	return exitOK
+	return failure(stderr, jsonOutput, "worktree", exitUsage, "invalid_argument",
+		fmt.Sprintf("Unknown worktree subcommand: %s", args[0]), usage)
 }
 
 func worktreeList(stdout, stderr io.Writer, jsonOutput bool) int {
