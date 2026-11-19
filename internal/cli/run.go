@@ -151,6 +151,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return proxy(rest[1:], stdout, stderr, jsonOutput)
 		case "share":
 			return share(rest[1:], stdout, stderr, jsonOutput)
+		case "tunnel":
+			return tunnel(rest[1:], stdout, stderr, jsonOutput)
 		case "start":
 			return start(rest[1:], stdout, stderr, jsonOutput)
 		case "restart":

@@ -334,3 +334,13 @@ func buildFirst(loaded *types.Project) {
 		loaded.Services[name] = configured
 	}
 }
+
+// Services are the services the project's files define, running or not.
+func (o Orchestrator) Services(project core.Project, files core.ComposeFiles) ([]string, error) {
+	loaded, err := o.load(project, files)
+	if err != nil {
+		return nil, err
+	}
+
+	return loaded.ServiceNames(), nil
+}

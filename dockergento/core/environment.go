@@ -299,3 +299,12 @@ type Share struct {
 	Relay    string `json:"-"`
 	Declined bool   `json:"-"`
 }
+
+// Tunnel is a service of a project forwarded to a port of this machine, and the relay holding it.
+type Tunnel struct {
+	Service       string `json:"service"`
+	Host          string `json:"host"`
+	Port          int    `json:"port"`
+	ContainerPort int    `json:"container_port"`
+	Relay         string `json:"-"`
+}

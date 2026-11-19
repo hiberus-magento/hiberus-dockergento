@@ -58,6 +58,9 @@ type commands interface {
 	Share(dir, service string, port int, confirm func(string) bool) (core.Share, error)
 	Unshare(dir string) (bool, error)
 	HoldShare(relay string) error
+	Tunnel(dir, service string, port int) (core.Tunnel, error)
+	CloseTunnels(dir, service string) (bool, error)
+	HoldTunnel(relay string) error
 }
 
 var _ commands = (*dockergento.Engine)(nil)

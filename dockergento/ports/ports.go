@@ -287,6 +287,18 @@ type Relays interface {
 	Wait(name string) error
 }
 
+// ServiceLister answers which services a project's Compose files define, running or not — what
+// `docker compose config --services` prints.
+type ServiceLister interface {
+	Services(project core.Project, files core.ComposeFiles) ([]string, error)
+}
+
+// Exposure answers which ports a container exposes, from its image or its configuration, whether
+// or not they are published — what `docker inspect -f '{{.Config.ExposedPorts}}'` lists.
+type Exposure interface {
+	Exposed(container string) ([]int, error)
+}
+
 // VolumeStore is the Docker volumes on this machine.
 type VolumeStore interface {
 	// Labelled returns every volume carrying a label, with the labels it carries.

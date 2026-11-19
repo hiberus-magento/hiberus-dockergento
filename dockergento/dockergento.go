@@ -16,10 +16,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1852,4 +1854,66 @@ func (e *Engine) sharer() app.Sharer {
 		Say:    e.options.Announce,
 		Binary: e.options.Binary,
 	}
+}
+
+// Tunnel forwards a service of the project to a free port of this machine, through a relay that
+// stays open until CloseTunnels closes it. port zero means the only one the service exposes.
+func (e *Engine) Tunnel(dir, service string, port int) (core.Tunnel, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return core.Tunnel{}, err
+	}
+
+	return e.tunneler(project).Open(project, e.ComposeFiles(project), service, port)
+}
+
+// CloseTunnels closes the project's tunnels to service, or all of them without one, and reports
+// whether there was any.
+func (e *Engine) CloseTunnels(dir, service string) (bool, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return false, err
+	}
+
+	return e.tunneler(project).Close(project, service)
+}
+
+// HoldTunnel returns when the tunnel Tunnel opened stops.
+func (e *Engine) HoldTunnel(relay string) error {
+	return dockerd.Relays{}.Wait(relay)
+}
+
+func (e *Engine) tunneler(project core.Project) app.Tunneler {
+	return app.Tunneler{
+		Engine:    dockerd.Engine{Timeout: e.options.Timeout},
+		Relays:    dockerd.Relays{},
+		Services:  e.orchestrator(project),
+		Exposure:  dockerd.Engine{Timeout: e.options.Timeout},
+		Binary:    e.options.Binary,
+		FreePort:  freeLocalPort,
+		Reachable: answersLocally,
+	}
+}
+
+// freeLocalPort is a port of this machine nobody listens on: the system picks it.
+func freeLocalPort() (int, error) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer listener.Close()
+
+	return listener.Addr().(*net.TCPAddr).Port, nil
+}
+
+// answersLocally says whether something accepts a connection on a port of this machine.
+func answersLocally(port int) bool {
+	connection, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), time.Second)
+	if err != nil {
+		return false
+	}
+
+	connection.Close() //nolint:errcheck
+
+	return true
 }

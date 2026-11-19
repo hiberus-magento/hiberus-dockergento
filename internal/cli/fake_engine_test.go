@@ -146,6 +146,10 @@ type fakeEngine struct {
 	share    core.Share
 	unshared bool
 
+	// tunnel is what Tunnel answers with, and tunnelsClosed what CloseTunnels does.
+	tunnel        core.Tunnel
+	tunnelsClosed bool
+
 	// permissions is what AgentPermissions answers with.
 	permissions core.AgentPermissions
 
@@ -671,6 +675,35 @@ func (f *fakeEngine) Unshare(dir string) (bool, error) {
 // HoldShare returns at once: the tunnel it holds is closed as soon as it is opened.
 func (f *fakeEngine) HoldShare(relay string) error {
 	f.calls = append(f.calls, call{Method: "HoldShare", Key: relay})
+
+	return f.outcomeFor(len(f.calls) - 1).err
+}
+
+func (f *fakeEngine) Tunnel(dir, service string, port int) (core.Tunnel, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Tunnel", Dir: dir, Service: service, Port: port})
+
+	if out := f.outcomeFor(number); out.err != nil {
+		return core.Tunnel{}, out.err
+	}
+
+	return f.tunnel, nil
+}
+
+func (f *fakeEngine) CloseTunnels(dir, service string) (bool, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "CloseTunnels", Dir: dir, Service: service})
+
+	if out := f.outcomeFor(number); out.err != nil {
+		return false, out.err
+	}
+
+	return f.tunnelsClosed, nil
+}
+
+// HoldTunnel returns at once, like HoldShare.
+func (f *fakeEngine) HoldTunnel(relay string) error {
+	f.calls = append(f.calls, call{Method: "HoldTunnel", Key: relay})
 
 	return f.outcomeFor(len(f.calls) - 1).err
 }

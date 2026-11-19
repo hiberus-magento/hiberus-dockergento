@@ -52,3 +52,41 @@ func (e Engine) Address(id string) (string, error) {
 
 	return address.String(), nil
 }
+
+// Exposed are the TCP ports a container exposes, published or not.
+func (e Engine) Exposed(id string) ([]int, error) {
+	docker, err := connect()
+	if err != nil {
+		return nil, err
+	}
+	defer docker.Close()
+
+	timeout := e.Timeout
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	inspected, err := docker.ContainerInspect(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if inspected.Config == nil {
+		return nil, nil
+	}
+
+	ports := make([]int, 0, len(inspected.Config.ExposedPorts))
+
+	for port := range inspected.Config.ExposedPorts {
+		if port.Proto() == "tcp" {
+			ports = append(ports, port.Int())
+		}
+	}
+
+	sort.Ints(ports)
+
+	return ports, nil
+}
