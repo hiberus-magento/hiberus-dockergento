@@ -818,6 +818,16 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         ruta desde `input_info.sh`; ahora se lo pide al binario (`fe2ebf2`). Dos suites dejaron de
         contar con que el comando caía al shell (`c295096`). `compatibility.sh` (162 líneas) está
         borrado; quedan 11. Apartados: 46 de 1038 aserciones fallaban antes y después, diff vacío.
+  - [x] `transfer-db` portado y retirado (`15eb172`, escrito por un subagente en su propio
+        worktree e integrado aquí). Las mismas preguntas y valores por defecto, el mismo `ssh` con
+        `mysqldump` remoto, la copia al contenedor de la base de datos, la importación, la
+        anonimización y los pasos de Magento, con los mismos rechazos. Diferencias buscadas: el
+        rechazo de un servicio parado puede darse ya (el shell moría antes con el error de
+        Compose), la contraseña no se muestra como valor por defecto, y una anonimización que falla
+        lo dice. Al portarlo apareció que `ask` perdía las respuestas encadenadas por tubería tras
+        la primera: lo arregla `727d849` para todos los comandos. `transfer-db.sh` (217 líneas)
+        está borrado; quedan 10. Apartados: 46 de 1040 aserciones fallaban antes y después, diff
+        vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
