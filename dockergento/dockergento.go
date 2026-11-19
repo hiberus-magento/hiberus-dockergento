@@ -1917,3 +1917,35 @@ func answersLocally(port int) bool {
 
 	return true
 }
+
+// Compatibility is the table of the Magento releases this tool has images for, read from its own
+// data directory.
+func (e *Engine) Compatibility() (string, error) {
+	read := func(name string) (string, error) {
+		contents, err := os.ReadFile(filepath.Join(e.options.Root, "data", name))
+
+		return string(contents), err
+	}
+
+	requirementsFile, err := read("requirements.json")
+	if err != nil {
+		return "", err
+	}
+
+	equivalentsFile, err := read("equivalent_versions.json")
+	if err != nil {
+		return "", err
+	}
+
+	requirements, err := core.ReadRequirements(requirementsFile)
+	if err != nil {
+		return "", err
+	}
+
+	equivalents, err := core.ReadEquivalents(equivalentsFile)
+	if err != nil {
+		return "", err
+	}
+
+	return core.CompatibilityTable(requirements, equivalents), nil
+}

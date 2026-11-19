@@ -145,6 +145,9 @@ type fakeEngine struct {
 	share    core.Share
 	unshared bool
 
+	// compatibility is what Compatibility answers with.
+	compatibility string
+
 	// tunnel is what Tunnel answers with, and tunnelsClosed what CloseTunnels does.
 	tunnel        core.Tunnel
 	tunnelsClosed bool
@@ -715,4 +718,11 @@ func (f *fakeEngine) HoldTunnel(relay string) error {
 	f.calls = append(f.calls, call{Method: "HoldTunnel", Key: relay})
 
 	return f.outcomeFor(len(f.calls) - 1).err
+}
+
+func (f *fakeEngine) Compatibility() (string, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Compatibility"})
+
+	return f.compatibility, f.outcomeFor(number).err
 }
