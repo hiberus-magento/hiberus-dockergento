@@ -64,6 +64,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return logs(rest[1:], stdout, stderr, jsonOutput)
 		case "magento":
 			return magento(rest[1:], stdout, stderr, jsonOutput)
+		case "grunt":
+			return grunt(rest[1:], stdout, stderr, jsonOutput)
+		case "update":
+			return update(rest[1:], stdout, stderr, jsonOutput)
 		case "config-env":
 			return configEnv(rest[1:], stdout, stderr, jsonOutput)
 		case "cloud":

@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 43 de 65 |
+| Comandos en Go | 45 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -785,7 +785,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `doctor` | environment | 1 | go |
 | `down` | environment | 2 | go |
 | `exec` | tools | 1 | go |
-| `grunt` | magento | 4 | shell |
+| `grunt` | magento | 4 | go |
 | `install` | magento | 3 | shell |
 | `launch` | environment | 3 | shell |
 | `list` | environment | 1 | go |
@@ -819,7 +819,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `transfer-media` | files | 4 | shell |
 | `tui` | environment | 3 | shell |
 | `tunnel` | environment | 3 | shell |
-| `update` | versions | 3 | shell |
+| `update` | versions | 3 | go |
 | `varnish-off` | tools | 3 | go |
 | `varnish-on` | tools | 3 | go |
 | `verify` | tools | 3 | shell |

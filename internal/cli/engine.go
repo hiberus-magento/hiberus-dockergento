@@ -32,6 +32,7 @@ type commands interface {
 	Console(dir string) (int, error)
 	Setup(dir string, options core.SetupOptions, interactive bool) error
 	ConfigureForDevelopment(dir string) error
+	Update() error
 	CreateProject(dir string, options core.CreateProjectOptions, interactive bool) error
 	CopyInto(dir string, paths []string, all bool) error
 	CopyFrom(dir string, paths []string) error

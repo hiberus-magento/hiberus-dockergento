@@ -48,6 +48,16 @@ copy_working_tree() {
 
 copy_working_tree
 HM="$CLONE/bin/run"
+# update is the binary's, which finds its installation where its executable is: a copy of it inside
+# the clone updates the clone and never the installation running this suite
+cp "$COMMAND_BIN_DIR/bin/hm" "$CLONE/bin/hm"
+run_go() {
+    ( cd "$LAB" && "$CLONE/bin/hm" "$@" >"$LAB/out" 2>"$LAB/err" )
+    STATUS=$?
+    STDOUT=$(cat "$LAB/out")
+    STDERR=$(cat "$LAB/err")
+    return 0
+}
 
 run() {
     ( cd "$LAB" && "$HM" "$@" >"$LAB/out" 2>"$LAB/err" )
@@ -136,7 +146,7 @@ assert_json_field "$STDOUT" '.data.detached' "true"
 pinned_head=$(git -C "$CLONE" rev-parse HEAD)
 
 test_case "update refuses to move a pinned installation"
-run update --json
+run_go update --json
 assert_json_field "$STDERR" '.error.type' "detached_installation"
 
 test_case "refusing to update is not a generic failure"
@@ -157,7 +167,7 @@ assert_equals "$branch" "$(reference)"
 
 test_case "update works normally on a branch"
 reset_clone
-run update
+run_go update
 assert_equals "0" "$STATUS"
 
 test_case "an unknown version is refused"
