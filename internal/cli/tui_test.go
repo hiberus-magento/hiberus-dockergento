@@ -4,8 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 //
@@ -720,5 +724,217 @@ func TestUnknownKeysDoNothing(t *testing.T) {
 
 	if l.board.view != "fleet" || l.board.selected != 0 || len(l.runner.calls) != 2 {
 		t.Errorf("%s %d %v", l.board.view, l.board.selected, l.runner.argv())
+	}
+}
+
+// ------------------------------------------------------------------ what the dashboard runs
+
+// TestEveryCommandTheDashboardRunsIsARoutedCommand: the dashboard has no privileges of its own, it
+// runs the binary's commands. A wrong name would fail only when the key is pressed, on somebody
+// else's machine, so every command any key reaches must be one run.go routes and the help
+// documents.
+func TestEveryCommandTheDashboardRunsIsARoutedCommand(t *testing.T) {
+	l := lab(t, "gsxrlo\r\033q", 1)
+	l.runner.answers["launch --json"] = `{"ok":true,"data":{"url":"https://shop.test/"}}`
+	l.board.run()
+
+	routed := map[string]bool{}
+	for _, name := range routedCommands(t) {
+		routed[name] = true
+	}
+
+	raw, err := os.ReadFile(filepath.Join("..", "..", "data", "command_descriptions.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var described map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &described); err != nil {
+		t.Fatal(err)
+	}
+
+	commands := map[string]bool{}
+	for _, call := range l.runner.calls {
+		commands[strings.Fields(call.args)[0]] = true
+	}
+
+	if len(commands) < 6 {
+		t.Fatalf("the dashboard ran only %v", l.runner.argv())
+	}
+
+	for command := range commands {
+		if !routed[command] {
+			t.Errorf("the dashboard runs %q, which run.go does not route", command)
+		}
+
+		if _, ok := described[command]; !ok {
+			t.Errorf("the dashboard runs %q, which data/command_descriptions.json does not document", command)
+		}
+	}
+
+	var tui struct {
+		Group string `json:"group"`
+	}
+	if err := json.Unmarshal(described["tui"], &tui); err != nil || tui.Group != "environment" {
+		t.Errorf("tui is documented in group %q (%v), want environment", tui.Group, err)
+	}
+}
+
+// TestTheBinaryRunsInTheEnvironmentsDirectory: what is refused on the command line stays refused
+// from the panel only because each command runs where the environment lives, as if typed there.
+func TestTheBinaryRunsInTheEnvironmentsDirectory(t *testing.T) {
+	scratch := t.TempDir()
+	where := filepath.Join(scratch, "where")
+	binary := filepath.Join(scratch, "hm")
+
+	// Prints where it ran only when captured, so the handed call writes nothing to the test's output
+	script := "#!/bin/sh\npwd -P > '" + where + "'\n[ \"$1\" = describe ] && pwd -P\nexit 0\n"
+	if err := os.WriteFile(binary, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	environment, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	runner := binaryRunner{path: binary}
+
+	if output, ok := runner.Capture(environment, false, "describe", "--json"); !ok || output != environment {
+		t.Errorf("Capture ran in %q (ok %v), want %q", output, ok, environment)
+	}
+
+	if code := runner.Hand(environment, "start"); code != 0 {
+		t.Fatalf("Hand = %d", code)
+	}
+
+	if got, _ := os.ReadFile(where); strings.TrimSpace(string(got)) != environment {
+		t.Errorf("Hand ran in %q, want %q", got, environment)
+	}
+}
+
+// ------------------------------------------------------------------ the shape of every frame
+
+// visibleWidth is what a row takes on screen; the lab sets NO_COLOR, so there are no codes in it.
+func visibleWidth(row string) int {
+	return utf8.RuneCountInString(row)
+}
+
+// TestEveryLineIsPaintedAtItsRowAndClearedToTheRight: a frame repaints every row, so nothing of the
+// previous screen survives under a shorter one, and it never erases the screen to do it.
+func TestEveryLineIsPaintedAtItsRowAndClearedToTheRight(t *testing.T) {
+	for _, environments := range []int{3, 0} {
+		l := lab(t, "q", environments)
+		l.board.run()
+
+		frame := l.lastFrame()
+		if len(frame) != 24 {
+			t.Fatalf("%d environments: %d rows, want the terminal's 24", environments, len(frame))
+		}
+
+		painted := frameBytes(frame)
+		if got := strings.Count(painted, "\033[K"); got != 24 {
+			t.Errorf("%d environments: %d rows cleared, want 24", environments, got)
+		}
+
+		for row := 1; row <= 24; row++ {
+			if !strings.Contains(painted, "\033["+strconv.Itoa(row)+";1H") {
+				t.Errorf("%d environments: row %d is not positioned", environments, row)
+			}
+		}
+
+		if strings.Contains(painted, "\033[2J") {
+			t.Errorf("%d environments: a frame erased the screen", environments)
+		}
+	}
+}
+
+// TestOnlyTheSelectedEnvironmentIsMarked: one mark, and it follows the selection.
+func TestOnlyTheSelectedEnvironmentIsMarked(t *testing.T) {
+	l := lab(t, "jjq", 4)
+	l.board.run()
+
+	marked := []string{}
+	for _, row := range l.lastFrame() {
+		if strings.HasPrefix(row, "> ") {
+			marked = append(marked, row)
+		}
+	}
+
+	if len(marked) != 1 || !strings.HasPrefix(marked[0], "> store ") {
+		t.Errorf("marked rows %q, want only store", marked)
+	}
+}
+
+// TestALongFleetComesBackToTheTop: the list scrolls back when the selection goes up, and the frame
+// keeps the terminal's height whatever the fleet's size.
+func TestALongFleetComesBackToTheTop(t *testing.T) {
+	l := lab(t, strings.Repeat("j", 20)+strings.Repeat("k", 20)+"q", 40)
+	l.board.run()
+
+	frame := l.lastFrame()
+	if len(frame) != 24 {
+		t.Fatalf("%d rows", len(frame))
+	}
+
+	screen := strings.Join(frame, "\n")
+	if !strings.Contains(screen, "> shop ") || !strings.Contains(screen, "  showing 1-15 of 40") {
+		t.Errorf("%s", screen)
+	}
+}
+
+// TestTheDetailFrameIsAsTallAsTheTerminal: the detail view fills the screen too, keys at the bottom.
+func TestTheDetailFrameIsAsTallAsTheTerminal(t *testing.T) {
+	l := lab(t, "\rq", 1)
+	l.board.run()
+
+	if frame := l.lastFrame(); len(frame) != 24 || !strings.HasPrefix(frame[23], "esc back") {
+		t.Errorf("%d rows, footer %q", len(frame), frame[len(frame)-1])
+	}
+}
+
+// TestNoLineIsWiderThanTheTerminal: on a narrow terminal columns give way and the footer takes
+// its short form, rather than anything running past the edge.
+func TestNoLineIsWiderThanTheTerminal(t *testing.T) {
+	for _, keys := range []string{"q", "\rq"} {
+		l := lab(t, keys, 3)
+		l.board.size = func() (int, int) { return 24, 60 }
+		l.board.run()
+
+		for at, row := range l.lastFrame() {
+			if visibleWidth(row) > 60 {
+				t.Errorf("%q row %d is %d wide: %q", keys, at, visibleWidth(row), row)
+			}
+		}
+	}
+
+	for _, row := range append(dashFleetRows(fleetPayload(t, "/a/very/long/path/to/an/environment"), 56),
+		dashDetailLines(describePayload, 50)...) {
+		if visibleWidth(row) > 56 {
+			t.Errorf("%q is wider than its width", row)
+		}
+	}
+
+	if lines := dashDetailLines("not json at all", 50); len(lines) == 0 {
+		t.Error("a broken payload left no layout at all")
+	}
+}
+
+// TestAResizeRecomposesOnTheNextPaint: what was laid out for the old width is laid out again.
+func TestAResizeRecomposesOnTheNextPaint(t *testing.T) {
+	l := lab(t, "q", 3)
+	l.board.run()
+
+	l.board.cols = 50
+	l.board.paint()
+
+	if l.board.composedCols != 50 {
+		t.Fatalf("composed for %d columns after a resize to 50", l.board.composedCols)
+	}
+
+	for _, row := range l.lastFrame() {
+		if visibleWidth(row) > 50 {
+			t.Errorf("%q is wider than the resized terminal", row)
+		}
 	}
 }

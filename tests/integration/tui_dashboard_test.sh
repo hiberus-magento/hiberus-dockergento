@@ -30,9 +30,8 @@ assert_empty "$(cat "$LAB/out")"
 # The dashboard has no privileges of its own: actions are the CLI's commands, run in the
 # environment's directory. What is refused on the command line stays refused from the panel,
 # and that is worth checking against a real refusal rather than trusting the wiring.
-test_case "an action runs the CLI in the environment's directory"
-assert_contains "$(LC_ALL=C grep -A3 'tui_suspend' "$COMMANDS_DIR/tui.sh")" 'cd "$root" && "$HM" "$@"'
-
+# That an action runs the binary in the environment's directory is pinned in Go
+# (TestTheBinaryRunsInTheEnvironmentsDirectory in internal/cli/tui_test.go).
 mkdir -p "$LAB/main/config/docker"
 (
     cd "$LAB/main" || exit 1
