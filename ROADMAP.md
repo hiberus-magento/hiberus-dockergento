@@ -12,8 +12,8 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 | Medida | Valor | Cómo comprobarlo |
 |---|---|---|
-| Comandos respondidos por el binario | **37 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
-| Comandos aún en shell | **28** | `rg -c "\| shell \|" MIGRATION.md` |
+| Comandos respondidos por el binario | **40 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
+| Comandos aún en shell | **25** | `rg -c "\| shell \|" MIGRATION.md` |
 | Ficheros en `console/commands/` | **28** | `fd -e sh . console/commands \| wc -l` |
 | Gemelos de shell retirados | **37** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
 | Portados que **aún conservan** su `.sh` | **0** | pista A vacía |
@@ -23,7 +23,7 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 1. **Pista A — retirar los gemelos de shell que ya tienen port en Go.** Es lo más barato y lo que
    más desbloquea. Empieza por los pequeños y ya probados.
-2. **Pista B — portar los 28 comandos que siguen en shell.** Uno por unidad, de menor a mayor.
+2. **Pista B — portar los 25 comandos que siguen en shell.** Uno por unidad, de menor a mayor.
 3. **Pista C — defectos conocidos.** Ninguno bloquea; varios llevan cinco ciclos aplazados.
 
 ## Pista A — gemelos de shell pendientes de retirar
@@ -32,13 +32,13 @@ Vacía desde `exec` (ver `MIGRATION.md`). Si vuelve a haber un comando tabulado 
 `.sh` en el árbol, la regla para retirarlo está abajo, en las reglas que no se negocian, y sus
 puntos ciegos en la pista C.
 
-## Pista B — comandos aún en shell (28)
+## Pista B — comandos aún en shell (25)
 
 | Área | Comandos |
 |---|---|
 | environment | `launch`, `post-start`, `proxy`, `rebuild`, `share`, `tui`, `tunnel` |
 | tools | `compatibility`, `config-env`, `ssl`, `verify` |
-| database | `db`, `dbeaver`, `sequelace`, `tableplus`, `transfer-db` |
+| database | `db`, `transfer-db` |
 | magento | `grunt`, **`install`** |
 | ai | `ai-context`, `ai-doctor`, `ai-init`, `ai-pull`, `ai-reset`, `mcp`, `permissions` |
 | files / versions | `transfer-media`, `switch`, `update` |

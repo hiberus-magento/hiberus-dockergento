@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 37 de 65 |
+| Comandos en Go | 40 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -728,7 +728,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `copy-to-container` | files | 3 | go |
 | `create-project` | tools | 3 | go |
 | `db` | database | 2 | shell |
-| `dbeaver` | database | 3 | shell |
+| `dbeaver` | database | 3 | go |
 | `debug-off` | tools | 3 | go |
 | `debug-on` | tools | 3 | go |
 | `describe` | environment | 1 | go |
@@ -755,7 +755,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `purge` | magento | 3 | go |
 | `rebuild` | environment | 3 | shell |
 | `restart` | environment | 1 | go |
-| `sequelace` | database | 3 | shell |
+| `sequelace` | database | 3 | go |
 | `web` | tools | 1 | go |
 | `set-host` | tools | 3 | go |
 | `setup` | environment | 2 | go |
@@ -764,7 +764,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `start` | environment | 1 | go |
 | `stop` | environment | 1 | go |
 | `switch` | versions | 3 | shell |
-| `tableplus` | database | 3 | shell |
+| `tableplus` | database | 3 | go |
 | `test-integration` | magento | 3 | go |
 | `test-unit` | magento | 3 | go |
 | `transfer-db` | database | 4 | shell |

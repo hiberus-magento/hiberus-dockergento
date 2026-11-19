@@ -142,6 +142,12 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return dockerStopAll(rest[1:], stdout, stderr, jsonOutput)
 		case "docker-compose":
 			return dockerCompose(rest[1:], stdout, stderr, jsonOutput)
+		case "dbeaver":
+			return dbClient("dbeaver", rest[1:], stdout, stderr, jsonOutput)
+		case "sequelace":
+			return dbClient("sequelace", rest[1:], stdout, stderr, jsonOutput)
+		case "tableplus":
+			return dbClient("tableplus", rest[1:], stdout, stderr, jsonOutput)
 		}
 	}
 
