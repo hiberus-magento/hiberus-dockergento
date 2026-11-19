@@ -618,14 +618,39 @@ func (e *Engine) transfer(project core.Project) app.Transfer {
 // command that creates an environment: it would write another project's name into the committed
 // properties the main checkout reads. A directory that does not resolve yet is a project about to
 // be set up, not a worktree of one, and is let through.
+//
+// When the project does not resolve — committed properties somebody broke, a registry that cannot
+// be read — the question is asked of git alone, the way the shell entry point asked it: a worktree
+// of a checkout that has a Dockergento project in it is refused, since nothing says it has an
+// environment of its own.
 func (e *Engine) Setup(dir string, options core.SetupOptions, interactive bool) error {
-	if project, err := e.Resolve(dir); err == nil {
-		if err := app.RefuseFromAnUnregisteredWorktree(project, "setup", e.options.Forced); err != nil {
-			return err
-		}
+	project, err := e.Resolve(dir)
+	if err != nil {
+		project = unresolvedWorktree(dir)
+	}
+
+	if err := app.RefuseFromAnUnregisteredWorktree(project, "setup", e.options.Forced); err != nil {
+		return err
 	}
 
 	return e.setup().Run(dir, options, interactive)
+}
+
+// unresolvedWorktree answers, from git and the main checkout's files alone, whether dir is a
+// worktree of a Dockergento project. The zero Project when it is not, which no refusal applies to.
+func unresolvedWorktree(dir string) core.Project {
+	mainRoot, isWorktree, _, err := gitvcs.Git{}.Resolve(dir)
+	if err != nil || !isWorktree {
+		return core.Project{}
+	}
+
+	for _, file := range []string{"docker-compose.yml", filepath.Join("config", "docker", "properties.json")} {
+		if _, err := os.Stat(filepath.Join(mainRoot, file)); err != nil {
+			return core.Project{}
+		}
+	}
+
+	return core.Project{Root: mainRoot, InWorktree: true}
 }
 
 func (e *Engine) setup() app.Setup {
