@@ -558,6 +558,28 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         (`worktree_test.sh`, `non_interactive_test.sh` y `tests/integration/setup_options_test.sh`,
         que la primera corrida destapó). Con las reparaciones y el árbol ya sin los cuatro ficheros:
         54 fallos antes y después, diff vacío.
+  - [x] El mismo paso, para `doctor` — trigésimo primer comando retirado así.
+        `console/commands/doctor.sh` (185 líneas) está borrado, con `console/helpers/doctor.sh` y
+        las diecisiete comprobaciones de `console/tasks/doctor/`, que sólo él ejecutaba; quedan 34
+        ficheros en `console/commands/`. Las diecisiete tienen su par en `app/checks.go`. El handler
+        pedía al motor concreto; ahora va por `newEngine` y `doctor_engine_test.go` fija lo que
+        pide, el código de salida que decide el diagnóstico y los informes JSON y de texto.
+        `checks_test.go` porta lo que sólo fijaban las suites del shell: el veredicto de memoria
+        de la VM y la acción por runtime (por debajo de 4 GB es error, como en el shell), que una
+        comprobación que entra en pánico es un aviso y las demás siguen, que los avisos solos no
+        hacen fallar el resumen, las comprobaciones de proyecto, la de Magento y la entrada de
+        hosts que falta. `doctor_contract_test.sh` (la codificación de un resultado en el ejecutor
+        del shell) y `vm_resources_test.sh` se van con él: 25 aserciones.
+
+        Las suites le preguntan al binario; `go_passthrough_test.sh` sostiene el número y el orden
+        de las diecisiete en vez de compararlas con el shell, y `doctor_test.sh` deja los casos que
+        metían comprobaciones en el directorio del ejecutor del shell. Buscando llamadas a
+        `bin/run` salieron dos regresiones más de retiradas anteriores, invisibles porque sus
+        suites se saltan sin Docker: `tui.sh` y `mcp.sh` pedían `list`, `describe`, `logs`,
+        `mysql`, `magento`, `start`, `stop`… a `bin/run`, se tragaban la negativa y enseñaban una
+        flota vacía o herramientas rotas (`f3ba798`); y `anonymisation_test.sh` importaba con
+        `bin/run mysql`. Con el árbol ya sin los veintidós ficheros: 51 fallos antes y después, diff
+        vacío.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
