@@ -9,8 +9,7 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
-# `describe` and `worktree` are the binary's now; `clean` stays the shell implementation's and keeps
-# asking bin/run through `$HM`.
+# `describe`, `worktree` and `clean` are the binary's now.
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 PROJECT="hm-concurrent-selftest"
@@ -111,7 +110,7 @@ assert_contains "$(cat "$LAB/err")" "belongs to"
 
 test_case "the collection command reports them without touching the file"
 before=$(md5 -q /etc/hosts 2>/dev/null || md5sum /etc/hosts | cut -d' ' -f1)
-( cd "$LAB" && "$HM" clean --json >/dev/null 2>&1 )
+( cd "$LAB" && "$GO_BINARY" clean --json >/dev/null 2>&1 )
 after=$(md5 -q /etc/hosts 2>/dev/null || md5sum /etc/hosts | cut -d' ' -f1)
 assert_equals "$before" "$after"
 
