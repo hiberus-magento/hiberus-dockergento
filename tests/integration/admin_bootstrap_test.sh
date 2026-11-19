@@ -4,7 +4,6 @@
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
-source "$TASKS_DIR/admin_bootstrap.sh"
 
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$LAB"' EXIT
@@ -35,8 +34,8 @@ assert_equals "$before" "$(cat "$LAB/config.json")"
 test_case "the tool ships no fixed password any more"
 assert_empty "$(jq -r '."admin-password" // ""' "$DATA_DIR/config.json")"
 
-test_case "and none is written into the file it creates from scratch"
-assert_not_contains "$(grep -A12 'admin-user' "$COMMANDS_DIR/install.sh" | head -14)" "Hiberus123"
+# That none is written into the file install creates from scratch is pinned in Go:
+# TestDefaultInstallSettingsRender (dockergento/core) and TestInstallSettingsLiveInTheToolsDataDirectory.
 
 # ---------------------------------------------------------------- the QR, drawn by the project
 
@@ -80,19 +79,11 @@ render_qr() {
     ' -- "$1" 2>/dev/null
 }
 
-DOMAIN="shop.local"
-# Magento is reached through the binary (`hm_run_binary magento`), so a stand-in binary that
-# accepts the registration is what lets the URI be built without a Magento behind it
-COMMAND_BIN_DIR_REAL="$COMMAND_BIN_DIR"
-COMMAND_BIN_DIR="$LAB/fake"
-mkdir -p "$COMMAND_BIN_DIR/bin"
-printf '#!/usr/bin/env bash\nexit 0\n' > "$COMMAND_BIN_DIR/bin/hm"
-chmod +x "$COMMAND_BIN_DIR/bin/hm"
-hm_register_second_factor "admin"
-COMMAND_BIN_DIR="$COMMAND_BIN_DIR_REAL"
+# A registration URI of the shape the binary builds (core.OTPURI, pinned by TestOTPSecretAndURI)
+OTP_URI="otpauth://totp/shop.local:admin?secret=BQNXE43BRZILRHREAQYNRED6G2KWOZA2&issuer=shop.local"
 
 test_case "the library every Magento ships can draw the registration code"
-qr=$(render_qr "$HM_ADMIN_OTP_URI")
+qr=$(render_qr "$OTP_URI")
 [ -n "$qr" ] && r=drawn || r=empty
 assert_equals "drawn" "$r"
 
