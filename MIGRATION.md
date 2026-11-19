@@ -809,6 +809,15 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         —en la pregunta termina, mientras abre cierra dos veces y termina con 130, mientras sostiene
         sólo cierra—, `share` deja de esperar a un relé que ya no se puede leer, y el relé de un
         servicio se busca por su nombre exacto.
+  - [x] `compatibility` portado y retirado (`0907b84`). La tabla de versiones de Magento sale de
+        `requirements.json` y `equivalent_versions.json` idéntica byte a byte a la del shell, con y
+        sin color, sobre los datos reales; la fija una fixture que es la salida del propio
+        `compatibility.sh` sobre datos elegidos por los órdenes que le daban `sort -V` y el
+        `sort_by` de jq. La primera corrida con el fichero apartado no valió: la guardia de rutas
+        muertas encontró que `install`, ante una versión no soportada, ejecutaba el script por su
+        ruta desde `input_info.sh`; ahora se lo pide al binario (`fe2ebf2`). Dos suites dejaron de
+        contar con que el comando caía al shell (`c295096`). `compatibility.sh` (162 líneas) está
+        borrado; quedan 11. Apartados: 46 de 1038 aserciones fallaban antes y después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
