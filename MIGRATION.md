@@ -778,6 +778,15 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         quedan 14. `console/tasks/proxy.sh` se queda: lo carga
         `write_from_docker-compose_templates.sh` (pista C). Apartados: 46 de 1032 aserciones
         fallaban antes y después, diff vacío.
+  - [x] `share` portado y retirado (`80ba914`). Abre un túnel rápido de Cloudflare hacia el
+        servicio web del proyecto en un contenedor propio sobre su red, y lo sostiene hasta Ctrl-C:
+        la misma pregunta que nombra lo que se expone, la cabecera Host reescrita al dominio, sesenta
+        segundos para la dirección, los mismos rechazos y el mismo texto. Un puerto nuevo, `Relays`,
+        arranca, lee, espera y quita esos contenedores por nombre; `tunnel` lo usará también. Dos
+        diferencias: un túnel que no arranca o no da dirección se cierra sin decir además que se
+        dejó de compartir, y un `HM_SHARE_PORT` que no es un número se niega. `share_test.sh`, que
+        necesita Docker e internet, le pregunta al binario. `share.sh` (138 líneas) está borrado;
+        quedan 13. Apartados: 46 de 1034 aserciones fallaban antes y después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
