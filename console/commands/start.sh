@@ -5,10 +5,11 @@ stop_all=false
 source "$COMPONENTS_DIR"/print_message.sh
 source "$HELPERS_DIR"/version.sh
 source "$TASKS_DIR"/proxy.sh
+source "$HELPERS_DIR"/binary.sh
 
 start_execute() {
     if $stop_all ; then
-        "$COMMANDS_DIR"/docker-stop-all.sh
+        hm_run_binary docker-stop-all
     fi
 
     # A project routed through the proxy needs it up before it can be reached, and nobody should

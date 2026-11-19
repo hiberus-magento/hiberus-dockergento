@@ -97,11 +97,17 @@ assert_json_field "$STDOUT" '.data.project.name' "$PROJECT"
 
 # ------------------------------------------------------------------ guardrails
 
-for command in start stop rebuild down setup install docker-stop-all; do
+for command in start stop rebuild down setup install; do
     test_case "$command is refused from a worktree"
     run_in "$LAB/wt" "$command"
     assert_equals "6" "$STATUS"
 done
+
+# docker-stop-all has no shell twin left: the binary refuses it, before anything reaches Docker
+test_case "docker-stop-all is refused from a worktree"
+run_in_go "$LAB/wt" docker-stop-all --json
+assert_equals "6" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "blocked_in_worktree"
 
 # restart has no shell twin left: the binary refuses it, before anything reaches Docker
 test_case "restart is refused from a worktree"
