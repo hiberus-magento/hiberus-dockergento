@@ -40,6 +40,9 @@ type call struct {
 	// StopOthers is whether start was asked to stop every other environment first (-s).
 	StopOthers bool
 
+	// DownOptions is what down was asked for, compared whole.
+	DownOptions core.DownOptions
+
 	// Interactive is what docker-stop-all was asked with: whether the stop may ask before doing
 	// it.
 	Interactive bool
@@ -158,6 +161,16 @@ func (f *fakeEngine) Exec(dir, service string, command []string, options core.Ex
 	out := f.outcomeFor(number)
 
 	return out.status, out.err
+}
+
+// Down answers with its outcome's captured string as what happened: "" for nothing destroyed,
+// "saved" for a copy taken first, anything else for destroyed.
+func (f *fakeEngine) Down(dir string, options core.DownOptions, interactive bool) (string, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Down", Dir: dir, DownOptions: options, Interactive: interactive})
+	answer := f.outcomeFor(number)
+
+	return answer.captured, answer.err
 }
 
 // Start records the options whole: Services, StopOthers and Interactive.

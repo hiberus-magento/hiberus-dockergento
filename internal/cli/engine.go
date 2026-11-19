@@ -22,6 +22,7 @@ type commands interface {
 	Restart(dir string, services []string) error
 	Stop(dir string, services []string, snapshot bool) error
 	Start(dir string, options dockergento.StartOptions) error
+	Down(dir string, options core.DownOptions, interactive bool) (string, error)
 	CopyInto(dir string, paths []string, all bool) error
 	CopyFrom(dir string, paths []string) error
 	Property(project core.Project, key string) string

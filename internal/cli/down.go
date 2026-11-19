@@ -64,7 +64,7 @@ func down(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	interactive := os.Getenv("HM_NON_INTERACTIVE") == ""
 
-	what, err := engine(stdout, stderr, jsonOutput).Down(here(), options, interactive)
+	what, err := newEngine(stdout, stderr, jsonOutput).Down(here(), options, interactive)
 	if err != nil {
 		return report(stderr, jsonOutput, "down", err)
 	}

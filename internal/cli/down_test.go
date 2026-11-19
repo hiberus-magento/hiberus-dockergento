@@ -189,8 +189,8 @@ func TestDownStillRefusesANonNumericTimeout(t *testing.T) {
 }
 
 // TestDownStillAcceptsAGivenValue is a safety-pin: from a directory that is not a project,
-// projectOr (engine.go:84-89) fails resolution before down.go:61's engine(...).Down(...) — the
-// concrete, non-seamed call — is ever reached, so this never touches a real Docker daemon.
+// projectOr fails resolution before down asks the engine for anything, so this never touches a
+// real Docker daemon. What down asks once a project resolves is in down_engine_test.go.
 //
 // TestDownStillAcceptsAGivenValue and TestADownOptionNobodyDeclaredIsAUsageError are also where
 // down-go-tests should start: the delta spec's Handoff Note (spec.md:72-79) records that
