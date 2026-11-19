@@ -10,8 +10,8 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
-# `describe`, `list`, `magento`, `restart`, `start`, `stop`, `down` and `docker-stop-all` are the
-# binary's now; the other guardrail cases (setup, rebuild, install) stay the shell implementation's
+# `describe`, `list`, `magento`, `restart`, `start`, `stop`, `down`, `setup` and `docker-stop-all`
+# are the binary's now; the other guardrail cases (rebuild, install) stay the shell implementation's
 # and keep asking bin/run through `$HM`.
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 # Canonical path: on macOS /var is a symlink to /private/var, and git reports the resolved
@@ -98,11 +98,17 @@ assert_json_field "$STDOUT" '.data.project.name' "$PROJECT"
 
 # ------------------------------------------------------------------ guardrails
 
-for command in rebuild setup install; do
+for command in rebuild install; do
     test_case "$command is refused from a worktree"
     run_in "$LAB/wt" "$command"
     assert_equals "6" "$STATUS"
 done
+
+# Neither has setup
+test_case "setup is refused from a worktree"
+run_in_go "$LAB/wt" setup --json
+assert_equals "6" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "blocked_in_worktree"
 
 # Neither has down, nor start
 test_case "down is refused from a worktree"

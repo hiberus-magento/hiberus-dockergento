@@ -38,7 +38,7 @@ check_go() {
 }
 
 # Commands that skip project validation and therefore reach their own prompts
-check "setup does not block"        setup
+check_go "setup does not block"        setup
 check "compatibility does not block" compatibility
 check "ai-init does not block"      ai-init
 check "ai-pull does not block"      ai-pull
@@ -64,11 +64,11 @@ check_go "mysql does not block"        mysql
 
 test_case "a question without a default fails with the usage code"
 status=0
-( cd "$WORKDIR" && HM_NON_INTERACTIVE=1 "$HM" setup >/dev/null 2>&1 ) || status=$?
+( cd "$WORKDIR" && HM_NON_INTERACTIVE=1 DOCKER_HOST=unix:///nonexistent "$COMMAND_BIN_DIR/bin/hm" setup >/dev/null 2>&1 ) || status=$?
 assert_equals "2" "$status"
 
 test_case "the failure explains what is missing"
-stderr=$( ( cd "$WORKDIR" && HM_NON_INTERACTIVE=1 "$HM" setup 2>&1 >/dev/null ) || true )
+stderr=$( ( cd "$WORKDIR" && HM_NON_INTERACTIVE=1 DOCKER_HOST=unix:///nonexistent "$COMMAND_BIN_DIR/bin/hm" setup 2>&1 >/dev/null ) || true )
 assert_contains "$stderr" "input_required"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
