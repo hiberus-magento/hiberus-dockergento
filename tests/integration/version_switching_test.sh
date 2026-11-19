@@ -48,8 +48,8 @@ copy_working_tree() {
 
 copy_working_tree
 HM="$CLONE/bin/run"
-# update is the binary's, which finds its installation where its executable is: a copy of it inside
-# the clone updates the clone and never the installation running this suite
+# update and switch are the binary's, which finds its installation where its executable is: a copy
+# of it inside the clone moves the clone and never the installation running this suite
 cp "$COMMAND_BIN_DIR/bin/hm" "$CLONE/bin/hm"
 run_go() {
     ( cd "$LAB" && "$CLONE/bin/hm" "$@" >"$LAB/out" 2>"$LAB/err" )
@@ -105,7 +105,7 @@ assert_contains "$STDOUT" "hm "
 # ------------------------------------------------------------------ listing
 
 test_case "the available versions are listed"
-run switch --list --json
+run_go switch --list --json
 assert_json_field "$STDOUT" '.data.versions | length > 0' "true"
 
 test_case "each version says whether it is a pre-release"
@@ -123,18 +123,18 @@ assert_json_field "$STDOUT" \
     '[.data.versions[] | select(.name | test("^[0-9.]+$"))] | any(.pre_release) | not' "true"
 
 test_case "the readable list labels the pre-releases"
-run switch --list --no-json
+run_go switch --list --no-json
 assert_contains "$STDOUT" "pre-release"
 
 test_case "the current reference is reported"
-run switch --list --json
+run_go switch --list --json
 assert_json_field "$STDOUT" '.data.current' "$branch"
 
 # ------------------------------------------------------------------ switching
 
 test_case "switching to a version detaches at that tag"
 reset_clone
-run switch 1.4.5
+run_go switch 1.4.5
 assert_equals "1.4.5" "$(git -C "$CLONE" describe --tags 2>/dev/null)"
 
 test_case "a detached checkout is reported as such"
@@ -157,12 +157,12 @@ assert_equals "$pinned_head" "$(git -C "$CLONE" rev-parse HEAD)"
 
 test_case "switching back to the stable branch works"
 reset_clone
-run switch --stable
+run_go switch --stable
 assert_equals "main" "$(reference)"
 
 test_case "switching to a branch by name works"
 reset_clone
-run switch "$branch"
+run_go switch "$branch"
 assert_equals "$branch" "$(reference)"
 
 test_case "update works normally on a branch"
@@ -172,7 +172,7 @@ assert_equals "0" "$STATUS"
 
 test_case "an unknown version is refused"
 reset_clone
-run switch 9.9.9-does-not-exist --json
+run_go switch 9.9.9-does-not-exist --json
 assert_json_field "$STDERR" '.error.type' "unknown_reference"
 
 test_case "and the installation did not move"
@@ -181,7 +181,7 @@ assert_equals "$branch" "$(reference)"
 test_case "uncommitted changes stop the switch"
 reset_clone
 echo "# local change" >> "$CLONE/README.md"
-run switch 1.4.5 --json
+run_go switch 1.4.5 --json
 assert_json_field "$STDERR" '.error.type' "dirty_installation"
 
 test_case "and again the installation did not move"
@@ -190,7 +190,7 @@ assert_equals "$branch" "$(reference)"
 test_case "untracked files do not stop it"
 reset_clone
 printf 'notes\n' > "$CLONE/my-own-notes.txt"
-run switch 1.4.5
+run_go switch 1.4.5
 assert_equals "1.4.5" "$(git -C "$CLONE" describe --tags 2>/dev/null)"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

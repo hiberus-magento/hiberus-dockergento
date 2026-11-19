@@ -157,6 +157,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return tunnel(rest[1:], stdout, stderr, jsonOutput)
 		case "compatibility":
 			return compatibility(stdout, stderr, jsonOutput)
+		case "switch":
+			return switchVersion(rest[1:], stdout, stderr, jsonOutput)
 		case "start":
 			return start(rest[1:], stdout, stderr, jsonOutput)
 		case "restart":

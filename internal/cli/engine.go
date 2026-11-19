@@ -64,6 +64,8 @@ type commands interface {
 	CloseTunnels(dir, service string) (bool, error)
 	HoldTunnel(relay string) error
 	Compatibility() (string, error)
+	Versions() (core.Versions, error)
+	Switch(reference string) (core.Switched, error)
 }
 
 var _ commands = (*dockergento.Engine)(nil)

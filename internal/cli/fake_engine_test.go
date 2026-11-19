@@ -148,6 +148,10 @@ type fakeEngine struct {
 	// compatibility is what Compatibility answers with.
 	compatibility string
 
+	// versions is what Versions answers with, and switched what Switch does.
+	versions core.Versions
+	switched core.Switched
+
 	// tunnel is what Tunnel answers with, and tunnelsClosed what CloseTunnels does.
 	tunnel        core.Tunnel
 	tunnelsClosed bool
@@ -740,4 +744,19 @@ func (f *fakeEngine) ClearAnonymisation(dir string) error {
 	f.calls = append(f.calls, call{Method: "ClearAnonymisation", Dir: dir})
 
 	return f.outcomeFor(number).err
+}
+
+func (f *fakeEngine) Versions() (core.Versions, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Versions"})
+
+	return f.versions, f.outcomeFor(number).err
+}
+
+// Switch records the reference it was asked for in Key.
+func (f *fakeEngine) Switch(reference string) (core.Switched, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Switch", Key: reference})
+
+	return f.switched, f.outcomeFor(number).err
 }
