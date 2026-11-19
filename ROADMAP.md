@@ -17,7 +17,7 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 | Ficheros en `console/commands/` | **44** | `fd -e sh . console/commands \| wc -l` |
 | Gemelos de shell retirados | **21** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
 | Portados que **aún conservan** su `.sh` | **13** | ver la pista A, y `composer` en la B |
-| Tests Go / aserciones de shell | 496 / 624 | `go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
+| Tests Go / aserciones de shell | 496 / 630 | `go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 
 ## Qué hacer después, en orden
 
@@ -71,7 +71,7 @@ done
 | magento | `grunt`, **`install`** |
 | ai | `ai-context`, `ai-doctor`, `ai-init`, `ai-pull`, `ai-reset`, `mcp`, `permissions` |
 | files / versions | `transfer-media`, `switch`, `update` |
-| composer | **portar el baile del vendor de macOS**: `install`, `update`, `require` y `remove` siguen cayendo a `composer.sh` en darwin (`mirrorsVendor`, `internal/cli/php.go`; `internal/cli/run.go:67-72`). Es la implementación viva ahí, no un gemelo, y no se retira hasta portarlo. Mientras tanto, desde un worktree sin entorno propio esos cuatro se niegan en macOS (6, `blocked_in_worktree`): el reinicio de `phpfpm` con el que empieza el baile va por el binario desde `de69f6b` |
+| composer | **portar el baile del vendor de macOS**: `install`, `update`, `require` y `remove` siguen cayendo a `composer.sh` en darwin (`mirrorsVendor`, `internal/cli/php.go`; `internal/cli/run.go:67-72`). Es la implementación viva ahí, no un gemelo, y no se retira hasta portarlo. Mientras tanto, desde un worktree sin entorno propio esos cuatro se niegan en macOS (6, `blocked_in_worktree`, salvo `hm --force composer …`): el reinicio de `phpfpm` con el que empieza el baile va por el binario desde `de69f6b` |
 
 Ciclos ya identificados: `create-project-in-go`, `install-and-ssl-in-go`, `hosts-config-in-go`, y
 que `Configuration` entre en la costura de `internal/cli`.
@@ -89,7 +89,7 @@ que `Configuration` entre en la costura de `internal/cli`.
 | `architecture/` puede describir comportamiento que el código no tiene | `architecture/*.md` | Ningún test vigila la documentación; §5.8.1 estuvo mal tres ciclos |
 | Apartar un `.sh` no ve a los scripts que lo llaman directamente si ninguna suite los ejecuta, o si lo sustituyen por un stub | Pasó con `magento.sh`: lo llamaban `install.sh` y tres tareas, y apartarlo sólo rompió `worktree_test.sh:145`. Esas llamadas ya van por el binario; el punto ciego de la regla sigue | Antes de borrar, además de la suite: `rg '"\$COMMANDS_DIR"/<nombre>\.sh' console` |
 | Apartar un `.sh` tampoco ve a las suites que ya fallan o se saltan sin daemon | `docker-compose.sh`: `go_passthrough_test.sh` lo comparaba y ya fallaba sin Docker, y `worktree_environments_test.sh` se salta entera; las dos le preguntaban a `bin/run docker-compose` | Antes de borrar, también `rg '<nombre>' tests` y leer lo que salga en suites que fallen o se salten en la línea base |
-| `hm composer install\|update\|require\|remove` en macOS se niega desde un worktree sin entorno propio | `composer.sh:93` reinicia `phpfpm` por el binario, que aplica la protección de worktree; antes la llamada directa a `restart.sh` se la saltaba y tocaba el entorno del checkout principal | Aceptado en `de69f6b`; se resuelve al portar el baile del vendor (pista B) |
+| `hm composer install\|update\|require\|remove` en macOS se niega desde un worktree sin entorno propio | `composer.sh:93` reinicia `phpfpm` por el binario, que aplica la protección de worktree; antes la llamada directa a `restart.sh` se la saltaba y tocaba el entorno del checkout principal | Aceptado en `de69f6b`; la negativa la da `composer.sh` con una salida que funciona (`hm --force composer …`); se resuelve al portar el baile del vendor (pista B) |
 
 Ya resueltos (no reabrir): CI sin macOS, `gofmt` sin `./dockergento`, CI corriendo `tests/unit`
 como "todo" — los tres en `d03d54c`. El aviso de worktree «los contenedores sirven el código de…»,

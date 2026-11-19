@@ -356,12 +356,16 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         `create-project.sh:69` y `:74`, y `magento_installation.sh:29`. Ahora van por
         `hm_run_binary restart`. **Eso cambia una cosa, aceptada a sabiendas:** en macOS,
         `hm composer install|update|require|remove` desde un worktree sin entorno propio se niega
-        ahora con 6 (`blocked_in_worktree`) en el reinicio, antes de copiar el vendor. Antes
+        ahora con 6 (`blocked_in_worktree`), antes de reiniciar nada ni copiar el vendor. Antes
         reiniciaba el `phpfpm` del checkout principal y sincronizaba el vendor a través de él,
         porque la llamada directa se saltaba la protección de worktree que `bin/run` aplica a
-        `restart`. El binario la aplica y nada la fuerza; se queda así hasta que el baile del vendor
-        esté portado. Las otras tres sólo se alcanzan desde `setup` y `create-project`, que ya se
-        niegan en un worktree así. `tests/unit/composer_vendor_test.sh` lo fija sin Docker.
+        `restart`. La negativa la da `composer.sh` antes del reinicio, con su propia salida:
+        `hm --force composer install`. La del binario decía «repeat with --force», y detrás de
+        `composer` esa opción es de Composer, así que `hm composer install --force` nunca llegaba
+        a `hm`; delante sí, se exporta como `HM_FORCE` y el `restart` de dentro la lee. Se queda
+        así hasta que el baile del vendor esté portado. Las otras tres sólo se alcanzan desde
+        `setup` y `create-project`, que ya se niegan en un worktree así.
+        `tests/unit/composer_vendor_test.sh` lo fija sin Docker.
 
         Apartarlo antes de las reparaciones rompió una aserción, `worktree_test.sh` «restart is
         refused from a worktree», que le preguntaba a `bin/run`. Otra suite,

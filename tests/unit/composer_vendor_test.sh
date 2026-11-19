@@ -21,7 +21,7 @@ mkdir -p "$LAB/bin" "$LAB/commands" "$LAB/magento"
 cat > "$LAB/bin/hm" <<FAKE
 #!/usr/bin/env bash
 printf 'hm %s\n' "\$*" >> "$CALLS"
-[ "\${1:-}" == "restart" ] && exit 6
+[ "\${1:-}" == "restart" ] && [ "\${HM_FORCE:-}" != "1" ] && exit 6
 exit 0
 FAKE
 
@@ -35,12 +35,43 @@ chmod +x "$LAB/bin/hm" "$LAB/commands/"*.sh
 run_composer() {
     : > "$CALLS"
     COMMAND_BIN_DIR="$LAB" COMMANDS_DIR="$LAB/commands" MACHINE=mac MAGENTO_DIR="$LAB/magento" \
-        HM_WORKTREE_ENVIRONMENT=false DOCKER_COMPOSE="false" \
-        bash "$HM_TEST_PROJECT_ROOT/console/commands/composer.sh" "$@" >/dev/null 2>&1
+        HM_WORKTREE_ENVIRONMENT=false DOCKER_COMPOSE="false" COMMAND_BIN_NAME=hm \
+        HM_IS_WORKTREE="${IN_WORKTREE:-false}" HM_ROOT="$LAB/main" HM_FORCE="${FORCE:-}" \
+        HM_OUTPUT_FORMAT=text \
+        bash "$HM_TEST_PROJECT_ROOT/console/commands/composer.sh" "$@" >/dev/null 2>"$LAB/stderr"
     STATUS=$?
 }
 
-test_case "composer install on macOS stops with the binary's refusal of the restart"
+# From a worktree with no environment of its own, composer.sh refuses before the restart, with a
+# way out that works: `--force` after `composer` is Composer's, so the hint puts it before
+IN_WORKTREE=true
+
+test_case "from a worktree, composer install on macOS is refused with 6"
+run_composer install
+assert_equals "6" "$STATUS"
+
+test_case "and nothing was asked of the binary or of a container"
+assert_equals "0" "$(grep -c . "$CALLS")"
+
+test_case "and the way out puts --force before composer, where hm reads it"
+assert_contains "$(cat "$LAB/stderr")" "hm --force composer install"
+
+test_case "and it names the checkout whose environment it would touch"
+assert_contains "$(cat "$LAB/stderr")" "$LAB/main"
+
+test_case "with --force the dance starts: the restart is asked of the binary"
+FORCE=1 run_composer require vendor/package
+assert_equals "hm restart phpfpm" "$(head -n 1 "$CALLS")"
+
+test_case "a subcommand that does not write the dependencies is not refused from a worktree"
+run_composer show
+assert_equals "exec.sh composer show" "$(cat "$CALLS")"
+
+IN_WORKTREE=false
+
+# Outside a worktree the binary has no reason to refuse; if it does anyway, set -e stops the dance
+
+test_case "composer install on macOS stops if the binary refuses the restart"
 run_composer install
 assert_equals "6" "$STATUS"
 

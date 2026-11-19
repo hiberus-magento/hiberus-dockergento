@@ -31,6 +31,24 @@ refuse_on_shared_dependencies() {
 }
 
 #
+# From a worktree with no environment of its own, the macOS dance would restart phpfpm and rewrite
+# the dependencies of the main checkout.
+#
+# The binary refuses the restart anyway, but its way out says "repeat with --force", and after
+# `composer` that flag is Composer's: `hm composer install --force` never reaches hm. So it is said
+# here, before the restart, with the form hm does read.
+#
+refuse_from_main_checkouts_worktree() {
+    [ "${HM_IS_WORKTREE:-false}" == "true" ] || return 0
+    [ "${HM_WORKTREE_ENVIRONMENT:-false}" != "true" ] || return 0
+    [ "${HM_FORCE:-}" != "1" ] || return 0
+
+    hm_fail "$HM_EXIT_BLOCKED" "blocked_in_worktree" \
+        "'composer $1' is refused from a worktree on macOS: it would restart phpfpm and rewrite the dependencies of $HM_ROOT" \
+        "Run it from $HM_ROOT, or repeat as $COMMAND_BIN_NAME --force composer $*"
+}
+
+#
 # Copy vendor and magento defaults files into container
 #
 copy_vendor_to_container() {
@@ -90,6 +108,7 @@ composer_excute() {
         
         # Execute install con mirror wrapper
         if [[ "$#" != 0 && ("$MACHINE" == "mac") ]]; then
+            refuse_from_main_checkouts_worktree "$@"
             hm_run_binary restart "phpfpm"
             copy_vendor_to_container
             "$COMMANDS_DIR"/exec.sh composer "$@"
