@@ -21,6 +21,7 @@ type commands interface {
 	Exec(dir, service string, command []string, options core.ExecOptions) (int, error)
 	Restart(dir string, services []string) error
 	Stop(dir string, services []string, snapshot bool) error
+	Start(dir string, options dockergento.StartOptions) error
 	CopyInto(dir string, paths []string, all bool) error
 	CopyFrom(dir string, paths []string) error
 	Property(project core.Project, key string) string

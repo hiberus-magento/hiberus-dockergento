@@ -34,7 +34,7 @@ func start(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return code
 	}
 
-	return report(stderr, jsonOutput, "start", engine(stdout, stderr, jsonOutput).
+	return report(stderr, jsonOutput, "start", newEngine(stdout, stderr, jsonOutput).
 		Start(here(), dockergento.StartOptions{
 			Services: services, StopOthers: stopOthers,
 			Interactive: os.Getenv("HM_NON_INTERACTIVE") == "",

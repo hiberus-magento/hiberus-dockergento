@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
@@ -35,6 +36,9 @@ type call struct {
 
 	// Snapshot is whether stop was asked to save the database first.
 	Snapshot bool
+
+	// StopOthers is whether start was asked to stop every other environment first (-s).
+	StopOthers bool
 
 	// Interactive is what docker-stop-all was asked with: whether the stop may ask before doing
 	// it.
@@ -154,6 +158,15 @@ func (f *fakeEngine) Exec(dir, service string, command []string, options core.Ex
 	out := f.outcomeFor(number)
 
 	return out.status, out.err
+}
+
+// Start records the options whole: Services, StopOthers and Interactive.
+func (f *fakeEngine) Start(dir string, options dockergento.StartOptions) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Start", Dir: dir, Services: options.Services,
+		StopOthers: options.StopOthers, Interactive: options.Interactive})
+
+	return f.outcomeFor(number).err
 }
 
 // Stop, like Restart, only ever answers with an error.
