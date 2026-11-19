@@ -1010,16 +1010,17 @@ whose early-exiting consumer can send its producer a broken pipe.
 
 ### Requirement: A command proved in Go has no shell twin
 
-Once a command is proved in Go through the engine-interaction test seam (the forty-five retired in
+Once a command is proved in Go through the engine-interaction test seam (the forty-seven retired in
 this change: `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-off`, `purge`,
 `npm`, `n98-magerun`, `test-unit`, `test-integration`, `mysqldump`, `version`, `set-host`,
 `list`, `describe`, `logs`, `debug-on`, `debug-off`, `bash`, `magento`, `docker-compose`,
 `restart`, `docker-stop-all`, `masquerade`, `web`, `worktree`, `stop`, `start`, `down`, `mysql`,
 `setup`, `doctor`, `clean`, `create-project`, `composer`, `exec`, `cloud`, `cloud-login`, `dbeaver`,
-`sequelace`, `tableplus`, `config-env`, `post-start`, `rebuild`, `grunt`, `update`), the shell tree SHALL NOT
-carry an implementation for it, and the shell entry point SHALL answer a request for that command by naming the binary as where it lives,
+`sequelace`, `tableplus`, `config-env`, `post-start`, `rebuild`, `grunt`, `update`, `ssl`, `transfer-media`), the
+shell tree SHALL NOT carry an implementation for it, and the shell entry point SHALL answer a request for that command by naming the binary as where it lives,
 rather than failing as though the command did not exist.
-(Previously: named forty-three commands. This adds `grunt` and `update` — ported to Go, their shell
+(Previously: named forty-five commands. This adds `ssl` and `transfer-media` — ported to Go, their
+shell files (65 and 71 lines) removed. Before that it added `grunt` and `update` — ported to Go, their shell
 files (38 and 35 lines) removed. Before that it added `post-start` and `rebuild` — ported to Go with the
 Linux after-start steps, their shell files (27 lines each) removed with the four tasks only they
 used. Before that it added `config-env` — ported to Go as the configuration step
@@ -1080,7 +1081,7 @@ retirement mechanism of its own.)
 - **AND** the router still answers for it, so the absence is a retirement and not a lost command
 
 Pinned by "and what the binary owns outright has no file to drift from" in
-`tests/unit/command_safety_test.sh`, which walks the forty-five by name (Previously: forty-three) and
+`tests/unit/command_safety_test.sh`, which walks the forty-seven by name (Previously: forty-five) and
 fails in both directions: a resurrected `.sh` and a lost route are each a failure.
 
 #### Scenario: The RETIRED list gains its name only once the file is gone

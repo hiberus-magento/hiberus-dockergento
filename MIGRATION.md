@@ -711,6 +711,18 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         `version_switching_test.sh` lo ejecuta desde una copia del binario dentro de su clon. Sus
         dos ficheros (38 y 35 líneas) están borrados; quedan 20. Apartados: 51 fallos antes y
         después, diff vacío.
+  - [x] `ssl` y `transfer-media` portados y retirados. `ssl` (`667431b`) genera el certificado
+        con `mkcert`, instalándolo antes como el shell (brew en macOS, apt y la descarga en el
+        resto), lo copia a `hitch` como `/etc/hitch/testcert.pem`, se lo da al usuario `hitch` y
+        reinicia con el `restart` de Compose — no con el parar y levantar del operador, que recrea
+        un contenedor cuya configuración cambió y el certificado vive en su sistema de ficheros —.
+        El certificado se hace en un directorio temporal (el shell dejaba `ssl.pem` en el
+        proyecto); se niega antes de tocar el host sin `hitch` corriendo o desde un worktree sin
+        entorno propio. Los programas del host van por el puerto `HostPrograms` y ninguna prueba
+        los ejecuta. `transfer-media` (`075e00f`) hace el `rsync` por SSH del shell, con sus
+        valores de Magento Cloud y sus preguntas; una opción desconocida se niega. Sus dos
+        ficheros (65 y 71 líneas) están borrados; quedan 18. Apartados: 51 de 1044 aserciones
+        fallaban antes y después, diff vacío.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
