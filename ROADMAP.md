@@ -12,8 +12,8 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 | Medida | Valor | Cómo comprobarlo |
 |---|---|---|
-| Comandos respondidos por el binario | **48 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
-| Comandos aún en shell | **17** | `rg -c "\| shell \|" MIGRATION.md` |
+| Comandos respondidos por el binario | **49 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
+| Comandos aún en shell | **16** | `rg -c "\| shell \|" MIGRATION.md` |
 | Ficheros en `console/commands/` | **18** | `fd -e sh . console/commands \| wc -l` |
 | Gemelos de shell retirados | **47** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
 | Portados que **aún conservan** su `.sh` | **0** | pista A vacía |
@@ -23,7 +23,7 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 
 1. **Pista A — retirar los gemelos de shell que ya tienen port en Go.** Es lo más barato y lo que
    más desbloquea. Empieza por los pequeños y ya probados.
-2. **Pista B — portar los 17 comandos que siguen en shell.** Uno por unidad, de menor a mayor.
+2. **Pista B — portar los 16 comandos que siguen en shell.** Uno por unidad, de menor a mayor.
 3. **Pista C — defectos conocidos.** Ninguno bloquea; varios llevan cinco ciclos aplazados.
 
 ## Pista A — gemelos de shell pendientes de retirar
@@ -32,7 +32,7 @@ Vacía desde `exec` (ver `MIGRATION.md`). Si vuelve a haber un comando tabulado 
 `.sh` en el árbol, la regla para retirarlo está abajo, en las reglas que no se negocian, y sus
 puntos ciegos en la pista C.
 
-## Pista B — comandos aún en shell (17)
+## Pista B — comandos aún en shell (16)
 
 | Área | Comandos |
 |---|---|
@@ -40,7 +40,7 @@ puntos ciegos en la pista C.
 | tools | `compatibility`, `verify` |
 | database | `db`, `transfer-db` |
 | magento | **`install`** |
-| ai | `ai-context`, `ai-doctor`, `ai-init`, `ai-pull`, `ai-reset`, `mcp`, `permissions` |
+| ai | `ai-context`, `ai-doctor`, `ai-init`, `ai-pull`, `ai-reset`, `mcp` |
 | files / versions | `switch` |
 
 Ciclos ya identificados: `install-and-ssl-in-go`, `hosts-config-in-go`, y

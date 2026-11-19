@@ -2,6 +2,7 @@ package dockergento
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -68,4 +69,20 @@ func (e *Engine) Update() error {
 	}
 
 	return nil
+}
+
+// AgentPermissions is the configuration an agent using this tool should be given, from the
+// tool's own command_descriptions.json and ai-exclusions.json.
+func (e *Engine) AgentPermissions(strict bool) (core.AgentPermissions, error) {
+	commands, err := os.ReadFile(filepath.Join(e.options.Root, "data", "command_descriptions.json"))
+	if err != nil {
+		return core.AgentPermissions{}, err
+	}
+
+	exclusions, err := os.ReadFile(filepath.Join(e.options.Root, "data", "ai-exclusions.json"))
+	if err != nil {
+		return core.AgentPermissions{}, err
+	}
+
+	return core.ReadAgentPermissions(commands, exclusions, e.options.Binary, strict)
 }

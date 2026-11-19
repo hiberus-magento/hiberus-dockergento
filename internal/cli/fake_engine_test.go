@@ -136,6 +136,9 @@ type fakeEngine struct {
 
 	// description is what Describe answers with, on the same terms.
 	description core.Description
+
+	// permissions is what AgentPermissions answers with.
+	permissions core.AgentPermissions
 }
 
 var _ commands = (*fakeEngine)(nil)
@@ -194,6 +197,14 @@ func (f *fakeEngine) Exec(dir, service string, command []string, options core.Ex
 	out := f.outcomeFor(number)
 
 	return out.status, out.err
+}
+
+// AgentPermissions answers with the permissions it was given, and records whether strict was asked.
+func (f *fakeEngine) AgentPermissions(strict bool) (core.AgentPermissions, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "AgentPermissions", All: strict})
+
+	return f.permissions, f.outcomeFor(number).err
 }
 
 // Update only ever answers with an error.
