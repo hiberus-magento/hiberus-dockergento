@@ -650,3 +650,37 @@ func TestAnEmptyNameDeletesNothingByName(t *testing.T) {
 		t.Errorf("forgotten = %v, want the stale registration forgotten all the same", s.registry.forgotten)
 	}
 }
+
+// TestABranchEnvironmentsVolumesAreTheOnesComposeLabelledForIt: compose project names may contain
+// underscores, so a dead branch environment called "x" and a live project called "x_algo" share
+// the prefix "x_". Matching by prefix took the live project's volumes with the dead one's; matching
+// by the compose project label takes only the dead one's.
+func TestABranchEnvironmentsVolumesAreTheOnesComposeLabelledForIt(t *testing.T) {
+	s := sweepOf(
+		nil,
+		[]string{"x_data", "x_algo_data", "x_unlabelled"},
+		map[string]map[string]string{
+			"x_data":      composeLabels("x"),
+			"x_algo_data": composeLabels("x_algo"),
+		},
+		map[string][]core.Worktree{"padre": {{Name: "x", Project: "x", Path: "/lab/no-existe"}}},
+		map[string]bool{},
+		nil,
+	)
+
+	collection := core.Collection{
+		Worktrees: []core.AbandonedWorktree{{Name: "padre/x", Project: "x", Path: "/lab/no-existe"}},
+	}
+
+	if err := s.collector.Collect(collection); err != nil {
+		t.Fatal(err)
+	}
+
+	if !has(s.volumes.removed, "x_data") {
+		t.Errorf("removed %v, want the dead branch environment's own volume", s.volumes.removed)
+	}
+
+	if has(s.volumes.removed, "x_algo_data") || has(s.volumes.removed, "x_unlabelled") {
+		t.Errorf("removed %v, want nothing Compose did not label for this branch environment", s.volumes.removed)
+	}
+}

@@ -262,8 +262,10 @@ func (c Collector) removeByProject(containers []core.Container, project string) 
 		return err
 	}
 
+	// By the label Compose put on them, not by name: project names may contain underscores, so
+	// the prefix "x_" of a dead "x" is also the prefix of a live "x_algo"
 	for _, volume := range all {
-		if strings.HasPrefix(volume, project+"_") {
+		if c.Volumes.Labels(volume)["com.docker.compose.project"] == project {
 			c.Volumes.Remove(volume) //nolint:errcheck
 		}
 	}

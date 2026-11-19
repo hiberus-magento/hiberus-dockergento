@@ -552,7 +552,10 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         el nombre de otro proyecto antes de fallar por cualquier otra cosa. Se vio porque
         `worktree_test.sh` se quedó esperando una respuesta en vez de recibir el 6. Ahora
         `Engine.Setup` aplica la misma negativa que `start`, `stop` y `down`, compartida con
-        `Operator`, y sólo `--force` la levanta (`2005a93`).
+        `Operator`, y sólo `--force` la levanta (`2005a93`). Cuando el proyecto no se resuelve —
+        propiedades versionadas rotas, un registro que no se puede leer— pregunta sólo a git, como
+        hacía el shell, y se niega si el principal es un proyecto de Dockergento (`fef2d51`):
+        falla cerrada, con `--force` como salida.
 
         Las suites que le preguntaban a `bin/run setup` le preguntan al binario
         (`worktree_test.sh`, `non_interactive_test.sh` y `tests/integration/setup_options_test.sh`,
@@ -592,7 +595,10 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
 
         Escribirlas destapó un peligro: `Collect` borraba por nombre, y un nombre vacío casaba con
         todos los contenedores sin etiqueta y todos los volúmenes que empiezan por `_`. Ahora un
-        nombre vacío no borra nada (`c425248`). Dos comportamientos heredados del shell quedan en
+        nombre vacío no borra nada (`c425248`). La revisión añadió otro: los volúmenes de un entorno
+        de rama muerto se borraban por el prefijo `<proyecto>_`, y como Compose admite `_` en los
+        nombres de proyecto, recoger un `x` muerto se llevaba los de un `x_algo` vivo; ahora se
+        borran por la etiqueta `com.docker.compose.project`. Dos comportamientos heredados del shell quedan en
         la pista C. Nadie llamaba al `.sh`; `clean_test.sh` y `concurrent_safety_test.sh` le
         preguntan al binario. Con el árbol ya sin él: 51 de 1051 aserciones fallaban antes y
         después, diff vacío.
