@@ -770,6 +770,14 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         Antes, `cli_contract_test.sh` le pedía `bash`, ya retirado, a `bin/run` para comprobar el
         error fuera de un proyecto; ahora se lo pide al binario con `magento` (`8008679`), y la
         base baja a 46 fallos.
+  - [x] `proxy` terminado y retirado (`65bcb97`). Arriba, abajo y estado ya eran del binario; lo
+        único que le quedaba a `proxy.sh` era negar un subcomando desconocido, y ahora lo niega el
+        binario con el mismo tipo, mensaje y pista. Su texto de ayuda nunca se mostraba: `bin/run`
+        contesta `--help` antes de que corra el comando. `proxy_test.sh` y el experimento de diez
+        worktrees le preguntan al binario (`5af2ccb`). `proxy.sh` (123 líneas) está borrado;
+        quedan 14. `console/tasks/proxy.sh` se queda: lo carga
+        `write_from_docker-compose_templates.sh` (pista C). Apartados: 46 de 1032 aserciones
+        fallaban antes y después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
