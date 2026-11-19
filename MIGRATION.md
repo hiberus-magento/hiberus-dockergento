@@ -664,6 +664,24 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         `db_client_test.go`) están borrados; quedan 25 ficheros en `console/commands/`.
         `db_client_test.sh` de integración le pregunta al binario. Apartados: 51 fallos antes y
         después, diff vacío.
+  - [x] `config-env` portado y retirado (`e553f9c`). Es el paso con el que ya terminaba una
+        importación — aplicar `config/docker/local_settings.json`, sembrado desde el de la
+        herramienta la primera vez, un `bin/magento` por entrada —, expuesto solo: el motor
+        construye el `Importer` en un sitio para los dos. Sin dominio se niega con `hm setup` como
+        salida, donde el shell lo preguntaba; un argumento se niega en vez de ignorarse.
+        `configure` no tenía prueba y `configure_test.go` fija lo que ejecuta. `config-env.sh` (6
+        líneas) está borrado; quedan 24 ficheros. `set_magento_configs.sh` se queda: sólo lo usa
+        una prueba de `set_current_domain`, cuyo par en Go no está probado (pista C).
+
+        Buscando llamadores salió una regresión de Linux de una retirada anterior:
+        `fix_linux_permissions.sh` ejecutaba `${COMMANDS_DIR}/docker-compose.sh`, retirado en
+        `f8df8a2`, y `post-start` fallaba ahí en cada `hm start` en Linux. La búsqueda de
+        llamadores directos (`"$COMMANDS_DIR"/<nombre>.sh`) no veía la forma con llaves. Ahora usa
+        `$DOCKER_COMPOSE` (`fd41101`), y `no_dead_command_paths_test.sh` falla ante cualquier ruta
+        a un script de comando que ya no existe, escrita como sea; destapó además dos
+        comprobaciones de suite que leían scripts borrados con `grep … || true` y pasaban sin mirar
+        nada. Apartado: 51 fallos antes y después (las cinco aserciones nuevas entraron a mitad de
+        la corrida y pasan), diff vacío.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
