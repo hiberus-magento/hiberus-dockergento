@@ -429,6 +429,27 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
 
         Nadie lo llamaba ni le preguntaba a `bin/run web`. Apartarlo: 57 de 1055 aserciones
         fallaban antes y después, diff vacío.
+  - [x] El mismo paso, para `worktree` — vigésimo quinto comando retirado así.
+        `console/commands/worktree.sh` (26 líneas, sólo hacía `exec` del binario) está borrado;
+        quedan 40 ficheros en `console/commands/`. **Escondía un bucle:** `run.go` sólo enrutaba
+        `add`, `list` y `remove`; `hm worktree` sin subcomando, o con uno desconocido, caía a
+        `bin/run`, cuyo `worktree.sh` volvía a ejecutar el binario con los mismos argumentos. Con
+        Docker levantado (la validación de `bin/run` pasa), binario → `bin/run` → `worktree.sh` →
+        binario, anidando procesos hasta matarlos: con un `docker` falso que siempre responde 0,
+        doce procesos en cuatro segundos. Ahora el binario responde a todo `worktree`, y un
+        subcomando ausente o desconocido es un error de uso (2, `invalid_argument`, pista
+        `hm worktree add|list|remove`); `worktree_usage_test.go` lo fija a través de `Run`, con el
+        puente apuntando a un directorio sin `bin/run`.
+
+        Las suites que le preguntaban a `bin/run worktree` le preguntan al binario:
+        `worktree_environments_test.sh` y `concurrent_safety_test.sh`, que se saltan o fallan sin
+        daemon y no lo habrían dicho, y el experimento `ten_worktrees.sh`. Apartarlo antes de
+        repararlas cambió una aserción en el sentido contrario al habitual:
+        `go_passthrough_test.sh` «a usage error keeps its code» comparaba `bin/run worktree add`
+        con el binario; con el `.sh` era la comprobación de Docker de `bin/run` (3) contra el error
+        de uso del binario (2), y sin él la negativa de comando retirado, que también sale con 2,
+        por casualidad. Ahora sólo le pregunta al binario. Con las reparaciones, apartarlo y correr
+        la suite entera: 54 de 1057 aserciones fallaban antes y después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
