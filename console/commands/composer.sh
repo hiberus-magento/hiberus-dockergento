@@ -79,7 +79,7 @@ sync_all_from_container_to_host() {
     docker cp "$container_id":"$WORKDIR_PHP"/. "$MAGENTO_DIR"
 
     # Start containers again because we needed to stop them before mirroring
-    "$COMMANDS_DIR"/start.sh "phpfpm"
+    hm_run_binary start "phpfpm"
 }
 
 #

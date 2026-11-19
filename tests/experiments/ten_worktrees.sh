@@ -166,7 +166,7 @@ else
 fi
 
 started=$(date +%s)
-( cd "$LAB/$PROJECT" && "$HM" start ) >/dev/null 2>&1
+( cd "$LAB/$PROJECT" && "$HM_BINARY" start ) >/dev/null 2>&1
 note "entorno principal arriba en $(elapsed_since "$started")"
 
 waited=0
@@ -241,7 +241,7 @@ for i in $(seq 1 "$WORKTREES"); do
     fi
 
     started=$(date +%s)
-    ( cd "$LAB/$PROJECT-worktrees/rama-$i" && "$HM" start ) >/dev/null 2>&1
+    ( cd "$LAB/$PROJECT-worktrees/rama-$i" && "$HM_BINARY" start ) >/dev/null 2>&1
     start_elapsed=$(elapsed_since "$started")
 
     running=$((running + 1))

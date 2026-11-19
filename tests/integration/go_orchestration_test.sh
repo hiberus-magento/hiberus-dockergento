@@ -100,12 +100,14 @@ HASH_GO=$(etiqueta com.docker.compose.config-hash)
 # The one that matters. If the two computed different hashes they would recreate each other's
 # containers on every command, and nothing would say so until somebody lost a database.
 #
+# start has no shell twin left; what it ran was `docker compose up -d` with the tool's files and
+# environment, which is what the binary's own docker-compose passthrough runs
 test_case "and the compose command does not recreate it"
-recreados=$( cd "$DIR" && "$SHELL_CLI" start 2>&1 | grep -c "Created" )
+recreados=$( cd "$DIR" && "$GO_BINARY" docker-compose up -d 2>&1 | grep -c "Created" )
 assert_equals "0" "$recreados"
 
 docker compose -p "$PROJECT" down >/dev/null 2>&1
-( cd "$DIR" && "$SHELL_CLI" start ) >/dev/null 2>&1
+( cd "$DIR" && "$GO_BINARY" docker-compose up -d ) >/dev/null 2>&1
 HASH_SHELL=$(etiqueta com.docker.compose.config-hash)
 
 test_case "the configuration hash is the same one Compose computes"
@@ -130,7 +132,7 @@ nuestras() {
 }
 
 docker compose -p "$PROJECT" down >/dev/null 2>&1
-( cd "$DIR" && "$SHELL_CLI" start ) >/dev/null 2>&1
+( cd "$DIR" && "$GO_BINARY" docker-compose up -d ) >/dev/null 2>&1
 ETIQUETAS_SHELL=$(nuestras)
 
 docker compose -p "$PROJECT" down >/dev/null 2>&1
@@ -231,8 +233,10 @@ assert_equals "2" "$(docker ps -q -f "label=com.docker.compose.project=$PROJECT"
 # Both are the same thing underneath — something run in the php container — and what has to match
 # is the wrapper: the command it builds, and the exit code it hands back.
 
+# magento's shell twin is retired: what it ran is php ./bin/magento in the php container, which is
+# what exec runs when asked for it
 test_case "the Magento CLI is invoked the same way"
-( cd "$DIR" && "$SHELL_CLI" magento cache:flush >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
+( cd "$DIR" && "$GO_BINARY" exec php ./bin/magento cache:flush >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
 ( cd "$DIR" && "$GO_BINARY"  magento cache:flush >"$LAB/go.out" 2>&1 );    GO_STATUS=$?
 assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
 assert_equals "$SHELL_STATUS" "$GO_STATUS"
@@ -257,8 +261,9 @@ assert_contains "$(cat "$LAB/go.err")" "create-project"
 
 # ---------------------------------------------------------------- a shell inside
 
+# bash's shell twin is retired: what it ran is bash through exec
 test_case "opening a shell in the php container is the same invocation"
-( cd "$DIR" && echo "id -un" | "$SHELL_CLI" bash >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
+( cd "$DIR" && echo "id -un" | "$GO_BINARY" exec bash >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
 ( cd "$DIR" && echo "id -un" | "$GO_BINARY"  bash >"$LAB/go.out" 2>&1 );   GO_STATUS=$?
 assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
 assert_equals "$SHELL_STATUS" "$GO_STATUS"
@@ -301,7 +306,8 @@ RAMA="$LAB/rama"
 if [ -d "$RAMA" ]; then
     # `down` belongs in this list more than any of them: from a worktree with no environment of
     # its own it would be destroying the main checkout's
-    for QUE in start stop down; do
+    # down still has its shell twin; start and stop are checked against the contract below
+    for QUE in down; do
         ( cd "$RAMA" && "$SHELL_CLI" "$QUE" >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
         ( cd "$RAMA" && "$GO_BINARY"  "$QUE" >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
 
@@ -311,13 +317,15 @@ if [ -d "$RAMA" ]; then
         assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
     done
 
-    # restart's shell twin is retired, so there is nothing left to compare it with: the binary's
-    # refusal is checked against the contract instead
-    ( cd "$RAMA" && "$GO_BINARY" restart >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
+    # restart, start and stop have no shell twin left to compare with: the binary's refusal is
+    # checked against the contract instead
+    for QUE in restart start stop; do
+        ( cd "$RAMA" && "$GO_BINARY" "$QUE" >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
 
-    test_case "restart from a worktree with no environment is refused"
-    assert_equals "6" "$GO_STATUS"
-    assert_equals "blocked_in_worktree" "$(jq -r '.error.type' < "$LAB/go.err")"
+        test_case "$QUE from a worktree with no environment is refused"
+        assert_equals "6" "$GO_STATUS"
+        assert_equals "blocked_in_worktree" "$(jq -r '.error.type' < "$LAB/go.err")"
+    done
 
     #
     # Forced is a decision about one invocation: there is no variable and no file that turns the

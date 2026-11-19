@@ -51,7 +51,7 @@ mkdir -p "$LAB/main/config/docker"
 
 test_case "an action forbidden by the CLI is refused when launched the same way"
 root="$LAB/wt"
-( cd "$root" && "$HM" start >/dev/null 2>&1 )
+( cd "$root" && "$COMMAND_BIN_DIR/bin/hm" start >/dev/null 2>&1 )
 assert_equals "6" "$?"
 
 test_case "and allowed where the CLI allows it"

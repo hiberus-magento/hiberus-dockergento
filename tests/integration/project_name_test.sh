@@ -161,7 +161,7 @@ assert_equals "custom/bin" "$(record "$LAB/rec-d" '{"BIN_DIR":"custom/bin"}' "re
 # ------------------------------------------------- the label stops being empty
 
 test_case "the containers of an unnamed project carry the resolved name as a label"
-( cd "$LAB/tienda" && "$HM" start >/dev/null 2>&1 )
+( cd "$LAB/tienda" && "$COMMAND_BIN_DIR/bin/hm" start >/dev/null 2>&1 )
 labelled=$(docker ps -aq --filter "label=hm.project=tienda" 2>/dev/null | head -1)
 [ -n "$labelled" ] && r=labelled || r="no container labelled hm.project=tienda"
 assert_equals "labelled" "$r"
