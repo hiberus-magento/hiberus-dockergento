@@ -19,21 +19,21 @@ import (
 // Nothing is ever opened here: openedBy replaces the opener with one that records.
 //
 
-// launch is one command the opener was asked to run.
-type launch struct {
+// openerCall is one command the opener was asked to run.
+type openerCall struct {
 	Name string
 	Args []string
 }
 
 // openedBy substitutes the opener for the test and returns what it was asked to run. A non-nil
 // err is what every launch answers with.
-func openedBy(t *testing.T, err error) *[]launch {
+func openedBy(t *testing.T, err error) *[]openerCall {
 	t.Helper()
 
-	launched := &[]launch{}
+	launched := &[]openerCall{}
 	original := openWith
 	openWith = func(name string, args ...string) error {
-		*launched = append(*launched, launch{Name: name, Args: args})
+		*launched = append(*launched, openerCall{Name: name, Args: args})
 
 		return err
 	}
@@ -73,12 +73,12 @@ func answeringFor(t *testing.T, description core.Description) *fakeEngine {
 func TestEachLauncherOpensItsClientOnMacOS(t *testing.T) {
 	cases := []struct {
 		client string
-		want   launch
+		want   openerCall
 		name   string
 	}{
-		{"tableplus", launch{"open", []string{"-a", "TablePlus", shopURL}}, "TablePlus"},
-		{"sequelace", launch{"open", []string{"-a", "Sequel Ace", shopURL}}, "Sequel Ace"},
-		{"dbeaver", launch{"open", []string{"-a", "DBeaver", shopURL}}, "DBeaver"},
+		{"tableplus", openerCall{"open", []string{"-a", "TablePlus", shopURL}}, "TablePlus"},
+		{"sequelace", openerCall{"open", []string{"-a", "Sequel Ace", shopURL}}, "Sequel Ace"},
+		{"dbeaver", openerCall{"open", []string{"-a", "DBeaver", shopURL}}, "DBeaver"},
 	}
 
 	for _, tt := range cases {
@@ -97,7 +97,7 @@ func TestEachLauncherOpensItsClientOnMacOS(t *testing.T) {
 				t.Fatalf("asked of the engine (-want +got):\n%s", diff)
 			}
 
-			if diff := cmp.Diff([]launch{tt.want}, *launched); diff != "" {
+			if diff := cmp.Diff([]openerCall{tt.want}, *launched); diff != "" {
 				t.Fatalf("launched (-want +got):\n%s", diff)
 			}
 
@@ -111,11 +111,11 @@ func TestEachLauncherOpensItsClientOnMacOS(t *testing.T) {
 func TestOnLinuxDBeaverIsRunAndTheOthersGoToTheDesktop(t *testing.T) {
 	cases := []struct {
 		client string
-		want   launch
+		want   openerCall
 	}{
-		{"dbeaver", launch{"dbeaver", []string{shopURL}}},
-		{"tableplus", launch{"xdg-open", []string{shopURL}}},
-		{"sequelace", launch{"xdg-open", []string{shopURL}}},
+		{"dbeaver", openerCall{"dbeaver", []string{shopURL}}},
+		{"tableplus", openerCall{"xdg-open", []string{shopURL}}},
+		{"sequelace", openerCall{"xdg-open", []string{shopURL}}},
 	}
 
 	for _, tt := range cases {
@@ -128,7 +128,7 @@ func TestOnLinuxDBeaverIsRunAndTheOthersGoToTheDesktop(t *testing.T) {
 				t.Fatalf("%s = %d, want exitOK", tt.client, code)
 			}
 
-			if diff := cmp.Diff([]launch{tt.want}, *launched); diff != "" {
+			if diff := cmp.Diff([]openerCall{tt.want}, *launched); diff != "" {
 				t.Fatalf("launched (-want +got):\n%s", diff)
 			}
 		})
