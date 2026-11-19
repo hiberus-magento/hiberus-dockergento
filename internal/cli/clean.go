@@ -27,7 +27,7 @@ func clean(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			"Unknown option: "+argument, binaryName()+" clean [--force]")
 	}
 
-	collection, err := engine(stdout, stderr, jsonOutput).Survey()
+	collection, err := newEngine(stdout, stderr, jsonOutput).Survey()
 	if err != nil {
 		return report(stderr, jsonOutput, "clean", err)
 	}
@@ -67,7 +67,7 @@ func clean(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 	}
 
-	if err := engine(stdout, stderr, jsonOutput).Collect(collection); err != nil {
+	if err := newEngine(stdout, stderr, jsonOutput).Collect(collection); err != nil {
 		return report(stderr, jsonOutput, "clean", err)
 	}
 

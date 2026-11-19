@@ -69,6 +69,10 @@ type call struct {
 
 	// Only is the single check doctor was asked to run (--only), "" for all of them.
 	Only string
+
+	// Collection is what clean asked to be collected, compared whole: what is deleted has to be
+	// exactly what the survey found, and a field that drifts shows up as a diff.
+	Collection core.Collection
 }
 
 // outcome is what a call answers with. outcomes is indexed by call number — the position the
@@ -87,6 +91,10 @@ type outcome struct {
 	// diagnosis is what Diagnose answers with, per call like captured: doctor asks once, and each
 	// test states the findings it wants reported.
 	diagnosis core.Diagnosis
+
+	// collection is what Survey answers with, per call like diagnosis: clean surveys once, and
+	// each test states what it wants found.
+	collection core.Collection
 }
 
 // fakeEngine is a commands that never reaches Docker: everything asked of it lands in calls, and
@@ -395,6 +403,28 @@ func (f *fakeEngine) Diagnose(dir, only string) (core.Diagnosis, error) {
 	}
 
 	return out.diagnosis, nil
+}
+
+// Survey answers from its outcome: the collection, or the error that stopped the survey.
+func (f *fakeEngine) Survey() (core.Collection, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Survey"})
+
+	out := f.outcomeFor(number)
+	if out.err != nil {
+		return core.Collection{}, out.err
+	}
+
+	return out.collection, nil
+}
+
+// Collect records the collection it was handed, which is the whole of what clean decides: the
+// deleting itself is app.Collector's, and this seam's job is to prove what reaches it.
+func (f *fakeEngine) Collect(collection core.Collection) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Collect", Collection: collection})
+
+	return f.outcomeFor(number).err
 }
 
 // TestFakeEngineRecordsCaptureAndXdebugHost is Slice 2's own RED/GREEN — not merely the two

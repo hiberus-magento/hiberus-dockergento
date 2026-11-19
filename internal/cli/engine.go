@@ -43,6 +43,8 @@ type commands interface {
 	Capture(dir, service string, command []string) (string, int, error)
 	XdebugHost() (string, error)
 	Diagnose(dir, only string) (core.Diagnosis, error)
+	Survey() (core.Collection, error)
+	Collect(collection core.Collection) error
 }
 
 var _ commands = (*dockergento.Engine)(nil)
