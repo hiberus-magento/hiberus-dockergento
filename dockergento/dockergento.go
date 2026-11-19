@@ -613,7 +613,18 @@ func (e *Engine) transfer(project core.Project) app.Transfer {
 
 // Setup creates a project's environment: what its containers are called, what address it answers
 // on, where its code lives, and the compose files that follow from those.
+//
+// From a git worktree with no environment of its own it is refused unless forced, like every
+// command that creates an environment: it would write another project's name into the committed
+// properties the main checkout reads. A directory that does not resolve yet is a project about to
+// be set up, not a worktree of one, and is let through.
 func (e *Engine) Setup(dir string, options core.SetupOptions, interactive bool) error {
+	if project, err := e.Resolve(dir); err == nil {
+		if err := app.RefuseFromAnUnregisteredWorktree(project, "setup", e.options.Forced); err != nil {
+			return err
+		}
+	}
+
 	return e.setup().Run(dir, options, interactive)
 }
 

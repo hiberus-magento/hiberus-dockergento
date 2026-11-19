@@ -340,7 +340,14 @@ func (o Operator) Compose(project core.Project, files []string, environment map[
 // Forced is a decision, not a setting: it applies to the one invocation and there is no variable
 // and no file that turns the guardrail off for good.
 func (o Operator) refuseFromAnUnregisteredWorktree(project core.Project, command string) error {
-	if !project.InWorktree || project.Worktree != nil || o.Forced {
+	return RefuseFromAnUnregisteredWorktree(project, command, o.Forced)
+}
+
+// RefuseFromAnUnregisteredWorktree is that refusal for a command that is not an Operator's: setup
+// creates an environment too, and from such a worktree it would rewrite the committed properties of
+// the main checkout's.
+func RefuseFromAnUnregisteredWorktree(project core.Project, command string, forced bool) error {
+	if !project.InWorktree || project.Worktree != nil || forced {
 		return nil
 	}
 
