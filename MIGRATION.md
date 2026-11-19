@@ -640,6 +640,13 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         Con el árbol ya sin los tres ficheros: 51 fallos antes y después, diff vacío. Con esto la
         pista A queda vacía.
 
+        Revisado (`review-52a4558955536e15`, tramo `312f323..48a918b`): sin aprobación ni rechazo, con un único
+        hallazgo escalado por causalidad desconocida, `R3-missing-vendor-mkdir`: el binario no crea
+        `vendor` en el host antes de meterlo en el contenedor, como hacía el `mkdir -p` del shell.
+        No cambia nada observable: un `docker cp` de un directorio vacío no borra lo que hay
+        dentro, `Transfer.Into` se salta la ruta que no existe (`app/transfer.go:52-55`), Composer
+        crea `vendor` en el contenedor y la copia final lo trae al host. Queda anotado, sin cambio.
+
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
         aserciones fallaban antes y después, diff vacío.
