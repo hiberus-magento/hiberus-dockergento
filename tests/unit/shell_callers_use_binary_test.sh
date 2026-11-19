@@ -12,6 +12,8 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 for script in tui mcp; do
+    # A script ported to the binary and retired has nothing left to check
+    [ -f "$HM_TEST_PROJECT_ROOT/console/commands/$script.sh" ] || continue
     test_case "$script asks the binary for the commands it calls"
     assert_equals 'HM="$COMMAND_BIN_DIR/bin/hm"' \
         "$(grep -E '^HM=' "$HM_TEST_PROJECT_ROOT/console/commands/$script.sh")"
