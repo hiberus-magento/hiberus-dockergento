@@ -21,6 +21,8 @@ type commands interface {
 	Describe(dir string, withSecrets bool) (core.Description, error)
 	Exec(dir, service string, command []string, options core.ExecOptions) (int, error)
 	Restart(dir string, services []string) error
+	AfterStart(dir string) error
+	Rebuild(dir string, services []string) error
 	Stop(dir string, services []string, snapshot bool) error
 	Start(dir string, options dockergento.StartOptions) error
 	Down(dir string, options core.DownOptions, interactive bool) (string, error)

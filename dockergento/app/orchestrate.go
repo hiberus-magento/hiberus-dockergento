@@ -2,8 +2,10 @@ package app
 
 import (
 	"fmt"
+	"io"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
@@ -51,6 +53,38 @@ type Operator struct {
 
 	// Proxy is the one router on the machine, started for a project that is routed through it.
 	Proxy *Proxy
+
+	//
+	// What the Linux steps after an environment comes up need (after_start.go).
+	//
+
+	// UserPHP and GroupPHP are who PHP runs as inside the containers, from the project's
+	// properties: the user and the group whose ids are matched to the host's.
+	UserPHP  string
+	GroupPHP string
+
+	// RootRunner runs a command as root inside a container and captures what it says, which is
+	// how a container's ids are read. Addresses is where the TLS terminator is reached, Files
+	// carries this machine's certificate authorities in, and FS is how it is known whether there
+	// are any. Nil FS skips the certificates.
+	RootRunner ports.ContainerRunner
+	Addresses  ports.Addresses
+	Files      ports.FileTransfer
+	FS         ports.FS
+
+	// Query runs a statement against the project's database, the one `mysql -q` runs, which is
+	// how the store's domains are read.
+	Query func(project core.Project, statement string, out io.Writer) (int, error)
+
+	// Wait is how the steps give the containers time to spin up, and HostIds is the host user's
+	// uid and gid. Both are fields so that a test neither sleeps nor depends on who runs it; nil
+	// is time.Sleep and the ids of this process.
+	Wait    func(time.Duration)
+	HostIds func() (uid, gid int)
+
+	// Errors is where a command run inside a container complains while its output is being read.
+	// Nil is this process's own stderr.
+	Errors io.Writer
 }
 
 // The name of the one proxy on the machine, and the ports it listens on.
@@ -96,28 +130,45 @@ func (o Operator) Start(project core.Project, files core.ComposeFiles, services 
 		}
 	}
 
-	return o.afterStarting()
+	// What the platform needs once the environment is up: the same steps `post-start` and
+	// `rebuild` run, one copy of them for every caller so that they cannot drift
+	return o.AfterStart(project, files)
 }
 
-// afterStarting is what the platform needs once the environment is up.
+// Rebuild stops what was named, or the whole environment, and brings it back up with its images
+// built first — what rebuild.sh did with `hm stop` and `up --build -d`.
 //
-// On macOS, nothing — and it is not asked, because asking costs a shell process on a command
-// where that is a fifth of the time. On Linux it matches the container's user and group ids to
-// the host's and writes the project's domains into its /etc/hosts, and that is still the shell
-// implementation's: the second of the two reads those domains out of the database through a
-// command that is not ported, so porting this would mean porting that first.
-//
-// It is a hand-off and not a fork of the command. Everything else about starting — the proxy, the
-// refusals, the error contract — is the same code on both platforms, which is what it costs to
-// keep them from drifting.
-func (o Operator) afterStarting() error {
-	if o.Platform != "linux" {
-		return nil
+// With nothing named it builds nginx, as the shell did: Compose brings up what nginx depends on
+// with it, which is the whole stack. The check that the dependencies are not bound from the host
+// is run when the whole environment was rebuilt and only then, the same as Start: naming a service
+// is asking for that service.
+func (o Operator) Rebuild(project core.Project, files core.ComposeFiles, services []string) error {
+	if err := o.refuseFromAnUnregisteredWorktree(project, "rebuild"); err != nil {
+		return err
 	}
 
-	_, err := o.Legacy.Run([]string{"post-start"})
+	o.announce("Rebuilding and starting containers in detached mode\n\n")
 
-	return err
+	if err := o.Orchestrator.Stop(project, files, services); err != nil {
+		return err
+	}
+
+	building := services
+	if len(building) == 0 {
+		building = []string{"nginx"}
+	}
+
+	if err := o.Orchestrator.UpBuilding(project, files, building); err != nil {
+		return err
+	}
+
+	if len(services) == 0 {
+		if err := o.checkDependenciesAreNotBound(project); err != nil {
+			return err
+		}
+	}
+
+	return o.AfterStart(project, files)
 }
 
 // ensureProxy starts the one proxy on the machine when this project needs it and it is not up.

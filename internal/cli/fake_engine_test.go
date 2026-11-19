@@ -290,6 +290,21 @@ func (f *fakeEngine) Restart(dir string, services []string) error {
 	return f.outcomeFor(number).err
 }
 
+// AfterStart and Rebuild, like Restart, only ever answer with an error.
+func (f *fakeEngine) AfterStart(dir string) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "AfterStart", Dir: dir})
+
+	return f.outcomeFor(number).err
+}
+
+func (f *fakeEngine) Rebuild(dir string, services []string) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Rebuild", Dir: dir, Services: services})
+
+	return f.outcomeFor(number).err
+}
+
 func (f *fakeEngine) CopyInto(dir string, paths []string, all bool) error {
 	number := len(f.calls)
 	f.calls = append(f.calls, call{Method: "CopyInto", Dir: dir, Paths: paths, All: all})

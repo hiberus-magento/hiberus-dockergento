@@ -82,6 +82,41 @@ func restart(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		Restart(here(), services))
 }
 
+// postStart runs what the platform needs once the environment is up: on Linux, the host's ids for
+// PHP's user and group and the self-routing entries; on macOS nothing, and it exits 0. What it is
+// given after the command is ignored, as post-start.sh ignored it.
+func postStart(stdout, stderr io.Writer, jsonOutput bool) int {
+	if _, code := projectOr(stderr, jsonOutput, "post-start"); code != 0 {
+		return code
+	}
+
+	return report(stderr, jsonOutput, "post-start", newEngine(stdout, stderr, jsonOutput).
+		AfterStart(here()))
+}
+
+// rebuild stops the services named, or the whole environment, and brings them back up with their
+// images built. Anything that looks like an option is a usage error rather than a service name
+// handed to Compose.
+func rebuild(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	services := []string{}
+
+	for _, argument := range args {
+		if strings.HasPrefix(argument, "-") {
+			return failure(stderr, jsonOutput, "rebuild", exitUsage, "invalid_argument",
+				fmt.Sprintf("Unknown option: %s", argument), binaryName()+" rebuild [service...]")
+		}
+
+		services = append(services, argument)
+	}
+
+	if _, code := projectOr(stderr, jsonOutput, "rebuild"); code != 0 {
+		return code
+	}
+
+	return report(stderr, jsonOutput, "rebuild", newEngine(stdout, stderr, jsonOutput).
+		Rebuild(here(), services))
+}
+
 // logs writes what the services are saying.
 //
 // The options are enumerated rather than passed through. The shell implementation forwarded

@@ -212,6 +212,10 @@ type Orchestrator interface {
 	// Up creates and starts what is missing and leaves alone what already matches.
 	Up(project core.Project, files core.ComposeFiles, services []string) error
 
+	// UpBuilding is Up with the images of the services that have a build section built first,
+	// whether or not they are already there: what `up --build` does, and what `rebuild` asks for.
+	UpBuilding(project core.Project, files core.ComposeFiles, services []string) error
+
 	// Down removes an environment, doing what Compose's own `down` does and no more: what is
 	// removed beyond the containers and the networks is what the caller asked for.
 	Down(project core.Project, files core.ComposeFiles, options core.DownOptions) error
@@ -289,6 +293,17 @@ type VolumeStore interface {
 	// one, which is why removing it is refused, and saying so beforehand is better than relaying
 	// Docker's own wording.
 	Users(name string) ([]string, error)
+}
+
+// Addresses answers where a container can be reached on the networks it is attached to.
+//
+// The self-routing entries a Linux environment writes into its php container point at the TLS
+// terminator by this address, which is what lets the store call itself by its own domain.
+type Addresses interface {
+	// Address is the container's address on every network it is attached to, written one after
+	// the other in the order of the networks' names — what
+	// `docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}'` prints.
+	Address(container string) (string, error)
 }
 
 // NetworkStore is the shared network the proxy routes through.

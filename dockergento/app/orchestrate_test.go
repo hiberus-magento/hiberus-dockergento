@@ -4,25 +4,55 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
 type orchestrator struct {
-	upCalls   [][]string
-	stopCalls [][]string
-	downCalls []core.DownOptions
-	err       error
+	upCalls    [][]string
+	buildCalls [][]string
+	stopCalls  [][]string
+	downCalls  []core.DownOptions
+	err        error
+
+	// stopErr fails only the stop, for the operations that go on to something else after it.
+	stopErr error
+
+	// log, when set, receives every operation in the order it was asked, shared with the other
+	// fakes of a test so that their interleaving is one sequence. exits answers an exec with its
+	// exit code, by the command it ran; a command it does not name exits 0.
+	log   *[]string
+	exits map[string]int
+}
+
+func (o *orchestrator) record(entry string) {
+	if o.log != nil {
+		*o.log = append(*o.log, entry)
+	}
 }
 
 func (o *orchestrator) Up(_ core.Project, _ core.ComposeFiles, services []string) error {
 	o.upCalls = append(o.upCalls, services)
+	o.record("up " + strings.Join(services, " "))
+
+	return o.err
+}
+
+func (o *orchestrator) UpBuilding(_ core.Project, _ core.ComposeFiles, services []string) error {
+	o.buildCalls = append(o.buildCalls, services)
+	o.record("up --build " + strings.Join(services, " "))
 
 	return o.err
 }
 
 func (o *orchestrator) Stop(_ core.Project, _ core.ComposeFiles, services []string) error {
 	o.stopCalls = append(o.stopCalls, services)
+	o.record("stop " + strings.Join(services, " "))
+
+	if o.stopErr != nil {
+		return o.stopErr
+	}
 
 	return o.err
 }
@@ -37,8 +67,14 @@ func (o *orchestrator) Logs(core.Project, core.ComposeFiles, []string, core.LogO
 	return o.err
 }
 
-func (o *orchestrator) Exec(core.Project, core.ComposeFiles, string, []string, core.ExecOptions) (int, error) {
-	return 0, o.err
+func (o *orchestrator) Exec(_ core.Project, _ core.ComposeFiles, service string, command []string, options core.ExecOptions) (int, error) {
+	o.record(execEntry(options.User, service, command...))
+
+	if o.err != nil {
+		return 0, o.err
+	}
+
+	return o.exits[command[len(command)-1]], nil
 }
 
 type shell struct {
@@ -79,6 +115,10 @@ func operatorWith(containers []core.Container, orchestration *orchestrator, lega
 		Platform:     "mac",
 		Binary:       "hm",
 		Workdir:      "/var/www/html",
+
+		// Never the real five seconds: a test on Linux that reaches the steps after starting
+		// would otherwise sleep for them
+		Wait: func(time.Duration) {},
 	}
 }
 
@@ -254,17 +294,27 @@ func TestRestartingIsAStopAndAStart(t *testing.T) {
 // drifting.
 //
 
-func TestLinuxIsHandedBackWhatIsNotPortedYet(t *testing.T) {
-	orchestration, legacy := &orchestrator{}, &shell{}
-	operator := operatorWith(nil, orchestration, legacy)
-	operator.Platform = "linux"
+func TestLinuxRunsTheStepsAfterStartingItself(t *testing.T) {
+	// No hand-off to the shell any more: the ids and the self-routing entries are this package's,
+	// and Start runs them once the environment is up
+	log := []string{}
+	orchestration, legacy := &orchestrator{log: &log}, &shell{}
+	operator := linuxOperator(&log, orchestration, legacy, "1000", "1000", nil)
 
-	if err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false, false); err != nil {
+	if err := operator.Start(linuxProject, core.ComposeFiles{}, nil, false, false, false); err != nil {
 		t.Fatalf("Start = %v, want no error", err)
 	}
 
-	if len(legacy.ran) != 1 || strings.Join(legacy.ran[0], " ") != "post-start" {
-		t.Fatalf("asked of the shell half on linux = %v, want the ids and the container hosts file", legacy.ran)
+	if len(legacy.ran) != 0 {
+		t.Fatalf("asked of the shell half on linux = %v, want nothing", legacy.ran)
+	}
+
+	if len(log) == 0 || log[0] != "up " {
+		t.Fatalf("first thing done = %v, want the environment up before the steps", log)
+	}
+
+	if !containsEntry(log, execEntry("root", "phpfpm", "bash", "-c", `echo "172.18.0.9 localhost" >> /etc/hosts`)) {
+		t.Fatalf("done on linux = %v, want the steps after starting run in Go", log)
 	}
 }
 
@@ -283,9 +333,10 @@ func TestMacOSIsNotEvenAsked(t *testing.T) {
 }
 
 func TestTheEnvironmentIsUpBeforeAnyOfThatIsTried(t *testing.T) {
-	// The hand-off happens after the up, so a project whose post-steps fail still has its
-	// containers running — which is the state somebody can look at
-	orchestration, legacy := &orchestrator{}, &shell{err: errors.New("no se pudo")}
+	// The steps run after the up, so a project whose post-steps fail still has its containers
+	// running — which is the state somebody can look at. Here they fail at their first step:
+	// there is no container to read the ids from
+	orchestration, legacy := &orchestrator{}, &shell{}
 	operator := operatorWith(nil, orchestration, legacy)
 	operator.Platform = "linux"
 
@@ -621,18 +672,23 @@ func TestStoppingTheRestBeforeStarting(t *testing.T) {
 func TestStoppingTheRestIsTheSameCallOnEitherPlatform(t *testing.T) {
 	for _, platform := range []string{"mac", "linux"} {
 		t.Run(platform, func(t *testing.T) {
-			orchestration, legacy := &orchestrator{}, &shell{}
-			fakeEngine := &engine{containers: []core.Container{{ID: "a", ComposeProject: "other", Running: true}}}
+			log := []string{}
+			orchestration, legacy := &orchestrator{log: &log}, &shell{}
 
-			operator := operatorWith(nil, orchestration, legacy)
+			// On Linux the steps after starting need the project's own containers to read the
+			// ids from; they are stopped with the rest, which this fake does not act on
+			operator := linuxOperator(&log, orchestration, legacy, "1000", "1000", nil)
+			fakeEngine := &engine{containers: append(
+				[]core.Container{{ID: "a", ComposeProject: "other", Running: true}},
+				runningLinuxStack("nginx", "phpfpm")...)}
 			operator.Engine = fakeEngine
 			operator.Platform = platform
 
-			if err := operator.Start(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, true, false, false); err != nil {
+			if err := operator.Start(linuxProject, core.ComposeFiles{}, nil, true, false, false); err != nil {
 				t.Fatalf("Start with -s on %s = %v, want no error", platform, err)
 			}
 
-			if len(fakeEngine.stopped) != 1 {
+			if len(fakeEngine.stopped) == 0 || fakeEngine.stopped[0] != "a" {
 				t.Fatalf("stopped on %s = %v, want the same in-process call", platform, fakeEngine.stopped)
 			}
 		})

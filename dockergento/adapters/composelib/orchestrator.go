@@ -48,9 +48,32 @@ type Orchestrator struct {
 }
 
 func (o Orchestrator) Up(project core.Project, files core.ComposeFiles, services []string) error {
+	return o.up(project, files, services, false)
+}
+
+// UpBuilding is `up --build`: the services that have a build section are given the pull policy
+// "build" before anything is created, which is exactly how Compose's own command implements the
+// flag (createOptions.Apply in cmd/compose/create.go). A service with only an image is left as it
+// is, the same as there.
+func (o Orchestrator) UpBuilding(project core.Project, files core.ComposeFiles, services []string) error {
+	return o.up(project, files, services, true)
+}
+
+func (o Orchestrator) up(project core.Project, files core.ComposeFiles, services []string, build bool) error {
 	service, loaded, err := o.open(project, files)
 	if err != nil {
 		return err
+	}
+
+	if build {
+		for name, configured := range loaded.Services {
+			if configured.Build == nil {
+				continue
+			}
+
+			configured.PullPolicy = types.PullPolicyBuild
+			loaded.Services[name] = configured
+		}
 	}
 
 	return service.Up(context.Background(), loaded, api.UpOptions{

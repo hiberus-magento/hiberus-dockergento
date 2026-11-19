@@ -227,6 +227,30 @@ func (e *Engine) Start(dir string, options StartOptions) error {
 		options.Services, options.StopOthers, e.UsesProxy(project), options.Interactive)
 }
 
+// AfterStart runs what the platform needs once the environment is up — on Linux, the host's ids
+// for PHP's user and group and the self-routing entries; on macOS, nothing. It is what `start`
+// already does at the end, as a command of its own for whoever brought the environment up some
+// other way.
+func (e *Engine) AfterStart(dir string) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	return e.operator(project).AfterStart(project, e.ComposeFiles(project))
+}
+
+// Rebuild stops the services named, or the whole environment, and brings them back up with their
+// images built first, then does what Start does after coming up.
+func (e *Engine) Rebuild(dir string, services []string) error {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return err
+	}
+
+	return e.creating(project).Rebuild(project, e.ComposeFiles(project), services)
+}
+
 // StopEverything stops every container running on this machine, machine-wide and with no label
 // scoping — what docker-stop-all answers for, and what Start calls when asked to stop the rest
 // before coming up.
@@ -1592,6 +1616,10 @@ func (e *Engine) creating(project core.Project) app.Operator {
 }
 
 func (e *Engine) operator(project core.Project) app.Operator {
+	// Read once: every operation builds an operator, and each property asked separately is the
+	// file read again
+	properties := e.Properties(project)
+
 	return app.Operator{
 		Orchestrator: e.orchestrator(project),
 		Engine:       dockerd.Engine{Timeout: e.options.Timeout},
@@ -1599,12 +1627,20 @@ func (e *Engine) operator(project core.Project) app.Operator {
 		Announce:     e.options.Announce,
 		Platform:     runtime.GOOS,
 		Binary:       e.options.Binary,
-		Workdir:      e.Property(project, "WORKDIR_PHP"),
+		Workdir:      properties["WORKDIR_PHP"],
 		Forced:       e.options.Forced,
 		Choose:       e.options.Choose,
 		Ask:          e.options.Ask,
 		Snapshots:    e.snapshotsFor(project),
 		Proxy:        e.proxyFor(),
+		UserPHP:      properties["USER_PHP"],
+		GroupPHP:     properties["GROUP_PHP"],
+		RootRunner:   dockerd.Runner{User: "root"},
+		Addresses:    dockerd.Engine{Timeout: e.options.Timeout},
+		Files:        dockerd.Files{},
+		FS:           osfs.FS{},
+		Query:        e.database().Query,
+		Errors:       e.errors(),
 	}
 }
 
