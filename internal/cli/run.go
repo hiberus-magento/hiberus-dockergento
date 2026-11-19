@@ -64,6 +64,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return logs(rest[1:], stdout, stderr, jsonOutput)
 		case "magento":
 			return magento(rest[1:], stdout, stderr, jsonOutput)
+		case "transfer-media":
+			return transferMedia(rest[1:], stdout, stderr, jsonOutput)
 		case "grunt":
 			return grunt(rest[1:], stdout, stderr, jsonOutput)
 		case "update":
