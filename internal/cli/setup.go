@@ -23,7 +23,7 @@ func setup(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return report(stderr, jsonOutput, "setup", err)
 	}
 
-	engine := engine(stdout, stderr, jsonOutput)
+	engine := newEngine(stdout, stderr, jsonOutput)
 
 	if err := engine.Setup(here(), options, os.Getenv("HM_NON_INTERACTIVE") == ""); err != nil {
 		return report(stderr, jsonOutput, "setup", err)

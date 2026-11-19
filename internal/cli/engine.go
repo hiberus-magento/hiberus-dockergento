@@ -28,6 +28,7 @@ type commands interface {
 	Import(dir string, options app.ImportOptions) error
 	Feed(dir string) (int, error)
 	Console(dir string) (int, error)
+	Setup(dir string, options core.SetupOptions, interactive bool) error
 	CopyInto(dir string, paths []string, all bool) error
 	CopyFrom(dir string, paths []string) error
 	Property(project core.Project, key string) string

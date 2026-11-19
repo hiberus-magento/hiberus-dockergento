@@ -51,6 +51,9 @@ type call struct {
 	// ImportOptions is what mysql -i was asked to import, compared whole.
 	ImportOptions app.ImportOptions
 
+	// SetupOptions is what setup was asked for, compared whole.
+	SetupOptions core.SetupOptions
+
 	// Interactive is what docker-stop-all was asked with: whether the stop may ask before doing
 	// it.
 	Interactive bool
@@ -169,6 +172,14 @@ func (f *fakeEngine) Exec(dir, service string, command []string, options core.Ex
 	out := f.outcomeFor(number)
 
 	return out.status, out.err
+}
+
+// Setup only ever answers with an error.
+func (f *fakeEngine) Setup(dir string, options core.SetupOptions, interactive bool) error {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Setup", Dir: dir, SetupOptions: options, Interactive: interactive})
+
+	return f.outcomeFor(number).err
 }
 
 // Query writes its outcome's captured string where the statement's output goes, and answers with
