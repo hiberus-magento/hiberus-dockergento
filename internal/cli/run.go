@@ -148,11 +148,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		case "create-project":
 			return createProject(rest[1:], stdout, stderr, jsonOutput)
 		case "proxy":
-			// The usage text and an unknown subcommand are still the shell implementation's,
-			// which is what the router hands back when this does not recognise one
-			if len(rest) < 2 || proxySubcommands[rest[1]] {
-				return proxy(rest[1:], stdout, stderr, jsonOutput)
-			}
+			return proxy(rest[1:], stdout, stderr, jsonOutput)
 		case "start":
 			return start(rest[1:], stdout, stderr, jsonOutput)
 		case "restart":

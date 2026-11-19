@@ -12,8 +12,6 @@ import (
 // project: a machine has one proxy, and standing in a directory does not change which.
 //
 
-var proxySubcommands = map[string]bool{"up": true, "down": true, "status": true}
-
 func proxy(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	subcommand := "status"
 	if len(args) > 0 {
@@ -29,7 +27,9 @@ func proxy(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return proxyStatus(stdout, stderr, jsonOutput)
 	}
 
-	return exitOK
+	return failure(stderr, jsonOutput, "proxy", exitUsage, "unknown_subcommand",
+		fmt.Sprintf("'%s' is not something %s proxy does", subcommand, binaryName()),
+		binaryName()+" proxy up | down | status")
 }
 
 func proxyUp(stdout, stderr io.Writer, jsonOutput bool) int {

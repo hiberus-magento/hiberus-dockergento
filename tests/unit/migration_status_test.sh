@@ -74,9 +74,9 @@ assert_equals "$(commands | grep -c .)" "$total_declared"
 # A row that says shell when the router already answers for that command is the same drift,
 # read from the other side: the document has to catch up, not just avoid inventing.
 
-# db and proxy route only part of their subcommands (`templateSubcommands` at run.go:85,
-# `proxySubcommands` at run.go:129) — pinned from both sides below, never a silent skip
-PARTIAL="db proxy"
+# db routes only part of its subcommands (`templateSubcommands` in run.go) — pinned from both
+# sides below, never a silent skip
+PARTIAL="db"
 is_partial() { case " $PARTIAL " in *" $1 "*) return 0 ;; esac; return 1; }
 
 test_case "every command the router answers for is tabled as go"

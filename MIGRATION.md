@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 50 de 65 |
+| Comandos en Go | 51 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -863,7 +863,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `npm` | magento | 3 | go |
 | `post-start` | environment | 3 | go |
 | `permissions` | ai | 3 | go |
-| `proxy` | environment | 2 | shell |
+| `proxy` | environment | 2 | go |
 | `purge` | magento | 3 | go |
 | `rebuild` | environment | 3 | go |
 | `restart` | environment | 1 | go |
@@ -901,4 +901,4 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 El test `tests/unit/migration_status_test.sh` comprueba que esta tabla no miente en ninguna
 dirección: que están todos los comandos y que lo marcado como Go existe de verdad en el árbol
 de Go, y también al revés — que todo lo que el router ya resuelve está marcado `go` aquí, con la
-única excepción fijada de `db` y `proxy`, que sólo están portados a medias.
+única excepción fijada de `db`, que sólo está portado a medias.
