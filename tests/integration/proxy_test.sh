@@ -200,7 +200,7 @@ names=$(echo | openssl s_client -connect 127.0.0.1:443 -servername proxyone.loca
 assert_contains "$names" "*.proxyone.local"
 
 test_case "the proxy reports what it routes"
-status=$( "$HM" proxy status --json 2>/dev/null | jq -r '.data.routes[].host' )
+status=$( "$COMMAND_BIN_DIR/bin/hm" proxy status --json 2>/dev/null | jq -r '.data.routes[].host' )
 assert_contains "$status" "proxyone.local"
 
 # ---------------------------------------------------------------- the tunnel

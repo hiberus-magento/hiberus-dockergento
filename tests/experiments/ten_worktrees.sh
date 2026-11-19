@@ -57,7 +57,7 @@ cleanup() {
         docker volume rm -f "$volume" >/dev/null 2>&1
     done
 
-    $PROXY_WAS_UP || ( cd "$LAB/$PROJECT" 2>/dev/null && "$HM" proxy down ) >/dev/null 2>&1
+    $PROXY_WAS_UP || ( cd "$LAB/$PROJECT" 2>/dev/null && "$HM_BINARY" proxy down ) >/dev/null 2>&1
 
     rm -rf "$LAB"
     note "hecho"
@@ -161,7 +161,7 @@ if docker ps --format '{{.Names}}' | grep -q '^hm-proxy$'; then
     PROXY_WAS_UP=true
     note "el proxy ya estaba levantado"
 else
-    ( cd "$LAB/$PROJECT" && "$HM" proxy up ) >/dev/null 2>&1
+    ( cd "$LAB/$PROJECT" && "$HM_BINARY" proxy up ) >/dev/null 2>&1
     note "proxy levantado para el experimento"
 fi
 
