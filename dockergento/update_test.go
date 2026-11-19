@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
@@ -117,5 +118,28 @@ func TestAPullThatFailsIsSaid(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(installed, "completion-generated")); err == nil {
 		t.Error("the completion was regenerated after a failed pull")
+	}
+}
+
+// TestACompletionThatFailsSaysThePullHappened: by then the installation has moved, and a bare
+// error would leave somebody believing it had not.
+func TestACompletionThatFailsSaysThePullHappened(t *testing.T) {
+	origin, installed := installation(t)
+
+	if err := os.WriteFile(filepath.Join(origin, "generate_completion.sh"), []byte("#!/bin/sh\nexit 3\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	git(t, origin, "add", "-A")
+	git(t, origin, "commit", "-qm", "broken completion")
+
+	err := New(Options{Root: installed}).Update()
+
+	var refusal core.Refusal
+	if !errors.As(err, &refusal) || refusal.Kind != "completion_failed" {
+		t.Fatalf("Update with a failing completion = %v, want completion_failed", err)
+	}
+
+	if !strings.Contains(refusal.Message, "updated") {
+		t.Errorf("message = %q, want it to say the installation was updated", refusal.Message)
 	}
 }

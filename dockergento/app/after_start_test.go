@@ -378,3 +378,33 @@ func TestTheHostIsCutOutOfABaseURL(t *testing.T) {
 		}
 	}
 }
+
+// TestABaseURLThatIsNotAHostNameIsNotWritten: the hosts come out of the store's configuration,
+// which an imported dump decides, and go into a `bash -c` run as root. Anything but a host name is
+// skipped; a port is dropped, since /etc/hosts has no place for one.
+func TestABaseURLThatIsNotAHostNameIsNotWritten(t *testing.T) {
+	log := []string{}
+	operator := linuxOperator(&log, &orchestrator{log: &log}, &shell{}, "1000", "1000", nil)
+	operator.Query = func(_ core.Project, statement string, out io.Writer) (int, error) {
+		log = append(log, "query "+statement)
+		fmt.Fprint(out, "value\nhttps://$(touch${IFS}/pwned).test/\nhttps://tienda.local:8443/\n")
+
+		return 0, nil
+	}
+
+	if err := operator.AfterStart(linuxProject, core.ComposeFiles{}); err != nil {
+		t.Fatalf("AfterStart = %v, want no error", err)
+	}
+
+	written := []string{}
+	for _, entry := range log {
+		if strings.Contains(entry, "/etc/hosts") {
+			written = append(written, entry)
+		}
+	}
+
+	want := []string{hostsEntry("172.18.0.9 tienda.local"), hostsEntry("172.18.0.9 localhost")}
+	if diff := cmp.Diff(want, written); diff != "" {
+		t.Fatalf("written to /etc/hosts (-want +got):\n%s", diff)
+	}
+}

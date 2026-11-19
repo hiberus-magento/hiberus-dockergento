@@ -688,8 +688,8 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         PHP — corren en Go con las órdenes de contenedor del shell byte a byte (también sus dos
         rarezas, comentadas: `type apk /dev/null` y el `find` de grupo con `-user`), y `Start` y
         `Restart` dejan de devolverle `post-start` al shell. `rebuild` para, levanta con las
-        imágenes construidas (`UpBuilding`, el `--build` de Compose), comprueba los bind mounts si
-        fue el entorno entero y corre los mismos pasos; se niega desde un worktree sin entorno
+        imágenes construidas (`UpBuilding`, el `--build` de Compose), comprueba los bind mounts
+        después de cada reconstrucción, como el shell, y corre los mismos pasos; se niega desde un worktree sin entorno
         propio. Ninguna prueba los ejecuta contra un Linux de verdad.
 
         De paso: `Engine.operator` le pasaba `runtime.GOOS` al operador y sus comprobaciones

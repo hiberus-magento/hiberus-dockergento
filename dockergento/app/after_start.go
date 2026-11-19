@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -241,7 +242,17 @@ func (o Operator) writeEntries(project core.Project, files core.ComposeFiles, hi
 			continue
 		}
 
-		if err := o.appendHost(project, files, address, hostOfBaseURL(value)); err != nil {
+		// The host goes into a bash -c run as root, and it comes from the store's configuration,
+		// which an imported dump decides: anything but a host name is skipped, and a port is
+		// dropped, since /etc/hosts has nowhere to put one
+		host, _, _ := strings.Cut(hostOfBaseURL(value), ":")
+		if !hostName.MatchString(host) {
+			o.announce(fmt.Sprintf("Skipping %q: it is not a host name\n", value))
+
+			continue
+		}
+
+		if err := o.appendHost(project, files, address, host); err != nil {
 			return err
 		}
 	}
@@ -371,3 +382,6 @@ func (o Operator) errors() io.Writer {
 
 	return os.Stderr
 }
+
+// hostName is what may be written into /etc/hosts as a name: letters, digits, dots and hyphens.
+var hostName = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$`)

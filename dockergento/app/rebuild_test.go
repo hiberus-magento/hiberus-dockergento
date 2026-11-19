@@ -59,12 +59,15 @@ func TestRebuildingOnLinuxRunsTheStepsAfterStarting(t *testing.T) {
 	}
 }
 
-func TestRebuildingServicesStopsAndBuildsThoseWithoutTheWholeCheck(t *testing.T) {
+// TestRebuildingServicesStopsBuildsThoseAndStillChecksTheMounts: rebuild.sh ran the bind-mount
+// check after every build, services named or not, and so does this.
+func TestRebuildingServicesStopsBuildsThoseAndStillChecksTheMounts(t *testing.T) {
 	log := []string{}
 	operator := operatorWith(boundVendor(), &orchestrator{log: &log}, &shell{})
 
-	if err := operator.Rebuild(linuxProject, core.ComposeFiles{}, []string{"phpfpm", "nginx"}); err != nil {
-		t.Fatalf("Rebuild phpfpm nginx = %v, want no error: the check is about the whole environment", err)
+	refusal := refusalOf(t, operator.Rebuild(linuxProject, core.ComposeFiles{}, []string{"phpfpm", "nginx"}))
+	if refusal.Kind != "vendor_is_bound" {
+		t.Fatalf("refusal = %+v, want the bind-mount check to have run after building the services", refusal)
 	}
 
 	if diff := cmp.Diff([]string{"stop phpfpm nginx", "up --build phpfpm nginx"}, log); diff != "" {

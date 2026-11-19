@@ -66,14 +66,7 @@ func (o Orchestrator) up(project core.Project, files core.ComposeFiles, services
 	}
 
 	if build {
-		for name, configured := range loaded.Services {
-			if configured.Build == nil {
-				continue
-			}
-
-			configured.PullPolicy = types.PullPolicyBuild
-			loaded.Services[name] = configured
-		}
+		buildFirst(loaded)
 	}
 
 	return service.Up(context.Background(), loaded, api.UpOptions{
@@ -326,5 +319,18 @@ func init() {
 
 			return
 		}
+	}
+}
+
+// buildFirst is what Compose's own `up --build` does: the build pull policy on every service that
+// has something to build, and only on those.
+func buildFirst(loaded *types.Project) {
+	for name, configured := range loaded.Services {
+		if configured.Build == nil {
+			continue
+		}
+
+		configured.PullPolicy = types.PullPolicyBuild
+		loaded.Services[name] = configured
 	}
 }

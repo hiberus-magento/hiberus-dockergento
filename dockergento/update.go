@@ -58,5 +58,14 @@ func (e *Engine) Update() error {
 		}
 	}
 
-	return exec.Command(filepath.Join(root, "generate_completion.sh")).Run()
+	if err := exec.Command(filepath.Join(root, "generate_completion.sh")).Run(); err != nil {
+		return core.Refusal{
+			Kind:    "completion_failed",
+			Code:    1,
+			Message: "Hiberus Dockergento was updated, but its shell completion could not be generated: " + err.Error(),
+			Hint:    "Run " + filepath.Join(root, "generate_completion.sh") + " to see why",
+		}
+	}
+
+	return nil
 }

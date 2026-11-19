@@ -140,8 +140,7 @@ func (o Operator) Start(project core.Project, files core.ComposeFiles, services 
 //
 // With nothing named it builds nginx, as the shell did: Compose brings up what nginx depends on
 // with it, which is the whole stack. The check that the dependencies are not bound from the host
-// is run when the whole environment was rebuilt and only then, the same as Start: naming a service
-// is asking for that service.
+// runs after every rebuild, services named or not, as rebuild.sh ran validate_bind_mounts.sh.
 func (o Operator) Rebuild(project core.Project, files core.ComposeFiles, services []string) error {
 	if err := o.refuseFromAnUnregisteredWorktree(project, "rebuild"); err != nil {
 		return err
@@ -162,10 +161,8 @@ func (o Operator) Rebuild(project core.Project, files core.ComposeFiles, service
 		return err
 	}
 
-	if len(services) == 0 {
-		if err := o.checkDependenciesAreNotBound(project); err != nil {
-			return err
-		}
+	if err := o.checkDependenciesAreNotBound(project); err != nil {
+		return err
 	}
 
 	return o.AfterStart(project, files)
