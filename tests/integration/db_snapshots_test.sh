@@ -160,7 +160,7 @@ assert_json_field "$STDERR" '.error.type' "unknown_snapshot"
 # ---------------------------------------------------------------- survival
 
 test_case "snapshots survive the environment being destroyed"
-( cd "$LAB/$PROJECT" && "$HM" down -v ) >/dev/null 2>&1
+( cd "$LAB/$PROJECT" && "$COMMAND_BIN_DIR/bin/hm" down -v ) >/dev/null 2>&1
 hm_in "$PROJECT" db list --json
 assert_contains "$(printf '%s' "$STDOUT" | jq -r '.data.snapshots[].name')" "before"
 

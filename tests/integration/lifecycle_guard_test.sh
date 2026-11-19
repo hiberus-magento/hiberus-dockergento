@@ -70,16 +70,16 @@ fi
 # ---------------------------------------------------------------- down -v asks
 
 test_case "cancelling leaves the volumes alone"
-( cd "$LAB/project" && printf '3\n' | "$HM" down -v ) >/dev/null 2>&1
+( cd "$LAB/project" && printf '3\n' | "$COMMAND_BIN_DIR/bin/hm" down -v ) >/dev/null 2>&1
 volume_exists && r=kept || r=destroyed
 assert_equals "kept" "$r"
 
 test_case "and the answer names the volumes it would delete"
-output=$( cd "$LAB/project" && printf '3\n' | "$HM" down -v 2>&1 )
+output=$( cd "$LAB/project" && printf '3\n' | "$COMMAND_BIN_DIR/bin/hm" down -v 2>&1 )
 assert_contains "$output" "${PROJECT}_dbdata"
 
 test_case "destroying without saving leaves no snapshot"
-( cd "$LAB/project" && printf '2\n' | "$HM" down -v ) >/dev/null 2>&1
+( cd "$LAB/project" && printf '2\n' | "$COMMAND_BIN_DIR/bin/hm" down -v ) >/dev/null 2>&1
 assert_empty "$(find "$HM_SNAPSHOT_DIR" -name '*.sql.gz' 2>/dev/null)"
 
 test_case "and it really did destroy them"
@@ -91,7 +91,7 @@ assert_equals "destroyed" "$r"
 start_environment
 
 test_case "choosing to save leaves a snapshot behind"
-( cd "$LAB/project" && printf '1\n' | "$HM" down -v ) >/dev/null 2>&1
+( cd "$LAB/project" && printf '1\n' | "$COMMAND_BIN_DIR/bin/hm" down -v ) >/dev/null 2>&1
 snapshots=$(find "$HM_SNAPSHOT_DIR" -name '*.sql.gz' 2>/dev/null | grep -c . || true)
 assert_equals "1" "$snapshots"
 
@@ -108,7 +108,7 @@ assert_equals "1" "$(printf '%s' "$hm_out" | jq '.data.snapshots | length')"
 start_environment
 
 test_case "down without volumes does not ask at all"
-output=$( cd "$LAB/project" && printf '' | "$HM" down 2>&1 )
+output=$( cd "$LAB/project" && printf '' | "$COMMAND_BIN_DIR/bin/hm" down 2>&1 )
 assert_not_contains "$output" "What should happen"
 
 test_case "and leaves the volumes where they were"
@@ -120,7 +120,7 @@ assert_equals "kept" "$r"
 start_environment
 
 test_case "with --yes it destroys without asking, as it always did"
-( cd "$LAB/project" && "$HM" --yes down -v ) >/dev/null 2>&1
+( cd "$LAB/project" && "$COMMAND_BIN_DIR/bin/hm" --yes down -v ) >/dev/null 2>&1
 volume_exists && r=kept || r=destroyed
 assert_equals "destroyed" "$r"
 

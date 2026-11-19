@@ -10,9 +10,9 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
-# `describe`, `list`, `magento`, `restart`, `start`, `stop` and `docker-stop-all` are the binary's
-# now; the other guardrail cases (down/setup) stay the shell implementation's and keep asking bin/run
-# through `$HM`.
+# `describe`, `list`, `magento`, `restart`, `start`, `stop`, `down` and `docker-stop-all` are the
+# binary's now; the other guardrail cases (setup, rebuild, install) stay the shell implementation's
+# and keep asking bin/run through `$HM`.
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 # Canonical path: on macOS /var is a symlink to /private/var, and git reports the resolved
 # path. Comparing against the unresolved one makes assertions pass or fail for the wrong
@@ -98,13 +98,18 @@ assert_json_field "$STDOUT" '.data.project.name' "$PROJECT"
 
 # ------------------------------------------------------------------ guardrails
 
-for command in rebuild down setup install; do
+for command in rebuild setup install; do
     test_case "$command is refused from a worktree"
     run_in "$LAB/wt" "$command"
     assert_equals "6" "$STATUS"
 done
 
-# Neither has start
+# Neither has down, nor start
+test_case "down is refused from a worktree"
+run_in_go "$LAB/wt" down --json
+assert_equals "6" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "blocked_in_worktree"
+
 test_case "start is refused from a worktree"
 run_in_go "$LAB/wt" start --json
 assert_equals "6" "$STATUS"
@@ -131,7 +136,7 @@ assert_equals "6" "$STATUS"
 assert_json_field "$STDERR" '.error.type' "blocked_in_worktree"
 
 test_case "the refusal is machine readable"
-run_in "$LAB/wt" down --json -v
+run_in_go "$LAB/wt" down --json -v
 assert_json_field "$STDERR" '.error.type' "blocked_in_worktree"
 
 test_case "the refusal names the main checkout"

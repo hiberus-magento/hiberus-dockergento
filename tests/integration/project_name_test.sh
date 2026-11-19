@@ -169,6 +169,6 @@ assert_equals "labelled" "$r"
 test_case "and the environment shows up in the inventory under that name"
 assert_contains "$("$GO_BINARY" list --json 2>/dev/null | jq -r '.data.environments[].name')" "tienda"
 
-( cd "$LAB/tienda" && "$HM" down >/dev/null 2>&1 )
+( cd "$LAB/tienda" && "$COMMAND_BIN_DIR/bin/hm" down >/dev/null 2>&1 )
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

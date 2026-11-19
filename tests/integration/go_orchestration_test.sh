@@ -304,22 +304,10 @@ RAMA="$LAB/rama"
   git worktree add -q "$RAMA" -b rama ) >/dev/null 2>&1
 
 if [ -d "$RAMA" ]; then
-    # `down` belongs in this list more than any of them: from a worktree with no environment of
-    # its own it would be destroying the main checkout's
-    # down still has its shell twin; start and stop are checked against the contract below
-    for QUE in down; do
-        ( cd "$RAMA" && "$SHELL_CLI" "$QUE" >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
-        ( cd "$RAMA" && "$GO_BINARY"  "$QUE" >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
-
-        test_case "$QUE from a worktree with no environment is refused, the same way"
-        assert_equals "6" "$GO_STATUS"
-        assert_equals "$SHELL_STATUS" "$GO_STATUS"
-        assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
-    done
-
-    # restart, start and stop have no shell twin left to compare with: the binary's refusal is
-    # checked against the contract instead
-    for QUE in restart start stop; do
+    # None of them has a shell twin left to compare with: the binary's refusal is checked against
+    # the contract instead. `down` belongs in this list more than any of them: from a worktree
+    # with no environment of its own it would be destroying the main checkout's
+    for QUE in restart start stop down; do
         ( cd "$RAMA" && "$GO_BINARY" "$QUE" >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
 
         test_case "$QUE from a worktree with no environment is refused"
