@@ -156,4 +156,13 @@ test_case "and the readable hint for restart names the binary command too"
 run --no-json restart
 assert_contains "$STDERR" "hm restart"
 
+test_case "and so does docker-stop-all, once its own shell twin is gone"
+run docker-stop-all
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for docker-stop-all names the binary command too"
+run --no-json docker-stop-all
+assert_contains "$STDERR" "hm docker-stop-all"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

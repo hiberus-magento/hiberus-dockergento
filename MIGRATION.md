@@ -380,6 +380,28 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         `internal/cli/wrappers.go:345`, `wrappers_test.go:822` y
         `openspec/specs/go-entrypoint/spec.md` (`:465`, `:570`) — y se quedan, como los de
         `debug-on`: dicen lo que el shell hacía.
+  - [x] El mismo paso, para `docker-stop-all` — vigésimo segundo comando retirado así.
+        `console/commands/docker-stop-all.sh` (20 líneas, sólo hacía `exec` del binario) está
+        borrado; quedan 43 ficheros en `console/commands/`. `docker_stop_all_test.go` fija lo que
+        pide el handler (`Interactive` según `HM_NON_INTERACTIVE`) y `orchestrate_test.go` la parada
+        y la protección de worktree.
+
+        Un llamador directo que ninguna suite ejecuta: `start.sh -s`. Ahora va por
+        `hm_run_binary docker-stop-all`; el comportamiento es el mismo, porque el `.sh` ya era un
+        `exec` del binario, y `start` desde un worktree sin entorno propio ya lo niega `bin/run`.
+
+        Apartarlo antes de las reparaciones rompió cuatro aserciones en dos suites, las dos por
+        preguntarle a `bin/run docker-stop-all`: `worktree_test.sh` «docker-stop-all is refused
+        from a worktree» y `go_passthrough_test.sh` («the shell entry point still answers…» y «the
+        question is asked on the caller's own terminal»). La primera le pregunta ahora al binario y
+        comprueba 6 y `blocked_in_worktree`; con el binario compilado para forzar siempre, falla.
+        **La segunda era peligrosa:** ejecutaba `docker-stop-all` con `HM_NON_INTERACTIVE=1`, que
+        para todos los contenedores en marcha sin preguntar, y la suite no se salta con el daemon
+        accesible: un `./tests/run.sh` corriente paraba todo lo que la máquina tuviera levantado.
+        Ahora le pregunta al binario con `DOCKER_HOST` apuntando a un socket inexistente, dentro de
+        la propia prueba, y comprueba que no hay nada que parar. La pregunta en la terminal del
+        llamador era cosa del stub de delegación y la fija Go. Con las reparaciones, apartarlo y
+        correr la suite entera: 57 de 1047 aserciones fallaban antes y después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
