@@ -31,7 +31,6 @@ type setting struct {
 	ScopeCode string `json:"scope-code,omitempty"`
 }
 
-// configure runs the settings through Magento's own CLI.
 // ConfigureForDevelopment points the store at this machine, which is all `config-env` does.
 //
 // An import does the same afterwards and lets an empty domain pass, since the data is in either
@@ -50,6 +49,7 @@ func (d Importer) ConfigureForDevelopment(project core.Project, files core.Compo
 	return d.configure(project, files)
 }
 
+// configure runs the settings through Magento's own CLI.
 func (d Importer) configure(project core.Project, files core.ComposeFiles) error {
 	domain := project.Domain
 	if domain == "" {

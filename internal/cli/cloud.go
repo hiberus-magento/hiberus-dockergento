@@ -12,9 +12,10 @@ import (
 
 // cloud runs the Magento Cloud CLI with its arguments.
 //
-// Joined into one string through a shell, as the shell implementation did (`bash -c
-// "magento-cloud $@"`): the CLI's own argument handling is what people have written their
-// invocations against, quoting included.
+// Joined into one string through a shell, which is what the shell implementation meant by
+// `bash -c "magento-cloud $@"`. What it did was less: inside double quotes $@ expands to one word
+// per argument, so bash -c ran only the first and took the rest as $0, $1... Every argument reaches
+// the CLI now.
 func cloud(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	project, code := projectOr(stderr, jsonOutput, "cloud")
 	if code != 0 {

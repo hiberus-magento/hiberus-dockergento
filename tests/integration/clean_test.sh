@@ -202,6 +202,8 @@ assert_equals "0" "$remaining"
 # handler. (TestTheCollectorCanInvokeNoPrune pins that no port it holds could prune at all.)
 #
 test_case "the command invokes no Docker prune, ever"
+# The files have to be there, or a grep that finds nothing proves nothing
+assert_equals "yes" "$([ -f "$COMMAND_BIN_DIR/dockergento/app/collect.go" ] && [ -f "$COMMAND_BIN_DIR/internal/cli/clean.go" ] && echo yes || echo no)"
 assert_empty "$(grep -vE '^\s*//' "$COMMAND_BIN_DIR/dockergento/app/collect.go" "$COMMAND_BIN_DIR/internal/cli/clean.go" |
     grep -in 'prune' || true)"
 

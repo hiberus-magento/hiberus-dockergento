@@ -229,6 +229,8 @@ assert_not_contains "$(cat "$OWN")" "vendor"
 
 # worktree is the binary's; its shell twin is gone, so the code to read is the Go that adds them
 test_case "nothing is ever linked"
+# The files have to be there, or a grep that finds nothing proves nothing
+assert_equals "yes" "$([ -f "$HM_TEST_PROJECT_ROOT/dockergento/app/worktrees.go" ] && ls "$HM_TEST_PROJECT_ROOT"/internal/cli/worktree*.go >/dev/null 2>&1 && echo yes || echo no)"
 assert_equals "" "$(grep -n 'os.Symlink' "$HM_TEST_PROJECT_ROOT"/internal/cli/worktree*.go \
     "$HM_TEST_PROJECT_ROOT"/dockergento/app/worktrees.go || true)"
 
