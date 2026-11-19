@@ -8,7 +8,7 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
+HM="$COMMAND_BIN_DIR/bin/hm"
 REAL_HOME=$(eval echo "~$(id -un)")
 LAB="$REAL_HOME/.hm/share-selftest"
 PROJECT="hm-share-selftest"
