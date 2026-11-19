@@ -201,4 +201,13 @@ test_case "and the readable hint for stop names the binary command too"
 run --no-json stop
 assert_contains "$STDERR" "hm stop"
 
+test_case "and so does start, once its own shell twin is gone"
+run start
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for start names the binary command too"
+run --no-json start
+assert_contains "$STDERR" "hm start"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

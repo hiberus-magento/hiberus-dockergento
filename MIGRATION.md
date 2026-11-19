@@ -469,6 +469,29 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         Una diferencia con el shell, heredada del port y no de esta retirada: `stop.sh` pasaba a
         `docker compose stop` cualquier opción (`hm stop -t 5`); el binario la toma por un
         servicio. Queda en la pista C.
+  - [x] El mismo paso, para `start` — vigésimo séptimo comando retirado así.
+        `console/commands/start.sh` (61 líneas) está borrado; quedan 38 ficheros en
+        `console/commands/`. El `Start` de Go ya hacía todo lo que hacía el `.sh` — protección de
+        worktree, `-s`, el proxy, `up`, la comprobación de bind mounts y `post-start` en Linux —
+        pero el handler pedía al motor concreto. Ahora va por `newEngine` y `start_test.go` fija
+        los servicios y `-s` que pasa, si parar el resto puede preguntar, que cualquier otra opción
+        es un error de uso antes de resolver nada y que una negativa conserva su código.
+
+        Un llamador directo: el baile del vendor de `composer.sh`, que va por
+        `hm_run_binary start`. Las suites que le preguntaban a `bin/run start` le preguntan al
+        binario. `go_orchestration_test.sh`, que se salta sin daemon, comparaba además con gemelos
+        **ya retirados** — `bin/run magento` y `bin/run bash`, desde `cd0afc8` y `65ecb65` — y con
+        daemon esas aserciones fallaban sin que nadie lo viera. Ahora `magento` y `bash` se
+        comparan con el `exec` que ejecutaban, el hash y las etiquetas de Compose con el
+        `docker-compose` del binario (lo que `start.sh` ejecutaba por dentro), y las negativas
+        desde un worktree de `restart`, `start` y `stop` con el contrato. `non_interactive_test.sh`
+        le pregunta al binario por `bash` y `start`, que `bin/run` negaría al instante.
+
+        Apartarlo rompió una comprobación textual: `post_start_test.sh` leía `start.sh` para ver
+        que llamaba a `post-start.sh`. La entrega del binario la fija Go
+        (`TestLinuxIsHandedBackWhatIsNotPortedYet`). Reemplazarla destapó que `rebuild.sh` lleva su
+        propia copia de esos pasos: pista C. Con las reparaciones, apartarlo: 54 fallos antes y
+        después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
