@@ -21,6 +21,7 @@
 set -uo pipefail
 
 HM="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/bin/run"
+HM_BINARY="$(dirname "$HM")/hm"
 WORKTREES="${1:-10}"
 MEMORY_FLOOR_MB="${MEMORY_FLOOR_MB:-500}"
 
@@ -44,7 +45,7 @@ cleanup() {
     local name
     while IFS= read -r name; do
         [ -z "$name" ] && continue
-        ( cd "$LAB/$PROJECT" && "$HM" worktree remove "$name" --force ) >/dev/null 2>&1
+        ( cd "$LAB/$PROJECT" && "$HM_BINARY" worktree remove "$name" --force ) >/dev/null 2>&1
     done <<< "$(ls "$HM_WORKTREE_DIR/$PROJECT" 2>/dev/null | sed 's/\.json$//' | sort -u | grep -v '\.yml$')"
 
     ( cd "$LAB/$PROJECT" && docker compose -p "$PROJECT" down -v --remove-orphans ) >/dev/null 2>&1
@@ -190,7 +191,7 @@ say "1 · $WORKTREES altas simultáneas"
 
 started=$(date +%s)
 for i in $(seq 1 "$WORKTREES"); do
-    ( cd "$LAB/$PROJECT" && "$HM" worktree add "rama-$i" --profile=agent --no-start ) \
+    ( cd "$LAB/$PROJECT" && "$HM_BINARY" worktree add "rama-$i" --profile=agent --no-start ) \
         > "$LAB/add-$i.out" 2>&1 &
 done
 wait

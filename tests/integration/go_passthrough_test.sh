@@ -251,10 +251,11 @@ assert_equals "$COMPOSE_STATUS" "$GO_STATUS"
 # The exit codes are a contract: 2 is a usage error, 4 is not a project, 6 is a refusal on
 # purpose. A wrapper that flattened them would break everything that branches on them.
 
-both worktree add
+# worktree has no shell twin left to compare with: bin/run would only name the binary, with a 2 of
+# its own that matches by coincidence
+( cd "$DIR" && "$GO_BINARY" worktree add >"$LAB/go.out" 2>"$LAB/go.err" ); GO_STATUS=$?
 test_case "a usage error keeps its code"
 assert_equals "2" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
 
 ( cd "$LAB" && "$GO_BINARY" describe --json >"$LAB/go.out" 2>&1 ); outside=$?
 test_case "and so does a directory that is not a project"

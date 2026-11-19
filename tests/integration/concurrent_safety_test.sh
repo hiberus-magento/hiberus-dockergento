@@ -9,7 +9,7 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
-# `describe` is the binary's now; `worktree add`/`clean` stay the shell implementation's and keep
+# `describe` and `worktree` are the binary's now; `clean` stays the shell implementation's and keeps
 # asking bin/run through `$HM`.
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
@@ -98,7 +98,7 @@ assert_equals "8" "$(ls "$HM_WORKTREE_DIR/$PROJECT"/carrera-*.json | wc -l | tr 
 # ---------------------------------------------------------------- collisions
 
 test_case "a branch whose name is already taken by another branch is refused"
-( cd "$DIR" && "$HM" worktree add Rama --no-start >"$LAB/out" 2>"$LAB/err" )
+( cd "$DIR" && "$GO_BINARY" worktree add Rama --no-start >"$LAB/out" 2>"$LAB/err" )
 status=$?
 assert_equals "2" "$status"
 assert_contains "$(cat "$LAB/err")" "belongs to"

@@ -38,7 +38,7 @@ mkdir -p "$HM_STATE_DIR"
 # The registration is a row now, so the test asks for it rather than looking for a file.
 #
 registrada() {
-    ( cd "$MAIN" && "$HM" worktree list --json 2>/dev/null | jq -r '.data.worktrees[].name' ) |
+    ( cd "$MAIN" && "$COMMAND_BIN_DIR/bin/hm" worktree list --json 2>/dev/null | jq -r '.data.worktrees[].name' ) |
         grep -qx "$1" && echo 0 || echo 1
 }
 
@@ -50,7 +50,7 @@ reescribir_vendor() {
     mkdir -p "$HM_WORKTREE_DIR/$PROJECT"
     printf '{"path":"%s","branch":"feature/x","profile":"agent","domain":"feature-x.shop.test","project":"%s-feature-x","vendor":"%s"}\n' \
         "$TREE" "$PROJECT" "$1" > "$HM_WORKTREE_DIR/$PROJECT/feature-x.json"
-    ( cd "$MAIN" && "$HM" worktree list --json ) >/dev/null 2>&1
+    ( cd "$MAIN" && "$COMMAND_BIN_DIR/bin/hm" worktree list --json ) >/dev/null 2>&1
     rm -f "$HM_WORKTREE_DIR/$PROJECT/feature-x.json"
 }
 
@@ -139,17 +139,17 @@ TREE="$LAB/$PROJECT-worktrees/feature-x"
 
 # ---------------------------------------------------------------- refusals first
 
-hm_in "$LAB/$BARE" worktree add feature/x --no-start
+binario_en "$LAB/$BARE" worktree add feature/x --no-start
 assert_equals "6" "$STATUS" "a project not routed through the proxy cannot have branch environments"
 assert_contains "$STDERR" "proxy" "and it says why"
 
-hm_in "$MAIN" worktree add feature/x --profile=nonsense --no-start
+binario_en "$MAIN" worktree add feature/x --profile=nonsense --no-start
 assert_equals "2" "$STATUS" "an unknown profile is a usage error"
 assert_contains "$STDERR" "lite agent full" "it lists the profiles that exist"
 
 # ---------------------------------------------------------------- creating one
 
-hm_in "$MAIN" worktree add feature/x --profile=agent --no-start
+binario_en "$MAIN" worktree add feature/x --profile=agent --no-start
 assert_equals "0" "$STATUS" "a branch environment is created"
 
 assert_equals "0" "$(registrada feature-x)" \
@@ -297,15 +297,15 @@ hm_in "$LAB/loose" stop
 assert_equals "6" "$STATUS" "a worktree with no environment of its own is still refused"
 assert_contains "$STDERR$STDOUT" "worktree" "naming the main checkout"
 
-hm_in "$TREE" worktree add another/branch --no-start
+binario_en "$TREE" worktree add another/branch --no-start
 assert_equals "6" "$STATUS" "branch environments are created from the main checkout"
 
-hm_in "$MAIN" worktree add feature/x --no-start
+binario_en "$MAIN" worktree add feature/x --no-start
 assert_equals "2" "$STATUS" "the same name is not registered twice"
 
 # ---------------------------------------------------------------- listing
 
-hm_in "$MAIN" worktree list --json
+binario_en "$MAIN" worktree list --json
 assert_equals "0" "$STATUS" "they can be listed"
 assert_equals "feature-x" "$(printf '%s' "$STDOUT" | jq -r '.data.worktrees[0].name')"
 assert_equals "agent" "$(printf '%s' "$STDOUT" | jq -r '.data.worktrees[0].profile')"
@@ -315,13 +315,13 @@ assert_equals "https://feature-x.shop.test" "$(printf '%s' "$STDOUT" | jq -r '.d
 
 printf 'uncommitted\n' > "$TREE/scratch.txt"
 ( cd "$TREE" && git add scratch.txt )
-hm_in "$MAIN" worktree remove feature-x
+binario_en "$MAIN" worktree remove feature-x
 assert_equals "6" "$STATUS" "uncommitted work is not thrown away"
 
 rm -f "$TREE/scratch.txt"
 ( cd "$TREE" && git reset -q HEAD scratch.txt 2>/dev/null )
 
-hm_in "$MAIN" worktree remove feature-x --force
+binario_en "$MAIN" worktree remove feature-x --force
 assert_equals "0" "$STATUS" "a branch environment can be removed"
 assert_equals "1" "$(registrada feature-x)" \
     "the registration is gone"
@@ -330,7 +330,7 @@ assert_equals "1" "$([ -f "$HM_WORKTREE_DIR/$PROJECT/feature-x.yml" ] && echo 0 
 assert_equals "1" "$([ -d "$TREE" ] && echo 0 || echo 1)" \
     "and so is the worktree"
 
-hm_in "$MAIN" worktree remove feature-x --force
+binario_en "$MAIN" worktree remove feature-x --force
 assert_equals "2" "$STATUS" "removing what is not there is a usage error"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
