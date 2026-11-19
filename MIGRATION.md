@@ -787,6 +787,16 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         dejó de compartir, y un `HM_SHARE_PORT` que no es un número se niega. `share_test.sh`, que
         necesita Docker e internet, le pregunta al binario. `share.sh` (138 líneas) está borrado;
         quedan 13. Apartados: 46 de 1034 aserciones fallaban antes y después, diff vacío.
+  - [x] `tunnel` portado y retirado (`0c1e262`). Lleva un servicio del proyecto a un puerto libre
+        de esta máquina con un relé socat en su red, publicado sólo en 127.0.0.1, y lo sostiene
+        hasta Ctrl-C: el único puerto expuesto si no se dice cuál, los mismos rechazos para un
+        servicio que falta, que no existe o que está parado y para un puerto ambiguo, veinte
+        intentos hasta que el puerto contesta, y `--close` para un servicio o para todos. Reutiliza
+        `Relays`; dos puertos pequeños dicen qué servicios definen los ficheros y qué puertos
+        expone un contenedor. Dos diferencias: un puerto que no es un número se niega, y un relé que
+        falla se cierra sin decir además que el túnel se cerró. `proxy_test.sh` le pregunta al
+        binario (`34cca7e`). `tunnel.sh` (175 líneas) está borrado; quedan 12. Apartados: 46 de
+        1036 aserciones fallaban antes y después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
