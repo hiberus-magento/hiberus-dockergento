@@ -246,7 +246,7 @@ assert_equals "0" \
 #
 test_case "Composer refuses to write to dependencies that are somebody else's"
 reescribir_vendor shared
-hm_in "$TREE" composer install
+binario_en "$TREE" composer install
 assert_equals "6" "$STATUS"
 assert_contains "$STDERR" "dependencies"
 
@@ -254,7 +254,7 @@ test_case "and says where they belong"
 assert_contains "$STDERR" "$MAIN"
 
 test_case "while the rest of Composer is untouched"
-hm_in "$TREE" composer --version
+binario_en "$TREE" composer --version
 assert_equals "0" "$([ "$STATUS" != "6" ] && echo 0 || echo 1)"
 
 reescribir_vendor own

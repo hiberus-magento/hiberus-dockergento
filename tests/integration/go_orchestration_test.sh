@@ -11,7 +11,6 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
-SHELL_CLI="$COMMAND_BIN_DIR/bin/run"
 PROJECT="hm-go-orquestacion"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 
@@ -194,14 +193,15 @@ assert_contains "$(cat "$LAB/go.err")" "needs a value"
 
 # ---------------------------------------------------------------- running things inside
 
+# exec has no shell twin left: Compose itself is the oracle. Without -r the binary names no user,
+# so it runs as the container's own, which is who `docker compose exec` runs as too
 test_case "exec returns the command's own exit code"
-( cd "$DIR" && "$SHELL_CLI" exec sh -c 'exit 7' >/dev/null 2>&1 ); SHELL_STATUS=$?
-( cd "$DIR" && "$GO_BINARY"  exec sh -c 'exit 7' >/dev/null 2>&1 ); GO_STATUS=$?
+( cd "$DIR" && "$GO_BINARY" exec sh -c 'exit 7' >/dev/null 2>&1 ); GO_STATUS=$?
 assert_equals "7" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
 
 test_case "and its output, as the same user"
-assert_equals "$( cd "$DIR" && "$SHELL_CLI" exec id -un 2>&1 )" "$( cd "$DIR" && "$GO_BINARY" exec id -un 2>&1 )"
+assert_equals "$( cd "$DIR" && docker compose -p "$PROJECT" exec -T phpfpm id -un 2>&1 | tr -d '\r' )" \
+    "$( cd "$DIR" && "$GO_BINARY" exec id -un 2>&1 | tr -d '\r' )"
 
 test_case "and as root when asked"
 assert_equals "root" "$( cd "$DIR" && "$GO_BINARY" exec -r id -un 2>&1 | tr -d '\r' )"
@@ -241,8 +241,9 @@ test_case "the Magento CLI is invoked the same way"
 assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
 assert_equals "$SHELL_STATUS" "$GO_STATUS"
 
+# composer's shell twin is retired too: what it ran for show is composer in the php container
 test_case "and so is Composer"
-( cd "$DIR" && "$SHELL_CLI" composer show >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
+( cd "$DIR" && "$GO_BINARY" exec composer show >"$LAB/shell.out" 2>&1 ); SHELL_STATUS=$?
 ( cd "$DIR" && "$GO_BINARY"  composer show >"$LAB/go.out" 2>&1 );    GO_STATUS=$?
 assert_equals "$(cat "$LAB/shell.out")" "$(cat "$LAB/go.out")"
 assert_equals "$SHELL_STATUS" "$GO_STATUS"
@@ -254,9 +255,7 @@ assert_equals "$SHELL_STATUS" "$GO_STATUS"
 #
 test_case "creating a project through Composer is refused, with the usage code"
 ( cd "$DIR" && "$GO_BINARY" composer create-project >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
-( cd "$DIR" && "$SHELL_CLI" composer create-project >/dev/null 2>&1 );     SHELL_STATUS=$?
 assert_equals "2" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
 assert_contains "$(cat "$LAB/go.err")" "create-project"
 
 # ---------------------------------------------------------------- a shell inside
