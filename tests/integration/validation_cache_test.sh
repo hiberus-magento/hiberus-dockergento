@@ -38,7 +38,7 @@ run() {
 # describe and list are the binary's now (`internal/cli/run.go`); the cache under test here is
 # bin/run's own (`console/helpers/cache.sh`, not ported), so the entry point stays bin/run and the
 # probe commands change instead — `db list` is still validated the same way `describe` was, and
-# `permissions` is still excluded from validate_command the same way `list` was (`bin/run:206`).
+# `switch` is still excluded from validate_command the same way `list` was (`bin/run:208`).
 
 test_case "a valid configuration is accepted"
 run db list --json
@@ -58,7 +58,7 @@ run db list --json
 assert_equals "4" "$STATUS"
 
 test_case "a command that does not need the project still works"
-run permissions --json
+run switch --list --json
 assert_equals "0" "$STATUS"
 
 test_case "and the broken configuration keeps being detected"
