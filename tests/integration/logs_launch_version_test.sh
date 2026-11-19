@@ -100,14 +100,14 @@ echo '{"MAGENTO_DIR": ".", "COMPOSE_PROJECT_NAME": "hm-verbs-selftest", "DOMAIN"
 # ---------------------------------------------------------------- launch
 
 test_case "launch reports the storefront address"
-run_in_lab launch --json
+run_in_lab_go launch --json
 assert_json_field "$STDOUT" '.data.url' "https://verbs.local/"
 
 test_case "and does not open anything when asked for JSON"
 assert_json_field "$STDOUT" '.data.opened' "false"
 
 test_case "the admin panel is a destination of its own"
-run_in_lab launch --admin --json
+run_in_lab_go launch --admin --json
 assert_json_field "$STDOUT" '.data.url' "https://verbs.local/admin"
 
 # Magento generates a random front name on install unless told otherwise, and on a project that
@@ -124,7 +124,7 @@ return [
     'MAGE_MODE' => 'developer'
 ];
 PHP
-run_in_lab launch --admin --json
+run_in_lab_go launch --admin --json
 assert_json_field "$STDOUT" '.data.url' "https://verbs.local/admin_7f3k9x"
 
 test_case "and describe reports the same address"
@@ -132,35 +132,35 @@ run_in_lab_go describe --json
 assert_json_field "$STDOUT" '.data.project.urls.admin' "https://verbs.local/admin_7f3k9x"
 
 test_case "the storefront is unaffected by it"
-run_in_lab launch --json
+run_in_lab_go launch --json
 assert_json_field "$STDOUT" '.data.url' "https://verbs.local/"
 
 test_case "an env.php without a front name falls back to admin"
 printf '<?php\nreturn ['"'"'MAGE_MODE'"'"' => '"'"'developer'"'"'];\n' > "$LAB/app/etc/env.php"
-run_in_lab launch --admin --json
+run_in_lab_go launch --admin --json
 assert_json_field "$STDOUT" '.data.url' "https://verbs.local/admin"
 
 rm -rf "$LAB/app"
 
 test_case "two destinations are a usage error"
-run_in_lab launch --admin --search --json
+run_in_lab_go launch --admin --search --json
 assert_equals "2" "$STATUS"
 
 test_case "and the error says why"
 assert_json_field "$STDERR" '.error.type' "conflicting_options"
 
 test_case "an unknown option is refused too"
-run_in_lab launch --nonsense --json
+run_in_lab_go launch --nonsense --json
 assert_equals "2" "$STATUS"
 
 test_case "a service that publishes no port has no address"
-run_in_lab launch --rabbitmq --json
+run_in_lab_go launch --rabbitmq --json
 assert_json_field "$STDERR" '.error.type' "no_address"
 
 test_case "a project with no domain says so instead of opening something wrong"
 echo '{"MAGENTO_DIR": ".", "COMPOSE_PROJECT_NAME": "hm-verbs-selftest"}' \
     > config/docker/properties.json
-run_in_lab launch --json
+run_in_lab_go launch --json
 assert_json_field "$STDERR" '.error.type' "no_domain"
 
 test_case "and points at how to fix it"
