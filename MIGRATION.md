@@ -654,6 +654,16 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         ficheros en `console/commands/`. Siguen en `hm --help` porque están declarados en
         `command_descriptions.json`. Apartados: 51 de 1050 aserciones fallaban antes y después,
         diff vacío.
+  - [x] `dbeaver`, `sequelace` y `tableplus` portados y retirados, con un solo handler
+        (`7ab593c`): credenciales y puerto publicado de la descripción, la URL como la construía
+        `db_client.sh`, y el cliente abierto con `open -a` en macOS o `dbeaver`/`xdg-open` en el
+        resto, como un solo argumento y no por `eval` (una contraseña con espacios ya no rompe la
+        orden). `--port` sin valor al final es un error de uso, donde el shell entraba en un bucle;
+        una credencial vacía cuenta como `magento`. Sus tres ficheros (11 líneas cada uno),
+        `console/tasks/db_client.sh` y su prueba unitaria (19 aserciones, portadas a
+        `db_client_test.go`) están borrados; quedan 25 ficheros en `console/commands/`.
+        `db_client_test.sh` de integración le pregunta al binario. Apartados: 51 fallos antes y
+        después, diff vacío.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072
