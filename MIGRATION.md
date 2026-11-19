@@ -798,6 +798,18 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         binario (`34cca7e`). `tunnel.sh` (175 líneas) está borrado; quedan 12. Apartados: 46 de
         1036 aserciones fallaban antes y después, diff vacío.
 
+        Revisado de `8008679` a `e899801` (`review-226853e2db9f5747`): sin aprobación ni rechazo, con tres
+        hallazgos escalados por causalidad desconocida, los tres ciertos. Un Ctrl-C mientras
+        `share` esperaba su dirección mataba el proceso y dejaba el entorno en internet: el manejador
+        de señales se instalaba sólo después de abrir (`R3-share-interrupt-during-address-wait-leaves-public-tunnel`,
+        `R4-share-ctrlc-during-open-leaks-public-tunnel`). Y `tunnel` cerraba su relé, y quitaba uno
+        viejo, por prefijo, así que el túnel a `db` se llevaba el de `db-replica`
+        (`R4-tunnel-exit-closes-sibling-service-tunnels`; el shell hacía lo mismo al abrir).
+        Arreglado en `63a62fa`: la interrupción se toma desde antes de preguntar, en tres fases
+        —en la pregunta termina, mientras abre cierra dos veces y termina con 130, mientras sostiene
+        sólo cierra—, `share` deja de esperar a un relé que ya no se puede leer, y el relé de un
+        servicio se busca por su nombre exacto.
+
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
 
