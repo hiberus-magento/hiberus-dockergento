@@ -46,12 +46,12 @@ return [
 PHP
 
 run() { ( cd "$DIR" && "$HM" "$@" >"$LAB/out" 2>"$LAB/err" ); STATUS=$?; STDOUT=$(cat "$LAB/out"); STDERR=$(cat "$LAB/err"); return 0; }
-# doctor is the binary's; ai-context is still the shell implementation's and keeps going through run
+# doctor and ai-context are the binary's
 run_go() { ( cd "$DIR" && "$COMMAND_BIN_DIR/bin/hm" "$@" >"$LAB/out" 2>"$LAB/err" ); STATUS=$?; STDOUT=$(cat "$LAB/out"); STDERR=$(cat "$LAB/err"); return 0; }
 
 # ---------------------------------------------------------------- generating
 
-run ai-context
+run_go ai-context
 assert_equals "0" "$STATUS" "the context is generated"
 
 test_case "AGENTS.md is written with the generated block"
@@ -87,7 +87,7 @@ assert_equals "$DIR" "$(jq -r '.mcpServers.hm.cwd' "$DIR/.mcp.json")"
 printf '\n## Mis notas\n\nEsto lo escribí yo.\n' >> "$DIR/AGENTS.md"
 printf 'Y esto también, antes del bloque.\n' | cat - "$DIR/AGENTS.md" > "$DIR/tmp" && mv "$DIR/tmp" "$DIR/AGENTS.md"
 
-run ai-context
+run_go ai-context
 test_case "regenerating leaves everything outside the block alone"
 assert_contains "$(cat "$DIR/AGENTS.md")" "Esto lo escribí yo."
 assert_contains "$(cat "$DIR/AGENTS.md")" "Y esto también, antes del bloque."
@@ -97,13 +97,13 @@ assert_equals "1" "$(grep -c 'hm:begin' "$DIR/AGENTS.md")"
 
 test_case "an existing CLAUDE.md is never modified"
 printf 'Mis instrucciones propias.\n' > "$DIR/CLAUDE.md"
-run ai-context
+run_go ai-context
 assert_equals "Mis instrucciones propias." "$(cat "$DIR/CLAUDE.md")"
 assert_contains "$STDOUT" "@AGENTS.md"
 
 test_case "an existing .mcp.json keeps its other servers"
 jq '.mcpServers.otro = {"command": "otro"}' "$DIR/.mcp.json" > "$DIR/tmp" && mv "$DIR/tmp" "$DIR/.mcp.json"
-run ai-context
+run_go ai-context
 assert_equals "otro" "$(jq -r '.mcpServers.otro.command' "$DIR/.mcp.json")"
 assert_equals "mcp" "$(jq -r '.mcpServers.hm.args[0]' "$DIR/.mcp.json")"
 
@@ -118,7 +118,7 @@ run_go doctor --json
 test_case "and sees it go stale when the project changes"
 assert_equals "error" "$(printf '%s' "$STDOUT" | jq -r '.data.checks[] | select(.message | test("agent context")) | .severity' | head -1)"
 
-run ai-context
+run_go ai-context
 run_go doctor --json
 test_case "regenerating settles it"
 assert_equals "ok" "$(printf '%s' "$STDOUT" | jq -r '.data.checks[] | select(.message | test("agent context")) | .severity' | head -1)"

@@ -37,8 +37,7 @@ printf '{"MAGENTO_DIR": ".", "DOMAIN": "anon.test", "COMPOSE_PROJECT_NAME": "%s"
     > "$DIR/config/docker/properties.json"
 
 run() { ( cd "$DIR" && "$HM" "$@" >"$LAB/out" 2>"$LAB/err" ); STATUS=$?; STDOUT=$(cat "$LAB/out"); STDERR=$(cat "$LAB/err"); return 0; }
-# describe, doctor and mysql are the binary's now; ai-context below is still the shell
-# implementation's and keeps asking bin/run through run().
+# describe, doctor, mysql and ai-context are the binary's now.
 run_go() { ( cd "$DIR" && "$GO_BINARY" "$@" >"$LAB/out" 2>"$LAB/err" ); STATUS=$?; STDOUT=$(cat "$LAB/out"); STDERR=$(cat "$LAB/err"); return 0; }
 
 # ---------------------------------------------------------------- what describe says
@@ -57,12 +56,12 @@ assert_equals "2026-08-28 09:00" "$(printf '%s' "$STDOUT" | jq -r '.data.data.an
 
 # ---------------------------------------------------------------- what the agent reads
 
-run ai-context
+run_go ai-context
 test_case "the context says the data is anonymised"
 assert_contains "$(cat "$DIR/AGENTS.md")" "Anonymised on 2026-08-28"
 
 printf '{}\n' > "$LAB/state/$PROJECT.json"
-run ai-context
+run_go ai-context
 test_case "and says the opposite in words when it is not"
 assert_contains "$(cat "$DIR/AGENTS.md")" "has not been anonymised"
 assert_contains "$(cat "$DIR/AGENTS.md")" "real personal data"

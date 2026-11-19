@@ -743,6 +743,18 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         líneas) están borrados; quedan 16. Apartados: 48 de 1048 aserciones fallaban antes y
         después (tres menos que antes: las opciones mal formadas de `launch` se niegan ya sin
         Docker), diff vacío.
+  - [x] `ai-context` portado y retirado (`878943d`). Escribe el bloque de `AGENTS.md`, un
+        `CLAUDE.md` que apunta a él si no hay ninguno y la entrada de la herramienta en `.mcp.json`
+        desde la descripción, byte a byte y con los modos que les daba el shell, y niega un bloque
+        sin cerrar como él. La única diferencia buscada: la entrada MCP arranca `bin/hm`, que le
+        pasa `mcp` al shell, en vez de `bin/run`. La paridad la probó un oráculo que ejecutaba el
+        `ai-context.sh` real con sólo `collect_project_info` sustituido, sobre siete escenarios; lo
+        que sostenía queda fijado por sí solo en Go, y las comprobaciones de
+        `data/ai-exclusions.json` pasan a `ai_exclusions_test.sh` (`be14623`). La huella del
+        `doctor` comparte ya el código del escritor y escapa las cadenas como `jq`.
+        `ai-context.sh` (106 líneas), `console/tasks/agent_context.sh`, su prueba unitaria y el
+        oráculo están borrados; quedan 15. Tres suites que necesitan Docker le preguntan al
+        binario. Apartados: 48 fallos antes y después, diff vacío.
 
         La primera corrida con el fichero apartado no valió: el disco se quedó sin espacio y dos
         suites no pudieron compilar el binario y se saltaron. Repetida con espacio: 54 de 1072

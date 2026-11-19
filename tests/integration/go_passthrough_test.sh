@@ -176,11 +176,11 @@ assert_equals "" "$(jq -r '[.data.checks[] | select(.scope == "project")] | .[]'
 
 #
 # The fingerprint is the one value in the diagnosis that has to agree with something already
-# written down: `hm ai-context` is still the shell implementation, and the digest it left in
-# AGENTS.md is what the Go check compares against. A jq newline the port dropped would make every
+# written down: the digest `hm ai-context` leaves in AGENTS.md is what the doctor's check compares
+# against. A jq newline the port dropped would make every
 # generated context on every project read as stale.
 #
-( cd "$DIR" && "$SHELL_CLI" ai-context >/dev/null 2>&1 )
+( cd "$DIR" && "$GO_BINARY" ai-context >/dev/null 2>&1 )
 
 test_case "the Go check recognises the context the shell command generated"
 ( cd "$DIR" && "$GO_BINARY" doctor --json --only=agent-context >"$LAB/go.out" 2>&1 )
