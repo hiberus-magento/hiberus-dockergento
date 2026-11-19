@@ -227,8 +227,10 @@ hm_worktree_write_overlay "$OWN" "agent" "feature-x.shop.test" "shop-feature-x" 
     "$SERVICES" "hm-gateway" ""
 assert_not_contains "$(cat "$OWN")" "vendor"
 
+# worktree is the binary's; its shell twin is gone, so the code to read is the Go that adds them
 test_case "nothing is ever linked"
-assert_equals "" "$(grep -n 'ln -s' "$COMMANDS_DIR/worktree.sh" || true)"
+assert_equals "" "$(grep -n 'os.Symlink' "$HM_TEST_PROJECT_ROOT"/internal/cli/worktree*.go \
+    "$HM_TEST_PROJECT_ROOT"/dockergento/app/worktrees.go || true)"
 
 # ---------------------------------------------------------------- the recorded decision
 

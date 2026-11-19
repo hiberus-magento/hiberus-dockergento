@@ -197,8 +197,13 @@ assert_equals "0" "$remaining"
 
 # `docker system prune` is the tool this command exists to not be. A source check rather than a
 # runtime one: the point is that the call is not written anywhere.
+#
+# clean is the binary's; its shell twin is gone, so the code to read is the Go collector and its
+# handler. (TestTheCollectorCanInvokeNoPrune pins that no port it holds could prune at all.)
+#
 test_case "the command invokes no Docker prune, ever"
-assert_empty "$(grep -vE '^\s*#' "$COMMANDS_DIR/clean.sh" | grep -n 'prune' || true)"
+assert_empty "$(grep -vE '^\s*//' "$COMMAND_BIN_DIR/dockergento/app/collect.go" "$COMMAND_BIN_DIR/internal/cli/clean.go" |
+    grep -in 'prune' || true)"
 
 test_case "nothing to collect is reported, not treated as an error"
 ( cd "$LAB" && "$HM" clean >/dev/null 2>&1 )

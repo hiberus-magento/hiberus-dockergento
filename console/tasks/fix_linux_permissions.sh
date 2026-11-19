@@ -3,7 +3,10 @@ set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
 
-docker_root_command="${COMMANDS_DIR}/docker-compose.sh exec -T -u root"
+# $DOCKER_COMPOSE, the project's Compose with its files, as set_etc_hosts.sh uses. This ran through
+# console/commands/docker-compose.sh, retired with that command's shell twin, and post-start failed
+# here on every Linux start until it stopped
+docker_root_command="$DOCKER_COMPOSE exec -T -u root"
 
 prepare_container_to_change_user_ids() {
     service=$1
