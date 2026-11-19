@@ -9,10 +9,7 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
-# `describe`, `list`, `magento`, `restart`, `start`, `stop`, `down`, `setup` and `docker-stop-all`
-# are the binary's now; the other guardrail cases (rebuild, install) stay the shell implementation's
-# and keep asking bin/run through `$HM`.
+# Every command these cases ask about is the binary's now, so they ask it directly.
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 # Canonical path: on macOS /var is a symlink to /private/var, and git reports the resolved
 # path. Comparing against the unresolved one makes assertions pass or fail for the wrong
@@ -54,17 +51,7 @@ git add -A
 git commit -qm "init"
 git worktree add --detach "$LAB/wt" HEAD >/dev/null 2>&1
 
-run_in() {
-    local dir="$1"
-    shift
-    ( cd "$dir" && "$HM" "$@" >"$LAB/out" 2>"$LAB/err" )
-    STATUS=$?
-    STDOUT=$(cat "$LAB/out")
-    STDERR=$(cat "$LAB/err")
-    return 0
-}
-
-# The binary's twin of run_in, for the calls that are the binary's now (describe, list, magento).
+# Runs the binary in a directory and keeps its status and both outputs.
 run_in_go() {
     local dir="$1"
     shift
@@ -98,11 +85,11 @@ assert_json_field "$STDOUT" '.data.project.name' "$PROJECT"
 
 # ------------------------------------------------------------------ guardrails
 
-for command in install; do
-    test_case "$command is refused from a worktree"
-    run_in "$LAB/wt" "$command"
-    assert_equals "6" "$STATUS"
-done
+# install is the binary's now; bin/run would only say it moved
+test_case "install is refused from a worktree"
+run_in_go "$LAB/wt" install --json
+assert_equals "6" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "blocked_in_worktree"
 
 # Neither has rebuild
 test_case "rebuild is refused from a worktree"
