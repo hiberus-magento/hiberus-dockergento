@@ -19,9 +19,9 @@ import (
 // worktree's project name there would put it in somebody's commit and rename the main environment
 // at the same time.
 //
-// There is one implementation of this now — the shell entry point delegates to the binary, which
-// is what let the registry stop being a directory of small files — so nothing here compares two
-// answers. What it asserts is what the command does.
+// There is one implementation of this now — the binary's; the shell twin is retired and
+// `bin/run worktree` only names the binary — so nothing here compares two answers. What it
+// asserts is what the command does.
 //
 
 // branches is a project that can have branch environments: committed, so git can make a worktree
@@ -96,23 +96,6 @@ func TestARegistrationAnEarlierVersionWroteIsStillFound(t *testing.T) {
 
 	if name := e2e.String(t, listed.Stdout, "data.worktrees.0.name"); name != "azul" {
 		t.Fatalf("worktree list = %q, want the registration azul in it", listed.Stdout)
-	}
-}
-
-// The entry point people type is still `hm`, and it has to arrive at the same place: the shell
-// implementation of this command is a delegator now, which is what makes one registry possible.
-func TestTheShellEntryPointReachesTheSameAnswer(t *testing.T) {
-	t.Parallel()
-	e2e.NeedsDocker(t)
-
-	session, project := branches(t)
-	registers(t, session, project, "azul")
-
-	fromBinary := session.Run(t, project.Root, "worktree", "list", "--json")
-	fromShell := session.RunShell(t, project.Root, "worktree", "list", "--json")
-
-	if difference := e2e.Difference(t, fromShell.Stdout, fromBinary.Stdout); difference != "" {
-		t.Errorf("bin/run worktree list differs from the binary's answer (-want +got):\n%s", difference)
 	}
 }
 

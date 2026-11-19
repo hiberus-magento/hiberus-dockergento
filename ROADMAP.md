@@ -17,7 +17,7 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 | Ficheros en `console/commands/` | **40** | `fd -e sh . console/commands \| wc -l` |
 | Gemelos de shell retirados | **25** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
 | Portados que **aún conservan** su `.sh` | **9** | ver la pista A, y `composer` en la B |
-| Tests Go / aserciones de shell | 508 / 630 | `go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
+| Tests Go / aserciones de shell | 508 / 630 | `DOCKER_HOST=unix:///nonexistent go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 
 ## Qué hacer después, en orden
 
@@ -100,7 +100,7 @@ que el binario no daba para ninguno de los ocho comandos de código que responde
 | Commits en `release/2.0.0`, en inglés, Conventional Commits, **sin firma de IA** (ni `Co-Authored-By` ni `Claude-Session`) | Norma del proyecto |
 | Push, PR y release los decide el humano | |
 | Nunca ejecutar `hm debug-on`/`debug-off`, `masquerade`, `docker-stop-all` contra un proyecto real | Editan contenedores, reinician servicios o borran |
-| Ningún test puede llegar al daemon real; hay proyectos ajenos levantados | Fija `DOCKER_HOST=unix:///nonexistent` cuando corras suites amplias |
+| Ningún test puede llegar al daemon real; hay proyectos ajenos levantados | Fija `DOCKER_HOST=unix:///nonexistent` cuando corras suites amplias, **también `go test ./...`**: `test/e2e` corre contra el Docker que encuentre (`e2e.NeedsDocker` sólo mira `docker info`) y crea y borra contenedores en él |
 | Nunca escribir en el `/etc/hosts` real | |
 | Para borrar un gemelo de shell: **apártalo, corre la suite entera, anota qué se rompe, restaura, repara, borra** | Tres comprobaciones textuales fallaron antes; detalle en `MIGRATION.md` |
 | Restaurar ficheros copiando un respaldo, **nunca** `git checkout <fichero>` | Revirtió una unidad entera sin commitear dejando `git status` limpio |
