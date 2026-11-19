@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 )
 
 //
@@ -49,14 +47,28 @@ func share(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			"HM_SHARE_PORT is not a port: "+os.Getenv("HM_SHARE_PORT"), "")
 	}
 
-	var confirm func(string) bool
-	if os.Getenv("HM_NON_INTERACTIVE") == "" {
-		confirm = func(project string) bool { return confirmSharing(project, stdout) }
-	}
-
 	engine := newEngine(stdout, stderr, jsonOutput)
 
+	// Taken from before anything is asked: a Ctrl-C while the tunnel is being opened must not
+	// leave it on the public internet (interrupt.go)
+	interruptions := closeOnInterrupt(func() { engine.Unshare(here()) }) //nolint:errcheck
+
+	confirm := func(string) bool { interruptions.opening(); return true }
+	if os.Getenv("HM_NON_INTERACTIVE") == "" {
+		confirm = func(project string) bool {
+			if !confirmSharing(project, stdout) {
+				return false
+			}
+
+			interruptions.opening()
+
+			return true
+		}
+	}
+
 	shared, err := engine.Share(here(), service, port, confirm)
+	interruptions.opened()
+
 	if err != nil {
 		return report(stderr, jsonOutput, "share", err)
 	}
@@ -65,17 +77,7 @@ func share(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return exitOK
 	}
 
-	// Closed on Ctrl-C or a terminal going away, which is what ends the wait below
-	interrupted := make(chan os.Signal, 1)
-	signal.Notify(interrupted, os.Interrupt, syscall.SIGTERM)
-
-	defer signal.Stop(interrupted)
-
-	go func() {
-		if _, open := <-interrupted; open {
-			engine.Unshare(here()) //nolint:errcheck
-		}
-	}()
+	interruptions.holding()
 
 	if jsonOutput {
 		document(stdout, stderr, "share", map[string]string{"url": shared.URL, "project": shared.Project})

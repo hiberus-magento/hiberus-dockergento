@@ -22,9 +22,10 @@ type relays struct {
 	started  []core.Relay
 	startErr error
 
-	// logs is what Logs answers, one entry per call, the last one repeated
-	logs  []string
-	asked int
+	// logs is what Logs answers, one entry per call, the last one repeated; logsErr fails it
+	logs    []string
+	logsErr error
+	asked   int
 
 	waited []string
 }
@@ -46,6 +47,10 @@ func (r *relays) Start(relay core.Relay) error {
 }
 
 func (r *relays) Logs(string) (string, error) {
+	if r.logsErr != nil {
+		return "", r.logsErr
+	}
+
 	if len(r.logs) == 0 {
 		return "", nil
 	}
@@ -244,4 +249,19 @@ func assertRefusal(t *testing.T, err error, kind string, code int) core.Refusal 
 	}
 
 	return refusal
+}
+
+// A relay whose output cannot be read any more is gone — closed by an interruption, among others —
+// and there is no address to wait the rest of the minute for.
+func TestATunnelThatIsGoneIsNotWaitedFor(t *testing.T) {
+	tunnels := &relays{logsErr: errors.New("no such container")}
+	sharer, slept, _ := sharing(t, true, tunnels)
+
+	_, err := sharer.Open(shop, "varnish", 6081, nil)
+
+	assertRefusal(t, err, "no_address", 1)
+
+	if len(*slept) != 0 {
+		t.Errorf("slept %d times waiting on a relay that is gone", len(*slept))
+	}
 }

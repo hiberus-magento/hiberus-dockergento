@@ -28,6 +28,8 @@ func sharingShop(t *testing.T) *fakeEngine {
 }
 
 func TestShareTunnelsToVarnishHoldsItAndClosesIt(t *testing.T) {
+	t.Setenv("HM_NON_INTERACTIVE", "1")
+
 	fake := sharingShop(t)
 	fake.share = core.Share{URL: "https://a-b.trycloudflare.com", Project: "shop", Relay: "hm-share-shop"}
 
@@ -47,8 +49,8 @@ func TestShareTunnelsToVarnishHoldsItAndClosesIt(t *testing.T) {
 		t.Errorf("data (-want +got):\n%s", diff)
 	}
 
-	// HM_NON_INTERACTIVE is set by answering(t): nobody to ask
-	want := []string{"Resolve", "Share varnish 6081 false", "HoldShare hm-share-shop", "Unshare"}
+	// HM_NON_INTERACTIVE is set by answering(t): nobody to ask, so it goes ahead
+	want := []string{"Resolve", "Share varnish 6081 true", "HoldShare hm-share-shop", "Unshare"}
 	if diff := cmp.Diff(want, shareCalls(fake)); diff != "" {
 		t.Errorf("calls (-want +got):\n%s", diff)
 	}
@@ -86,14 +88,13 @@ func TestShareTakesTheServiceAndPortFromTheEnvironment(t *testing.T) {
 
 	Run([]string{"--json", "share"}, &bytes.Buffer{}, &bytes.Buffer{})
 
-	if got := shareCalls(fake); len(got) < 2 || got[1] != "Share nginx 8000 false" {
+	if got := shareCalls(fake); len(got) < 2 || got[1] != "Share nginx 8000 true" {
 		t.Errorf("calls = %v, want nginx on 8000", got)
 	}
 }
 
 func TestShareAsksWhenSomebodyCanAnswer(t *testing.T) {
 	fake := sharingShop(t)
-	fake.share = core.Share{Project: "shop", Declined: true}
 	t.Setenv("HM_NON_INTERACTIVE", "")
 
 	var stdout bytes.Buffer
@@ -101,8 +102,13 @@ func TestShareAsksWhenSomebodyCanAnswer(t *testing.T) {
 		t.Fatalf("a declined share = %d, want 0", code)
 	}
 
+	// What is exposed is named; the test's input has no answer, which is a no
+	if !strings.Contains(stdout.String(), "This puts 'shop' on the public internet.") {
+		t.Errorf("stdout = %q, want it to name what would be exposed", stdout.String())
+	}
+
 	// A no holds nothing open and closes nothing
-	want := []string{"Resolve", "Share varnish 6081 true"}
+	want := []string{"Resolve", "Share varnish 6081 false"}
 	if diff := cmp.Diff(want, shareCalls(fake)); diff != "" {
 		t.Errorf("calls (-want +got):\n%s", diff)
 	}

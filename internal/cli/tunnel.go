@@ -3,10 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
-	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 )
 
 //
@@ -73,22 +70,26 @@ func tunnel(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return exitOK
 	}
 
+	// Taken from before the relay is created, so a Ctrl-C while it is being opened does not leave
+	// it publishing a port (interrupt.go). Without a service there is nothing to open — the
+	// refusal comes back at once — and closing "every tunnel" on an interruption would be wrong
+	var interruptions *interruption
+	if service != "" {
+		interruptions = closeOnInterrupt(func() { engine.CloseTunnels(here(), service) }) //nolint:errcheck
+		interruptions.opening()
+	}
+
 	opened, err := engine.Tunnel(here(), service, port)
+
+	if interruptions != nil {
+		interruptions.opened()
+	}
+
 	if err != nil {
 		return report(stderr, jsonOutput, "tunnel", err)
 	}
 
-	// Closed on Ctrl-C or a terminal going away, which is what ends the wait below
-	interrupted := make(chan os.Signal, 1)
-	signal.Notify(interrupted, os.Interrupt, syscall.SIGTERM)
-
-	defer signal.Stop(interrupted)
-
-	go func() {
-		if _, open := <-interrupted; open {
-			engine.CloseTunnels(here(), service) //nolint:errcheck
-		}
-	}()
+	interruptions.holding()
 
 	if jsonOutput {
 		document(stdout, stderr, "tunnel", opened)

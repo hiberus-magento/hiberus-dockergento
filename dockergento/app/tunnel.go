@@ -49,14 +49,10 @@ type Tunneler struct {
 }
 
 // tunnelRelay is the name of the container forwarding a project's service; without a service it
-// is the prefix every one of the project's carries.
+// is the prefix every one of the project's carries, ending at the dash so that another project
+// whose name starts the same is not one of them.
 func tunnelRelay(project core.Project, service string) string {
-	name := "hm-tunnel-" + project.Name
-	if service != "" {
-		name += "-" + service
-	}
-
-	return name
+	return "hm-tunnel-" + project.Name + "-" + service
 }
 
 // Open forwards service to a free port of this machine. port is the service's port to forward;
@@ -133,8 +129,9 @@ func (t Tunneler) Open(project core.Project, files core.ComposeFiles, service st
 
 	relay := tunnelRelay(project, service)
 
-	// Whatever a closed window left behind for this service
-	t.Relays.Remove(relay, true) //nolint:errcheck
+	// Whatever a closed window left behind for this service, by its exact name: a prefix would
+	// also close the tunnel of a service whose name starts with this one's
+	t.Relays.Remove(relay, false) //nolint:errcheck
 
 	if err := t.Relays.Start(core.Relay{
 		Name:    relay,
@@ -174,10 +171,10 @@ func (t Tunneler) Wait(relay string) error {
 	return t.Relays.Wait(relay)
 }
 
-// Close takes away the project's tunnels to service, or every one of them without a service, and
+// Close takes away the project's tunnel to service, or every one of them without a service, and
 // reports whether there was any.
 func (t Tunneler) Close(project core.Project, service string) (bool, error) {
-	return t.Relays.Remove(tunnelRelay(project, service), true)
+	return t.Relays.Remove(tunnelRelay(project, service), service == "")
 }
 
 func (t Tunneler) answers(port int) bool {

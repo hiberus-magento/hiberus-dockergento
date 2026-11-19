@@ -137,7 +137,12 @@ func (s Sharer) Close(project core.Project) (bool, error) {
 // long enough.
 func (s Sharer) address(relay string) string {
 	for waited := time.Duration(0); waited < shareWait; waited += shareEvery {
-		logs, _ := s.Relays.Logs(relay)
+		logs, err := s.Relays.Logs(relay)
+		if err != nil {
+			// Gone: closed from somewhere else, an interruption among others
+			return ""
+		}
+
 		if found := shareAddress.FindString(logs); found != "" {
 			return found
 		}

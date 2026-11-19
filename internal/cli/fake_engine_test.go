@@ -36,8 +36,7 @@ type call struct {
 	Domain   string
 	Database bool
 
-	// Port is the port share was asked to tunnel to, and Confirm whether it was given a question
-	// to put before exposing anything.
+	// Port is the port share was asked to tunnel to, and Confirm what its question was answered.
 	Port    int
 	Confirm bool
 
@@ -651,11 +650,21 @@ func answering(t *testing.T) *fakeEngine {
 }
 
 func (f *fakeEngine) Share(dir, service string, port int, confirm func(string) bool) (core.Share, error) {
+	// The question is put, the way the use case puts it, and its answer is what is recorded
+	answer := true
+	if confirm != nil {
+		answer = confirm(f.project.Name)
+	}
+
 	number := len(f.calls)
-	f.calls = append(f.calls, call{Method: "Share", Dir: dir, Service: service, Port: port, Confirm: confirm != nil})
+	f.calls = append(f.calls, call{Method: "Share", Dir: dir, Service: service, Port: port, Confirm: answer})
 
 	if out := f.outcomeFor(number); out.err != nil {
 		return core.Share{}, out.err
+	}
+
+	if !answer {
+		return core.Share{Project: f.project.Name, Declined: true}, nil
 	}
 
 	return f.share, nil

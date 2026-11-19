@@ -63,8 +63,9 @@ func TestATunnelForwardsTheServicesOnlyPortToAFreeLocalOne(t *testing.T) {
 		t.Errorf("opened = %+v, want %+v", opened, want)
 	}
 
-	// Whatever a closed window left behind for this service goes first
-	if !reflect.DeepEqual(tunnels.removed, []string{"hm-tunnel-shop-db*"}) {
+	// Whatever a closed window left behind for this service goes first, and only for this one: a
+	// prefix would also take db-replica's
+	if !reflect.DeepEqual(tunnels.removed, []string{"hm-tunnel-shop-db"}) {
 		t.Errorf("removed %v", tunnels.removed)
 	}
 
@@ -155,13 +156,15 @@ func TestARelayNothingAnswersOnIsClosedAndRefused(t *testing.T) {
 		t.Errorf("refusal = %+v", refusal)
 	}
 
-	if !reflect.DeepEqual(tunnels.removed, []string{"hm-tunnel-shop-db*", "hm-tunnel-shop-db"}) {
+	if !reflect.DeepEqual(tunnels.removed, []string{"hm-tunnel-shop-db", "hm-tunnel-shop-db"}) {
 		t.Errorf("removed %v, want the relay closed after giving up", tunnels.removed)
 	}
 }
 
 func TestClosingTunnelsTakesTheServicesOrEveryOne(t *testing.T) {
-	cases := map[string]string{"db": "hm-tunnel-shop-db*", "": "hm-tunnel-shop*"}
+	// One service's is its own name exactly, so db does not take db-replica's; every one of the
+	// project's ends its prefix at the dash, so shop does not take shop2's
+	cases := map[string]string{"db": "hm-tunnel-shop-db", "": "hm-tunnel-shop-*"}
 
 	for service, want := range cases {
 		tunnels := &relays{present: true}
