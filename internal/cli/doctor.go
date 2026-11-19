@@ -26,7 +26,7 @@ func doctor(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	// Outside a project the diagnosis still runs: it answers about the machine, which is the
 	// question somebody has when nothing works anywhere
-	diagnosis, err := engine(stdout, stderr, jsonOutput).Diagnose(here(), only)
+	diagnosis, err := newEngine(stdout, stderr, jsonOutput).Diagnose(here(), only)
 	if err != nil {
 		return failure(stderr, jsonOutput, "doctor", exitError, "diagnosis_failed", err.Error(), "")
 	}

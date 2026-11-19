@@ -42,6 +42,7 @@ type commands interface {
 	Anonymise(dir string) error
 	Capture(dir, service string, command []string) (string, int, error)
 	XdebugHost() (string, error)
+	Diagnose(dir, only string) (core.Diagnosis, error)
 }
 
 var _ commands = (*dockergento.Engine)(nil)

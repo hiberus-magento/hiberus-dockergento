@@ -66,6 +66,9 @@ type call struct {
 	// LogOptions is what logs was asked for, compared whole: a flag that starts writing a
 	// different field shows up as a diff here rather than nothing.
 	LogOptions core.LogOptions
+
+	// Only is the single check doctor was asked to run (--only), "" for all of them.
+	Only string
 }
 
 // outcome is what a call answers with. outcomes is indexed by call number — the position the
@@ -80,6 +83,10 @@ type outcome struct {
 	// php -i — and needs a different string back each time; outcomes is already indexed by call
 	// number, so a field here gives that for free, where a field on fakeEngine itself could not.
 	captured string
+
+	// diagnosis is what Diagnose answers with, per call like captured: doctor asks once, and each
+	// test states the findings it wants reported.
+	diagnosis core.Diagnosis
 }
 
 // fakeEngine is a commands that never reaches Docker: everything asked of it lands in calls, and
@@ -373,6 +380,21 @@ func (f *fakeEngine) XdebugHost() (string, error) {
 	out := f.outcomeFor(number)
 
 	return out.captured, out.err
+}
+
+// Diagnose answers from its outcome: the diagnosis, or the error that stopped one. Only is
+// recorded rather than acted on — choosing the check is app.Doctor's, and this seam's job is to
+// prove the --only value arrives unchanged.
+func (f *fakeEngine) Diagnose(dir, only string) (core.Diagnosis, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Diagnose", Dir: dir, Only: only})
+
+	out := f.outcomeFor(number)
+	if out.err != nil {
+		return core.Diagnosis{}, out.err
+	}
+
+	return out.diagnosis, nil
 }
 
 // TestFakeEngineRecordsCaptureAndXdebugHost is Slice 2's own RED/GREEN — not merely the two
