@@ -555,6 +555,28 @@ func TestInstallRegistersTheSecondFactor(t *testing.T) {
 	}
 }
 
+// TestInstallTakesADisabledModuleForDisabled: "Module is disabled" contains "module is", and still
+// no secret is registered for it.
+func TestInstallTakesADisabledModuleForDisabled(t *testing.T) {
+	fake := installLab(t)
+	fake.byCommand = func(command []string) (outcome, bool) {
+		if cmp.Equal(command, twoFactorStatus) {
+			return outcome{captured: "Module is disabled\n"}, true
+		}
+
+		return outcome{}, false
+	}
+
+	code, stdout, _ := runInstall(t, false)
+	if code != exitOK || !strings.HasPrefix(stdout, "Two factor authentication is disabled in this project") {
+		t.Fatalf("install = %d, stdout %q", code, stdout)
+	}
+
+	if got := len(commandsRun(fake)); got != 3 {
+		t.Errorf("%d commands, want no secret registered: %q", got, commandsRun(fake))
+	}
+}
+
 // TestInstallSaysWhenTheQRCannotBeDrawn: the key is still printed to type in.
 func TestInstallSaysWhenTheQRCannotBeDrawn(t *testing.T) {
 	fake := installLab(t)

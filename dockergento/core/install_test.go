@@ -1,6 +1,7 @@
 package core
 
 import (
+	"crypto/rand"
 	"errors"
 	"regexp"
 	"strings"
@@ -259,5 +260,29 @@ func TestOTPSecretAndURI(t *testing.T) {
 
 	if got := OTPURI("shop.test", "hiberus", "ABC"); got != "otpauth://totp/shop.test:hiberus?secret=ABC&issuer=shop.test" {
 		t.Errorf("uri = %q", got)
+	}
+}
+
+// Drawn from the system's randomness, no two installs share a password or a secret: twenty in a
+// row all differ, as hm_generate_admin_password's and hm_generate_otp_secret's did.
+func TestGeneratedCredentialsNeverRepeat(t *testing.T) {
+	passwords, secrets := map[string]bool{}, map[string]bool{}
+
+	for range 20 {
+		password, err := AdminPassword(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		secret, err := OTPSecret(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if passwords[password] || secrets[secret] {
+			t.Fatalf("a credential repeated: %q / %q", password, secret)
+		}
+
+		passwords[password], secrets[secret] = true, true
 	}
 }
