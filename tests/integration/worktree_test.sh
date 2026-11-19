@@ -10,8 +10,9 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 HM="$COMMAND_BIN_DIR/bin/run"
-# `describe`, `list` and `magento` are the binary's now; the guardrail cases below
-# (start/stop/down/setup) stay the shell implementation's and keep asking bin/run through `$HM`.
+# `describe`, `list`, `magento`, `restart`, `stop` and `docker-stop-all` are the binary's now;
+# the other guardrail cases (start/down/setup) stay the shell implementation's and keep asking
+# bin/run through `$HM`.
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 # Canonical path: on macOS /var is a symlink to /private/var, and git reports the resolved
 # path. Comparing against the unresolved one makes assertions pass or fail for the wrong
@@ -97,11 +98,17 @@ assert_json_field "$STDOUT" '.data.project.name' "$PROJECT"
 
 # ------------------------------------------------------------------ guardrails
 
-for command in start stop rebuild down setup install; do
+for command in start rebuild down setup install; do
     test_case "$command is refused from a worktree"
     run_in "$LAB/wt" "$command"
     assert_equals "6" "$STATUS"
 done
+
+# stop has no shell twin left either: the binary refuses it, with the contract's code and type
+test_case "stop is refused from a worktree"
+run_in_go "$LAB/wt" stop --json
+assert_equals "6" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "blocked_in_worktree"
 
 # docker-stop-all has no shell twin left: the binary refuses it, before anything reaches Docker.
 # Machine-wide, so the daemon is cut here too: if the guard ever regressed, a reachable daemon
@@ -129,17 +136,17 @@ test_case "the refusal explains how to proceed"
 assert_contains "$STDERR$STDOUT" "--force"
 
 test_case "the same commands are allowed from the main checkout"
-run_in "$LAB/main" stop
+run_in_go "$LAB/main" stop
 assert_equals "0" "$STATUS"
 
 # ------------------------------------------------------------------ force
 
 test_case "--force runs the command anyway"
-run_in "$LAB/wt" stop --force
+run_in_go "$LAB/wt" stop --force
 assert_equals "0" "$STATUS"
 
 test_case "--force does not persist to the next invocation"
-run_in "$LAB/wt" stop
+run_in_go "$LAB/wt" stop
 assert_equals "6" "$STATUS"
 
 # ------------------------------------------------------------------ allowed commands

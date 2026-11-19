@@ -68,7 +68,7 @@ sync_all_from_container_to_host() {
     default_files_magento=$(cat < "$DATA_DIR/default_files_magento.json" | jq -r 'keys | join(" ")')
 
     hm_run_binary copy-to-container $default_files_magento
-    "$COMMANDS_DIR"/stop.sh "phpfpm"
+    hm_run_binary stop "phpfpm"
 
     print_info "Copying all files from container to host\n"
     print_processing "Removing vendor in host: $MAGENTO_DIR/vendor/*"

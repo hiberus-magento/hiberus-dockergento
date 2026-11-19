@@ -130,13 +130,13 @@ rm -f "$HM_SNAPSHOT_DIR/$PROJECT"/*.sql.gz 2>/dev/null
 start_environment
 
 test_case "stop on its own creates no snapshot"
-( cd "$LAB/project" && "$HM" stop ) >/dev/null 2>&1
+( cd "$LAB/project" && "$COMMAND_BIN_DIR/bin/hm" stop ) >/dev/null 2>&1
 assert_empty "$(find "$HM_SNAPSHOT_DIR/$PROJECT" -name '*.sql.gz' 2>/dev/null)"
 
 start_environment
 
 test_case "stop --snapshot saves one first"
-( cd "$LAB/project" && "$HM" stop --snapshot ) >/dev/null 2>&1
+( cd "$LAB/project" && "$COMMAND_BIN_DIR/bin/hm" stop --snapshot ) >/dev/null 2>&1
 assert_equals "1" "$(find "$HM_SNAPSHOT_DIR/$PROJECT" -name '*.sql.gz' 2>/dev/null | grep -c . || true)"
 
 test_case "and the environment ends up stopped"

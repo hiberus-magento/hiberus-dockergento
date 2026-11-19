@@ -2,14 +2,15 @@
 set -euo pipefail
 
 source "$COMPONENTS_DIR"/print_message.sh
+source "$HELPERS_DIR"/binary.sh
 
 print_info "Rebuilding and starting containers in detached mode\n"
 
 if [ "$#" == 0 ]; then
-    "$COMMANDS_DIR"/stop.sh
+    hm_run_binary stop
     $DOCKER_COMPOSE up --build -d nginx
 else
-    "$COMMANDS_DIR"/stop.sh "$@"
+    hm_run_binary stop "$@"
     $DOCKER_COMPOSE up --build -d "$@"
 fi
 

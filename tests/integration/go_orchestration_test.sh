@@ -323,11 +323,10 @@ if [ -d "$RAMA" ]; then
     # Forced is a decision about one invocation: there is no variable and no file that turns the
     # guardrail off for good.
     #
-    test_case "and --force lifts it, in both"
-    ( cd "$RAMA" && "$SHELL_CLI" --force stop >/dev/null 2>&1 ); SHELL_STATUS=$?
-    ( cd "$RAMA" && "$GO_BINARY"  --force stop >/dev/null 2>&1 ); GO_STATUS=$?
+    # stop has no shell twin left to compare with: the binary is the answer
+    test_case "and --force lifts it"
+    ( cd "$RAMA" && "$GO_BINARY" --force stop >/dev/null 2>&1 ); GO_STATUS=$?
     assert_equals "0" "$GO_STATUS"
-    assert_equals "$SHELL_STATUS" "$GO_STATUS"
 fi
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

@@ -56,7 +56,7 @@ assert_equals "6" "$?"
 
 test_case "and allowed where the CLI allows it"
 root="$LAB/main"
-( cd "$root" && "$HM" stop >/dev/null 2>&1 )
+( cd "$root" && "$COMMAND_BIN_DIR/bin/hm" stop >/dev/null 2>&1 )
 assert_equals "0" "$?"
 
 # ------------------------------------------------------- the interactive path
