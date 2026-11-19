@@ -417,6 +417,17 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         la comprobación pasa sin probar nada. Ahora se la hace al binario, con `DOCKER_HOST`
         apuntando a un socket inexistente dentro de la propia comprobación: sin nadie que
         conteste, `masquerade` toma el sí por respuesta.
+  - [x] El mismo paso, para `web` — vigésimo cuarto comando retirado así.
+        `console/commands/web.sh` (23 líneas, sólo hacía `exec` del binario) está borrado; quedan
+        41 ficheros en `console/commands/`. No tenía ninguna prueba Go: la única era
+        `go_web_test.sh`, que se salta sin daemon. Antes de borrarlo, `internal/cli/web_test.go`
+        fija los argumentos, `status` y `down` contra un fichero de estado ausente, caducado o
+        vivo, que `up` encuentra el servidor que ya corre en vez de arrancar otro, y que un puerto
+        ocupado se niega antes de escribir estado. `HOME` es temporal en cada prueba y ninguna
+        arranca ni señala procesos; cuatro mutaciones, cada una compilando, rompen la suya.
+
+        Nadie lo llamaba ni le preguntaba a `bin/run web`. Apartarlo: 57 de 1055 aserciones
+        fallaban antes y después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.

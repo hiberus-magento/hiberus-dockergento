@@ -174,4 +174,13 @@ test_case "and the readable hint for masquerade names the binary command too"
 run --no-json masquerade
 assert_contains "$STDERR" "hm masquerade"
 
+test_case "and so does web, once its own shell twin is gone"
+run web
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "command_moved_to_binary"
+
+test_case "and the readable hint for web names the binary command too"
+run --no-json web
+assert_contains "$STDERR" "hm web"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
