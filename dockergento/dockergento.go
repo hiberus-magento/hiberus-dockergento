@@ -20,6 +20,7 @@ import (
 	"io/fs"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -1962,6 +1963,72 @@ func (e *Engine) AIDoctor(dir string) (core.AIDoctorReport, error) {
 		Tool:      e.options.Root,
 		Platforms: filepath.Join(e.options.Root, "data", "ai-platforms.json"),
 	}.Report()
+}
+
+// AIInit is ai-init in dir: the AI tooling configuration, from options or from the questions
+// console asks, and a first installation.
+func (e *Engine) AIInit(dir string, options app.AIInitOptions, interactive bool, console app.AIConsole) int {
+	return e.aiTools(dir, console).Init(options, interactive)
+}
+
+// aiTools is the three AI commands against dir, with what the scripts read from the environment:
+// HM_AI_REPOSITORIES for the list ai-pull installs from, and HM_VERSION, or the tool's own tag,
+// for the version its bundled skills are recorded with. Downloads go through curl, tar and git,
+// as they did, and what those programs say reaches the console.
+func (e *Engine) aiTools(dir string, console app.AIConsole) *app.AITools {
+	root := e.options.Root
+
+	repositories := os.Getenv("HM_AI_REPOSITORIES")
+	if repositories == "" {
+		repositories = filepath.Join(root, "data", "ai-repositories.json")
+	}
+
+	return &app.AITools{
+		Dir:          dir,
+		Tool:         root,
+		Repositories: repositories,
+		Binary:       e.options.Binary,
+		Console:      console,
+		TempRoot:     "/tmp",
+		Sleep:        time.Sleep,
+		Now:          time.Now,
+		HasGit: func() bool {
+			_, err := exec.LookPath("git")
+
+			return err == nil
+		},
+		Version: func() string {
+			if version := os.Getenv("HM_VERSION"); version != "" {
+				return version
+			}
+
+			described, err := exec.Command("git", "-C", root, "describe", "--tags").Output()
+			if err != nil {
+				return "unknown"
+			}
+
+			return strings.TrimRight(string(described), "\n")
+		},
+		Exec: func(quiet bool, name string, args ...string) error {
+			command := exec.Command(name, args...)
+			command.Stdout = consoleWriter(console.Stdout)
+
+			if !quiet {
+				command.Stderr = consoleWriter(console.Stderr)
+			}
+
+			return command.Run()
+		},
+	}
+}
+
+// consoleWriter is a console's stream as an io.Writer, for a child process to write to.
+type consoleWriter func(string)
+
+func (w consoleWriter) Write(p []byte) (int, error) {
+	w(string(p))
+
+	return len(p), nil
 }
 
 // Compatibility is the table of the Magento releases this tool has images for, read from its own

@@ -937,7 +937,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 |---|---|---|---|
 | `ai-context` | ai | 4 | go |
 | `ai-doctor` | ai | 4 | go |
-| `ai-init` | ai | 4 | shell |
+| `ai-init` | ai | 4 | go |
 | `ai-pull` | ai | 4 | shell |
 | `ai-reset` | ai | 4 | shell |
 | `bash` | tools | 3 | go |

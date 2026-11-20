@@ -72,6 +72,7 @@ type commands interface {
 	Switch(reference string) (core.Switched, error)
 	Verify(dir string, options core.VerifyOptions) (core.Verification, error)
 	AIDoctor(dir string) (core.AIDoctorReport, error)
+	AIInit(dir string, options app.AIInitOptions, interactive bool, console app.AIConsole) int
 }
 
 var _ commands = (*dockergento.Engine)(nil)

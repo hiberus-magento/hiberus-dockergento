@@ -172,6 +172,10 @@ type fakeEngine struct {
 	// aiDoctor is what AIDoctor answers with.
 	aiDoctor core.AIDoctorReport
 
+	// aiTools is the use case AIInit, AIPull and AIReset run, against real directories: the
+	// tool's installation and the project are temporary ones, and downloads go through aiExec.
+	aiTools *app.AITools
+
 	// tunnel is what Tunnel answers with, and tunnelsClosed what CloseTunnels does.
 	tunnel        core.Tunnel
 	tunnelsClosed bool
@@ -759,6 +763,21 @@ func (f *fakeEngine) AIDoctor(dir string) (core.AIDoctorReport, error) {
 	f.calls = append(f.calls, call{Method: "AIDoctor", Dir: dir})
 
 	return f.aiDoctor, f.outcomeFor(number).err
+}
+
+// AIInit, AIPull and AIReset run the real use case on the test's directories, because what they
+// do is files: the fake only records the call and supplies the console.
+func (f *fakeEngine) AIInit(dir string, options app.AIInitOptions, interactive bool, console app.AIConsole) int {
+	f.calls = append(f.calls, call{Method: "AIInit", Dir: dir})
+
+	return f.ai(dir, console).Init(options, interactive)
+}
+
+func (f *fakeEngine) ai(dir string, console app.AIConsole) *app.AITools {
+	tools := *f.aiTools
+	tools.Dir, tools.Console = dir, console
+
+	return &tools
 }
 
 func (f *fakeEngine) Compatibility() (string, error) {

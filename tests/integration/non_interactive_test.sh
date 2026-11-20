@@ -40,7 +40,7 @@ check_go() {
 # Commands that skip project validation and therefore reach their own prompts
 check_go "setup does not block"        setup
 check_go "compatibility does not block" compatibility
-check "ai-init does not block"      ai-init
+check_go "ai-init does not block"   ai-init
 check "ai-pull does not block"      ai-pull
 check "ai-reset does not block"     ai-reset
 

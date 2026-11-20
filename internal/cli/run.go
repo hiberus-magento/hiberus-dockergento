@@ -79,6 +79,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return mcp(rest[1:], os.Stdin, stdout, stderr, jsonOutput)
 		case "ai-doctor":
 			return aiDoctor(rest[1:], stdout, stderr, jsonOutput)
+		case "ai-init":
+			return aiInit(rest[1:], stdout, stderr, jsonOutput)
 		case "launch":
 			return launch(rest[1:], stdout, stderr, jsonOutput)
 		case "transfer-media":
