@@ -175,7 +175,11 @@ test_case "an import clears the record of the data having been anonymised"
 mkdir -p "$LAB/estado"
 printf '{"anonymised_at":"2026-01-01 00:00"}\n' > "$LAB/estado/$PROJECT.json"
 ( cd "$DIR" && HM_STATE_DIR="$LAB/estado" "$GO_BINARY" mysql -i "$LAB/dump.sql" ) >/dev/null 2>&1
-assert_equals "no" "$([ -f "$LAB/estado/$PROJECT.json" ] && echo yes || echo no)"
+#
+# Only the record goes, not the file: other keys in it are kept, as the shell implementation kept
+# them (see State.Clear), so what is asserted is that the date is no longer there.
+#
+assert_equals "no" "$(grep -q anonymised_at "$LAB/estado/$PROJECT.json" 2>/dev/null && echo yes || echo no)"
 
 test_case "a file that is not there is said, not crashed on"
 ( cd "$DIR" && "$GO_BINARY" mysql -i "$LAB/no-existe.sql" >"$LAB/go.out" 2>&1 ); GO_STATUS=$?
