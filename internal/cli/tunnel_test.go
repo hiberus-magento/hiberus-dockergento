@@ -148,3 +148,15 @@ func tunnelCalls(fake *fakeEngine) []string {
 
 	return described
 }
+
+// TestTunnelWithoutAServiceIsNotTakenDownByItsOwnInterruptionHandling: without a service no
+// interruption is taken (closing "every tunnel" would be wrong), and an engine that opens anyway
+// must not find a missing handler.
+func TestTunnelWithoutAServiceIsNotTakenDownByItsOwnInterruptionHandling(t *testing.T) {
+	tunnelingShop(t)
+
+	var stderr bytes.Buffer
+	if code := Run([]string{"--json", "tunnel"}, &bytes.Buffer{}, &stderr); code != exitOK {
+		t.Fatalf("tunnel = %d\nstderr: %s", code, stderr.String())
+	}
+}

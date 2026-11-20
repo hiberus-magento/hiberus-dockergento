@@ -80,10 +80,7 @@ func tunnel(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	opened, err := engine.Tunnel(here(), service, port)
-
-	if interruptions != nil {
-		interruptions.opened()
-	}
+	interruptions.opened()
 
 	if err != nil {
 		return report(stderr, jsonOutput, "tunnel", err)

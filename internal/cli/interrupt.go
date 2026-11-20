@@ -83,9 +83,20 @@ func closeOnInterrupt(close func()) *interruption {
 	return state
 }
 
-func (i *interruption) opening() { i.phase.Store(phaseOpening) }
+// The phase changes are no-ops on a nil interruption: a command that had nothing to close took
+// none, and its flow stays the same as one that did.
+
+func (i *interruption) opening() {
+	if i != nil {
+		i.phase.Store(phaseOpening)
+	}
+}
 
 func (i *interruption) opened() {
+	if i == nil {
+		return
+	}
+
 	select {
 	case <-i.done:
 	default:
@@ -93,4 +104,8 @@ func (i *interruption) opened() {
 	}
 }
 
-func (i *interruption) holding() { i.phase.Store(phaseHolding) }
+func (i *interruption) holding() {
+	if i != nil {
+		i.phase.Store(phaseHolding)
+	}
+}
