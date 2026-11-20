@@ -49,12 +49,26 @@ type binarySource struct {
 	build func(root, output, version string) error
 
 	goos, goarch string
+
+	// local, when set, is a file copied as the new binary instead of downloading or building one.
+	local string
 }
 
-// newBinarySource is the real one: HTTP and the go on PATH. A variable so the package's tests can
-// replace it for every engine they build.
-var newBinarySource = func() binarySource {
+// BinarySourceVariable names a local file to install as bin/hm whenever the installation moves,
+// instead of downloading a release asset or building one. It is for test suites that run `hm
+// update` or `hm switch` for real and must reach neither the network nor a toolchain: they point it
+// at a copy of the binary under test. Unset or empty, it does nothing; set, nothing else is tried,
+// and a file that cannot be copied is a binary_not_refreshed like any other failure.
+const BinarySourceVariable = "HM_BINARY_SOURCE"
+
+// realBinarySource is HTTP and the go on PATH, or the file BinarySourceVariable names.
+func realBinarySource() binarySource {
 	source := binarySource{download: httpDownload, goos: runtime.GOOS, goarch: runtime.GOARCH}
+
+	if local := os.Getenv(BinarySourceVariable); local != "" {
+		source.local = local
+		return source
+	}
 
 	if _, err := exec.LookPath("go"); err == nil {
 		source.build = goBuild
@@ -62,6 +76,10 @@ var newBinarySource = func() binarySource {
 
 	return source
 }
+
+// newBinarySource is what an engine without an injected source uses. A variable so the package's
+// tests can replace it for every engine they build.
+var newBinarySource = realBinarySource
 
 func httpDownload(url string) ([]byte, error) {
 	client := http.Client{Timeout: 5 * time.Minute}
@@ -138,7 +156,13 @@ func (e *Engine) RefreshBinary() error {
 
 	reasons := []string{}
 
-	if tag != "" {
+	if source.local != "" {
+		err := replaceWith(target, func(path string) error { return copyFile(source.local, path) })
+		if err == nil {
+			return nil
+		}
+		reasons = append(reasons, fmt.Sprintf("%s=%s could not be installed: %v", BinarySourceVariable, source.local, err))
+	} else if tag != "" {
 		if asset := releaseAsset(source.goos, source.goarch); asset == "" {
 			reasons = append(reasons, fmt.Sprintf("releases publish no binary for %s/%s", source.goos, source.goarch))
 		} else if binary, err := releaseBinary(source, tag, asset); err != nil {
@@ -152,12 +176,17 @@ func (e *Engine) RefreshBinary() error {
 		reasons = append(reasons, "the checkout is not a release, so there is no binary to download for it")
 	}
 
-	if source.build == nil {
+	switch {
+	case source.local != "":
+		// Set means nothing else is tried
+	case source.build == nil:
 		reasons = append(reasons, "there is no Go toolchain to build it")
-	} else if err := replaceWith(target, func(path string) error { return source.build(root, path, version) }); err != nil {
+	default:
+		err := replaceWith(target, func(path string) error { return source.build(root, path, version) })
+		if err == nil {
+			return nil
+		}
 		reasons = append(reasons, "building it failed: "+err.Error())
-	} else {
-		return nil
 	}
 
 	now := version
@@ -252,4 +281,13 @@ func replaceWith(target string, write func(path string) error) error {
 	done = true
 
 	return nil
+}
+
+func copyFile(from, to string) error {
+	content, err := os.ReadFile(from)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(to, content, 0o755)
 }

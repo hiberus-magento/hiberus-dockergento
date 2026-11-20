@@ -51,6 +51,12 @@ HM="$CLONE/bin/run"
 # update and switch are the binary's, which finds its installation where its executable is: a copy
 # of it inside the clone moves the clone and never the installation running this suite
 cp "$COMMAND_BIN_DIR/bin/hm" "$CLONE/bin/hm"
+
+# update and switch get the binary again for the checkout they move to, from GitHub or with a go
+# build. HM_BINARY_SOURCE has them copy this file instead, the binary under test, so the suite
+# reaches neither the network nor a toolchain
+cp "$COMMAND_BIN_DIR/bin/hm" "$LAB/hm-under-test"
+export HM_BINARY_SOURCE="$LAB/hm-under-test"
 run_go() {
     ( cd "$LAB" && "$CLONE/bin/hm" "$@" >"$LAB/out" 2>"$LAB/err" )
     STATUS=$?
@@ -136,6 +142,10 @@ test_case "switching to a version detaches at that tag"
 reset_clone
 run_go switch 1.4.5
 assert_equals "1.4.5" "$(git -C "$CLONE" describe --tags 2>/dev/null)"
+
+test_case "and its binary is the one HM_BINARY_SOURCE names, so the switch succeeds offline"
+assert_equals "0" "$STATUS"
+assert_equals "$(shasum "$HM_BINARY_SOURCE" | cut -d' ' -f1)" "$(shasum "$CLONE/bin/hm" | cut -d' ' -f1)"
 
 test_case "a detached checkout is reported as such"
 reset_clone

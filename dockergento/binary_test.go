@@ -350,3 +350,63 @@ func TestASwitchWhoseBinaryFailsStaysSwitchedAndSaysSo(t *testing.T) {
 		t.Errorf("bin/hm = %q, want the old binary kept", content)
 	}
 }
+
+// TestTheBinarySourceVariableIsInertUnlessSet: an ordinary environment downloads and builds.
+func TestTheBinarySourceVariableIsInertUnlessSet(t *testing.T) {
+	t.Setenv(BinarySourceVariable, "")
+
+	if source := realBinarySource(); source.local != "" || source.download == nil {
+		t.Fatalf("realBinarySource with %s empty = %+v, want the download and no local file", BinarySourceVariable, source)
+	}
+}
+
+// TestTheBinarySourceVariableInstallsThatFileAndNothingElse: what suites running update and switch
+// for real use, so they reach neither GitHub nor a toolchain.
+func TestTheBinarySourceVariableInstallsThatFileAndNothingElse(t *testing.T) {
+	installed := released(t)
+	local := filepath.Join(t.TempDir(), "hm-under-test")
+	if err := os.WriteFile(local, []byte("binary under test"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(BinarySourceVariable, local)
+
+	source := realBinarySource()
+	fake := &fakeSource{}
+	recording := fake.source(fake.builder("built"))
+	source.download, source.build = recording.download, recording.build
+
+	if err := engineWith(installed, &source).RefreshBinary(); err != nil {
+		t.Fatalf("RefreshBinary = %v, want no error", err)
+	}
+	if content, mode := binaryOf(t, installed); content != "binary under test" || mode != 0o755 {
+		t.Errorf("bin/hm = %q %v, want the file %s names, executable", content, mode, BinarySourceVariable)
+	}
+	if len(fake.requested) != 0 || len(fake.built) != 0 {
+		t.Errorf("downloaded %v and built %v with %s set", fake.requested, fake.built, BinarySourceVariable)
+	}
+	noLeftovers(t, installed)
+}
+
+// TestABinarySourceThatIsMissingKeepsTheOldBinary: set means nothing else is tried, and a file that
+// is not there is said like any other failure.
+func TestABinarySourceThatIsMissingKeepsTheOldBinary(t *testing.T) {
+	installed := released(t)
+	t.Setenv(BinarySourceVariable, filepath.Join(t.TempDir(), "missing"))
+
+	source := realBinarySource()
+	fake := &fakeSource{}
+	recording := fake.source(fake.builder("built"))
+	source.download, source.build = recording.download, recording.build
+
+	refusal := refusalOf(t, engineWith(installed, &source).RefreshBinary())
+	if refusal.Kind != "binary_not_refreshed" || !strings.Contains(refusal.Message, BinarySourceVariable) {
+		t.Fatalf("refusal = %+v, want binary_not_refreshed naming %s", refusal, BinarySourceVariable)
+	}
+	if len(fake.requested) != 0 || len(fake.built) != 0 {
+		t.Errorf("downloaded %v and built %v with %s set", fake.requested, fake.built, BinarySourceVariable)
+	}
+	if content, _ := binaryOf(t, installed); content != "old" {
+		t.Errorf("bin/hm = %q, want the old binary kept", content)
+	}
+	noLeftovers(t, installed)
+}
