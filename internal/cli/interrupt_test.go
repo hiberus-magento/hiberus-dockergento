@@ -53,8 +53,9 @@ func TestAnInterruptionBeforeOpeningEndsAtOnce(t *testing.T) {
 
 	select {
 	case code := <-seen.exited:
-		if code != 130 || seen.count() != 1 {
-			t.Errorf("exited %d after %d closes, want 130 after one", code, seen.count())
+		// Nothing was opened by this process: what is there was opened by another terminal
+		if code != 130 || seen.count() != 0 {
+			t.Errorf("exited %d after %d closes, want 130 after none", code, seen.count())
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("an interruption at the question did not end the process")

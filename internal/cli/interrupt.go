@@ -15,7 +15,8 @@ import (
 // machine. A process that dies without closing it leaves it there, so the interruption is taken
 // from before anything is opened, in three phases:
 //
-//   - before opening, at the question: nothing to close yet, and the process ends at once
+//   - before opening, at the question: nothing to close yet, and the process ends at once without
+//     closing anything — what is there was opened by another terminal, not by this process
 //   - while opening: the relay may be in the middle of being created, so it is closed now and
 //     again once the opening returns, and then the process ends
 //   - while holding: it is closed, which ends the wait, and the command finishes on its own
@@ -47,7 +48,8 @@ type interruption struct {
 	done  chan struct{}
 }
 
-// closeOnInterrupt runs close on the first interruption, in whatever way the phase asks.
+// closeOnInterrupt runs close on the first interruption, in whatever way the phase asks: not at
+// all while asking, since this process has opened nothing yet.
 func closeOnInterrupt(close func()) *interruption {
 	state := &interruption{done: make(chan struct{})}
 
@@ -56,12 +58,14 @@ func closeOnInterrupt(close func()) *interruption {
 	go func() {
 		<-signals
 
-		close()
-
 		switch state.phase.Load() {
 		case phaseHolding:
+			close()
+
 			return
 		case phaseOpening:
+			close()
+
 			select {
 			case <-state.done:
 			case <-time.After(openingGrace):
