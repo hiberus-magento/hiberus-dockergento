@@ -15,9 +15,9 @@ set -uo pipefail
 TESTS_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -P "$TESTS_DIR/.." && pwd)"
 
-# Directory variables the suites read
+# What the suites and the binary under test read: the name the binary calls itself by and where
+# the tool and its data are
 export COMMAND_BIN_NAME="hm"
-export COMMAND_TOOLNAME="Hiberus Dockergento"
 export COMMAND_BIN_DIR="$PROJECT_ROOT"
 export DATA_DIR="$PROJECT_ROOT/data"
 export HM_TEST_PROJECT_ROOT="$PROJECT_ROOT"

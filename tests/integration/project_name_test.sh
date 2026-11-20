@@ -76,13 +76,26 @@ test_case "a configured name wins"
 make_project "$LAB/otro-directorio" '{"MAGENTO_DIR": ".", "COMPOSE_PROJECT_NAME": "hmnametest"}'
 assert_equals "hmnametest" "$(hm_name "$LAB/otro-directorio")"
 
+# A project command is the window onto the refusal bin/run raised for every command
+# (no_project_name): describe answers any unresolvable project with the generic
+# project_not_configured, which would let this case pass for an unrelated reason.
 test_case "a directory with no usable name is refused, not passed to Compose"
 make_project "$LAB/___"
-( cd "$LAB/___" && "$HM" describe --json >"$LAB/out" 2>"$LAB/err" )
+mkdir -p "$LAB/___/config/hm/commands"
+printf '#!/bin/sh\necho ran\n' > "$LAB/___/config/hm/commands/probe.sh"
+chmod +x "$LAB/___/config/hm/commands/probe.sh"
+( cd "$LAB/___" && "$HM" probe --json >"$LAB/out" 2>"$LAB/err" )
 assert_equals "4" "$?"
+assert_equals "" "$(cat "$LAB/out")"
 
 test_case "and the refusal says what to do about it"
-assert_json_field "$(cat "$LAB/err")" '.error.type' "project_not_configured"
+assert_json_field "$(cat "$LAB/err")" '.error.type' "no_project_name"
+assert_contains "$(cat "$LAB/err")" "COMPOSE_PROJECT_NAME"
+
+test_case "describe refuses it too"
+( cd "$LAB/___" && "$HM" describe --json >"$LAB/out" 2>"$LAB/err" )
+assert_equals "4" "$?"
+assert_contains "$(jq -r '.error.message' "$LAB/err")" "project name"
 
 # ------------------------------------------------- two copies are two environments
 

@@ -73,10 +73,18 @@ assert_json_field "$STDERR" '.command' "noexiste"
 # The shell entry point is gone, and with it the refusal that said a command had moved into the
 # binary. What is left to hold is that every command the help declares is one the binary answers.
 
-while IFS= read -r command; do
+# The names come in on fd 3 and every command gets /dev/null as stdin: a command that read its
+# stdin would otherwise eat the rest of the list and end the loop early without a failure.
+declared=$(jq -r 'keys[] | select(startswith("_") | not)' "$COMMAND_BIN_DIR/data/command_descriptions.json" | wc -l | tr -d ' ')
+answered=0
+while IFS= read -r command <&3; do
     test_case "$command --help is answered by the binary"
-    run "$command" --help
+    run "$command" --help </dev/null
     assert_equals "0" "$STATUS"
-done < <(jq -r 'keys[] | select(startswith("_") | not)' "$COMMAND_BIN_DIR/data/command_descriptions.json")
+    answered=$((answered + 1))
+done 3< <(jq -r 'keys[] | select(startswith("_") | not)' "$COMMAND_BIN_DIR/data/command_descriptions.json")
+
+test_case "and every declared command was asked"
+assert_equals "$declared" "$answered"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

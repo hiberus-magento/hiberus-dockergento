@@ -9,7 +9,6 @@
 if [ -z "${HM_TEST_PROJECT_ROOT:-}" ]; then
     _hm_test_root="$(cd -P "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
     export COMMAND_BIN_NAME="hm"
-    export COMMAND_TOOLNAME="Hiberus Dockergento"
     export COMMAND_BIN_DIR="$_hm_test_root"
     export DATA_DIR="$_hm_test_root/data"
     export HM_TEST_PROJECT_ROOT="$_hm_test_root"

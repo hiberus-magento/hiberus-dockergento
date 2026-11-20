@@ -189,14 +189,19 @@ func TestATopologyIsClassicUnlessItSaysOtherwise(t *testing.T) {
 		Registry:   registry{},
 	}
 
-	project, _ := resolver.Resolve("/code/shop")
+	project, err := resolver.Resolve("/code/shop")
+	if err != nil {
+		t.Fatalf("Resolve = %v, want no error", err)
+	}
 	if project.Topology != core.Orchestrated {
 		t.Fatalf("topology = %q, want the declared one", project.Topology)
 	}
 
 	resolver.Properties = properties{"/code/shop": {}}
-	project, _ = resolver.Resolve("/code/shop")
-
+	project, err = resolver.Resolve("/code/shop")
+	if err != nil {
+		t.Fatalf("Resolve = %v, want no error", err)
+	}
 	if project.Topology != core.Classic {
 		t.Fatalf("topology with none declared = %q, want classic", project.Topology)
 	}
@@ -239,7 +244,10 @@ func TestAConfiguredNameIsNeverDerived(t *testing.T) {
 		Registry:   registry{},
 	}
 
-	project, _ := resolver.Resolve("/code/Sin Nombre")
+	project, err := resolver.Resolve("/code/Sin Nombre")
+	if err != nil {
+		t.Fatalf("Resolve = %v, want no error", err)
+	}
 	if project.Name != "tienda" {
 		t.Errorf("Name = %q, want %q", project.Name, "tienda")
 	}
@@ -250,7 +258,10 @@ func TestAConfiguredNameIsNeverDerived(t *testing.T) {
 func TestADirectoryThatIsNotAProjectHasNoName(t *testing.T) {
 	resolver := Resolver{Properties: properties{}, VCS: vcs{}, Registry: registry{}}
 
-	project, _ := resolver.Resolve("/code/anywhere")
+	project, err := resolver.Resolve("/code/anywhere")
+	if err != nil {
+		t.Fatalf("Resolve = %v, want a nameless project and no error", err)
+	}
 	if project.Name != "" {
 		t.Errorf("Name = %q, want none", project.Name)
 	}

@@ -208,9 +208,9 @@ test_case "nothing is linked into the worktree"
 assert_equals "false" "$([ -L "$TREE/vendor" ] && echo true || echo false)"
 assert_equals "false" "$([ -L "$TREE/node_modules" ] && echo true || echo false)"
 
-# How the overlay mounts them was checked here against the shell implementation's writer, which is
-# gone with the shell tree; the overlay the binary writes is pinned by the Go tests of the worktree
-# use case.
+# How the overlay mounts them — read-only, on PHP only, over a code mount that survives — is
+# checked against the overlay the binary writes, merged by Compose's own library:
+# TestTheWorktreeOverlayMountsTheDependenciesOverTheCode in dockergento/adapters/composecfg.
 
 #
 # The refusal reads the recorded decision, so it is tested against a registration that says the

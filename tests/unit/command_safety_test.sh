@@ -55,6 +55,36 @@ while IFS= read -r name; do
 done <<< "$routed_names"
 assert_empty "$undeclared"
 
+# ---------------------------------------------------------------- no contradiction with what they do
+
+# The commands that change the environment (what a worktree without an environment of its own
+# refuses) or create containers: the lists hm_alters_environment and hm_creates_containers held
+# until the shell tree went. Each handler enforces its own refusal now, but the declaration must
+# still not call any of them harmless.
+ALTERS_ENVIRONMENT="start stop restart rebuild down setup install create-project docker-stop-all"
+CREATES_CONTAINERS="start restart rebuild setup install create-project docker-compose"
+
+test_case "nothing that alters the environment is declared harmless"
+contradictions=""
+for name in $ALTERS_ENVIRONMENT; do
+    [ "$(safety_of "$name")" == "safe" ] && contradictions="$contradictions $name"
+done
+assert_empty "$contradictions"
+
+test_case "nothing that creates containers is declared harmless either"
+contradictions=""
+for name in $CREATES_CONTAINERS; do
+    [ "$(safety_of "$name")" == "safe" ] && contradictions="$contradictions $name"
+done
+assert_empty "$contradictions"
+
+test_case "and every one of them is a declared command"
+missing=""
+for name in $ALTERS_ENVIRONMENT $CREATES_CONTAINERS; do
+    [ "$(jq -r --arg n "$name" 'has($n)' "$DESCRIPTIONS")" == "true" ] || missing="$missing $name"
+done
+assert_empty "$missing"
+
 # ---------------------------------------------------------------- the classification is sane
 
 test_case "the commands that destroy data ask for confirmation"
