@@ -76,18 +76,23 @@ clone_project() {
     fi
 }
 
+# Where releases publish their assets: hm_<os>_<arch> and checksums.txt
+RELEASES="https://github.com/hiberus-magento/hiberus-dockergento/releases"
+
 #
-# Fetch the compiled entry point for this machine.
+# The compiled command for this machine.
 #
-# From 2.0 the command is a binary that runs the shell implementation for everything not ported
-# yet. The installation is still the git checkout — that is how `hm switch` and `hm update` work —
-# so this adds exactly one file to it.
+# From 2.0 the command is the binary bin/hm. The installation is still the git checkout — that is
+# how `hm switch` and `hm update` work — and bin/hm is not in git, so it is obtained here: the
+# release asset of the tag the checkout is at, verified against that release's checksums.txt, or
+# built with a local Go toolchain. A checkout that is not at a tag is built when Go is there, and
+# only otherwise given the latest release.
 #
-# A machine that cannot get the binary is not left without a tool: the link falls back to the
-# shell implementation, which is the whole of 1.x and most of 2.0.
+# There is no fallback to bin/run: it is a launcher that refuses every command now, so a link to it
+# is an installation that does nothing.
 #
-download_binary() {
-    local system architecture asset
+release_asset() {
+    local system architecture
 
     case "$(uname -s)" in
         Darwin) system="darwin" ;;
@@ -101,13 +106,83 @@ download_binary() {
         *)               return 1 ;;
     esac
 
-    asset="https://github.com/hiberus-magento/hiberus-dockergento/releases/latest/download/hm_${system}_${architecture}"
+    echo "hm_${system}_${architecture}"
+}
 
-    curl -fsSL "$asset" -o "$HOME/hm/bin/hm.download" 2>/dev/null || return 1
-    chmod +x "$HOME/hm/bin/hm.download"
+sha256_of() {
+    if [ -x "$(command -v sha256sum)" ]; then
+        sha256sum "$1" | cut -d' ' -f1
+    elif [ -x "$(command -v shasum)" ]; then
+        shasum -a 256 "$1" | cut -d' ' -f1
+    else
+        return 1
+    fi
+}
 
-    # Renamed once it is whole: an interrupted download must not look like an entry point
-    mv "$HOME/hm/bin/hm.download" "$HOME/hm/bin/hm"
+# download_binary <tag>: the asset of that release, or of the latest one when the tag is empty.
+# Fail closed: no checksums, no line for the asset, or a different digest is no binary.
+download_binary() {
+    local tag="$1" asset base expected actual
+    local partial="$HOME/hm/bin/hm.download"
+    local manifest="$HOME/hm/bin/checksums.download"
+
+    asset="$(release_asset)" || return 1
+
+    if [ -n "$tag" ]; then
+        base="$RELEASES/download/$tag"
+    else
+        base="$RELEASES/latest/download"
+    fi
+
+    mkdir -p "$HOME/hm/bin"
+
+    if ! curl -fsSL "$base/$asset" -o "$partial" 2>/dev/null ||
+        ! curl -fsSL "$base/checksums.txt" -o "$manifest" 2>/dev/null; then
+        rm -f "$partial" "$manifest"
+        return 1
+    fi
+
+    expected="$(awk -v name="$asset" '$2 == name || $2 == "*" name { print $1 }' "$manifest")"
+    actual="$(sha256_of "$partial" || true)"
+    rm -f "$manifest"
+
+    if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
+        echo -e "${orange}The downloaded $asset does not match the release's checksums; it was discarded.${colorReset}"
+        rm -f "$partial"
+        return 1
+    fi
+
+    chmod +x "$partial"
+
+    # Renamed once it is whole and verified: an interrupted download must not look like an entry point
+    mv "$partial" "$HOME/hm/bin/hm"
+}
+
+build_binary() {
+    local partial="$HOME/hm/bin/hm.build"
+
+    [ -x "$(command -v go)" ] || return 1
+
+    echo -e "${green}Building the hm binary with $(command -v go)...${colorReset}"
+
+    if ! (cd "$HOME/hm" && go build -o bin/hm.build ./cmd/hm); then
+        rm -f "$partial"
+        return 1
+    fi
+
+    chmod +x "$partial"
+    mv "$partial" "$HOME/hm/bin/hm"
+}
+
+obtain_binary() {
+    local tag
+    tag="$(git -C "$HOME/hm" describe --tags --exact-match HEAD 2>/dev/null || true)"
+
+    if [ -n "$tag" ]; then
+        download_binary "$tag" || build_binary
+    else
+        build_binary || download_binary ""
+    fi
 }
 
 #
@@ -132,17 +207,22 @@ create_link_to_command() {
     local link_dir
     link_dir="$(dirname "$HM_LINK")"
 
+    # Before anything else is touched: without a binary there is nothing to link, and an existing
+    # installation is left exactly as it is
+    if [ ! -x "$binary_entry" ] && ! obtain_binary; then
+        echo -e "${red}Could not obtain the hm binary for $(uname -s)/$(uname -m): no release binary could be downloaded and verified, and there is no Go toolchain to build it.${colorReset}" >&2
+        echo -e "${red}Install Go (https://go.dev/dl/) and run this installer again, or build it yourself: cd $home && go build -o bin/hm ./cmd/hm${colorReset}" >&2
+        if [ -e "$HM_LINK" ] || [ -L "$HM_LINK" ]; then
+            echo -e "${orange}$HM_LINK was left as it was.${colorReset}" >&2
+        fi
+        exit 1
+    fi
+
+    local target="$binary_entry"
+
     # Create the folder that holds the link if it does not exist
     if [ ! -d "$link_dir" ]; then
         sudo mkdir -p "$link_dir"
-    fi
-
-    local target="$shell_entry"
-
-    if [ -x "$binary_entry" ] || download_binary; then
-        target="$binary_entry"
-    else
-        echo -e "${orange}Could not fetch the compiled command; using the shell one.${colorReset}"
     fi
 
     # Link hm command
@@ -151,9 +231,8 @@ create_link_to_command() {
         return
     fi
 
-    # A link this installer made earlier is moved to the current target: one made while hm was
-    # shell only points at bin/run, and the shell no longer has the commands ported to the binary.
-    # The reverse move happens too, when the binary could not be fetched this time
+    # A link this installer made earlier is moved to the binary: one made while hm was shell only
+    # points at bin/run, which now refuses every command
     local current
     current="$(readlink "$HM_LINK" || true)"
 
@@ -161,7 +240,7 @@ create_link_to_command() {
         return
     fi
 
-    if [ "$current" != "$shell_entry" ] && [ "$current" != "$binary_entry" ]; then
+    if [ "$current" != "$shell_entry" ]; then
         echo -e "${orange}$HM_LINK is not a link this installer made; left as it is. To use this install: sudo ln -sfn $target $HM_LINK${colorReset}"
         return
     fi

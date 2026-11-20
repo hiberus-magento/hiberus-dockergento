@@ -355,9 +355,11 @@ assert_contains "$(cat "$COMMAND_BIN_DIR/.github/workflows/release.yml")" "runs-
 assert_contains "$(cat "$COMMAND_BIN_DIR/.github/workflows/release.yml")" "GOOS=linux"
 assert_contains "$(cat "$COMMAND_BIN_DIR/.github/workflows/release.yml")" "GOOS=darwin"
 
-test_case "the installer prefers the binary and falls back to the shell"
+# bin/run refuses every command now, so a link to it is an installation that does nothing;
+# tests/unit/installer_test.sh runs the whole installer for the cases without a binary
+test_case "the installer links the binary and never falls back to the shell"
 assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$binary_entry"'
-assert_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$shell_entry"'
+assert_not_contains "$(cat "$COMMAND_BIN_DIR/installer.sh")" 'target="$shell_entry"'
 
 # A link made while hm was shell only points at bin/run; reinstalling must move it to the binary,
 # or every command already ported answers "part of the hm binary now". The link logic runs for
