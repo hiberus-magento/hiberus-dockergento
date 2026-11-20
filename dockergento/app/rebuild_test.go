@@ -26,7 +26,7 @@ func boundVendor() []core.Container {
 
 func TestRebuildingTheWholeEnvironmentBuildsNginxAndChecksTheMounts(t *testing.T) {
 	log := []string{}
-	operator := operatorWith(boundVendor(), &orchestrator{log: &log}, &shell{})
+	operator := operatorWith(boundVendor(), &orchestrator{log: &log})
 
 	refusal := refusalOf(t, operator.Rebuild(linuxProject, core.ComposeFiles{}, nil))
 
@@ -41,8 +41,7 @@ func TestRebuildingTheWholeEnvironmentBuildsNginxAndChecksTheMounts(t *testing.T
 
 func TestRebuildingOnLinuxRunsTheStepsAfterStarting(t *testing.T) {
 	log := []string{}
-	legacy := &shell{}
-	operator := linuxOperator(&log, &orchestrator{log: &log}, legacy, "1000", "1000", nil)
+	operator := linuxOperator(&log, &orchestrator{log: &log}, "1000", "1000", nil)
 
 	if err := operator.Rebuild(linuxProject, core.ComposeFiles{}, nil); err != nil {
 		t.Fatalf("Rebuild = %v, want no error", err)
@@ -53,17 +52,13 @@ func TestRebuildingOnLinuxRunsTheStepsAfterStarting(t *testing.T) {
 	if diff := cmp.Diff(want, log); diff != "" {
 		t.Fatalf("done (-want +got):\n%s", diff)
 	}
-
-	if len(legacy.ran) != 0 {
-		t.Fatalf("asked of the shell = %v, want nothing", legacy.ran)
-	}
 }
 
 // TestRebuildingServicesStopsBuildsThoseAndStillChecksTheMounts: rebuild.sh ran the bind-mount
 // check after every build, services named or not, and so does this.
 func TestRebuildingServicesStopsBuildsThoseAndStillChecksTheMounts(t *testing.T) {
 	log := []string{}
-	operator := operatorWith(boundVendor(), &orchestrator{log: &log}, &shell{})
+	operator := operatorWith(boundVendor(), &orchestrator{log: &log})
 
 	refusal := refusalOf(t, operator.Rebuild(linuxProject, core.ComposeFiles{}, []string{"phpfpm", "nginx"}))
 	if refusal.Kind != "vendor_is_bound" {
@@ -77,7 +72,7 @@ func TestRebuildingServicesStopsBuildsThoseAndStillChecksTheMounts(t *testing.T)
 
 func TestRebuildIsRefusedFromAWorktreeWithNoEnvironmentOfItsOwn(t *testing.T) {
 	log := []string{}
-	operator := operatorWith(nil, &orchestrator{log: &log}, &shell{})
+	operator := operatorWith(nil, &orchestrator{log: &log})
 	project := core.Project{Name: "tienda", Root: "/code/tienda", InWorktree: true}
 
 	refusal := refusalOf(t, operator.Rebuild(project, core.ComposeFiles{}, nil))
@@ -94,7 +89,7 @@ func TestRebuildIsRefusedFromAWorktreeWithNoEnvironmentOfItsOwn(t *testing.T) {
 func TestAFailingStopEndsTheRebuildThere(t *testing.T) {
 	log := []string{}
 	failure := errors.New("the daemon went away")
-	operator := operatorWith(nil, &orchestrator{log: &log, stopErr: failure}, &shell{})
+	operator := operatorWith(nil, &orchestrator{log: &log, stopErr: failure})
 
 	if err := operator.Rebuild(linuxProject, core.ComposeFiles{}, []string{"phpfpm"}); !errors.Is(err, failure) {
 		t.Fatalf("Rebuild with a failing stop = %v, want the stop's failure", err)

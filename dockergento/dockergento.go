@@ -1710,7 +1710,6 @@ func (e *Engine) operator(project core.Project) app.Operator {
 	return app.Operator{
 		Orchestrator: e.orchestrator(project),
 		Engine:       dockerd.Engine{Timeout: e.options.Timeout},
-		Legacy:       legacy.Runner{Root: e.options.ShellRoot},
 		Announce:     e.options.Announce,
 		// "mac" and "linux", which is what its checks compare against: given runtime.GOOS, macOS
 		// arrived as "darwin" and the vendor bind-mount check never ran there

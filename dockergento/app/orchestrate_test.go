@@ -107,11 +107,23 @@ func (c *composeRunner) Run(dir string, files []string, environment map[string]s
 	return c.status, c.err
 }
 
-func operatorWith(containers []core.Container, orchestration *orchestrator, legacy *shell) Operator {
+// proxyStarter is the fake for the global proxy: it counts how many times it was started.
+type proxyStarter struct {
+	ups int
+	err error
+}
+
+func (p *proxyStarter) Up() (bool, error) {
+	p.ups++
+
+	return p.err == nil, p.err
+}
+
+func operatorWith(containers []core.Container, orchestration *orchestrator) Operator {
 	return Operator{
 		Orchestrator: orchestration,
 		Engine:       &engine{containers: containers},
-		Legacy:       legacy,
+		Proxy:        &proxyStarter{},
 		Platform:     "mac",
 		Binary:       "hm",
 		Workdir:      "/var/www/html",
@@ -134,38 +146,48 @@ func refusalOf(t *testing.T, err error) core.Refusal {
 }
 
 func TestTheProxyIsStartedForAProjectThatNeedsIt(t *testing.T) {
-	orchestration, legacy := &orchestrator{}, &shell{}
-	operator := operatorWith(nil, orchestration, legacy)
+	orchestration := &orchestrator{}
+	operator := operatorWith(nil, orchestration)
 
 	if err := operator.Start(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, false, true, false); err != nil {
 		t.Fatalf("Start = %v, want no error", err)
 	}
 
-	if len(legacy.ran) != 1 || strings.Join(legacy.ran[0], " ") != "proxy up" {
-		t.Fatalf("asked of the shell half = %v, want the proxy started without being asked", legacy.ran)
+	if proxy := operator.Proxy.(*proxyStarter); proxy.ups != 1 {
+		t.Fatalf("proxy started %d times, want once without being asked", proxy.ups)
+	}
+}
+
+func TestAProxyThatFailsToStartFailsTheStart(t *testing.T) {
+	failure := errors.New("the proxy did not start")
+	operator := operatorWith(nil, &orchestrator{})
+	operator.Proxy = &proxyStarter{err: failure}
+
+	if err := operator.Start(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, false, true, false); !errors.Is(err, failure) {
+		t.Fatalf("Start = %v, want the proxy's error", err)
 	}
 }
 
 func TestAProxyAlreadyRunningIsLeftAlone(t *testing.T) {
-	orchestration, legacy := &orchestrator{}, &shell{}
-	operator := operatorWith([]core.Container{{Name: "hm-proxy", Running: true}}, orchestration, legacy)
+	orchestration := &orchestrator{}
+	operator := operatorWith([]core.Container{{Name: "hm-proxy", Running: true}}, orchestration)
 
 	if err := operator.Start(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, false, true, false); err != nil {
 		t.Fatalf("Start = %v, want no error", err)
 	}
 
-	if len(legacy.ran) != 0 {
-		t.Fatalf("asked of the shell half = %v, want nothing where the proxy is already running", legacy.ran)
+	if proxy := operator.Proxy.(*proxyStarter); proxy.ups != 0 {
+		t.Fatalf("proxy started %d times, want it left alone where it is already running", proxy.ups)
 	}
 }
 
 func TestSomethingElseHoldingThePortIsNamed(t *testing.T) {
 	// "Port 80 is busy" is a fact; the name of the environment to go and stop is what somebody
 	// can act on without asking anybody
-	orchestration, legacy := &orchestrator{}, &shell{}
+	orchestration := &orchestrator{}
 	operator := operatorWith([]core.Container{
 		{Name: "otra-tienda-nginx-1", Running: true, Published: []string{"80", "443"}},
-	}, orchestration, legacy)
+	}, orchestration)
 
 	refusal := refusalOf(t, operator.Start(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, false, true, false))
 
@@ -188,11 +210,11 @@ func TestDependenciesBoundFromTheHostAreRefused(t *testing.T) {
 	// dependencies bound from outside, the project's own modules are never registered and the
 	// failure that follows names none of this.
 	//
-	orchestration, legacy := &orchestrator{}, &shell{}
+	orchestration := &orchestrator{}
 	operator := operatorWith([]core.Container{{
 		Project: "shop", ComposeService: "phpfpm", Running: true,
 		Mounts: []core.Mount{{Type: "bind", Destination: "/var/www/html/vendor"}},
-	}}, orchestration, legacy)
+	}}, orchestration)
 
 	refusal := refusalOf(t, operator.Start(
 		core.Project{Name: "shop", MagentoDir: "."}, core.ComposeFiles{}, nil, false, false, false))
@@ -207,11 +229,11 @@ func TestDependenciesBoundFromTheHostAreRefused(t *testing.T) {
 }
 
 func TestAVolumeForTheDependenciesIsFine(t *testing.T) {
-	orchestration, legacy := &orchestrator{}, &shell{}
+	orchestration := &orchestrator{}
 	operator := operatorWith([]core.Container{{
 		Project: "shop", ComposeService: "phpfpm", Running: true,
 		Mounts: []core.Mount{{Type: "volume", Destination: "/var/www/html/vendor"}},
-	}}, orchestration, legacy)
+	}}, orchestration)
 
 	if err := operator.Start(core.Project{Name: "shop", MagentoDir: "."}, core.ComposeFiles{}, nil, false, false, false); err != nil {
 		t.Fatalf("start with a named volume = %v, want no refusal", err)
@@ -221,11 +243,11 @@ func TestAVolumeForTheDependenciesIsFine(t *testing.T) {
 func TestNamingAServiceDoesNotDragInTheWholeCheck(t *testing.T) {
 	// Naming a service is asking for that service, and answering with a complaint about a
 	// different one is a command arguing with its caller
-	orchestration, legacy := &orchestrator{}, &shell{}
+	orchestration := &orchestrator{}
 	operator := operatorWith([]core.Container{{
 		Project: "shop", ComposeService: "phpfpm", Running: true,
 		Mounts: []core.Mount{{Type: "bind", Destination: "/var/www/html/vendor"}},
-	}}, orchestration, legacy)
+	}}, orchestration)
 
 	err := operator.Start(core.Project{Name: "shop", MagentoDir: "."}, core.ComposeFiles{}, []string{"db"}, false, false, false)
 	if err != nil {
@@ -236,8 +258,8 @@ func TestNamingAServiceDoesNotDragInTheWholeCheck(t *testing.T) {
 func TestAFailedSnapshotLeavesTheEnvironmentRunning(t *testing.T) {
 	// A stopped environment and no copy, after asking for one, is the worst of the three
 	// possible outcomes
-	orchestration, legacy := &orchestrator{}, &shell{code: 1}
-	operator := operatorWith(nil, orchestration, legacy)
+	orchestration := &orchestrator{}
+	operator := operatorWith(nil, orchestration)
 
 	refusal := refusalOf(t, operator.Stop(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, true))
 
@@ -251,15 +273,11 @@ func TestAFailedSnapshotLeavesTheEnvironmentRunning(t *testing.T) {
 }
 
 func TestStoppingWithoutACopyDoesNotAskForOne(t *testing.T) {
-	orchestration, legacy := &orchestrator{}, &shell{}
-	operator := operatorWith(nil, orchestration, legacy)
+	orchestration := &orchestrator{}
+	operator := operatorWith(nil, orchestration)
 
 	if err := operator.Stop(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, false); err != nil {
 		t.Fatalf("Stop = %v, want no error", err)
-	}
-
-	if len(legacy.ran) != 0 {
-		t.Fatalf("asked of the shell half = %v, want no copy nobody asked for", legacy.ran)
 	}
 
 	if len(orchestration.stopCalls) != 1 {
@@ -272,8 +290,8 @@ func TestRestartingIsAStopAndAStart(t *testing.T) {
 	// And not Compose's own restart, which restarts the containers exactly as they are: somebody
 	// who edits the configuration and runs `restart` expects the change to be running afterwards.
 	//
-	orchestration, legacy := &orchestrator{}, &shell{}
-	operator := operatorWith(nil, orchestration, legacy)
+	orchestration := &orchestrator{}
+	operator := operatorWith(nil, orchestration)
 
 	if err := operator.Restart(core.Project{Name: "shop"}, core.ComposeFiles{}, []string{"phpfpm"}, false); err != nil {
 		t.Fatalf("Restart = %v, want no error", err)
@@ -298,15 +316,11 @@ func TestLinuxRunsTheStepsAfterStartingItself(t *testing.T) {
 	// No hand-off to the shell any more: the ids and the self-routing entries are this package's,
 	// and Start runs them once the environment is up
 	log := []string{}
-	orchestration, legacy := &orchestrator{log: &log}, &shell{}
-	operator := linuxOperator(&log, orchestration, legacy, "1000", "1000", nil)
+	orchestration := &orchestrator{log: &log}
+	operator := linuxOperator(&log, orchestration, "1000", "1000", nil)
 
 	if err := operator.Start(linuxProject, core.ComposeFiles{}, nil, false, false, false); err != nil {
 		t.Fatalf("Start = %v, want no error", err)
-	}
-
-	if len(legacy.ran) != 0 {
-		t.Fatalf("asked of the shell half on linux = %v, want nothing", legacy.ran)
 	}
 
 	if len(log) == 0 || log[0] != "up " {
@@ -320,15 +334,11 @@ func TestLinuxRunsTheStepsAfterStartingItself(t *testing.T) {
 
 func TestMacOSIsNotEvenAsked(t *testing.T) {
 	// Asking costs a shell process, on a command where that is a fifth of the time
-	orchestration, legacy := &orchestrator{}, &shell{}
-	operator := operatorWith(nil, orchestration, legacy)
+	orchestration := &orchestrator{}
+	operator := operatorWith(nil, orchestration)
 
 	if err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false, false); err != nil {
 		t.Fatalf("Start = %v, want no error", err)
-	}
-
-	if len(legacy.ran) != 0 {
-		t.Fatalf("asked of the shell half on macOS = %v, want nothing", legacy.ran)
 	}
 }
 
@@ -336,8 +346,8 @@ func TestTheEnvironmentIsUpBeforeAnyOfThatIsTried(t *testing.T) {
 	// The steps run after the up, so a project whose post-steps fail still has its containers
 	// running — which is the state somebody can look at. Here they fail at their first step:
 	// there is no container to read the ids from
-	orchestration, legacy := &orchestrator{}, &shell{}
-	operator := operatorWith(nil, orchestration, legacy)
+	orchestration := &orchestrator{}
+	operator := operatorWith(nil, orchestration)
 	operator.Platform = "linux"
 
 	err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false, false)
@@ -365,8 +375,8 @@ func enUnWorktreeSinRegistrar() core.Project {
 }
 
 func TestUnaRamaSinEntornoNoPuedeArrancarElDelPrincipal(t *testing.T) {
-	orchestration, legacy := &orchestrator{}, &shell{}
-	operator := operatorWith(nil, orchestration, legacy)
+	orchestration := &orchestrator{}
+	operator := operatorWith(nil, orchestration)
 
 	refusal := refusalOf(t, operator.Start(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, nil, false, false, false))
 
@@ -385,8 +395,8 @@ func TestUnaRamaSinEntornoNoPuedeArrancarElDelPrincipal(t *testing.T) {
 
 func TestNiPararloNiReiniciarlo(t *testing.T) {
 	for _, hacer := range []string{"stop", "restart"} {
-		orchestration, legacy := &orchestrator{}, &shell{}
-		operator := operatorWith(nil, orchestration, legacy)
+		orchestration := &orchestrator{}
+		operator := operatorWith(nil, orchestration)
 
 		var err error
 
@@ -410,8 +420,8 @@ func TestNiPararloNiReiniciarlo(t *testing.T) {
 func TestUnaRamaConEntornoPropioHaceLoQueQuiere(t *testing.T) {
 	// Tiene sus contenedores, sus volúmenes y sus montajes: no hay nada de lo que proteger al
 	// principal
-	orchestration, legacy := &orchestrator{}, &shell{}
-	operator := operatorWith(nil, orchestration, legacy)
+	orchestration := &orchestrator{}
+	operator := operatorWith(nil, orchestration)
 
 	proyecto := enUnWorktreeSinRegistrar()
 	proyecto.Worktree = &core.Worktree{Name: "rama", Parent: "tienda"}
@@ -423,8 +433,8 @@ func TestUnaRamaConEntornoPropioHaceLoQueQuiere(t *testing.T) {
 
 func TestForzarLoLevantaParaUnaInvocacion(t *testing.T) {
 	// Es una decisión, no un ajuste: no hay variable ni fichero que apague la guarda para siempre
-	orchestration, legacy := &orchestrator{}, &shell{}
-	operator := operatorWith(nil, orchestration, legacy)
+	orchestration := &orchestrator{}
+	operator := operatorWith(nil, orchestration)
 	operator.Forced = true
 
 	if err := operator.Start(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, nil, false, false, false); err != nil {
@@ -433,8 +443,8 @@ func TestForzarLoLevantaParaUnaInvocacion(t *testing.T) {
 }
 
 func TestFueraDeUnWorktreeNoHayNadaQueGuardar(t *testing.T) {
-	orchestration, legacy := &orchestrator{}, &shell{}
-	operator := operatorWith(nil, orchestration, legacy)
+	orchestration := &orchestrator{}
+	operator := operatorWith(nil, orchestration)
 
 	if err := operator.Start(core.Project{Name: "tienda"}, core.ComposeFiles{}, nil, false, false, false); err != nil {
 		t.Fatalf("start from a main checkout = %v, want no refusal", err)
@@ -584,11 +594,11 @@ func TestSomeContainersRefuseToStop(t *testing.T) {
 
 func TestStartingWithMinusSAsksTheSameQuestion(t *testing.T) {
 	t.Run("interactive", func(t *testing.T) {
-		orchestration, legacy := &orchestrator{}, &shell{}
+		orchestration := &orchestrator{}
 		fakeEngine := &engine{containers: []core.Container{{ID: "a", ComposeProject: "other", Running: true}}}
 		asked := &asker{answer: "y"}
 
-		operator := operatorWith(nil, orchestration, legacy)
+		operator := operatorWith(nil, orchestration)
 		operator.Engine = fakeEngine
 		operator.Ask = asked.Ask
 
@@ -599,18 +609,14 @@ func TestStartingWithMinusSAsksTheSameQuestion(t *testing.T) {
 		if len(asked.questions) != 1 || asked.questions[0] != "Stop them all? [y/N]:" {
 			t.Fatalf("asked = %v, want the same question docker-stop-all asks", asked.questions)
 		}
-
-		if len(legacy.ran) != 0 {
-			t.Fatalf("asked of the shell half = %v, want the stop done in-process", legacy.ran)
-		}
 	})
 
 	t.Run("non-interactive", func(t *testing.T) {
-		orchestration, legacy := &orchestrator{}, &shell{}
+		orchestration := &orchestrator{}
 		fakeEngine := &engine{containers: []core.Container{{ID: "a", ComposeProject: "other", Running: true}}}
 		asked := &asker{answer: "y"}
 
-		operator := operatorWith(nil, orchestration, legacy)
+		operator := operatorWith(nil, orchestration)
 		operator.Engine = fakeEngine
 		operator.Ask = asked.Ask
 
@@ -629,10 +635,10 @@ func TestStartingWithMinusSAsksTheSameQuestion(t *testing.T) {
 }
 
 func TestAnAPICallerIsNeverAsked(t *testing.T) {
-	orchestration, legacy := &orchestrator{}, &shell{}
+	orchestration := &orchestrator{}
 	fakeEngine := &engine{containers: []core.Container{{ID: "a", Running: true}}}
 
-	operator := operatorWith(nil, orchestration, legacy)
+	operator := operatorWith(nil, orchestration)
 	operator.Engine = fakeEngine
 	operator.Ask = func(string, string) (string, error) {
 		t.Fatal("Ask was called, want an API caller never asked")
@@ -646,10 +652,10 @@ func TestAnAPICallerIsNeverAsked(t *testing.T) {
 }
 
 func TestStoppingTheRestBeforeStarting(t *testing.T) {
-	orchestration, legacy := &orchestrator{}, &shell{}
+	orchestration := &orchestrator{}
 	fakeEngine := &engine{containers: []core.Container{{ID: "a", ComposeProject: "other", Running: true}}}
 
-	operator := operatorWith(nil, orchestration, legacy)
+	operator := operatorWith(nil, orchestration)
 	operator.Engine = fakeEngine
 
 	if err := operator.Start(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, true, false, false); err != nil {
@@ -663,21 +669,17 @@ func TestStoppingTheRestBeforeStarting(t *testing.T) {
 	if len(orchestration.upCalls) != 1 {
 		t.Fatalf("up calls = %v, want the environment started after stopping the rest", orchestration.upCalls)
 	}
-
-	if len(legacy.ran) != 0 {
-		t.Fatalf("asked of the shell half = %v, want nothing: the stop is in-process now", legacy.ran)
-	}
 }
 
 func TestStoppingTheRestIsTheSameCallOnEitherPlatform(t *testing.T) {
 	for _, platform := range []string{"mac", "linux"} {
 		t.Run(platform, func(t *testing.T) {
 			log := []string{}
-			orchestration, legacy := &orchestrator{log: &log}, &shell{}
+			orchestration := &orchestrator{log: &log}
 
 			// On Linux the steps after starting need the project's own containers to read the
 			// ids from; they are stopped with the rest, which this fake does not act on
-			operator := linuxOperator(&log, orchestration, legacy, "1000", "1000", nil)
+			operator := linuxOperator(&log, orchestration, "1000", "1000", nil)
 			fakeEngine := &engine{containers: append(
 				[]core.Container{{ID: "a", ComposeProject: "other", Running: true}},
 				runningLinuxStack("nginx", "phpfpm")...)}

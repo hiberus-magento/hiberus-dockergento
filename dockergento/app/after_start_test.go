@@ -101,8 +101,8 @@ func runningLinuxStack(services ...string) []core.Container {
 // linuxOperator is an operator on Linux over a running nginx, phpfpm and hitch, whose PHP user is
 // app and group www, where the containers answer uid and gid with what they are given and the host
 // is 1000:1000. It waits by logging, and its database answers the two base URLs.
-func linuxOperator(log *[]string, orchestration *orchestrator, legacy *shell, uid, gid string, announced *[]string) Operator {
-	operator := operatorWith(runningLinuxStack("nginx", "phpfpm", "hitch"), orchestration, legacy)
+func linuxOperator(log *[]string, orchestration *orchestrator, uid, gid string, announced *[]string) Operator {
+	operator := operatorWith(runningLinuxStack("nginx", "phpfpm", "hitch"), orchestration)
 	operator.Platform = "linux"
 	operator.UserPHP = "app"
 	operator.GroupPHP = "www"
@@ -156,7 +156,7 @@ func selfRouting() []string {
 
 func TestDifferentIdsAreGivenTheHostsInBothServices(t *testing.T) {
 	log := []string{}
-	operator := linuxOperator(&log, &orchestrator{log: &log}, &shell{}, "33", "82", nil)
+	operator := linuxOperator(&log, &orchestrator{log: &log}, "33", "82", nil)
 
 	if err := operator.AfterStart(linuxProject, core.ComposeFiles{}); err != nil {
 		t.Fatalf("AfterStart = %v, want no error", err)
@@ -189,7 +189,7 @@ func TestDifferentIdsAreGivenTheHostsInBothServices(t *testing.T) {
 
 func TestMatchingIdsChangeNothing(t *testing.T) {
 	log := []string{}
-	operator := linuxOperator(&log, &orchestrator{log: &log}, &shell{}, "1000", "1000", nil)
+	operator := linuxOperator(&log, &orchestrator{log: &log}, "1000", "1000", nil)
 
 	if err := operator.AfterStart(linuxProject, core.ComposeFiles{}); err != nil {
 		t.Fatalf("AfterStart = %v, want no error", err)
@@ -204,7 +204,7 @@ func TestMatchingIdsChangeNothing(t *testing.T) {
 
 func TestARootHostUserIsRefused(t *testing.T) {
 	log := []string{}
-	operator := linuxOperator(&log, &orchestrator{log: &log}, &shell{}, "33", "33", nil)
+	operator := linuxOperator(&log, &orchestrator{log: &log}, "33", "33", nil)
 	operator.HostIds = func() (int, int) { return 0, 0 }
 
 	refusal := refusalOf(t, operator.AfterStart(linuxProject, core.ComposeFiles{}))
@@ -227,7 +227,7 @@ func TestWithoutUsermodAndWithoutApkItStops(t *testing.T) {
 		"type usermod >/dev/null 2>&1": 1,
 		"type apk /dev/null 2>&1":      1,
 	}}
-	operator := linuxOperator(&log, orchestration, &shell{}, "33", "33", nil)
+	operator := linuxOperator(&log, orchestration, "33", "33", nil)
 
 	refusal := refusalOf(t, operator.AfterStart(linuxProject, core.ComposeFiles{}))
 
@@ -251,7 +251,7 @@ func TestWithoutUsermodAndWithoutApkItStops(t *testing.T) {
 func TestOnAlpineShadowIsInstalledFirst(t *testing.T) {
 	log, announced := []string{}, []string{}
 	orchestration := &orchestrator{log: &log, exits: map[string]int{"type groupmod >/dev/null 2>&1": 1}}
-	operator := linuxOperator(&log, orchestration, &shell{}, "33", "1000", &announced)
+	operator := linuxOperator(&log, orchestration, "33", "1000", &announced)
 
 	if err := operator.AfterStart(linuxProject, core.ComposeFiles{}); err != nil {
 		t.Fatalf("AfterStart = %v, want no error", err)
@@ -280,7 +280,7 @@ func TestAFailingChangeStopsThere(t *testing.T) {
 	// set -e: a usermod that fails is not followed by the find that would hand the files over
 	log := []string{}
 	orchestration := &orchestrator{log: &log, exits: map[string]int{"usermod -u 1000 -o app": 1}}
-	operator := linuxOperator(&log, orchestration, &shell{}, "33", "33", nil)
+	operator := linuxOperator(&log, orchestration, "33", "33", nil)
 
 	if err := operator.AfterStart(linuxProject, core.ComposeFiles{}); err == nil {
 		t.Fatal("AfterStart with a failing usermod = nil, want the failure")
@@ -293,7 +293,7 @@ func TestAFailingChangeStopsThere(t *testing.T) {
 
 func TestWithoutATLSTerminatorThereAreNoEntries(t *testing.T) {
 	log, announced := []string{}, []string{}
-	operator := linuxOperator(&log, &orchestrator{log: &log}, &shell{}, "1000", "1000", &announced)
+	operator := linuxOperator(&log, &orchestrator{log: &log}, "1000", "1000", &announced)
 	operator.Engine = &engine{containers: runningLinuxStack("nginx", "phpfpm")}
 
 	if err := operator.AfterStart(linuxProject, core.ComposeFiles{}); err != nil {
@@ -313,7 +313,7 @@ func TestWithoutATLSTerminatorThereAreNoEntries(t *testing.T) {
 
 func TestAFailingQueryAddsOnlyLocalhost(t *testing.T) {
 	log := []string{}
-	operator := linuxOperator(&log, &orchestrator{log: &log}, &shell{}, "1000", "1000", nil)
+	operator := linuxOperator(&log, &orchestrator{log: &log}, "1000", "1000", nil)
 	operator.Query = func(core.Project, string, io.Writer) (int, error) {
 		return 0, errors.New("the database is not running")
 	}
@@ -332,7 +332,7 @@ func TestAFailingQueryAddsOnlyLocalhost(t *testing.T) {
 
 func TestTheHostsCertificateAuthoritiesAreCopiedIn(t *testing.T) {
 	log := []string{}
-	operator := linuxOperator(&log, &orchestrator{log: &log}, &shell{}, "1000", "1000", nil)
+	operator := linuxOperator(&log, &orchestrator{log: &log}, "1000", "1000", nil)
 	copies := &files{}
 	operator.Files = copies
 	operator.FS = filesystem{present: map[string]bool{"/usr/local/share/ca-certificates": true}}
@@ -352,7 +352,7 @@ func TestTheHostsCertificateAuthoritiesAreCopiedIn(t *testing.T) {
 
 func TestOnMacOSThereIsNothingToDoAfterStarting(t *testing.T) {
 	log := []string{}
-	operator := linuxOperator(&log, &orchestrator{log: &log}, &shell{}, "33", "33", nil)
+	operator := linuxOperator(&log, &orchestrator{log: &log}, "33", "33", nil)
 	operator.Platform = "mac"
 
 	if err := operator.AfterStart(linuxProject, core.ComposeFiles{}); err != nil {
@@ -384,7 +384,7 @@ func TestTheHostIsCutOutOfABaseURL(t *testing.T) {
 // skipped; a port is dropped, since /etc/hosts has no place for one.
 func TestABaseURLThatIsNotAHostNameIsNotWritten(t *testing.T) {
 	log := []string{}
-	operator := linuxOperator(&log, &orchestrator{log: &log}, &shell{}, "1000", "1000", nil)
+	operator := linuxOperator(&log, &orchestrator{log: &log}, "1000", "1000", nil)
 	operator.Query = func(_ core.Project, statement string, out io.Writer) (int, error) {
 		log = append(log, "query "+statement)
 		fmt.Fprint(out, "value\nhttps://$(touch${IFS}/pwned).test/\nhttps://tienda.local:8443/\n")

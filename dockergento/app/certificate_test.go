@@ -111,7 +111,7 @@ func certificateOperator(log *[]string, present ...string) (Operator, *programs,
 
 	copies := &certificateFiles{log: log}
 
-	operator := operatorWith(runningLinuxStack("hitch"), &orchestrator{log: log}, &shell{})
+	operator := operatorWith(runningLinuxStack("hitch"), &orchestrator{log: log})
 	operator.Programs = host
 	operator.Files = copies
 

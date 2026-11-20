@@ -11,12 +11,16 @@ import (
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
 )
 
+// ProxyStarter starts the global proxy and says whether it had to: Proxy, or a fake of it.
+type ProxyStarter interface {
+	Up() (bool, error)
+}
+
 // Operator runs the everyday operations on an environment: bringing it up, stopping it, looking
 // at what it is saying and running something inside it.
 type Operator struct {
 	Orchestrator ports.Orchestrator
 	Engine       ports.ContainerEngine
-	Legacy       ports.Legacy
 
 	// ComposeRunner is the Compose command line itself, for a subcommand this tool does not
 	// implement through Orchestrator. Named apart from the Compose method below: Go does not
@@ -52,7 +56,7 @@ type Operator struct {
 	Snapshots *Snapshots
 
 	// Proxy is the one router on the machine, started for a project that is routed through it.
-	Proxy *Proxy
+	Proxy ProxyStarter
 
 	//
 	// What the Linux steps after an environment comes up need (after_start.go).
@@ -197,12 +201,6 @@ func (o Operator) ensureProxy() error {
 	}
 
 	o.announce("Starting the global proxy\n")
-
-	if o.Proxy == nil {
-		_, err = o.Legacy.Run([]string{"proxy", "up"})
-
-		return err
-	}
 
 	_, err = o.Proxy.Up()
 
