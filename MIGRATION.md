@@ -870,6 +870,18 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         la pista C. `db.sh` (709 líneas) está borrado; quedan 3. Apartados: 46 de 895 aserciones
         fallaban antes y después, diff vacío.
 
+        Revisado de `e899801` a `92499cf`. El tramo entero no cabía en el presupuesto de las
+        lentes, así que se revisó en ocho tramos, cada uno en un worktree fijado en su último
+        commit: los siete aprobados y reconocidos son `review-1bea71db957e3fa8` (interrupciones de
+        `share`/`tunnel`), `review-31d312a9aedac743` (`compatibility`), `review-95806b82467a9a41`
+        (`transfer-db`), `review-760af4943b010ecf` (`switch` y `verify`), `review-3e7cb01e4e30d7ac`
+        (`mcp`), `review-5a1b449338d207d7` (`install`) y `review-16e898c648f3faa5` (`ai-doctor` y
+        `db`). El de `tui` (`review-aa109a427cb0865e`) acabó sin aprobación ni rechazo, con un
+        hallazgo escalado, `R3-sigint-during-handed-action`: qué pasa con el panel y la terminal si
+        llega una señal mientras un comando lanzado tiene la terminal. Ese hallazgo y los avisos que
+        lo merecen —un Ctrl-C en la pregunta de `share` que cerraría un túnel de otra terminal, los
+        ficheros sin entrecomillar de `verify`, el filtro de SQL de `mcp`— se arreglan aparte.
+
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
 
