@@ -1,70 +1,74 @@
 #!/usr/bin/env bash
 #
-# Reporting the installed version, switching between versions and not being taken off one.
+# Updating the tool and switching it between releases, by replacing the running executable.
 #
-# Everything runs against a throwaway clone of the repository, so the developer's own
-# installation is never touched: this suite moves HEAD around, which is exactly the sort of
-# thing you do not want happening to the hm you are using.
+# Offline: HM_RELEASES_URL points the binary at a fixture in the GitHub API's format, whose assets
+# are file:// URLs to small scripts standing in for release binaries. Every case runs a fresh copy
+# of the binary under test in a directory of its own, so nothing the developer has installed is
+# ever replaced.
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
-LAB=$(cd "$(mktemp -d)" && pwd -P)
-CLONE="$LAB/clone"
-trap 'rm -rf "$LAB"' EXIT
-
-if ! git -C "$COMMAND_BIN_DIR" rev-parse --git-dir >/dev/null 2>&1; then
-    echo "  - skipped: the installation is not a git checkout"
+if ! command -v go >/dev/null 2>&1; then
+    echo "  - skipped: there is no Go toolchain to build the binary under test"
     echo "RESULT 0 0"
     exit 0
 fi
 
-git clone -q "$COMMAND_BIN_DIR" "$CLONE" 2>/dev/null
-branch=$(git -C "$COMMAND_BIN_DIR" rev-parse --abbrev-ref HEAD)
-git -C "$CLONE" checkout -q "$branch" 2>/dev/null
+LAB=$(cd "$(mktemp -d)" && pwd -P)
+trap 'chmod -R u+w "$LAB" 2>/dev/null; rm -rf "$LAB"' EXIT
 
-# A clone carries commits, not the working tree, so without this the suite would be testing the
-# code as it was at the last commit — and every change to `switch` would go unverified until
-# after it was committed. The uncommitted files are copied across and committed in the clone, so
-# it also starts clean: the cases below depend on that.
-copy_working_tree() {
-    local file
-    ( cd "$COMMAND_BIN_DIR" && git ls-files --modified --others --exclude-standard ) |
-        while IFS= read -r file; do
-            [ -f "$COMMAND_BIN_DIR/$file" ] || continue
-            mkdir -p "$CLONE/$(dirname "$file")"
-            cp "$COMMAND_BIN_DIR/$file" "$CLONE/$file"
-        done
+# The binary under test, stamped as release 2.0.0 the way GoReleaser stamps it, and once more
+# unstamped, the way a checkout builds it
+STAMP="github.com/hiberus-magento/hiberus-dockergento/internal/cli.Version"
+( cd "$COMMAND_BIN_DIR" && go build -ldflags "-X $STAMP=2.0.0" -o "$LAB/hm-2.0.0" ./cmd/hm ) || exit 1
+( cd "$COMMAND_BIN_DIR" && go build -o "$LAB/hm-devel" ./cmd/hm ) || exit 1
 
-    ( cd "$COMMAND_BIN_DIR" && git ls-files --deleted ) |
-        while IFS= read -r file; do
-            rm -f "$CLONE/$file"
-        done
+case "$(uname -s)" in Darwin) os=darwin ;; *) os=linux ;; esac
+case "$(uname -m)" in arm64 | aarch64) arch=arm64 ;; *) arch=amd64 ;; esac
+ASSET="hm_${os}_${arch}"
 
-    git -C "$CLONE" add -A >/dev/null 2>&1
-    git -C "$CLONE" -c user.email=test@example.com -c user.name=test \
-        commit -qm "working tree under test" >/dev/null 2>&1 || true
+sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
+
+# release <tag>: a directory with the stand-in binary of <tag> for this platform and its checksums
+release() {
+    local dir="$LAB/releases/$1"
+    mkdir -p "$dir"
+    printf '#!/bin/sh\necho "fixture %s"\n' "$1" > "$dir/$ASSET"
+    printf '%s  %s\n' "$(sha "$dir/$ASSET")" "$ASSET" > "$dir/checksums.txt"
 }
 
-copy_working_tree
-# The binary finds its installation where its executable is: a copy of it inside the clone moves
-# the clone and never the installation running this suite. bin/ holds nothing tracked any more, so
-# a clone does not have it until something is put there
-mkdir -p "$CLONE/bin"
-cp "$COMMAND_BIN_DIR/bin/hm" "$CLONE/bin/hm"
-HM="$CLONE/bin/hm"
+# entry <tag> <prerelease>: the release as the GitHub API lists it
+entry() {
+    local dir="$LAB/releases/$1"
+    printf '{"tag_name":"%s","prerelease":%s,"draft":false,"assets":[' "$1" "$2"
+    printf '{"name":"%s","browser_download_url":"file://%s/%s"},' "$ASSET" "$dir" "$ASSET"
+    printf '{"name":"checksums.txt","browser_download_url":"file://%s/checksums.txt"}]}' "$dir"
+}
 
-# update and switch get the binary again for the checkout they move to, from GitHub or with a go
-# build. HM_BINARY_SOURCE has them copy this file instead, the binary under test, so the suite
-# reaches neither the network nor a toolchain
-cp "$COMMAND_BIN_DIR/bin/hm" "$LAB/hm-under-test"
-export HM_BINARY_SOURCE="$LAB/hm-under-test"
-run_go() {
-    ( cd "$LAB" && "$CLONE/bin/hm" "$@" >"$LAB/out" 2>"$LAB/err" )
-    STATUS=$?
-    STDOUT=$(cat "$LAB/out")
-    STDERR=$(cat "$LAB/err")
-    return 0
+for tag in 2.2.0-rc.1 2.1.0 2.0.0 1.6.0; do release "$tag"; done
+
+printf '[%s,%s,%s,%s]\n' "$(entry 2.2.0-rc.1 true)" "$(entry 2.1.0 false)" \
+    "$(entry 2.0.0 false)" "$(entry 1.6.0 false)" > "$LAB/releases.json"
+printf '[%s,%s]\n' "$(entry 2.0.0 false)" "$(entry 1.6.0 false)" > "$LAB/only-2.0.0.json"
+
+# A release whose binary does not match its checksums
+mkdir -p "$LAB/releases/tampered"
+cp "$LAB/releases/2.1.0/checksums.txt" "$LAB/releases/tampered/checksums.txt"
+printf '#!/bin/sh\necho "tampered"\n' > "$LAB/releases/tampered/$ASSET"
+sed "s#$LAB/releases/2.1.0/$ASSET#$LAB/releases/tampered/$ASSET#" "$LAB/releases.json" > "$LAB/tampered.json"
+
+export HM_RELEASES_URL="file://$LAB/releases.json"
+unset GITHUB_TOKEN
+
+# fresh [binary]: a copy of the binary under test, installed in a directory of its own
+fresh() {
+    rm -rf "$LAB/install"
+    mkdir -p "$LAB/install"
+    cp "$LAB/${1:-hm-2.0.0}" "$LAB/install/hm"
+    HM="$LAB/install/hm"
+    BEFORE=$(sha "$HM")
 }
 
 run() {
@@ -75,169 +79,132 @@ run() {
     return 0
 }
 
-reference() {
-    git -C "$CLONE" rev-parse --abbrev-ref HEAD
-}
-
-# Every switch that lands on an older version also lands on *its* code, which has no
-# `switch`, no JSON and none of the protections. So the clone is put back on the branch
-# under test with plain git before each case, otherwise the suite would be asserting the
-# behaviour of whatever version it happened to end up on.
-reset_clone() {
-    git -C "$CLONE" checkout -q --force "$branch" 2>/dev/null
-    git -C "$CLONE" clean -qfd 2>/dev/null
-}
-
-# ------------------------------------------------------------------ reporting
-
-test_case "the version is reported in full, not rounded to the tag"
-run --version --json
-assert_json_field "$STDOUT" '.data.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+")' "true"
-
-test_case "the branch is reported"
-assert_json_field "$STDOUT" '.data.branch' "$branch"
-
-test_case "the checkout is not detached on a branch"
-assert_json_field "$STDOUT" '.data.detached' "false"
-
-test_case "the commit is reported"
-assert_json_field "$STDOUT" '.data.commit | length > 0' "true"
-
-test_case "the install path is reported and normalised"
-assert_json_field "$STDOUT" '.data.path' "$CLONE"
-
-test_case "the readable output names the tool and the version"
-run --version --no-json
-assert_contains "$STDOUT" "hm "
+unchanged() { assert_equals "$BEFORE" "$(sha "$HM")"; }
 
 # ------------------------------------------------------------------ listing
 
-test_case "the available versions are listed"
-run_go switch --list --json
-assert_json_field "$STDOUT" '.data.versions | length > 0' "true"
+test_case "the releases of 2.0 and later are listed, newest first"
+fresh
+run switch --list --json
+assert_json_field "$STDOUT" '[.data.versions[].name] | join(" ")' "2.2.0-rc.1 2.1.0 2.0.0"
 
-test_case "each version says whether it is a pre-release"
-assert_json_field "$STDOUT" '.data.versions | all(has("pre_release"))' "true"
+test_case "the running version is the current one, and marked"
+assert_json_field "$STDOUT" '.data.current' "2.0.0"
+assert_json_field "$STDOUT" '[.data.versions[] | select(.installed) | .name] | join(" ")' "2.0.0"
 
-test_case "and which one is installed"
-assert_json_field "$STDOUT" '.data.versions | all(has("installed"))' "true"
+test_case "a pre-release is marked as one, a final release is not"
+assert_json_field "$STDOUT" '[.data.versions[] | select(.pre_release) | .name] | join(" ")' "2.2.0-rc.1"
 
-test_case "a release candidate is marked as a pre-release"
-assert_json_field "$STDOUT" \
-    '[.data.versions[] | select(.name | test("-rc\\."))] | all(.pre_release)' "true"
-
-test_case "a final version is not"
-assert_json_field "$STDOUT" \
-    '[.data.versions[] | select(.name | test("^[0-9.]+$"))] | any(.pre_release) | not' "true"
-
-test_case "the readable list labels the pre-releases"
-run_go switch --list --no-json
+test_case "the readable list labels the pre-releases and the installed version"
+run switch --list --no-json
 assert_contains "$STDOUT" "pre-release"
+assert_contains "$STDOUT" "← installed"
 
-test_case "the current reference is reported"
-run_go switch --list --json
-assert_json_field "$STDOUT" '.data.current' "$branch"
+# ------------------------------------------------------------------ update
 
-# ------------------------------------------------------------------ switching
-
-# A version of the Go tool to switch to, made here: a tag on the commit under test, which has cmd/hm.
-# Only in the clone — tags fetched with --tags are not pruned, so the switch's own fetch keeps it
-GO_TAG="99.0.0-rc.1"
-git -C "$CLONE" tag "$GO_TAG" "$branch"
-
-# A version of the shell tool, which has no cmd/hm: what every tag before 2.0 is
-SHELL_TAG="1.4.5"
-
-test_case "switching to a version detaches at that tag"
-reset_clone
-run_go switch "$GO_TAG"
-assert_equals "$GO_TAG" "$(git -C "$CLONE" describe --tags 2>/dev/null)"
-
-test_case "and its binary is the one HM_BINARY_SOURCE names, so the switch succeeds offline"
+test_case "update installs the newest final release over the running executable"
+fresh
+run update --no-json
 assert_equals "0" "$STATUS"
-assert_equals "$(shasum "$HM_BINARY_SOURCE" | cut -d' ' -f1)" "$(shasum "$CLONE/bin/hm" | cut -d' ' -f1)"
+assert_equals "fixture 2.1.0" "$("$HM")"
+assert_contains "$STDOUT" "updated from 2.0.0 to 2.1.0"
 
-test_case "a detached checkout is reported as such"
-reset_clone
-git -C "$CLONE" checkout -q --detach HEAD
-run --version --json
-assert_json_field "$STDOUT" '.data.detached' "true"
+test_case "update --pre takes the newest pre-release"
+fresh
+run update --pre --json
+assert_json_field "$STDOUT" '.data.to' "2.2.0-rc.1"
+assert_equals "fixture 2.2.0-rc.1" "$("$HM")"
 
-pinned_head=$(git -C "$CLONE" rev-parse HEAD)
+test_case "an executable reached through a symlink is replaced where it really is"
+fresh
+mkdir -p "$LAB/install/bin"
+ln -s "$LAB/install/hm" "$LAB/install/bin/hm"
+( cd "$LAB" && "$LAB/install/bin/hm" update >/dev/null 2>&1 )
+assert_equals "fixture 2.1.0" "$("$LAB/install/hm")"
+assert_equals "true" "$([ -L "$LAB/install/bin/hm" ] && echo true || echo false)"
 
-test_case "update refuses to move a pinned installation"
-run_go update --json
-assert_json_field "$STDERR" '.error.type' "detached_installation"
+test_case "with nothing newer, update says it is up to date and changes nothing"
+fresh
+HM_RELEASES_URL="file://$LAB/only-2.0.0.json" run update --no-json
+assert_equals "0" "$STATUS"
+assert_contains "$STDOUT" "2.0.0 is up to date"
+unchanged
 
-test_case "refusing to update is not a generic failure"
-assert_equals "6" "$STATUS"
+test_case "a binary that does not match its checksum is refused, and the old one kept"
+fresh
+HM_RELEASES_URL="file://$LAB/tampered.json" run update --json
+assert_equals "1" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "download_failed"
+unchanged
 
-test_case "and it changed nothing"
-assert_equals "$pinned_head" "$(git -C "$CLONE" rev-parse HEAD)"
+test_case "releases that cannot be read are said"
+fresh
+HM_RELEASES_URL="file://$LAB/nowhere.json" run update --json
+assert_equals "1" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "releases_unavailable"
+unchanged
 
-test_case "a version of the shell tool is refused"
-reset_clone
-before_head=$(git -C "$CLONE" rev-parse HEAD)
-run_go switch "$SHELL_TAG" --json
-assert_json_field "$STDERR" '.error.type' "version_before_go"
-
-test_case "with the exit code of a reference it cannot switch to"
-assert_equals "2" "$STATUS"
-
-test_case "and the checkout was not changed"
-assert_equals "$branch" "$(reference)"
-assert_equals "$before_head" "$(git -C "$CLONE" rev-parse HEAD)"
-
-test_case "the refusal says how to install a 1.x separately"
-run_go switch "$SHELL_TAG" --no-json
-assert_contains "$STDERR$STDOUT" "git clone -b $SHELL_TAG"
-
-# main is the shell tool until 2.0 is released on it, and --stable follows the same rule as any
-# reference: switched to when its tree has cmd/hm, refused when it does not
-if git -C "$CLONE" cat-file -e origin/main:cmd/hm/main.go 2>/dev/null; then
-    test_case "switching back to the stable branch works"
-    reset_clone
-    run_go switch --stable
-    assert_equals "main" "$(reference)"
-else
-    test_case "switching to a stable branch that is still the shell tool is refused"
-    reset_clone
-    run_go switch --stable --json
-    assert_json_field "$STDERR" '.error.type' "version_before_go"
-    assert_equals "$branch" "$(reference)"
+if [ "$(id -u)" -ne 0 ]; then
+    test_case "a directory that cannot be written is said, with how to install there"
+    fresh
+    chmod 555 "$LAB/install"
+    run update --json
+    chmod 755 "$LAB/install"
+    assert_equals "1" "$STATUS"
+    assert_json_field "$STDERR" '.error.type' "install_dir_not_writable"
+    assert_contains "$STDERR" "sudo"
+    unchanged
 fi
 
-test_case "switching to a branch by name works"
-reset_clone
-run_go switch "$branch"
-assert_equals "$branch" "$(reference)"
+test_case "a binary built from a checkout is not updated"
+fresh hm-devel
+run update --json
+assert_equals "6" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "built_from_source"
+unchanged
 
-test_case "update works normally on a branch"
-reset_clone
-run_go update
+# ------------------------------------------------------------------ switch
+
+test_case "switch installs the release asked for"
+fresh
+run switch 2.1.0
 assert_equals "0" "$STATUS"
+assert_equals "fixture 2.1.0" "$("$HM")"
+
+test_case "switch --stable installs the newest final release"
+fresh
+run switch --stable --json
+assert_json_field "$STDOUT" '.data.version' "2.1.0"
+assert_equals "fixture 2.1.0" "$("$HM")"
+
+test_case "switching to the running version changes nothing"
+fresh
+run switch 2.0.0 --json
+assert_equals "0" "$STATUS"
+assert_json_field "$STDOUT" '.data.unchanged' "true"
+unchanged
+
+test_case "a version of the shell tool is refused, with how to install it separately"
+fresh
+run switch 1.6.0 --json
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "version_before_go"
+assert_contains "$STDERR" "git clone -b 1.6.0"
+unchanged
+
+test_case "a branch is refused, with how to build it"
+fresh
+run switch release/2.0.0 --json
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "not_a_version"
+assert_contains "$STDERR" "go build"
+unchanged
 
 test_case "an unknown version is refused"
-reset_clone
-run_go switch 9.9.9-does-not-exist --json
-assert_json_field "$STDERR" '.error.type' "unknown_reference"
-
-test_case "and the installation did not move"
-assert_equals "$branch" "$(reference)"
-
-test_case "uncommitted changes stop the switch"
-reset_clone
-echo "# local change" >> "$CLONE/README.md"
-run_go switch "$GO_TAG" --json
-assert_json_field "$STDERR" '.error.type' "dirty_installation"
-
-test_case "and again the installation did not move"
-assert_equals "$branch" "$(reference)"
-
-test_case "untracked files do not stop it"
-reset_clone
-printf 'notes\n' > "$CLONE/my-own-notes.txt"
-run_go switch "$GO_TAG"
-assert_equals "$GO_TAG" "$(git -C "$CLONE" describe --tags 2>/dev/null)"
+fresh
+run switch 9.9.9 --json
+assert_equals "2" "$STATUS"
+assert_json_field "$STDERR" '.error.type' "unknown_version"
+unchanged
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
