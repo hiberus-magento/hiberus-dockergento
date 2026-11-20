@@ -2144,6 +2144,11 @@ func (e *Engine) SaveInstallSettings(settings []core.Setting) error {
 		return err
 	}
 
+	// A link — dotfiles kept somewhere else — is written through, so it stays a link
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
+
 	// 0600, written aside and renamed over the old file: the settings can hold the store's admin
 	// password, and an older version left the file readable by everyone
 	temporary, err := os.CreateTemp(filepath.Dir(path), ".config.json.*")

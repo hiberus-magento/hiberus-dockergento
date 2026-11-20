@@ -255,3 +255,35 @@ func TestInstallSettingsAreReadableOnlyByTheirOwner(t *testing.T) {
 		os.Remove(file) //nolint:errcheck
 	}
 }
+
+// A config.json that is a link — dotfiles kept somewhere else — stays a link: the settings are
+// written where it points, not over the link itself.
+func TestInstallSettingsWriteThroughALink(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "dotfiles", "hm-config.json")
+	link := filepath.Join(dir, "config.json")
+
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	engine := New(Options{InstallSettingsFile: link, Assets: fstest.MapFS{}})
+	if err := engine.SaveInstallSettings([]core.Setting{{Key: "currency", Value: []byte(`"EUR"`)}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("config.json is no longer a link: %v, %v", info, err)
+	}
+
+	written, err := os.ReadFile(target)
+	if err != nil || !strings.Contains(string(written), "EUR") {
+		t.Errorf("the link's target holds %q, %v; want the saved settings", written, err)
+	}
+}
