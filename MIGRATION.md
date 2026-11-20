@@ -841,6 +841,23 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         `validation_cache_test.sh` usa ahora `mcp --config` como comando del shell sin proyecto
         (`957f2b3`). `switch.sh` (227 líneas) y `verify.sh` (234) están borrados; quedan 8.
         Apartados: 46 de 1042 aserciones fallaban antes y después, diff vacío.
+  - [x] `mcp`, `tui`, `install` y `ai-doctor` portados y retirados (`13a87f6`, `05bbbda`,
+        `0e0ced6`, `9d31117`), cada uno escrito por un subagente en su propio worktree e integrado
+        aquí. `mcp` responde byte a byte lo que respondía `mcp.sh` —lo fija un golden que es la
+        salida del `bin/run mcp` real sobre 70 peticiones—, y su `--config` apunta ya a `bin/hm`;
+        sus reglas de SQL de sólo lectura y de rutas de configuración pasan a Go (`165d35a`). `tui`
+        dibuja el mismo panel con las mismas teclas y lanza los mismos comandos en el directorio de
+        cada entorno; sin terminal se niega como el shell. `install` hace las mismas preguntas y el
+        mismo `setup:install` argumento por argumento, con el mismo arranque del administrador; un
+        valor de `data/config.json` con espacios llega ya como un solo argumento. `ai-doctor` da la
+        misma tabla y los mismos estados, con un digest en Go probado contra un golden del shell.
+        Las suites que leían el código de los scripts fijan ahora esas reglas en Go, y se retiraron
+        con ellos `admin_bootstrap.sh`, `tui_frame.sh`, `tui_render.sh` y `mcp_tools.sh` con sus
+        pruebas unitarias (`faedfe5`–`e82f47a`, `165d35a`). La primera corrida con los ficheros
+        apartados encontró esas suites; la guardia de que `tui` y `mcp` llaman al binario mira ya
+        sólo los scripts que quedan (`bff441f`). `mcp.sh` (327 líneas), `tui.sh` (261),
+        `install.sh` (248) y `ai-doctor.sh` (168) están borrados; quedan 4. Apartados: 46 fallos
+        antes y después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
