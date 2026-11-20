@@ -49,6 +49,8 @@ func (v Verifier) Verify(project core.Project, options core.VerifyOptions) (core
 	//
 	var files []string
 
+	comparing := false
+
 	if options.Changed {
 		base := ""
 
@@ -62,6 +64,7 @@ func (v Verifier) Verify(project core.Project, options core.VerifyOptions) (core
 
 		if base != "" {
 			files = v.Changes.ChangedSince(project.Root, base, "*.php")
+			comparing = true
 			verification.Scope = "changed"
 		} else {
 			verification.Scope = "everything (no base branch to compare against)"
@@ -70,7 +73,7 @@ func (v Verifier) Verify(project core.Project, options core.VerifyOptions) (core
 
 	record := func(check core.Check) { verification.Checks = append(verification.Checks, check) }
 
-	syntax, err := v.syntax(run, verification.Scope == "changed", files)
+	syntax, err := v.syntax(run, comparing, files)
 	if err != nil {
 		return core.Verification{}, err
 	}
@@ -80,7 +83,7 @@ func (v Verifier) Verify(project core.Project, options core.VerifyOptions) (core
 	// The tools look at the changed files when there are some, and at app/code otherwise — an
 	// empty --changed included, as in the shell
 	target := "app/code"
-	if verification.Scope == "changed" && len(files) > 0 {
+	if comparing && len(files) > 0 {
 		target = shellWords(files)
 	}
 
