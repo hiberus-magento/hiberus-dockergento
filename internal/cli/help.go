@@ -61,19 +61,26 @@ func (p *helpPage) code(sequence string) string {
 	return sequence
 }
 
+//
+// Every text is written as it is. The shell passed these through printf's %b, and pasted a
+// command's description into the format itself, so a `%`, a backslash or a `\c` in
+// command_descriptions.json was interpreted; with bin/run gone there is nothing to be
+// byte-identical with for such data, and text from a data file is printed literally.
+//
+
 // decorated is _print_decorated in text mode: print_info, print_heading.
 func (p *helpPage) decorated(colour, text string) {
-	p.out.WriteString(p.code(colour) + bashB(text) + p.code(helpReset))
+	p.out.WriteString(p.code(colour) + text + p.code(helpReset))
 }
 
 // codeText is print_code.
 func (p *helpPage) codeText(text string) {
-	p.out.WriteString(p.code(helpBrown) + bashB(text) + p.code(helpReset))
+	p.out.WriteString(p.code(helpBrown) + text + p.code(helpReset))
 }
 
 // plain is print_default, which resets before it prints rather than after.
 func (p *helpPage) plain(text string) {
-	p.out.WriteString(p.code(helpReset) + bashB(text))
+	p.out.WriteString(p.code(helpReset) + text)
 }
 
 // helpData is what the help is built from: the tool's command_descriptions.json, and the project's
@@ -197,12 +204,19 @@ func (d helpData) customCommands(p *helpPage) {
 		return
 	}
 
-	scripts, _ := filepath.Glob(filepath.Join(d.customDir, "*.sh"))
+	// The directory as read, not a glob of its path: a project path holding `[`, `*` or `?` would
+	// make the pattern match nothing. A name starting with `.` is skipped, as bash's `*` skipped it.
+	entries, _ := os.ReadDir(d.customDir)
 	names := []string{}
 
-	for _, script := range scripts {
-		if info, err := os.Stat(script); err == nil && info.Mode().IsRegular() {
-			names = append(names, filepath.Base(script))
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") || !strings.HasSuffix(name, ".sh") {
+			continue
+		}
+
+		if info, err := os.Stat(filepath.Join(d.customDir, name)); err == nil && info.Mode().IsRegular() {
+			names = append(names, name)
 		}
 	}
 
@@ -213,7 +227,8 @@ func (d helpData) customCommands(p *helpPage) {
 	if _, err := os.Stat(filepath.Join(d.customDir, "command_descriptions.json")); err == nil {
 		own, err := readJSONObject(filepath.Join(d.customDir, "command_descriptions.json"))
 		if err != nil {
-			// jq failed on it, and the pass printed nothing
+			// A broken descriptions file skips only this section, the project's own commands: the
+			// tool's commands, the examples and the global options are still printed
 			return
 		}
 
@@ -399,7 +414,8 @@ func (d helpData) command(p *helpPage, name string) {
 
 	if strings.Contains(params, "description") {
 		p.decorated(helpGreen, "Description:")
-		p.out.WriteString(bashFormat("%1s" + chomp(jqRaw(info["description"])) + "\n"))
+		// The shell's `%1s` with no argument: one space
+		p.out.WriteString(" " + chomp(jqRaw(info["description"])) + "\n")
 	}
 
 	if strings.Contains(params, "opts") {
@@ -525,4 +541,18 @@ func jqAdd(text string, value any) string {
 // chomp is what a command substitution does to a value: trailing newlines go.
 func chomp(text string) string {
 	return strings.TrimRight(text, "\n")
+}
+
+// pad is printf's width: counted in bytes, as bash counts it.
+func pad(text string, width int, left bool) string {
+	if len(text) >= width {
+		return text
+	}
+
+	fill := strings.Repeat(" ", width-len(text))
+	if left {
+		return text + fill
+	}
+
+	return fill + text
 }

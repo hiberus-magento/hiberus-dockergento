@@ -275,22 +275,85 @@ func TestTheLogoIsForATerminalOnly(t *testing.T) {
 	}
 }
 
-func TestThePrintfOfTheShellIsTheShells(t *testing.T) {
-	for _, tc := range []struct{ in, want string }{
-		{`a\tb\n`, "a\tb\n"},
-		{`100%% sure %s.%5d|%-3s|`, "100% sure .    0|   |"},
-		{`\101\x41é`, "AAé"},
-	} {
-		if got := bashFormat(tc.in); got != tc.want {
-			t.Fatalf("bashFormat(%q) = %q, want %q", tc.in, got, tc.want)
+// The descriptions, titles, usages and examples of command_descriptions.json are text, printed as
+// written: not a printf format, not %b escapes. A deliberate departure from bash, which bin/run
+// was: with it gone there is nothing left to be byte-identical with for such data.
+func TestDescriptionsArePrintedLiterally(t *testing.T) {
+	odd := `100% sure\101 é \c then more\`
+	pinHelp(t, toolDescribing(t, `{
+		"_groups": [{"id": "other", "title": "Other 50%"}],
+		"weird": {"description": "100% sure\\101 é \\c then more\\", "usage": "weird 100%\\n",
+			"example": "weird \\t%s", "group": "other"}
+	}`), "mac")
+	t.Chdir(t.TempDir())
+	t.Setenv("NO_COLOR", "1")
+
+	var stdout, stderr bytes.Buffer
+	Run([]string{"weird", "--help"}, &stdout, &stderr)
+
+	want := "Usage: hm weird 100%\\n\nExample: hm weird \\t%s\nDescription: " + odd + "\n\n"
+	if stdout.String() != want {
+		t.Fatalf("got  %q\nwant %q", stdout.String(), want)
+	}
+
+	stdout.Reset()
+	Run([]string{"--help"}, &stdout, &stderr)
+
+	if !strings.Contains(stdout.String(), "\nOther 50%\n") || !strings.Contains(stdout.String(), odd+"\n") {
+		t.Fatalf("list = %q, want the title and description as written", stdout.String())
+	}
+}
+
+// The project's commands are the scripts in its directory, read as a directory: a project path
+// with glob characters in it still lists them, and a dotfile is not a command (bash's * skipped it).
+func TestProjectCommandsAreFoundWhateverThePathAndWithoutDotfiles(t *testing.T) {
+	pinHelp(t, helpTool, "mac")
+	t.Setenv("NO_COLOR", "1")
+
+	project := filepath.Join(t.TempDir(), "tienda [v2]*?")
+	commands := filepath.Join(project, "config", "hm", "commands")
+	if err := os.MkdirAll(commands, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"zeta.sh", "alpha.sh", ".hidden.sh", "notes.txt"} {
+		if err := os.WriteFile(filepath.Join(commands, name), []byte("#!/bin/sh\n"), 0o755); err != nil {
+			t.Fatal(err)
 		}
 	}
 
-	if got, stopped := expandB(`one\ntwo\cthree`); got != "one\ntwo" || !stopped {
-		t.Fatalf("expandB = %q %v, want the output to stop at \\c", got, stopped)
+	t.Chdir(project)
+
+	var stdout, stderr bytes.Buffer
+	Run([]string{"--help"}, &stdout, &stderr)
+	out := stdout.String()
+
+	alpha, zeta := strings.Index(out, "  alpha "), strings.Index(out, "  zeta ")
+	if alpha < 0 || zeta < 0 || alpha > zeta {
+		t.Fatalf("project commands alpha and zeta not listed in order:\n%s", out)
 	}
 
-	if got := bashB(`\0101\e[0m\q`); got != "A\x1b[0m\\q" {
-		t.Fatalf("bashB = %q", got)
+	if strings.Contains(out, "hidden") || strings.Contains(out, "notes") {
+		t.Fatalf("a dotfile or a non-script listed as a command:\n%s", out)
+	}
+}
+
+// A project's broken command_descriptions.json costs only its own section: the tool's commands,
+// the examples and the global options are all still there.
+func TestABrokenProjectDescriptionsFileSkipsOnlyTheProjectsSection(t *testing.T) {
+	project := helpProject(t)
+	commands := filepath.Join(project, "config", "hm", "commands")
+	if err := os.WriteFile(filepath.Join(commands, "command_descriptions.json"), []byte("{ not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, stderr, code := helpIn(t, project, false, "--help")
+	if code != 0 || stderr != "" {
+		t.Fatalf("exit %d, stderr %q, want 0 and nothing", code, stderr)
+	}
+
+	whole := golden(t, "full.txt")
+	if stdout != whole {
+		t.Fatalf("got\n%s\nwant the list without the project's section:\n%s", stdout, whole)
 	}
 }
