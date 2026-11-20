@@ -33,7 +33,8 @@ type AgentContext struct {
 	// is not to read.
 	Assets fs.FS
 
-	// Command is what .mcp.json starts the MCP server with.
+	// Command is what .mcp.json starts the MCP server with: the running executable. Empty, when it
+	// could not be worked out, means Binary, found on PATH.
 	Command string
 
 	// Binary is the name the tool was invoked as, and Version what the block says generated it.
@@ -116,7 +117,14 @@ func (a AgentContext) Write() (core.AgentContextResult, error) {
 		result.ClaudeNeeds = &needs
 	}
 
-	if err := writeMCPFile(filepath.Join(root, ".mcp.json"), a.binaryName(), a.Command, root); err != nil {
+	// An executable that could not be worked out is never an empty command, which no agent can
+	// start: the binary's name is, found on PATH as the user's shell finds it
+	command := a.Command
+	if command == "" {
+		command = a.binaryName()
+	}
+
+	if err := writeMCPFile(filepath.Join(root, ".mcp.json"), a.binaryName(), command, root); err != nil {
 		return core.AgentContextResult{}, err
 	}
 

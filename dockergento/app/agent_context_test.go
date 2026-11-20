@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -351,5 +352,31 @@ func TestNothingIsWrittenWithoutADaemonOrAProject(t *testing.T) {
 				t.Errorf("files were written: %v", snapshot(t, root))
 			}
 		})
+	}
+}
+
+// When the running executable cannot be worked out, .mcp.json never gets an empty command, which
+// no agent can start: it names the binary, found on PATH.
+func TestAnUnknownExecutableIsNeverAnEmptyMCPCommand(t *testing.T) {
+	scene := agentScenes()[0]
+	scene.binary = "hm"
+
+	root := filepath.Join(t.TempDir(), "shop")
+	seed(t, root, scene.files)
+
+	writer := scene.writer(t, root, repositoryRoot(t))
+	writer.Command = ""
+
+	if _, err := writer.Write(); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	written, err := os.ReadFile(filepath.Join(root, ".mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(string(written), `"command": ""`) || !strings.Contains(string(written), `"command": "hm"`) {
+		t.Errorf(".mcp.json = %s, want the command hm", written)
 	}
 }
