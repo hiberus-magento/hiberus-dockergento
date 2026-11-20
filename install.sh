@@ -267,7 +267,8 @@ checkout_of() {
         *) return 0 ;;
     esac
     checkout="${target%/bin/*}"
-    if [ -d "$checkout/.git" ] || [ -f "$checkout/.git" ] || [ ! -e "$target" ]; then
+    # bin/run is 1.x's entry point and nothing else's; a link to a bin/hm counts only inside a clone
+    if [[ "$target" == */bin/run ]] || [ -e "$checkout/.git" ] || [ ! -e "$target" ]; then
         printf '%s' "$checkout"
     fi
 }

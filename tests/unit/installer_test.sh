@@ -55,6 +55,8 @@ chmod u+w "$HM_SYSTEM_BIN"
 chmod u-w "$HM_SYSTEM_BIN"
 exit $status
 EOF
+# jq: the installer must not need it (macOS ships one in /usr/bin, so it is shadowed, not omitted)
+printf '#!/bin/sh\necho "jq $*" >>"$FAKE_JQ_LOG"\nexit 127\n' >"$TOOLS/jq"
 chmod +x "$TOOLS"/*
 
 BASE_PATH="/usr/bin:/bin"
@@ -72,6 +74,7 @@ new_case() {
     export FAKE_API="$CASE/api.json"
     export FAKE_CURL_LOG="$CASE/curl.log"
     export FAKE_SUDO_LOG="$CASE/sudo.log"
+    export FAKE_JQ_LOG="$LAB/jq.log"
     export TMPDIR="$CASE/tmp"
     export SHELL=/bin/zsh
     unset HM_VERSION HM_PRE HM_INSTALL_DIR FAKE_OS GITHUB_TOKEN
@@ -250,6 +253,43 @@ assert_equals "1" "$STATUS"
 assert_contains "$OUT" "is not an hm this installer can replace"
 assert_equals "something else" "$("$HM_SYSTEM_BIN/hm")"
 
+new_case foreign-link
+publish 2.0.0
+api_releases 2.0.0
+ln -s /opt/elsewhere/hm "$HM_SYSTEM_BIN/hm"
+run_install
+
+test_case "a link somebody else made is left alone; hm goes to ~/.local/bin instead"
+assert_equals "0" "$STATUS"
+assert_equals "/opt/elsewhere/hm" "$(readlink "$HM_SYSTEM_BIN/hm")"
+assert_equals "hm 2.0.0" "$("$HOME/.local/bin/hm" --version | head -n 1)"
+
+new_case sudo-refused
+publish 2.0.0
+api_releases 2.0.0
+mkdir -p "$HOME/hm/bin"
+printf '#!/bin/sh\n' >"$HOME/hm/bin/run"
+ln -s "$HOME/hm/bin/run" "$HM_SYSTEM_BIN/hm"
+chmod u-w "$HM_SYSTEM_BIN"
+mkdir -p "$CASE/no-sudo"
+printf '#!/bin/sh\necho "sudo $*" >>"$FAKE_SUDO_LOG"\nexit 1\n' >"$CASE/no-sudo/sudo"
+chmod +x "$CASE/no-sudo/sudo"
+(PATH="$CASE/no-sudo:$TOOLS:$BASE_PATH" bash "$INSTALL_SH" >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+OUT=$(cat "$CASE/out" "$CASE/err")
+chmod u+w "$HM_SYSTEM_BIN"
+
+test_case "a refused sudo changes nothing and claims nothing"
+if [ "$(id -u)" -eq 0 ]; then
+    echo "  - skipped: running as root, a read-only folder does not need sudo"
+else
+    assert_equals "1" "$STATUS"
+    assert_contains "$OUT" "Could not write $HM_SYSTEM_BIN/hm"
+    assert_not_contains "$OUT" "installed at"
+    assert_equals "$HOME/hm/bin/run" "$(readlink "$HM_SYSTEM_BIN/hm")"
+    assert_equals "hm" "$(ls -A "$HM_SYSTEM_BIN")"
+fi
+
 # ------------------------------------------------------------------ migrating from 1.x
 
 new_case migrate
@@ -381,5 +421,8 @@ test_case "--uninstall never removes an hm it did not install"
 assert_equals "0" "$STATUS"
 assert_equals "yes" "$(exists "$HM_SYSTEM_BIN/hm")"
 assert_contains "$OUT" "no binary was removed"
+
+test_case "no case ever called jq"
+assert_equals "" "$(cat "$LAB/jq.log" 2>/dev/null)"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
