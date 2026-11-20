@@ -1,11 +1,15 @@
-# Hoja de ruta de la migración a Go
+# Hoja de ruta de hm 2.0
 
 Punto de entrada para una sesión nueva sin contexto. Dice **dónde estamos, qué toca después y qué
 reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
-`openspec/changes/archive/`; este fichero no lo repite.
+`openspec/changes/archive/`; este fichero no lo repite. Los principios que sigue todo cambio están
+en `.specify/memory/constitution.md` (2.0.0).
 
-> Estado medido el **2026-11-20** sobre la rama `delete-bin-run` (desde `release/2.0.0` en
-> `f27f3a6`), tras borrar `bin/run` y el árbol `console/`.
+> **La migración a Go está completada.** El binario responde los 65 comandos, la ayuda,
+> `--version` y los comandos del proyecto; `bin/run` y el árbol `console/` ya no existen.
+> Lo que queda es publicar 2.0.0 y los defectos conocidos de la pista C.
+>
+> Estado medido el **2026-11-20** sobre `release/2.0.0` en `8426d3d`.
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
@@ -17,13 +21,23 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 | Ficheros de shell en `console/` | **0** (sólo queda `console/hm-completion.bash`, generado) | `git ls-files console` |
 | `bin/run` | **borrado** | `test -e bin/run` falla |
 | Tests Go | todos pasan | `DOCKER_HOST=unix:///nonexistent go test ./...` · `./tests/run.sh unit` |
+| Binarios publicados por CI | sólo para etiquetas `>= 2.0`, sin `v` | `.github/workflows/release.yml` |
+| `hm switch` y el instalador ante una 1.x | la rechazan | `docs/switch.md`, `installer.sh` |
+| Etiqueta `2.0.0` | **sin crear** en el clon local (la última es `1.6.0-rc.2`) | `git tag --sort=-creatordate \| head -1` |
 
 ## Qué hacer después, en orden
 
 1. ~~**Pista A** — retirar los gemelos de shell~~: cerrada, no queda ninguno.
 2. ~~**Pista B** — portar los comandos que seguían en shell~~: cerrada, el binario responde los 65
    y `bin/run` está borrado (`MIGRATION.md`, «Cierre»).
-3. **Pista C — defectos conocidos.** Ninguno bloquea; varios llevan cinco ciclos aplazados.
+3. **Etiquetar la release.** Una candidata `2.0.0-rc.N` para validar con `hm switch`, y después
+   `2.0.0`, con el ritual de siempre (commit de release con `changelogs/v2.0.0.md`, etiqueta
+   anotada sin `v`, `gh release`). CI publica los binarios al empujar la etiqueta. Lo decide y lo
+   hace el humano. El instalador instala la última etiqueta `>= 2.0` (o la última candidata si
+   no hay final): hasta que exista una, se niega con «has no release of 2.0 or later».
+4. **Fusionar `release/2.0.0` en `main`** por pull request, cuando la candidata esté validada.
+5. **Pista C — defectos conocidos.** Ninguno bloquea la release; varios llevan cinco ciclos
+   aplazados.
 
 ## Pista C — defectos conocidos
 
@@ -37,7 +51,7 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 | Fallo de `CopyFrom` bajo `--json` en macOS sale como texto por stderr | `internal/cli/wrappers.go` (`debugOn`) | Hueco estrecho, declarado |
 | `tests/run.sh` con un argumento no reconocido corre **todo** en vez de fallar | `tests/run.sh` (~`:81-83`) | Un error tipográfico no se nota nunca |
 | El número de métodos de la interfaz `commands` (18) solo está en prosa | `internal/cli/engine.go` | Nada lo vigila |
-| `architecture/` puede describir comportamiento que el código no tiene | `architecture/*.md` | Ningún test vigila la documentación; §5.8.1 estuvo mal tres ciclos. Los §4 y §6 conservan fragmentos del shell como referencia, marcados como tales |
+| `architecture/` puede describir comportamiento que el código no tiene | `architecture/*.md` | Ningún test vigila la documentación; §5.8.1 estuvo mal tres ciclos. Reescrita para 2.0 el 2026-11-20 (sin fragmentos del shell), pero sigue sin nada que la compruebe |
 | La forma larga del `--force` propio de `setup` (regenerar los compose) nunca le llega: `--force` es global y se lo queda `globals()` | `internal/cli/globals.go` | `-f` sí llega. Y `hm setup --force` desde un worktree levanta la protección, como en el shell. Decidir si `setup` pasa a ser transparente para su `--force` o se documenta `-f` |
 | `go_database_test.sh` con la base de datos parada sólo mira el código y `ok: false` | `tests/integration/go_database_test.sh` | La comparación con el shell cubría también el tipo de error; afirmarlo exige ver la negativa con daemon |
 | `clean` nunca recoge plantillas muertas solas: `Anything()` sólo cuenta entornos y entornos de rama | `dockergento/core/collection.go` (`Anything`); el shell decidía igual (`clean.sh:265`) | Con sólo plantillas que sobran, `clean --force` sale con 0 y no borra nada |

@@ -1,5 +1,28 @@
 # Migración a Go — dónde estamos
 
+## 2.0: migración completada
+
+La migración ha terminado. `hm` 2.0 es un binario de Go (`cmd/hm`) que responde los 65 comandos,
+la ayuda, `--version` y los comandos que un proyecto añade en `config/hm/commands`; `bin/run` y el
+árbol `console/` están borrados (sólo queda `console/hm-completion.bash`, generado). La
+arquitectura hexagonal se sostiene: `dockergento/core` no importa nada de la herramienta,
+`dockergento/app` sólo `core`, `ports` y `contract`, y la CLI, la TUI, MCP y HTTP entran por la
+misma fachada.
+
+Las incompatibilidades deliberadas de 2.0: los comandos del proyecto ya no reciben `HELPERS_DIR`,
+`TASKS_DIR` ni `COMPONENTS_DIR`; el antiguo `config/docker/properties` ya no se convierte en cada
+invocación; `hm switch` y el instalador rechazan las versiones anteriores a 2.0.
+
+Lo que queda está en `ROADMAP.md`: etiquetar la release (`2.0.0-rc.N` y `2.0.0`, sin `v`; CI
+publica los binarios), fusionar `release/2.0.0` en `main` y los defectos de la pista C. Los
+principios para lo que venga después están en `.specify/memory/constitution.md` (2.0.0); la
+arquitectura, en `ARCHITECTURE.md`.
+
+Todo lo que sigue es la historia de la migración y se conserva como tal.
+
+---
+
+
 > **El objetivo, para que no se pierda entre tandas:** que no quede ningún comando en shell, que
 > la CLI, la TUI y la web se alimenten de las mismas piezas, que no haya nada duplicado y que la
 > arquitectura hexagonal se sostenga de verdad. El orden entre tandas se optimiza; el destino no
