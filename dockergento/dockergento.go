@@ -2144,7 +2144,29 @@ func (e *Engine) SaveInstallSettings(settings []core.Setting) error {
 		return err
 	}
 
-	return os.WriteFile(path, []byte(core.RenderInstallSettings(settings)), 0o644) //nolint:gosec
+	// 0600, written aside and renamed over the old file: the settings can hold the store's admin
+	// password, and an older version left the file readable by everyone
+	temporary, err := os.CreateTemp(filepath.Dir(path), ".config.json.*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(temporary.Name()) //nolint:errcheck
+
+	if _, err := temporary.WriteString(core.RenderInstallSettings(settings)); err != nil {
+		temporary.Close() //nolint:errcheck
+
+		return err
+	}
+
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+
+	if err := os.Chmod(temporary.Name(), 0o600); err != nil {
+		return err
+	}
+
+	return os.Rename(temporary.Name(), path)
 }
 
 // copyLegacyInstallSettings copies, once, the settings a 1.x installation kept in

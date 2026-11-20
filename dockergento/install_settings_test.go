@@ -224,3 +224,34 @@ func TestOnlyAValidJSONObjectIs1xSettings(t *testing.T) {
 		}
 	}
 }
+
+// The settings can hold the store's admin password, so the file is the user's alone: written
+// 0600, and narrowed to it when an older version left it readable by everyone.
+func TestInstallSettingsAreReadableOnlyByTheirOwner(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "config.json")
+	engine := New(Options{InstallSettingsFile: file, Assets: fstest.MapFS{}})
+
+	for _, before := range []os.FileMode{0, 0o644} {
+		if before != 0 {
+			if err := os.WriteFile(file, []byte("{}\n"), before); err != nil {
+				t.Fatal(err)
+			}
+			os.Chmod(file, before) //nolint:errcheck
+		}
+
+		if err := engine.SaveInstallSettings([]core.Setting{{Key: "admin-password", Value: []byte(`"secret"`)}}); err != nil {
+			t.Fatal(err)
+		}
+
+		info, err := os.Stat(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if mode := info.Mode().Perm(); mode != 0o600 {
+			t.Errorf("starting from %v the file is %v, want 0600", before, mode)
+		}
+
+		os.Remove(file) //nolint:errcheck
+	}
+}
