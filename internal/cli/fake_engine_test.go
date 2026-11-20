@@ -166,9 +166,14 @@ type fakeEngine struct {
 	// verification is what Verify answers with.
 	verification core.Verification
 
-	// versions is what Versions answers with, and switched what Switch does.
-	versions core.Versions
-	switched core.Switched
+	// versions is what Versions answers with, switched what Switch does and updated what Update
+	// does. switchOptions, updateOptions and versionsRunning are what they were asked.
+	versions        core.Versions
+	switched        core.Switched
+	updated         core.Updated
+	switchOptions   core.SwitchOptions
+	updateOptions   core.UpdateOptions
+	versionsRunning string
 	// aiDoctor is what AIDoctor answers with.
 	aiDoctor core.AIDoctorReport
 
@@ -270,12 +275,13 @@ func (f *fakeEngine) WriteAgentContext(dir string) (core.AgentContextResult, err
 	return f.agentContext, nil
 }
 
-// Update only ever answers with an error.
-func (f *fakeEngine) Update() error {
+// Update records what it was asked in updateOptions and answers with updated.
+func (f *fakeEngine) Update(options core.UpdateOptions) (core.Updated, error) {
 	number := len(f.calls)
 	f.calls = append(f.calls, call{Method: "Update"})
+	f.updateOptions = options
 
-	return f.outcomeFor(number).err
+	return f.updated, f.outcomeFor(number).err
 }
 
 // ConfigureForDevelopment only ever answers with an error.
@@ -842,17 +848,20 @@ func (f *fakeEngine) ClearAnonymisation(dir string) error {
 	return f.outcomeFor(number).err
 }
 
-func (f *fakeEngine) Versions() (core.Versions, error) {
+func (f *fakeEngine) Versions(running string) (core.Versions, error) {
 	number := len(f.calls)
 	f.calls = append(f.calls, call{Method: "Versions"})
+	f.versionsRunning = running
 
 	return f.versions, f.outcomeFor(number).err
 }
 
-// Switch records the reference it was asked for in Key.
-func (f *fakeEngine) Switch(reference string) (core.Switched, error) {
+// Switch records the version it was asked for in Key, and everything it was asked in
+// switchOptions.
+func (f *fakeEngine) Switch(options core.SwitchOptions) (core.Switched, error) {
 	number := len(f.calls)
-	f.calls = append(f.calls, call{Method: "Switch", Key: reference})
+	f.calls = append(f.calls, call{Method: "Switch", Key: options.Version})
+	f.switchOptions = options
 
 	return f.switched, f.outcomeFor(number).err
 }

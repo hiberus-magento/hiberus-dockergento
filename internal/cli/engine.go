@@ -33,7 +33,7 @@ type commands interface {
 	Console(dir string) (int, error)
 	Setup(dir string, options core.SetupOptions, interactive bool) error
 	ConfigureForDevelopment(dir string) error
-	Update() error
+	Update(options core.UpdateOptions) (core.Updated, error)
 	AgentPermissions(strict bool) (core.AgentPermissions, error)
 	WriteAgentContext(dir string) (core.AgentContextResult, error)
 	CreateProject(dir string, options core.CreateProjectOptions, interactive bool) error
@@ -68,8 +68,8 @@ type commands interface {
 	Equivalents() (map[string]string, error)
 	InstallSettings() ([]core.Setting, error)
 	SaveInstallSettings(settings []core.Setting) error
-	Versions() (core.Versions, error)
-	Switch(reference string) (core.Switched, error)
+	Versions(running string) (core.Versions, error)
+	Switch(options core.SwitchOptions) (core.Switched, error)
 	Verify(dir string, options core.VerifyOptions) (core.Verification, error)
 	AIDoctor(dir string) (core.AIDoctorReport, error)
 	AIInit(dir string, options app.AIInitOptions, interactive bool, console app.AIConsole) int

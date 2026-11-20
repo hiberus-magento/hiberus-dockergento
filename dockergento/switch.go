@@ -2,245 +2,121 @@ package dockergento
 
 import (
 	"fmt"
-	"os/exec"
-	"path/filepath"
-	"regexp"
 	"strings"
 
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
 //
-// Moving this tool's own installation, a git checkout, between versions and branches. Ported from
-// switch.sh, messages included, and with its git commands: a tag stays detached, which `hm update`
-// refuses on purpose, and a branch of origin's becomes a local branch tracking it, so that `hm
-// update` keeps working there.
+// Moving the tool between its releases: `hm switch` installs one release in place of the running
+// executable, whichever it is, older or newer. Only releases of 2.0 and later — 1.x is the shell
+// tool, which has no binary — and only releases: a branch has no binary either, and is built from
+// source.
 //
 
-// looksLikeVersion is the grep switch.sh filtered tags with: anything starting like a version.
-var looksLikeVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+`)
-
-// installationGit runs git in the installation. What comes back loses its trailing newlines, the
-// way a shell's $(...) loses them, and nothing else: the leading space of a porcelain line means
-// something.
-type installationGit string
-
-func (g installationGit) run(args ...string) (string, error) {
-	output, err := exec.Command("git", append([]string{"-C", string(g)}, args...)...).Output()
-
-	return strings.TrimRight(string(output), "\n"), err
-}
-
-// combined is run with both streams together, which is how switch.sh kept what a failed checkout
-// said.
-func (g installationGit) combined(args ...string) (string, error) {
-	output, err := exec.Command("git", append([]string{"-C", string(g)}, args...)...).CombinedOutput()
-
-	return strings.TrimRight(string(output), "\n"), err
-}
-
-func (g installationGit) verifies(reference string) bool {
-	_, err := g.run("rev-parse", "--verify", "--quiet", reference)
-
-	return err == nil
-}
-
-// repository is where the tool is published, and where a 1.x is cloned from to have it elsewhere.
-const repository = "https://github.com/hiberus-magento/hiberus-dockergento.git"
-
-// revisionOf is the revision Switch checks out for reference: a tag or a local branch as it is,
-// anything else origin's branch of that name.
-func (g installationGit) revisionOf(reference string) string {
-	switch {
-	case g.verifies("refs/tags/" + reference):
-		return "refs/tags/" + reference
-	case g.verifies("refs/heads/" + reference):
-		return "refs/heads/" + reference
-	case g.verifies("refs/remotes/origin/" + reference):
-		return "refs/remotes/origin/" + reference
-	default:
-		return reference
-	}
-}
-
-// isGoVersion is whether revision's tree has the Go program. Read from the tree and not from a
-// version number, because a branch has none: 2.0 is the first version with cmd/hm, and 1.x, the
-// shell tool, has none.
-func (g installationGit) isGoVersion(revision string) bool {
-	_, err := g.run("cat-file", "-e", revision+":cmd/hm/main.go")
-
-	return err == nil
-}
-
-// requireCheckout is the installer's own layout, and what makes switching a git operation at all.
-func (g installationGit) requireCheckout() error {
-	if _, err := g.run("rev-parse", "--git-dir"); err != nil {
-		return core.Refusal{
-			Kind:    "not_a_git_installation",
-			Code:    1,
-			Message: "This is not a git installation of Hiberus Dockergento",
-			Hint:    "Reinstall with the installer to be able to switch versions",
-		}
-	}
-
-	return nil
-}
-
-// refresh fetches, because without it a newly published version is invisible. Offline is not a
-// reason to refuse: what is already known can still be switched to.
-func (g installationGit) refresh() {
-	_, _ = g.run("fetch", "--tags", "--prune", "origin")
-}
-
-// current is the branch checked out, or the nearest tag of a detached checkout.
-func (g installationGit) current() string {
-	branch, err := g.run("rev-parse", "--abbrev-ref", "HEAD")
+// Versions is what the tool can be switched to: every release of 2.0 or later, pre-releases
+// included and labelled, newest first, with the running one marked.
+func (e *Engine) Versions(running string) (core.Versions, error) {
+	found, err := e.releases(e.installer().source, true)
 	if err != nil {
-		branch = ""
-	}
-
-	if branch != "HEAD" {
-		return branch
-	}
-
-	tag, err := g.run("describe", "--tags", "--abbrev=0")
-	if err != nil {
-		return "unknown"
-	}
-
-	return tag
-}
-
-func lines(text string) []string {
-	found := []string{}
-
-	for _, line := range strings.Split(text, "\n") {
-		if line != "" {
-			found = append(found, line)
-		}
-	}
-
-	return found
-}
-
-// Versions is what the installation can be switched to: the tags that look like versions, newest
-// first, and origin's branches.
-func (e *Engine) Versions() (core.Versions, error) {
-	git := installationGit(e.options.Root)
-
-	if err := git.requireCheckout(); err != nil {
 		return core.Versions{}, err
 	}
 
-	git.refresh()
-
-	current := git.current()
-	versions := []core.Version{}
-
-	tags, _ := git.run("tag", "--list", "--sort=-version:refname")
-	for _, tag := range lines(tags) {
-		if !looksLikeVersion.MatchString(tag) {
-			continue
-		}
-
+	versions := make([]core.Version, 0, len(found))
+	for _, item := range found {
 		versions = append(versions, core.Version{
-			Name:       tag,
-			PreRelease: strings.Contains(tag, "-"),
-			Installed:  tag == current,
+			Name:       item.Tag,
+			PreRelease: item.PreRelease,
+			Installed:  item.Tag == running,
 		})
 	}
 
-	branches := []string{}
+	return core.Versions{Current: orDevel(running), Versions: versions}, nil
+}
 
-	references, _ := git.run("for-each-ref", "--format=%(refname:short)", "refs/remotes/origin")
-	for _, reference := range lines(references) {
-		branch := strings.TrimPrefix(reference, "origin/")
-		if branch != "HEAD" {
-			branches = append(branches, branch)
+// Switch installs the release asked for, or the newest final release, in place of the running
+// executable. What is asked is checked before anything is read from GitHub: a 1.x or a branch is
+// refused without a connection.
+func (e *Engine) Switch(options core.SwitchOptions) (core.Switched, error) {
+	asked := strings.TrimPrefix(options.Version, "v")
+
+	if !options.Stable {
+		version, ok := parseVersion(asked)
+
+		switch {
+		case !ok:
+			return core.Switched{}, core.Refusal{
+				Kind: "not_a_version",
+				Code: contract.ExitUsage,
+				Message: fmt.Sprintf("'%s' is not a version: %s switch installs releases, and branches can no longer be switched to",
+					options.Version, e.options.Binary),
+				Hint: "To run a branch, build it from source: git clone -b " + options.Version + " " + repository +
+					" && cd hiberus-dockergento && go build -o hm ./cmd/hm",
+			}
+		case version.major < 2:
+			return core.Switched{}, core.Refusal{
+				Kind: "version_before_go",
+				Code: contract.ExitUsage,
+				Message: fmt.Sprintf("'%s' is a version of the shell tool (1.x), which %s switch cannot install: "+
+					"nothing was changed", asked, e.options.Binary),
+				Hint: "Install it separately, in a directory of its own: git clone -b " + asked +
+					" " + repository + " ~/hm-1.x, then run ~/hm-1.x/bin/run",
+			}
 		}
 	}
 
-	return core.Versions{Current: current, Versions: versions, Branches: branches}, nil
-}
-
-// Switch moves the installation to a tag or a branch, obtains the compiled command matching it
-// (RefreshBinary), and regenerates the shell completion from what is there now.
-//
-// Never over somebody's work: tracked changes refuse the switch, with what they are. Untracked
-// files do not — notes, editor configuration, an agent's skills are always there, and git refuses
-// by itself when the target would overwrite one.
-func (e *Engine) Switch(reference string) (core.Switched, error) {
-	root := e.options.Root
-	git := installationGit(root)
-
-	if err := git.requireCheckout(); err != nil {
+	if _, err := e.runningRelease(options.Running); err != nil {
 		return core.Switched{}, err
 	}
 
-	if changes, _ := git.run("status", "--porcelain", "--untracked-files=no"); changes != "" {
-		return core.Switched{}, core.DirtyInstallation{Directory: root, Changes: changes}
+	install := e.installer()
+
+	found, err := e.releases(install.source, !options.Stable)
+	if err != nil {
+		return core.Switched{}, err
 	}
 
-	git.refresh()
+	var target *published
 
-	if !git.verifies(reference) && !git.verifies("origin/"+reference) {
+	for i := range found {
+		if options.Stable || found[i].Tag == asked {
+			target = &found[i]
+			break
+		}
+	}
+
+	if target == nil {
+		if options.Stable {
+			return core.Switched{}, core.Refusal{
+				Kind:    "no_release",
+				Code:    contract.ExitUsage,
+				Message: "No final release of 2.0 or later is published yet: nothing was changed",
+				Hint:    e.options.Binary + " switch --list",
+			}
+		}
+
 		return core.Switched{}, core.Refusal{
-			Kind:    "unknown_reference",
-			Code:    2,
-			Message: fmt.Sprintf("There is no version or branch called '%s'", reference),
+			Kind:    "unknown_version",
+			Code:    contract.ExitUsage,
+			Message: fmt.Sprintf("There is no release called '%s'", options.Version),
 			Hint:    e.options.Binary + " switch --list",
 		}
 	}
 
-	// Before the checkout moves: a target without the Go program is the shell tool, which has no
-	// binary to obtain and no bin/hm to run, so it would leave an installation that does not start
-	if !git.isGoVersion(git.revisionOf(reference)) {
-		return core.Switched{}, core.Refusal{
-			Kind: "version_before_go",
-			Code: 2,
-			Message: fmt.Sprintf("'%s' is a version of the shell tool (1.x), which %s switch cannot move to: "+
-				"the installation was not changed", reference, e.options.Binary),
-			Hint: "Install it separately, in a directory of its own: git clone -b " + reference +
-				" " + repository + " ~/hm-1.x, then run ~/hm-1.x/bin/run",
-		}
+	if target.Tag == options.Running {
+		path, _ := install.executable()
+
+		return core.Switched{Reference: target.Tag, Version: target.Tag, From: options.Running, Path: path, Unchanged: true}, nil
 	}
 
-	var failure string
-
-	switch {
-	case git.verifies("refs/tags/" + reference), git.verifies("refs/heads/" + reference):
-		failure, _ = git.combined("checkout", "--quiet", reference)
-	default:
-		failure, _ = git.combined("checkout", "--quiet", "-B", reference, "--track", "origin/"+reference)
-	}
-
-	now := git.current()
-
-	if now != reference && failure != "" {
-		return core.Switched{}, core.Refusal{
-			Kind:    "switch_failed",
-			Code:    1,
-			Message: fmt.Sprintf("Could not switch to '%s': %s", reference, failure),
-			Hint:    "Check the installation directory: " + root,
-		}
-	}
-
-	// The binary is not in git, so the checkout did not move it. A failure keeps the previous one
-	// and is reported, without moving the checkout back: the switch itself has happened
-	refreshed := e.RefreshBinary()
-
-	// As the shell did: the switch has happened, and a completion that could not be regenerated
-	// is not a reason to report that it has not
-	_ = exec.Command(filepath.Join(root, "generate_completion.sh")).Run()
-
-	if refreshed != nil {
-		return core.Switched{}, refreshed
-	}
-
-	description, err := git.run("describe", "--tags")
+	path, err := e.put(install, *target)
 	if err != nil {
-		description = now
+		return core.Switched{}, err
 	}
 
-	return core.Switched{Reference: reference, Version: description}, nil
+	return core.Switched{Reference: target.Tag, Version: target.Tag, From: options.Running, Path: path}, nil
 }
+
+// ReleaseNotes is where a person reads what version changed.
+func ReleaseNotes(version string) string { return releasePage + version }

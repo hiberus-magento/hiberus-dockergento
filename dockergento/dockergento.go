@@ -107,9 +107,9 @@ type Options struct {
 type Engine struct {
 	options Options
 
-	// binaries is how the compiled command is obtained after the installation moves; nil means
-	// the real download and toolchain. See binary.go.
-	binaries *binarySource
+	// install is how a release replaces the running executable; nil means GitHub and
+	// os.Executable. See release.go.
+	install *installer
 }
 
 // New builds an engine. The zero Options are the right ones for a program installed in its

@@ -10,55 +10,57 @@ import (
 )
 
 //
-// switch moves this tool's installation to a version or a branch, or lists what it can move to.
-// The git side is in dockergento/switch_test.go; here, what the command line asks of it and how
-// the answer is printed, which is switch.sh's text byte for byte.
+// switch installs another release in place of this binary, or lists the releases. What it
+// downloads and replaces is in dockergento/release_test.go; here, what the command line asks of it
+// and how the answer is printed.
 //
 
 func listed() core.Versions {
 	return core.Versions{
-		Current: "1.10.0",
+		Current: "2.0.0",
 		Versions: []core.Version{
+			{Name: "2.1.0-rc.1", PreRelease: true},
+			{Name: "2.0.0", Installed: true},
 			{Name: "2.0.0-rc.1", PreRelease: true},
-			{Name: "1.10.0", Installed: true},
-			{Name: "1.2.0"},
 		},
-		Branches: []string{"main", "release/2.0.0"},
 	}
 }
 
 func TestSwitchWithNothingListsTheVersions(t *testing.T) {
-	for _, args := range [][]string{nil, {"--list"}, {"1.2.0", "--list"}, {"--list", "--stable"}} {
+	for _, args := range [][]string{nil, {"--list"}, {"2.0.0", "--list"}, {"--list", "--stable"}} {
 		fake := answering(t)
+		stamped(t, "2.0.0")
 
 		if code := switchVersion(args, io.Discard, io.Discard, true); code != exitOK {
 			t.Fatalf("switch %v = %d", args, code)
 		}
 
-		if len(fake.calls) != 1 || fake.calls[0].Method != "Versions" {
-			t.Fatalf("switch %v asked %v, want one Versions", args, fake.calls)
+		if len(fake.calls) != 1 || fake.calls[0].Method != "Versions" || fake.versionsRunning != "2.0.0" {
+			t.Fatalf("switch %v asked %v (running %q), want one Versions of 2.0.0", args, fake.calls, fake.versionsRunning)
 		}
 	}
 }
 
-func TestSwitchStableGoesToMain(t *testing.T) {
+func TestSwitchStableAsksForTheNewestFinalRelease(t *testing.T) {
 	fake := answering(t)
+	stamped(t, "2.0.0")
 
 	switchVersion([]string{"--stable"}, io.Discard, io.Discard, true)
 
-	if len(fake.calls) != 1 || fake.calls[0].Method != "Switch" || fake.calls[0].Key != "main" {
-		t.Fatalf("switch --stable asked %v, want Switch main", fake.calls)
+	if len(fake.calls) != 1 || fake.calls[0].Method != "Switch" ||
+		fake.switchOptions != (core.SwitchOptions{Running: "2.0.0", Stable: true}) {
+		t.Fatalf("switch --stable asked %v %+v, want Switch stable", fake.calls, fake.switchOptions)
 	}
 }
 
-// TestTheLastReferenceNamedWins: as the shell's loop overwrote its target.
-func TestTheLastReferenceNamedWins(t *testing.T) {
+// TestTheLastVersionNamedWins: as the shell's loop overwrote its target.
+func TestTheLastVersionNamedWins(t *testing.T) {
 	fake := answering(t)
 
-	switchVersion([]string{"1.2.0", "--stable", "release/2.0.0"}, io.Discard, io.Discard, true)
+	switchVersion([]string{"2.0.0", "--stable", "2.1.0"}, io.Discard, io.Discard, true)
 
-	if len(fake.calls) != 1 || fake.calls[0].Key != "release/2.0.0" {
-		t.Fatalf("asked %v, want Switch release/2.0.0", fake.calls)
+	if len(fake.calls) != 1 || fake.calls[0].Key != "2.1.0" || fake.switchOptions.Stable {
+		t.Fatalf("asked %v %+v, want Switch 2.1.0", fake.calls, fake.switchOptions)
 	}
 }
 
@@ -101,23 +103,22 @@ func TestTheListAsJSON(t *testing.T) {
 		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout.String())
 	}
 
-	if document.Data.Current != "1.10.0" || len(document.Data.Versions) != 3 ||
-		!document.Data.Versions[0].PreRelease || !document.Data.Versions[1].Installed ||
-		len(document.Data.Branches) != 2 {
+	if document.Data.Current != "2.0.0" || len(document.Data.Versions) != 3 ||
+		!document.Data.Versions[0].PreRelease || !document.Data.Versions[1].Installed {
 		t.Fatalf("data = %+v", document.Data)
 	}
 }
 
-// TestAnEmptyListIsEmptyArrays: jq gave [] for nothing, and a program iterating it expects one.
-func TestAnEmptyListIsEmptyArrays(t *testing.T) {
+// TestAnEmptyListIsAnEmptyArray: a program iterating it expects one.
+func TestAnEmptyListIsAnEmptyArray(t *testing.T) {
 	fake := answering(t)
-	fake.versions = core.Versions{Current: "main"}
+	fake.versions = core.Versions{Current: "2.0.0"}
 
 	var stdout bytes.Buffer
 	switchVersion(nil, &stdout, io.Discard, true)
 
-	if !bytes.Contains(stdout.Bytes(), []byte(`"versions": []`)) || !bytes.Contains(stdout.Bytes(), []byte(`"branches": []`)) {
-		t.Fatalf("stdout = %s, want empty arrays", stdout.String())
+	if !bytes.Contains(stdout.Bytes(), []byte(`"versions": []`)) {
+		t.Fatalf("stdout = %s, want an empty array", stdout.String())
 	}
 }
 
@@ -125,40 +126,33 @@ func TestTheListAsText(t *testing.T) {
 	fake := answering(t)
 	t.Setenv("NO_COLOR", "1")
 	fake.versions = listed()
-	fake.versions.Current = "main"
-	fake.versions.Versions[1].Installed = false
-	fake.versions.Versions[0].Installed = true
 
 	var stdout bytes.Buffer
 	if code := switchVersion(nil, &stdout, io.Discard, false); code != exitOK {
 		t.Fatalf("switch = %d", code)
 	}
 
-	// The shell decided installed by comparing with current, not by a field: here current is
-	// main, and the rc is marked installed only to show how both marks print together
 	want := "\nVersions\n" +
-		"  2.0.0-rc.1            ← installed   pre-release\n" +
-		"  1.10.0\n" +
-		"  1.2.0\n" +
-		"\nBranches\n" +
-		"  main   ← installed\n" +
-		"  release/2.0.0\n" +
-		"\nSwitch with hm switch <version|branch>, or back to stable with hm switch --stable\n\n"
+		"  2.1.0-rc.1            pre-release\n" +
+		"  2.0.0                 ← installed\n" +
+		"  2.0.0-rc.1            pre-release\n" +
+		"\nRunning 2.0.0\n" +
+		"\nSwitch with hm switch <version>, or to the newest final release with hm switch --stable\n\n"
 
 	if stdout.String() != want {
 		t.Fatalf("stdout =\n%q\nwant\n%q", stdout.String(), want)
 	}
 }
 
-func TestAPreReleaseIsLabelled(t *testing.T) {
+func TestAnEmptyListSaysNothingIsPublished(t *testing.T) {
 	fake := answering(t)
 	t.Setenv("NO_COLOR", "1")
-	fake.versions = core.Versions{Current: "main", Versions: []core.Version{{Name: "2.0.0-rc.1", PreRelease: true}}}
+	fake.versions = core.Versions{Current: "devel"}
 
 	var stdout bytes.Buffer
 	switchVersion(nil, &stdout, io.Discard, false)
 
-	if want := "\nVersions\n  2.0.0-rc.1            pre-release\n\nBranches\n"; !bytes.HasPrefix(stdout.Bytes(), []byte(want)) {
+	if want := "\nVersions\n  no release of 2.0 or later is published yet\n\nRunning devel\n"; !bytes.HasPrefix(stdout.Bytes(), []byte(want)) {
 		t.Fatalf("stdout =\n%q\nwant it to start\n%q", stdout.String(), want)
 	}
 }
@@ -166,80 +160,57 @@ func TestAPreReleaseIsLabelled(t *testing.T) {
 func TestASwitchSaysWhatIsRunningNow(t *testing.T) {
 	fake := answering(t)
 	t.Setenv("NO_COLOR", "1")
-	fake.switched = core.Switched{Reference: "1.10.0", Version: "1.10.0"}
+	fake.switched = core.Switched{Reference: "2.1.0", Version: "2.1.0", From: "2.0.0", Path: "/x/hm"}
 
 	var stdout bytes.Buffer
-	if code := switchVersion([]string{"1.10.0"}, &stdout, io.Discard, false); code != exitOK {
+	if code := switchVersion([]string{"2.1.0"}, &stdout, io.Discard, false); code != exitOK {
 		t.Fatalf("switch = %d", code)
 	}
 
-	if want := "\nNow running Hiberus Dockergento 1.10.0\n  What changed: changelogs/\n\n"; stdout.String() != want {
+	want := "\nNow running Hiberus Dockergento 2.1.0\n" +
+		"  What changed: https://github.com/hiberus-magento/hiberus-dockergento/releases/tag/2.1.0\n\n"
+	if stdout.String() != want {
+		t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+	}
+}
+
+func TestASwitchToTheRunningVersionSaysSo(t *testing.T) {
+	fake := answering(t)
+	t.Setenv("NO_COLOR", "1")
+	fake.switched = core.Switched{Reference: "2.0.0", Version: "2.0.0", Unchanged: true}
+
+	var stdout bytes.Buffer
+	switchVersion([]string{"2.0.0"}, &stdout, io.Discard, false)
+
+	if want := "\nAlready running Hiberus Dockergento 2.0.0\n\n"; stdout.String() != want {
 		t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 	}
 }
 
 func TestASwitchAsJSON(t *testing.T) {
 	fake := answering(t)
-	fake.switched = core.Switched{Reference: "release/2.0.0", Version: "2.0.0-rc.1-3-gabc"}
+	fake.switched = core.Switched{Reference: "2.1.0", Version: "2.1.0", From: "2.0.0", Path: "/x/hm"}
 
 	var stdout bytes.Buffer
-	switchVersion([]string{"release/2.0.0"}, &stdout, io.Discard, true)
+	switchVersion([]string{"2.1.0"}, &stdout, io.Discard, true)
 
 	var document struct {
 		Command string
-		Data    map[string]string
+		Data    core.Switched
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &document); err != nil {
 		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout.String())
 	}
 
-	if document.Data["switched_to"] != "release/2.0.0" || document.Data["version"] != "2.0.0-rc.1-3-gabc" ||
-		document.Command != "switch" {
+	if document.Command != "switch" || document.Data != fake.switched {
 		t.Fatalf("document = %+v", document)
 	}
 }
 
-// TestUncommittedChangesAreShownToAPerson: on stdout, as switch.sh printed them, and refused.
-func TestUncommittedChangesAreShownToAPerson(t *testing.T) {
-	fake := answering(t)
-	t.Setenv("NO_COLOR", "1")
-	fake.outcomes = []outcome{{err: core.DirtyInstallation{Directory: "/opt/hm", Changes: " M README.md\nM  bin/run"}}}
-
-	var stdout bytes.Buffer
-	if code := switchVersion([]string{"1.2.0"}, &stdout, io.Discard, false); code != exitBlocked {
-		t.Fatalf("switch over changes = %d, want exitBlocked", code)
-	}
-
-	want := "\nThe installation directory has uncommitted changes:\n\n" +
-		"     M README.md\n" +
-		"    M  bin/run\n" +
-		"\nNothing was changed. Commit or stash them first in:\n  /opt/hm\n\n"
-
-	if stdout.String() != want {
-		t.Fatalf("stdout =\n%q\nwant\n%q", stdout.String(), want)
-	}
-}
-
-// TestUncommittedChangesAreARefusalToAProgram: the refusal, on stderr, with its kind.
-func TestUncommittedChangesAreARefusalToAProgram(t *testing.T) {
-	fake := answering(t)
-	fake.outcomes = []outcome{{err: core.DirtyInstallation{Directory: "/opt/hm", Changes: " M README.md"}}}
-
-	var stdout, stderr bytes.Buffer
-	if code := switchVersion([]string{"1.2.0"}, &stdout, &stderr, true); code != exitBlocked {
-		t.Fatalf("switch over changes = %d, want exitBlocked", code)
-	}
-
-	if stdout.Len() != 0 || !bytes.Contains(stderr.Bytes(), []byte(`"type": "dirty_installation"`)) ||
-		!bytes.Contains(stderr.Bytes(), []byte(`Commit or stash them in /opt/hm`)) {
-		t.Fatalf("stdout = %q, stderr = %s", stdout.String(), stderr.String())
-	}
-}
-
 func TestASwitchRefusalKeepsItsCode(t *testing.T) {
-	for _, args := range [][]string{{"9.9.9"}, nil} {
+	for _, args := range [][]string{{"1.5.1"}, nil} {
 		fake := answering(t)
-		fake.outcomes = []outcome{{err: core.Refusal{Kind: "unknown_reference", Code: exitUsage, Message: "no"}}}
+		fake.outcomes = []outcome{{err: core.Refusal{Kind: "version_before_go", Code: exitUsage, Message: "no"}}}
 
 		if code := switchVersion(args, io.Discard, io.Discard, true); code != exitUsage {
 			t.Fatalf("switch %v refused with 2 = %d", args, code)

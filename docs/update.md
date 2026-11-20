@@ -1,51 +1,55 @@
 # hm update
 
-Update the `hiberus dockergento` installation and its compiled command.
+Replace the `hm` you are running with the newest release, when there is a newer one.
 
 ## Usage
 
 ```bash
-hm update
+hm update          # newest final release
+hm update --pre    # newest release, pre-releases included
 ```
 
 ## What it does
 
-1. Pulls the branch the installation is on (`git pull origin <branch>`). An installation pinned
-   to a tag refuses instead: see [switch](switch.md).
-2. Gets the `hm` binary for what was pulled. `bin/hm` is not in git, so the pull does not move
-   it:
-   - when the checkout is exactly at a release tag, the release's `hm_<os>_<arch>` is
-     downloaded and checked against that release's `checksums.txt`;
-   - otherwise, or when that fails, it is built with Go: `go build -o bin/hm ./cmd/hm`.
+1. Reads the releases of Hiberus Dockergento from GitHub
+   (`https://api.github.com/repos/hiberus-magento/hiberus-dockergento/releases`). It works
+   unauthenticated; when `GITHUB_TOKEN` is set it is sent to GitHub, which raises the rate
+   limit.
+2. Picks the newest release of 2.0 or later: final releases only, unless you pass `--pre`.
+3. Compares it with the version of the running binary. When the running version is the same or
+   newer (a release candidate ahead of the last final release, say), it says it is up to date
+   and exits 0. An update never moves back: use [switch](switch.md) for that.
+4. Downloads `hm_<os>_<arch>` and `checksums.txt` of that release, and checks the binary's
+   sha256 against it. No checksums, no line for the binary, or a different digest: nothing is
+   installed.
+5. Replaces the running executable (symlinks resolved, so the real file is replaced and the link
+   kept) in one rename: the new binary is written beside it, made executable and renamed over
+   it. An interrupted update never leaves half a binary.
 
-   The new binary replaces `bin/hm` in one rename, so an interrupted update never leaves half
-   a binary.
+## When it refuses
 
-   When the running `hm` is `bin/hm` built from exactly the commit that is checked out (an
-   update that pulled nothing, say), there is nothing to obtain and no toolchain is needed.
-3. Regenerates the shell completion.
+| Error | Exit | When |
+|---|---|---|
+| `built_from_source` | 6 | The binary was built from a checkout and has no release version. Update it where it was built: `git pull && go build -o bin/hm ./cmd/hm` |
+| `releases_unavailable` | 1 | GitHub could not be read: no connection, an error, or the rate limit (set `GITHUB_TOKEN`) |
+| `asset_missing` | 1 | The release publishes no binary for your platform |
+| `download_failed` | 1 | The binary or its checksums could not be downloaded, or they do not match |
+| `install_dir_not_writable` | 1 | The directory of the executable is not yours to write, `/usr/local/bin` say. Re-run the installer with `sudo`, or install where you can write with `HM_INSTALL_DIR=$HOME/.local/bin` |
 
-## When the binary cannot be obtained
+In every case the running executable is left exactly as it was.
 
-`bin/hm` is the program itself, so it only ever comes from the checkout's own commit: a release
-binary is downloaded only for a checkout exactly at that release's tag, never the latest release
-for a branch. On a branch (`release/2.0.0`, `main`) with no Go toolchain there is therefore no
-binary to get.
+## Which version is running
 
-Then the pull is kept, the previous `bin/hm` stays in place, and the command fails (exit code 1,
-error `binary_not_refreshed`). The message says first that the installation moved, then why each
-way of getting a binary failed. It does not report success, because the program you run has not
-been updated. To finish the update, either:
+A release binary carries its version, stamped when the release is built: it is what
+`hm --version` and `hm version` report, and what `hm update` compares. A binary you built
+yourself with `go build` has none unless you stamp it:
 
-- install [Go](https://go.dev/dl/) and build it:
+```bash
+go build -ldflags "-X github.com/hiberus-magento/hiberus-dockergento/internal/cli.Version=2.1.0" -o hm ./cmd/hm
+```
 
-  ```bash
-  cd ~/hm && go build -o bin/hm ./cmd/hm
-  ```
+## For tests
 
-- or pin a release, whose binary is downloaded: `hm switch --list`, then `hm switch <version>`.
-
-If the shell completion also fails, both failures are reported in the same error.
-
-The installer follows the same rule: on a checkout that is not at a release tag it only builds,
-and without Go it stops and says how to build or which release to pin.
+`HM_RELEASES_URL` replaces the address the releases are read from. Pointed at a `file://` JSON
+in the GitHub API's format, whose assets are `file://` URLs too, `hm update` and `hm switch` run
+without the network: `tests/integration/version_switching_test.sh` does exactly that.

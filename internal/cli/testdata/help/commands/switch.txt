@@ -1,6 +1,6 @@
-Usage: hm switch [<version|branch>|--stable|--list]
-Description: Switch the installation, and its compiled command, to another version or branch
+Usage: hm switch [<version>|--stable|--list]
+Description: Install another release (2.0 or later) in place of this hm
 Options:
-   [-|--list]       Show the available versions and branches
-   [-|--stable]     Switch back to the stable branch
+   [-|--list]       Show the releases available, marking the running one
+   [-|--stable]     Install the newest final release
 

@@ -1,2 +1,5 @@
-[0;32mDescription:[0m Update the installation and its compiled command
+[0;32mUsage: [0m[0;33mhm update [--pre]
+[0m[0;32mDescription:[0m Replace this hm with the newest release, when there is a newer one
+[0;32mOptions:
+[0m   [0;33m[-|--pre]       [0m Consider pre-releases too
 

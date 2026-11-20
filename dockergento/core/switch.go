@@ -1,62 +1,61 @@
 package core
 
-import "fmt"
-
 //
-// Switching this tool's own installation between versions and branches. The installation is a git
-// checkout, so a version is a tag and a branch is one of origin's.
+// Moving this tool between its releases. The tool is one self-contained binary, so a version is a
+// release published on GitHub with a binary for each platform, and moving to it is replacing the
+// running executable with that binary.
 //
 
-// Versions is what the installation can be switched to, and what it is on now.
+// Versions is what the tool can be switched to, and what is running now.
 type Versions struct {
-	// Current is the branch checked out, or the nearest tag when the checkout is detached, or
-	// "unknown" when there is none.
+	// Current is the version of the running binary, or "devel" for a binary built from a checkout.
 	Current  string    `json:"current"`
 	Versions []Version `json:"versions"`
-
-	// Branches is origin's, without the "origin/" in front, which is how they are switched to.
-	Branches []string `json:"branches"`
 }
 
-// Version is one tag that looks like a version.
+// Version is one release of 2.0 or later.
 type Version struct {
 	Name string `json:"name"`
 
-	// PreRelease is a tag with a dash in it — a release candidate is there to be tried on purpose,
-	// not to be picked by mistake by somebody reading the list from the top.
+	// PreRelease is a release GitHub marks as one — a release candidate is there to be tried on
+	// purpose, not to be picked by mistake by somebody reading the list from the top.
 	PreRelease bool `json:"pre_release"`
 	Installed  bool `json:"installed"`
 }
 
-// Switched is where a switch left the installation: the reference asked for, and the version git
-// describes it as.
+// SwitchOptions is what `hm switch` was asked for: a version, or the newest final release.
+type SwitchOptions struct {
+	// Running is the version of the binary doing the switch.
+	Running string
+	Version string
+	Stable  bool
+}
+
+// Switched is where a switch left the tool: the version asked for, the version now installed, the
+// one it replaced and the executable that was replaced.
 type Switched struct {
 	Reference string `json:"switched_to"`
 	Version   string `json:"version"`
+	From      string `json:"from"`
+	Path      string `json:"path"`
+	// Unchanged is a switch to the version already running: nothing was downloaded or replaced.
+	Unchanged bool `json:"unchanged"`
 }
 
-// DirtyInstallation is a switch refused because the installation has changes nobody committed.
-//
-// A refusal of its own and not only a Refusal, because a person is shown the changes themselves,
-// while a program is shown the refusal: what is in the way is what decides what to do about it.
-type DirtyInstallation struct {
-	// Directory is the installation, and Changes what `git status --porcelain` said about it, one
-	// change per line.
-	Directory string
-	Changes   string
+// UpdateOptions is what `hm update` was asked for.
+type UpdateOptions struct {
+	// Running is the version of the binary doing the update.
+	Running string
+	// PreReleases lets the update move to a pre-release when it is the newest release.
+	PreReleases bool
 }
 
-func (d DirtyInstallation) Error() string { return d.Refusal().Message }
-
-// Refusal is the dirty installation as every other refusal is reported.
-func (d DirtyInstallation) Refusal() Refusal {
-	return Refusal{
-		Kind:    "dirty_installation",
-		Code:    6,
-		Message: "The installation directory has uncommitted changes, so the version was not changed",
-		Hint:    fmt.Sprintf("Commit or stash them in %s", d.Directory),
-	}
+// Updated is what an update did: whether it replaced the executable, from which version to which.
+// Latest is the newest release it considered, empty when none of 2.0 or later is published.
+type Updated struct {
+	Updated bool   `json:"updated"`
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Latest  string `json:"latest"`
+	Path    string `json:"path"`
 }
-
-// Unwrap lets a caller that only knows Refusal still read the kind and the exit code.
-func (d DirtyInstallation) Unwrap() error { return d.Refusal() }

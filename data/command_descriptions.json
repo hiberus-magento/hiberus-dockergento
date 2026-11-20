@@ -742,8 +742,8 @@
         "safety": "caution"
     },
     "switch": {
-        "description": "Switch the installation, and its compiled command, to another version or branch",
-        "usage": "switch [<version|branch>|--stable|--list]",
+        "description": "Install another release (2.0 or later) in place of this hm",
+        "usage": "switch [<version>|--stable|--list]",
         "group": "versions",
         "opts": [
             {
@@ -751,14 +751,14 @@
                     "short": "",
                     "long": "list"
                 },
-                "description": "Show the available versions and branches"
+                "description": "Show the releases available, marking the running one"
             },
             {
                 "name": {
                     "short": "",
                     "long": "stable"
                 },
-                "description": "Switch back to the stable branch"
+                "description": "Install the newest final release"
             }
         ],
         "safety": "safe"
@@ -815,8 +815,18 @@
         "safety": "caution"
     },
     "update": {
-        "description": "Update the installation and its compiled command",
+        "description": "Replace this hm with the newest release, when there is a newer one",
+        "usage": "update [--pre]",
         "group": "versions",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "pre"
+                },
+                "description": "Consider pre-releases too"
+            }
+        ],
         "safety": "dangerous"
     },
     "web": {

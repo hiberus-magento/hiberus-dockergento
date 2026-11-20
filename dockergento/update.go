@@ -1,93 +1,49 @@
 package dockergento
 
 import (
-	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
-// Update pulls this tool's own installation, a git checkout, obtains the compiled command matching
-// what was pulled (RefreshBinary), and regenerates the shell completion from it.
+// Update replaces the running executable with the newest release, when it is newer than the running
+// version: final releases only, unless pre-releases are asked for. A running version newer than
+// every release — a release candidate ahead of the last final release — is up to date: an update
+// never moves back.
 //
-// A binary that cannot be obtained does not undo the pull: the previous binary stays, the
-// completion is still regenerated, and the refusal says the installation moved but the binary did
-// not.
-//
-// An installation checked out at a tag is a version somebody chose, so there is nothing to update
-// it to: that is said, with the command that moves it, rather than pulled onto a branch behind
-// their back. Ported from update.sh, messages included.
-func (e *Engine) Update() error {
-	root := e.options.Root
-
-	run := func(args ...string) (string, error) {
-		output, err := exec.Command("git", append([]string{"-C", root}, args...)...).Output()
-
-		return strings.TrimSpace(string(output)), err
+// A binary built from a checkout has no release version to compare, and is refused: it is updated
+// where it was built.
+func (e *Engine) Update(options core.UpdateOptions) (core.Updated, error) {
+	running, err := e.runningRelease(options.Running)
+	if err != nil {
+		return core.Updated{}, err
 	}
 
-	if _, err := run("rev-parse", "--git-dir"); err != nil {
-		return core.Refusal{
-			Kind:    "not_a_git_installation",
-			Code:    1,
-			Message: "This is not a git installation of Hiberus Dockergento",
-			Hint:    "Reinstall with the installer to be able to update",
-		}
+	install := e.installer()
+
+	found, err := e.releases(install.source, options.PreReleases)
+	if err != nil {
+		return core.Updated{}, err
 	}
 
-	branch, _ := run("rev-parse", "--abbrev-ref", "HEAD")
-
-	if branch == "HEAD" {
-		version, err := run("describe", "--tags", "--abbrev=0")
-		if err != nil || version == "" {
-			version = "unknown"
+	if len(found) == 0 || !running.less(found[0].version) {
+		latest := ""
+		if len(found) > 0 {
+			latest = found[0].Tag
 		}
 
-		return core.Refusal{
-			Kind:    "detached_installation",
-			Code:    6,
-			Message: fmt.Sprintf("The installation is pinned to %s, so there is nothing to update", version),
-			Hint:    e.options.Binary + " switch --stable   # or switch to another version",
-		}
+		path, _ := install.executable()
+
+		return core.Updated{From: options.Running, To: options.Running, Latest: latest, Path: path}, nil
 	}
 
-	if _, err := run("pull", "origin", branch); err != nil {
-		return core.Refusal{
-			Kind:    "update_failed",
-			Code:    1,
-			Message: "Could not update from origin/" + branch,
-			Hint:    "Check the installation directory: " + root,
-		}
+	path, err := e.put(install, found[0])
+	if err != nil {
+		return core.Updated{}, err
 	}
 
-	refreshed := e.RefreshBinary()
-
-	completion := filepath.Join(root, "generate_completion.sh")
-
-	if err := exec.Command(completion).Run(); err != nil {
-		// Neither failure hides the other: a binary that was not refreshed stays the kind, since
-		// it is the command that no longer matches the checkout, and the completion is added to it
-		var binary core.Refusal
-		if errors.As(refreshed, &binary) {
-			binary.Message += "; the shell completion could not be generated either: " + err.Error()
-			binary.Hint += "; then run " + completion + " to see why the completion failed"
-
-			return binary
-		}
-
-		return core.Refusal{
-			Kind:    "completion_failed",
-			Code:    1,
-			Message: "Hiberus Dockergento was updated, but its shell completion could not be generated: " + err.Error(),
-			Hint:    "Run " + completion + " to see why",
-		}
-	}
-
-	return refreshed
+	return core.Updated{Updated: true, From: options.Running, To: found[0].Tag, Latest: found[0].Tag, Path: path}, nil
 }
 
 // AgentPermissions is the configuration an agent using this tool should be given, from the

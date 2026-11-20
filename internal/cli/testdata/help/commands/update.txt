@@ -1,2 +1,5 @@
-Description: Update the installation and its compiled command
+Usage: hm update [--pre]
+Description: Replace this hm with the newest release, when there is a newer one
+Options:
+   [-|--pre]        Consider pre-releases too
 
