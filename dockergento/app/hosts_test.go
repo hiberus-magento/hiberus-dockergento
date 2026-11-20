@@ -51,3 +51,40 @@ func TestANameThatDoesNotResolveIsReportedAsNone(t *testing.T) {
 		t.Fatalf("Resolution = %q, want none", got)
 	}
 }
+
+// TestANameOutsideTheHostsFileThatResolvesLocallyIsDNS: a resolver of its own (dnsmasq, the
+// proxy's wildcard) is the second way a name reaches this machine.
+func TestANameOutsideTheHostsFileThatResolvesLocallyIsDNS(t *testing.T) {
+	hosts := Hosts{
+		File:     hostsFile(t, "127.0.0.1 localhost\n"),
+		Resolver: resolverSaying(true),
+	}
+
+	if got := hosts.Resolution("tienda.test"); got != "dns" {
+		t.Fatalf("Resolution = %q, want dns", got)
+	}
+}
+
+// TestTheHostsFileWinsOverDNS: listed there, the name is reported by the file that answers first.
+func TestTheHostsFileWinsOverDNS(t *testing.T) {
+	hosts := Hosts{
+		File:     hostsFile(t, "127.0.0.1 tienda.test\n"),
+		Resolver: resolverSaying(true),
+	}
+
+	if got := hosts.Resolution("tienda.test"); got != "hosts" {
+		t.Fatalf("Resolution = %q, want hosts", got)
+	}
+}
+
+// TestAnUnreadableHostsFileFallsBackToDNS: no hosts file is not an error in a diagnosis.
+func TestAnUnreadableHostsFileFallsBackToDNS(t *testing.T) {
+	hosts := Hosts{
+		File:     filepath.Join(t.TempDir(), "missing"),
+		Resolver: resolverSaying(true),
+	}
+
+	if got := hosts.Resolution("tienda.test"); got != "dns" {
+		t.Fatalf("Resolution = %q, want dns", got)
+	}
+}

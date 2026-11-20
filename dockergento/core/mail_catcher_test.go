@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -157,5 +158,30 @@ func TestTheMailboxIsPublishedOnTheSamePortEitherWay(t *testing.T) {
 
 	if len(mailhog) == 0 || !reflect.DeepEqual(mailhog, mailpit) {
 		t.Fatalf("mailpit ports = %v, want the same as mailhog's %v", mailpit, mailhog)
+	}
+}
+
+// TestAMailCatcherNobodyKnowsIsRefused: a typo in MAIL_SERVICE is a usage error naming the two that
+// exist, not a compose file with a service called after the typo.
+func TestAMailCatcherNobodyKnowsIsRefused(t *testing.T) {
+	_, err := RenderCompose("<mail_service>", map[string]string{"mailhog": "1.0", "mailpit": "1.0"}, "mailcatcher")
+
+	var refusal Refusal
+	if !errors.As(err, &refusal) || refusal.Kind != "unknown_mail_service" || refusal.Code != 2 {
+		t.Fatalf("RenderCompose(mailcatcher) = %v, want unknown_mail_service with code 2", err)
+	}
+	if !strings.Contains(refusal.Hint, "mailhog") || !strings.Contains(refusal.Hint, "mailpit") {
+		t.Errorf("hint = %q, want it to name both", refusal.Hint)
+	}
+}
+
+// TestAMailCatcherWithoutAnImageForTheVersionIsRefused: mailpit chosen for a row that defines no
+// mailpit image.
+func TestAMailCatcherWithoutAnImageForTheVersionIsRefused(t *testing.T) {
+	_, err := RenderCompose("<mail_service>", map[string]string{"mailhog": "1.0"}, "mailpit")
+
+	var refusal Refusal
+	if !errors.As(err, &refusal) || refusal.Kind != "mail_service_unavailable" || refusal.Code != 4 {
+		t.Fatalf("RenderCompose(mailpit) = %v, want mail_service_unavailable with code 4", err)
 	}
 }
