@@ -433,3 +433,13 @@ func TestALineEndedByACarriageReturnIsAnswered(t *testing.T) {
 		t.Fatalf("= %q", got)
 	}
 }
+
+// TestABinaryThatCannotBeRunIsSaid: with nothing printed, every tool reads as success — "(done)"
+// for a config:set that never ran. What stopped it is the answer instead.
+func TestABinaryThatCannotBeRunIsSaid(t *testing.T) {
+	output := string(mcpCapture(filepath.Join(t.TempDir(), "missing", "hm"), []string{"magento", "cache:flush"}, true))
+
+	if !strings.Contains(output, "could not be run") {
+		t.Errorf("output = %q, want it to say the binary could not be run", output)
+	}
+}
