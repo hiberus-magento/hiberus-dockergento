@@ -45,6 +45,7 @@ assert_empty "$invalid"
 test_case "every command with a file has an entry"
 missing=""
 for file in "$COMMANDS_DIR"/*.sh; do
+    [ -e "$file" ] || continue
     name=$(basename "$file" .sh)
     [ "$(jq -r --arg n "$name" 'has($n)' "$DESCRIPTIONS")" == "true" ] || missing="$missing $name"
 done

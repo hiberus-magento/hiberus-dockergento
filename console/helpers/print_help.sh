@@ -31,7 +31,10 @@ print_commands_info() {
         fi
     fi
 
-    if [ ! -d "$command_path" ]; then
+    # Only a project's own commands need their directory: the tool's are declared in
+    # command_descriptions.json, and once every one of them is the binary's there is no
+    # console/commands left at all
+    if $custom && [ ! -d "$command_path" ]; then
         return 0
     fi
 

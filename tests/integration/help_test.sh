@@ -11,8 +11,14 @@ LAB=$(cd "$(mktemp -d)" && pwd -P)
 # A command with no declared group, removed on the way out
 UNGROUPED="$COMMAND_BIN_DIR/console/commands/selftestungrouped.sh"
 
+# The directory is gone once every command is the binary's, so it is made for the test and
+# removed again when the test made it
+UNGROUPED_DIR=$(dirname "$UNGROUPED")
+[ -d "$UNGROUPED_DIR" ] && MADE_DIR=false || MADE_DIR=true
+
 cleanup() {
     rm -f "$UNGROUPED"
+    $MADE_DIR && rmdir "$UNGROUPED_DIR" 2>/dev/null
     rm -rf "$LAB"
 }
 trap cleanup EXIT
@@ -94,6 +100,7 @@ assert_contains "$OUTPUT" "--help"
 # ------------------------------------------------------------------ ungrouped
 
 test_case "a command with no declared group still appears"
+mkdir -p "$UNGROUPED_DIR"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$UNGROUPED"
 chmod +x "$UNGROUPED"
 OUTPUT=$(help_output)
