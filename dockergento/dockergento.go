@@ -2163,6 +2163,12 @@ func (e *Engine) copyLegacyInstallSettings(path string) ([]byte, bool) {
 
 	legacy := filepath.Join(home, "hm", "data", "config.json")
 
+	// A link is not followed, whatever it points at; nor is anything but a regular file read (a
+	// FIFO would block). The installer refuses the same.
+	if info, err := os.Lstat(legacy); err != nil || !info.Mode().IsRegular() {
+		return nil, false
+	}
+
 	contents, err := os.ReadFile(legacy) //nolint:gosec
 	if err != nil || !json.Valid(contents) {
 		return nil, false
@@ -2176,8 +2182,9 @@ func (e *Engine) copyLegacyInstallSettings(path string) ([]byte, bool) {
 		return nil, false
 	}
 
-	// O_EXCL: whatever appeared at path meanwhile is kept, never replaced
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gosec
+	// O_EXCL: whatever appeared at path meanwhile is kept, never replaced. 0600: it can hold the
+	// admin password.
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) //nolint:gosec
 	if err != nil {
 		return nil, false
 	}

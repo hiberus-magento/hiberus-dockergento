@@ -144,3 +144,83 @@ func TestAnInvalid1xSettingsFileIsNotCopied(t *testing.T) {
 		t.Errorf("settings = %v, want the defaults", settings)
 	}
 }
+
+// The copy can hold the admin password, so it is readable by this user only; and a 1.x
+// config.json that is a link is not followed wherever it points.
+func TestThe1xSettingsCopyIsPrivateAndNeverFollowsALink(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	legacy := filepath.Join(home, "hm", "data", "config.json")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	old := core.RenderInstallSettings(core.SetInstallSetting(core.DefaultInstallSettings(), "currency", "USD"))
+	if err := os.WriteFile(legacy, []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	target := filepath.Join(home, ".hm", "config.json")
+
+	if _, err := New(Options{Assets: fstest.MapFS{}}).InstallSettings(); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if mode := info.Mode().Perm(); mode != 0o600 {
+		t.Errorf("~/.hm/config.json mode = %o, want 600", mode)
+	}
+
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+
+	elsewhere := filepath.Join(t.TempDir(), "config.json")
+	if err := os.Rename(legacy, elsewhere); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(elsewhere, legacy); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, err := New(Options{Assets: fstest.MapFS{}}).InstallSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if value, _ := core.InstallSetting(settings, "currency"); value == "USD" {
+		t.Error("the settings were read through a link out of the 1.x installation")
+	}
+}
+
+// What is copied is what the installer copies: one valid JSON object, nothing else.
+func TestOnlyAValidJSONObjectIs1xSettings(t *testing.T) {
+	for _, contents := range []string{`{"currency": }`, `{"a": 1}{"b": 2}`, `{"a": 1,}`, `[1]`, `"text"`, ``} {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+
+		legacy := filepath.Join(home, "hm", "data", "config.json")
+		if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := os.WriteFile(legacy, []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		said := ""
+		if _, err := New(Options{Assets: fstest.MapFS{}, Announce: func(message string) { said += message }}).InstallSettings(); err != nil {
+			t.Fatal(err)
+		}
+
+		if said != "" {
+			t.Errorf("%q was copied: %s", contents, said)
+		}
+	}
+}

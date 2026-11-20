@@ -535,19 +535,114 @@ legacy_notice() {
     say "It was left in place. To delete it: rm -rf $checkout"
 }
 
+# copy_new <source> <target>: source's content at target, readable by this user only; fails, and
+# changes nothing, when target exists
+copy_new() {
+    local temporary status=0
+    temporary="$(mktemp "$(dirname "$2")/.$(basename "$2").hm-XXXXXX" 2>/dev/null)" || return 1
+    cat "$1" >"$temporary" 2>/dev/null && ln "$temporary" "$2" 2>/dev/null || status=1
+    rm -f "$temporary"
+    return "$status"
+}
+
+# json_object <file>: whether the file is one valid JSON object (RFC 8259), the check hm itself
+# makes before it copies these settings (encoding/json's Valid and a "{" first). Without jq: a
+# recursive-descent parser in awk, byte by byte.
+json_object() {
+    LC_ALL=C awk '
+        { text = text $0 "\n" }
+        function fail() { bad = 1; return 0 }
+        function ws() { while (pos <= len && index(" \t\r\n", substr(text, pos, 1))) pos++ }
+        function ch() { return substr(text, pos, 1) }
+        function str(   c, i) {
+            if (ch() != "\"") return fail()
+            pos++
+            while (pos <= len) {
+                c = ch()
+                if (c == "\"") { pos++; return 1 }
+                if (c < " ") return fail()
+                if (c == "\\") {
+                    pos++; c = ch()
+                    if (c == "u") {
+                        for (i = 1; i <= 4; i++) if (!index("0123456789abcdefABCDEF", substr(text, pos + i, 1)) || substr(text, pos + i, 1) == "") return fail()
+                        pos += 4
+                    } else if (c == "" || !index("\"\\/bfnrt", c)) return fail()
+                }
+                pos++
+            }
+            return fail()
+        }
+        function digits(   start) { start = pos; while (pos <= len && index("0123456789", ch())) pos++; return pos > start }
+        function num() {
+            if (ch() == "-") pos++
+            if (ch() == "0") pos++
+            else if (!digits()) return fail()
+            if (ch() == ".") { pos++; if (!digits()) return fail() }
+            if (ch() == "e" || ch() == "E") { pos++; if (ch() == "+" || ch() == "-") pos++; if (!digits()) return fail() }
+            return 1
+        }
+        function word(w) { if (substr(text, pos, length(w)) != w) return fail(); pos += length(w); return 1 }
+        function value(   c) {
+            ws(); c = ch()
+            if (c == "{") return obj()
+            if (c == "[") return arr()
+            if (c == "\"") return str()
+            if (c == "t") return word("true")
+            if (c == "f") return word("false")
+            if (c == "n") return word("null")
+            if (c == "-" || index("0123456789", c)) return num()
+            return fail()
+        }
+        function obj() {
+            pos++; ws()
+            if (ch() == "}") { pos++; return 1 }
+            while (1) {
+                ws(); if (!str()) return 0
+                ws(); if (ch() != ":") return fail()
+                pos++; if (!value()) return 0
+                ws()
+                if (ch() == "}") { pos++; return 1 }
+                if (ch() != ",") return fail()
+                pos++
+            }
+        }
+        function arr() {
+            pos++; ws()
+            if (ch() == "]") { pos++; return 1 }
+            while (1) {
+                if (!value()) return 0
+                ws()
+                if (ch() == "]") { pos++; return 1 }
+                if (ch() != ",") return fail()
+                pos++
+            }
+        }
+        END {
+            len = length(text); pos = 1; bad = 0
+            ws()
+            if (ch() != "{" || !value() || bad) exit 1
+            ws()
+            exit (pos <= len ? 1 : 0)
+        }
+    ' "$1"
+}
+
 # migrate_settings <checkout>: a 1.x installation kept the store and admin settings of `hm install`
 # in <checkout>/data/config.json; hm 2 keeps them in ~/.hm/config.json. Copied once, when that is
 # absent and the old file is a JSON object; never overwritten.
 migrate_settings() {
     local source="$1/data/config.json" target="$STATE_DIR/config.json"
-    [ -n "$1" ] && [ -f "$source" ] && [ ! -e "$target" ] && [ ! -L "$target" ] || return 0
+    # A link is not followed: it may point anywhere, and what is copied ends up in ~/.hm
+    [ -n "$1" ] && [ -f "$source" ] && [ ! -L "$source" ] && [ ! -e "$target" ] && [ ! -L "$target" ] || return 0
 
-    if ! tr -d ' \t\r\n' <"$source" | grep -q '^{.*}$'; then
+    if ! json_object "$source"; then
         CHANGES+=("the 1.x install settings $source are not a JSON object and were not copied")
         return 0
     fi
 
-    if mkdir -p "$STATE_DIR" && cp "$source" "$target"; then
+    # 0600 (mktemp's mode), as it can hold the admin password; put in place with ln, which never
+    # replaces whatever appeared there meanwhile, and only once it is whole
+    if mkdir -p "$STATE_DIR" && copy_new "$source" "$target"; then
         CHANGES+=("copied the 1.x install settings $source to $target")
     else
         CHANGES+=("could not copy the 1.x install settings $source to $target: copy it by hand")

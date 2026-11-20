@@ -749,6 +749,53 @@ run_install
 test_case "and never over settings already there"
 assert_equals '{"currency": "EUR"}' "$(cat "$HOME/.hm/config.json")"
 
+test_case "the copy is readable by this user only, since it can hold the admin password"
+assert_equals "-rw-------" "$(rm -f "$HOME/.hm/config.json"; run_install; ls -l "$HOME/.hm/config.json" | cut -c1-10)"
+
+# settings_case <content>: a 1.x installation of its own whose data/config.json holds content
+SETTINGS_CASES=0
+settings_case() {
+    SETTINGS_CASES=$((SETTINGS_CASES + 1))
+    new_case "settings-$SETTINGS_CASES"
+    publish 2.0.0
+    api_releases 2.0.0
+    mkdir -p "$HOME/hm/bin" "$HOME/hm/data"
+    printf '#!/bin/sh\n' >"$HOME/hm/bin/run"
+    printf '%s' "$1" >"$HOME/hm/data/config.json"
+    git -C "$HOME/hm" init -q
+    ln -s "$HOME/hm/bin/run" "$HM_SYSTEM_BIN/hm"
+    run_install
+}
+
+# The same JSON objects hm itself accepts (dockergento's copyLegacyInstallSettings), the same refused
+for settings in '{"a": {"b": [1, 2.5e3, true, null]}, "c": "} \" \\\\ é {"}' $'{\n\t"admin-password": "x"\r\n}\n' '{}'; do
+    settings_case "$settings"
+    test_case "a valid JSON object is copied: $settings"
+    assert_equals "yes" "$(exists "$HOME/.hm/config.json")"
+done
+for settings in '{"currency": }' '{"a": 1}{"b": 2}' '{"a": 1,}' "{'a': 1}" '{"a": 01}' '{"a": "x' '[1]' '"text"' '{"a" 1}' ''; do
+    settings_case "$settings"
+    test_case "what is not a valid JSON object is not copied: $settings"
+    assert_equals "0" "$STATUS"
+    assert_equals "no" "$(exists "$HOME/.hm/config.json")"
+    assert_contains "$OUT" "not a JSON object"
+done
+
+new_case settings-link
+publish 2.0.0
+api_releases 2.0.0
+mkdir -p "$HOME/hm/bin" "$HOME/hm/data" "$CASE/elsewhere"
+printf '#!/bin/sh\n' >"$HOME/hm/bin/run"
+printf '{"secret": "of another file"}\n' >"$CASE/elsewhere/config.json"
+ln -s "$CASE/elsewhere/config.json" "$HOME/hm/data/config.json"
+git -C "$HOME/hm" init -q
+ln -s "$HOME/hm/bin/run" "$HM_SYSTEM_BIN/hm"
+run_install
+
+test_case "a config.json that is a link is not followed out of the 1.x installation"
+assert_equals "0" "$STATUS"
+assert_equals "no" "$(exists "$HOME/.hm/config.json")"
+
 test_case "no case ever called jq"
 assert_equals "" "$(cat "$LAB/jq.log" 2>/dev/null)"
 
