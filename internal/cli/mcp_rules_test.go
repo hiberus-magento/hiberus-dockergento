@@ -79,9 +79,30 @@ func TestAFileOperationIsRefusedHoweverItIsSpelt(t *testing.T) {
 	}
 
 	// What a quoted comment marker does not hide is still a plain read
-	for _, sql := range []string{"SELECT '#' AS hash", "SELECT 1 -- a comment", "SELECT /*+ hint */ 1"} {
+	for _, sql := range []string{"SELECT '#' AS hash", "SELECT 1 -- a comment", "SELECT /*+ hint */ 1",
+		"SELECT 'it''s' AS quote", "SELECT `a\\b` FROM dual", "SELECT '/*!' AS marker"} {
 		if refusal := mcpQueryRefusal(sql); refusal != "" {
 			t.Errorf("%q refused (%s), want it accepted", sql, refusal)
+		}
+	}
+}
+
+// TestABackslashInAQuotedStringIsRefused: whether a backslash escapes the quote after it depends
+// on the server's NO_BACKSLASH_ESCAPES (and ANSI_QUOTES for "..."), which the filter cannot see.
+// Read one way, a comment, an executable comment or the end of the string sits where the other
+// reading sees text, so no reading of such a statement can be trusted: it is refused whatever
+// follows.
+func TestABackslashInAQuotedStringIsRefused(t *testing.T) {
+	for _, sql := range []string{
+		"SELECT 'a\\' # ', password FROM admin_user",
+		"SELECT '\\' /*!50000 , SLEEP(100)*/ , '\\'",
+		"SELECT \"x\\\" FROM dual",
+		"SELECT 1 FROM dual WHERE a LIKE '%\\_%'",
+		"SELECT 'unterminated\\",
+	} {
+		refusal := mcpQueryRefusal(sql)
+		if !strings.Contains(refusal, "backslash") {
+			t.Errorf("%q: refusal = %q, want it refused for its backslash", sql, refusal)
 		}
 	}
 }

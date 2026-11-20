@@ -239,7 +239,20 @@ func mcpQueryRefusal(sql string) string {
 	// outright. The shell's sed took them line by line without seeing strings: a deliberate
 	// difference, because that let a quoted '#' hide the rest of the statement.
 	//
-	code, executable := sqlWithoutComments(sql)
+	code, executable, ambiguous := sqlWithoutComments(sql)
+
+	//
+	// Whether a backslash in '...' or "..." escapes the quote after it is the server's
+	// NO_BACKSLASH_ESCAPES (and ANSI_QUOTES for "..."), which cannot be seen from here. Read the
+	// other way, the string ends somewhere else, and a comment, an executable comment, a ';' or a
+	// file operation can sit where this reading sees text. No reading can be trusted, so none is
+	// attempted: such a statement is refused whatever follows (the shell did not see strings at
+	// all — a deliberate difference).
+	//
+	if ambiguous {
+		return "Refused: a backslash in a quoted string is read differently depending on the server's SQL mode, so the statement cannot be checked"
+	}
+
 	if executable {
 		return "Refused: a /*! comment is run by the database, so what is in it cannot be checked"
 	}
@@ -292,11 +305,15 @@ func mcpQueryRefusal(sql string) string {
 }
 
 // sqlWithoutComments is the statement with each comment replaced by a space (a block comment
-// with a * in it kept whole) and its quoted strings left as they are, and whether it holds a comment the server executes (/*! or /*M!).
+// with a * in it kept whole) and its quoted strings left as they are, whether it holds a comment
+// the server executes (/*! or /*M!), and whether a '...' or "..." string holds a backslash — where
+// the server's SQL mode decides where the string ends.
 // Inside '...' and "..." a backslash escapes the next character, as MySQL reads them by default;
 // a doubled quote needs nothing, being a string closed and opened again.
-func sqlWithoutComments(sql string) (string, bool) {
+func sqlWithoutComments(sql string) (string, bool, bool) {
 	var out strings.Builder
+
+	ambiguous := false
 
 	text := []rune(sql)
 
@@ -313,6 +330,7 @@ func sqlWithoutComments(sql string) (string, bool) {
 			end := at + 1
 			for ; end < len(text) && text[end] != char; end++ {
 				if text[end] == '\\' && char != '`' {
+					ambiguous = true
 					end++
 				}
 			}
@@ -322,7 +340,7 @@ func sqlWithoutComments(sql string) (string, bool) {
 			at = end
 		case char == '/' && next == '*':
 			if rest := string(text[at+2:]); strings.HasPrefix(rest, "!") || strings.HasPrefix(rest, "M!") {
-				return "", true
+				return "", true, ambiguous
 			}
 
 			end := at + 2
@@ -349,7 +367,7 @@ func sqlWithoutComments(sql string) (string, bool) {
 		}
 	}
 
-	return out.String(), false
+	return out.String(), false, ambiguous
 }
 
 // mcpIsConfigPath says whether this looks like a Magento configuration path.
