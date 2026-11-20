@@ -881,6 +881,20 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         llega una señal mientras un comando lanzado tiene la terminal. Ese hallazgo y los avisos que
         lo merecen —un Ctrl-C en la pregunta de `share` que cerraría un túnel de otra terminal, los
         ficheros sin entrecomillar de `verify`, el filtro de SQL de `mcp`— se arreglan aparte.
+  - [x] `ai-init`, `ai-pull` y `ai-reset` portados y retirados (`074e8ee`, `6da6b3f`, `8e7fd3e`,
+        escritos por un subagente en su propio worktree e integrados aquí): los últimos tres. Los
+        mismos ficheros escritos —contenido y modos—, el mismo registro con sus sumas, el mismo
+        borrado por lista blanca y las mismas salidas, comparados con el shell en 38 casos con un
+        `curl` falso que servía un tarball local. Peculiaridades del shell conservadas: `ai-pull
+        --force` no llega nunca al comando (el router se queda `--force` como opción global) y
+        `ai-init` no instala las skills de la propia herramienta. Con ellos se van las tareas
+        `ai_download.sh`, `ai_extract.sh`, `ai_registration.sh` y `ai_wizard.sh` y el helper
+        `digest.sh`. La primera corrida con los ficheros apartados encontró que, sin ningún script,
+        git borra `console/commands/` y la ayuda general dejaba de listar comandos; ahora sólo los
+        comandos propios de un proyecto necesitan ese directorio (`7b95928`). `ai-init.sh` (364
+        líneas), `ai-pull.sh` (299) y `ai-reset.sh` (321) están borrados; no queda ninguno: los 65
+        comandos los responde el binario. Apartados: 46 de 897 aserciones fallaban antes y
+        después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
