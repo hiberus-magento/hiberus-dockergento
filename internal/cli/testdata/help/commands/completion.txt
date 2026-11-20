@@ -1,0 +1,5 @@
+Usage: hm completion <bash|zsh>
+Description: Print the shell completion script for bash or zsh
+Arguments:
+   <shell>         bash or zsh
+

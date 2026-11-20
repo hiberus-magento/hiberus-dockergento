@@ -51,6 +51,7 @@ Tools
   cloud-login           Magento Cloud Login
   cloud                 Magento Cloud Cli
   compatibility         Check Magento version compatibility
+  completion            Print the shell completion script for bash or zsh
   config-env            Launch config set of project for local environment
   create-project        Create new magento project inside current directory
   debug-off             Disable xDebug

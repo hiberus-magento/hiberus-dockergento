@@ -110,6 +110,18 @@
         "group": "tools",
         "safety": "safe"
     },
+    "completion": {
+        "description": "Print the shell completion script for bash or zsh",
+        "usage": "completion <bash|zsh>",
+        "args": [
+            {
+                "name": "shell",
+                "description": "bash or zsh"
+            }
+        ],
+        "group": "tools",
+        "safety": "safe"
+    },
     "composer": {
         "description": "Execute composer inside php container",
         "args": [

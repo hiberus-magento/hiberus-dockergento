@@ -51,6 +51,7 @@
   [0;32mcloud-login           [0mMagento Cloud Login
   [0;32mcloud                 [0mMagento Cloud Cli
   [0;32mcompatibility         [0mCheck Magento version compatibility
+  [0;32mcompletion            [0mPrint the shell completion script for bash or zsh
   [0;32mconfig-env            [0mLaunch config set of project for local environment
   [0;32mcreate-project        [0mCreate new magento project inside current directory
   [0;32mdebug-off             [0mDisable xDebug

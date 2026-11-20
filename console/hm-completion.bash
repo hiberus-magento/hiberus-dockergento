@@ -10,6 +10,7 @@ clean
 cloud
 cloud-login
 compatibility
+completion
 composer
 config-env
 copy-from-container
