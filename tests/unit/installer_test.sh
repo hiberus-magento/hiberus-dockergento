@@ -444,6 +444,112 @@ assert_equals "0" "$STATUS"
 assert_equals "yes" "$(exists "$HM_SYSTEM_BIN/hm")"
 assert_contains "$OUT" "no binary was removed"
 
+# ------------------------------------------------------------------ the profile is never lost
+
+LINE='[ -r "$HOME/.hm/completion/hm.zsh" ] && . "$HOME/.hm/completion/hm.zsh" # hm shell completion'
+# A profile with what a careless rewrite mangles: tabs, trailing spaces, backslashes, percent
+# signs, a carriage return, blank lines and a line that looks like the mark but is not it
+weird_profile() {
+    printf '# my profile\n\texport FOO="a b"  \nalias x='"'"'printf "%%s\\n"'"'"'\r\n\n\n# hm completion, not the mark\nexport BAR=\\\\$HOME\n' >"$1"
+}
+
+new_case profile-bytes
+publish 2.0.0
+api_releases 2.0.0
+weird_profile "$HOME/.zshrc"
+chmod 600 "$HOME/.zshrc"
+cp "$HOME/.zshrc" "$CASE/original"
+run_install
+
+test_case "the profile keeps every byte, with only the completion line added"
+assert_equals "0" "$STATUS"
+cat "$CASE/original" >"$CASE/expected"
+printf '%s\n' "$LINE" >>"$CASE/expected"
+assert_equals "same" "$(cmp -s "$CASE/expected" "$HOME/.zshrc" && echo same || echo different)"
+
+test_case "and its permissions, with the original kept once in .zshrc.hm-backup"
+assert_equals "-rw-------" "$(ls -l "$HOME/.zshrc" | cut -c1-10)"
+assert_equals "same" "$(cmp -s "$CASE/original" "$HOME/.zshrc.hm-backup" && echo same || echo different)"
+
+test_case "and no temporary file is left beside it"
+assert_equals "" "$(cd "$HOME" && ls -A | grep '\.hm-' | grep -v '^\.zshrc\.hm-backup$')"
+
+run_install --uninstall
+
+test_case "uninstalling takes the one line out again, byte for byte"
+assert_equals "same" "$(cmp -s "$CASE/original" "$HOME/.zshrc" && echo same || echo different)"
+assert_equals "same" "$(cmp -s "$CASE/original" "$HOME/.zshrc.hm-backup" && echo same || echo different)"
+
+new_case profile-link
+publish 2.0.0
+api_releases 2.0.0
+mkdir -p "$CASE/dotfiles"
+rm -f "$HOME/.zshrc"
+weird_profile "$CASE/dotfiles/zshrc"
+cp "$CASE/dotfiles/zshrc" "$CASE/original"
+ln -s ../dotfiles/zshrc "$HOME/.zshrc"
+run_install
+
+test_case "a profile that is a link stays the same link, and the file it points to is edited"
+assert_equals "0" "$STATUS"
+assert_equals "../dotfiles/zshrc" "$(readlink "$HOME/.zshrc")"
+cat "$CASE/original" >"$CASE/expected"
+printf '%s\n' "$LINE" >>"$CASE/expected"
+assert_equals "same" "$(cmp -s "$CASE/expected" "$CASE/dotfiles/zshrc" && echo same || echo different)"
+assert_equals "zshrc" "$(ls -A "$CASE/dotfiles")"
+
+new_case profile-dangling
+publish 2.0.0
+api_releases 2.0.0
+rm -f "$HOME/.zshrc"
+ln -s "$CASE/nowhere/zshrc" "$HOME/.zshrc"
+run_install
+
+test_case "a link to nothing is left alone, with the line to add printed"
+assert_equals "0" "$STATUS"
+assert_equals "$CASE/nowhere/zshrc" "$(readlink "$HOME/.zshrc")"
+assert_equals "no" "$(exists "$CASE/nowhere")"
+assert_contains "$OUT" "Add this line to it yourself"
+assert_contains "$OUT" "$LINE"
+
+new_case profile-read-only
+publish 2.0.0
+api_releases 2.0.0
+weird_profile "$HOME/.zshrc"
+chmod 444 "$HOME/.zshrc"
+cp "$HOME/.zshrc" "$CASE/original"
+run_install
+
+test_case "a read-only profile is not touched; the install still succeeds and says what to add"
+assert_equals "0" "$STATUS"
+assert_equals "hm 2.0.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
+assert_equals "same" "$(cmp -s "$CASE/original" "$HOME/.zshrc" && echo same || echo different)"
+assert_equals "-r--r--r--" "$(ls -l "$HOME/.zshrc" | cut -c1-10)"
+assert_contains "$OUT" "is not writable"
+assert_contains "$OUT" "$LINE"
+assert_contains "$OUT" "not yet sourced from $HOME/.zshrc"
+chmod 644 "$HOME/.zshrc"
+
+new_case profile-mv-fails
+publish 2.0.0
+api_releases 2.0.0
+weird_profile "$HOME/.zshrc"
+cp "$HOME/.zshrc" "$CASE/original"
+mkdir -p "$CASE/broken-mv"
+# mv: refuses the one rename that would put the new profile in place, as a full disk would
+printf '#!/bin/sh\ncase "$*" in *.zshrc.hm-*) exit 1 ;; esac\nexec /bin/mv "$@"\n' >"$CASE/broken-mv/mv"
+chmod +x "$CASE/broken-mv/mv"
+(PATH="$CASE/broken-mv:$TOOLS:$BASE_PATH" bash "$INSTALL_SH" >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+OUT=$(cat "$CASE/out" "$CASE/err")
+
+test_case "a failure halfway leaves the profile exactly as it was, and no temporary file"
+assert_equals "0" "$STATUS"
+assert_equals "same" "$(cmp -s "$CASE/original" "$HOME/.zshrc" && echo same || echo different)"
+assert_equals "" "$(cd "$HOME" && ls -A | grep '\.hm-' | grep -v '^\.zshrc\.hm-backup$')"
+assert_contains "$OUT" "it was left exactly as it was"
+assert_contains "$OUT" "$LINE"
+
 # ------------------------------------------------------------------ the token is never on argv
 
 new_case token-argv

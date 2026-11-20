@@ -354,16 +354,86 @@ place() {
     fi
 }
 
-# rewrite_profile <profile> <filter command...>: the profile through a filter, written back in
-# place (cat >) so a profile that is a link to a dotfiles repository stays a link
-rewrite_profile() {
-    local profile="$1" filtered="$WORK/profile"
-    shift
-    "$@" <"$profile" >"$filtered" || true
-    cat "$filtered" >"$profile"
+# resolve_link <path>: the regular file a chain of links ends at; fails when it ends nowhere
+resolve_link() {
+    local path="$1" target hops=0
+    while [ -L "$path" ]; do
+        hops=$((hops + 1))
+        [ "$hops" -le 40 ] || return 1
+        target="$(readlink "$path")" || return 1
+        case "$target" in
+            /*) path="$target" ;;
+            *) path="$(dirname "$path")/$target" ;;
+        esac
+    done
+    [ -f "$path" ] || return 1
+    printf '%s' "$path"
 }
 
-drop_lines_matching() { grep -v -F -e "$1" || true; }
+# profile_by_hand <profile> <reason> <mark> [line]: what the user has to do, since it was not done
+profile_by_hand() {
+    warn "Could not edit $1 safely ($2); it was left exactly as it was."
+    if [ -n "${4:-}" ]; then
+        warn "Add this line to it yourself:"
+        warn "  $4"
+    else
+        warn "Remove the line containing \"$3\" from it yourself."
+    fi
+}
+
+# edit_profile <profile> <mark> [line]: the profile without the lines containing mark, and with
+# line appended when given. Never truncates it: the new content is written to a temporary file in
+# the same directory with the same permissions, checked, and renamed over the file in one step. A
+# profile that is a link (managed dotfiles) is edited through the link, at the file it points to,
+# and stays a link. The first edit keeps a copy of the original in <profile>.hm-backup. Whatever
+# fails, the profile is as it was, the line to change by hand is printed, and it returns 1.
+edit_profile() {
+    local profile="$1" mark="$2" line="${3:-}" real dir temporary kept expected status
+
+    if [ ! -e "$profile" ] && [ ! -L "$profile" ]; then
+        [ -n "$line" ] || return 0
+        if (umask 022 && printf '%s\n' "$line" >"$profile") 2>/dev/null; then return 0; fi
+        profile_by_hand "$profile" "it could not be created" "$mark" "$line"
+        return 1
+    fi
+
+    if ! real="$(resolve_link "$profile")"; then
+        profile_by_hand "$profile" "it is a link to nothing, or not a regular file" "$mark" "$line"
+        return 1
+    fi
+    if [ ! -r "$real" ] || [ ! -w "$real" ]; then
+        profile_by_hand "$profile" "$real is not writable" "$mark" "$line"
+        return 1
+    fi
+
+    dir="$(dirname "$real")"
+    if ! temporary="$(mktemp "$dir/.$(basename "$real").hm-XXXXXX" 2>/dev/null)"; then
+        profile_by_hand "$profile" "no temporary file could be created in $dir" "$mark" "$line"
+        return 1
+    fi
+
+    status=0
+    kept="$(grep -c -v -F -e "$mark" "$real")" || status=$?
+    expected="$kept"
+    [ -z "$line" ] || expected=$((kept + 1))
+
+    # cp -p first so the new file has the profile's mode; then the content, then the check that it
+    # is every kept line, in order, plus the one added
+    if [ "$status" -le 1 ] &&
+        cp -p "$real" "$temporary" 2>/dev/null &&
+        { grep -v -F -e "$mark" <"$real" >"$temporary"; [ $? -le 1 ]; } &&
+        { [ -z "$line" ] || printf '%s\n' "$line" >>"$temporary"; } &&
+        [ "$(grep -c '' "$temporary")" == "$expected" ] &&
+        { grep -v -F -e "$mark" "$real" || [ $? -eq 1 ]; } | cmp -s - <(awk -v n="$kept" 'NR <= n' "$temporary") &&
+        { [ -e "$profile.hm-backup" ] || [ -L "$profile.hm-backup" ] || cp -p "$real" "$profile.hm-backup" 2>/dev/null; } &&
+        mv -f "$temporary" "$real" 2>/dev/null; then
+        return 0
+    fi
+
+    rm -f "$temporary"
+    profile_by_hand "$profile" "writing or checking its new content failed" "$mark" "$line"
+    return 1
+}
 
 # The profile the user's shell reads, the way hm 1.x chose it
 profile_of() {
@@ -383,8 +453,11 @@ drop_legacy_completion() {
     local profile
     for profile in "${PROFILES[@]}"; do
         if [ -f "$profile" ] && grep -q -F "$LEGACY_COMPLETION" "$profile"; then
-            rewrite_profile "$profile" drop_lines_matching "$LEGACY_COMPLETION"
-            CHANGES+=("removed the 1.x completion line from $profile")
+            if edit_profile "$profile" "$LEGACY_COMPLETION"; then
+                CHANGES+=("removed the 1.x completion line from $profile")
+            else
+                CHANGES+=("the 1.x completion line is still in $profile: remove it by hand")
+            fi
         fi
     done
 }
@@ -412,15 +485,16 @@ install_completion() {
     # shellcheck disable=SC2016
     line="[ -r \"\$HOME/.hm/completion/hm.$shell\" ] && . \"\$HOME/.hm/completion/hm.$shell\" $PROFILE_MARK"
 
-    touch "$profile"
-    if grep -q -x -F "$line" "$profile" && [ "$(grep -c -F "$PROFILE_MARK" "$profile")" == "1" ]; then
+    if grep -q -x -F "$line" "$profile" 2>/dev/null && [ "$(grep -c -F "$PROFILE_MARK" "$profile")" == "1" ]; then
         CHANGES+=("shell completion: $file (already sourced from $profile)")
         return 0
     fi
 
-    rewrite_profile "$profile" drop_lines_matching "$PROFILE_MARK"
-    printf '%s\n' "$line" >>"$profile"
-    CHANGES+=("shell completion: $file, sourced from $profile")
+    if edit_profile "$profile" "$PROFILE_MARK" "$line"; then
+        CHANGES+=("shell completion: $file, sourced from $profile")
+    else
+        CHANGES+=("shell completion: $file, not yet sourced from $profile: add the line above by hand")
+    fi
 }
 
 # The notice for a 1.x checkout that this installation no longer uses. It is left where it is.
@@ -579,8 +653,7 @@ uninstall_hm() {
 
     for profile in "${PROFILES[@]}"; do
         if [ -f "$profile" ] && grep -q -F "$PROFILE_MARK" "$profile"; then
-            rewrite_profile "$profile" drop_lines_matching "$PROFILE_MARK"
-            say "Removed the completion line from $profile"
+            edit_profile "$profile" "$PROFILE_MARK" && say "Removed the completion line from $profile"
         fi
     done
 

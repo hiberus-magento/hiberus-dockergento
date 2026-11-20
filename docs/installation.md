@@ -25,7 +25,11 @@ What it does:
    single rename, so a failed run never leaves half an `hm`.
 5. Writes the shell completion (`hm completion zsh|bash`) to `~/.hm/completion/hm.<shell>` and adds
    **one** line to your profile that loads it. Running the installer again never adds a second
-   one.
+   one. The profile is never rewritten in place: the new content goes to a temporary file beside
+   it with the same permissions, is checked, and replaces it in one rename. A profile that is a
+   link (managed dotfiles) stays a link and the file it points to is edited. The first edit keeps
+   the original as `<profile>.hm-backup`. If anything fails — a read-only profile, a link to
+   nothing — the profile is left exactly as it was and the line to add (or remove) is printed.
 6. Prints what it did: the version, the path and what changed.
 
 Running it again upgrades to a newer release, or says the installed one is up to date.
