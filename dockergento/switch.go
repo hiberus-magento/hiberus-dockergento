@@ -136,8 +136,8 @@ func (e *Engine) Versions() (core.Versions, error) {
 	return core.Versions{Current: current, Versions: versions, Branches: branches}, nil
 }
 
-// Switch moves the installation to a tag or a branch, and regenerates the shell completion from
-// what is there now.
+// Switch moves the installation to a tag or a branch, obtains the compiled command matching it
+// (RefreshBinary), and regenerates the shell completion from what is there now.
 //
 // Never over somebody's work: tracked changes refuse the switch, with what they are. Untracked
 // files do not — notes, editor configuration, an agent's skills are always there, and git refuses
@@ -185,9 +185,17 @@ func (e *Engine) Switch(reference string) (core.Switched, error) {
 		}
 	}
 
+	// The binary is not in git, so the checkout did not move it. A failure keeps the previous one
+	// and is reported, without moving the checkout back: the switch itself has happened
+	refreshed := e.RefreshBinary()
+
 	// As the shell did: the switch has happened, and a completion that could not be regenerated
 	// is not a reason to report that it has not
 	_ = exec.Command(filepath.Join(root, "generate_completion.sh")).Run()
+
+	if refreshed != nil {
+		return core.Switched{}, refreshed
+	}
 
 	description, err := git.run("describe", "--tags")
 	if err != nil {

@@ -10,8 +10,12 @@ import (
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
-// Update pulls this tool's own installation, a git checkout, and regenerates the shell completion
-// from what was pulled.
+// Update pulls this tool's own installation, a git checkout, obtains the compiled command matching
+// what was pulled (RefreshBinary), and regenerates the shell completion from it.
+//
+// A binary that cannot be obtained does not undo the pull: the previous binary stays, the
+// completion is still regenerated, and the refusal says the installation moved but the binary did
+// not.
 //
 // An installation checked out at a tag is a version somebody chose, so there is nothing to update
 // it to: that is said, with the command that moves it, rather than pulled onto a branch behind
@@ -59,6 +63,8 @@ func (e *Engine) Update() error {
 		}
 	}
 
+	refreshed := e.RefreshBinary()
+
 	if err := exec.Command(filepath.Join(root, "generate_completion.sh")).Run(); err != nil {
 		return core.Refusal{
 			Kind:    "completion_failed",
@@ -68,7 +74,7 @@ func (e *Engine) Update() error {
 		}
 	}
 
-	return nil
+	return refreshed
 }
 
 // AgentPermissions is the configuration an agent using this tool should be given, from the

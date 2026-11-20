@@ -1,0 +1,255 @@
+package dockergento
+
+import (
+	"bufio"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"time"
+
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
+)
+
+//
+// The compiled command follows the checkout.
+//
+// The installation is a git checkout and bin/hm is not in it (.gitignore), so moving the checkout —
+// `hm update`, `hm switch` — leaves the binary where it was: an old binary answering over new shell
+// and data files. After every move the binary is obtained again for what is checked out now: the
+// release asset when HEAD is exactly a release tag, verified against that release's checksums.txt,
+// or built with a local Go toolchain. A ref that is not a release is only ever built: a release
+// asset of another version would be the same disagreement again.
+//
+// The replacement is atomic — a temporary file in bin/, made executable, renamed over bin/hm — and a
+// failure leaves the previous binary in place. Renaming over the running executable is safe on
+// Linux and macOS: the process keeps the inode it was started from, and nothing here executes the
+// path again.
+//
+
+// releaseDownloads is where tagged releases publish their assets: hm_<os>_<arch> and checksums.txt.
+const releaseDownloads = "https://github.com/hiberus-magento/hiberus-dockergento/releases/download"
+
+// binarySource is how a binary is obtained. Injected so tests never reach the network or a
+// toolchain.
+type binarySource struct {
+	// download returns the body of a URL, or an error for anything but a whole 200.
+	download func(url string) ([]byte, error)
+
+	// build compiles ./cmd/hm of root into output, stamping version. Nil when there is no Go
+	// toolchain on this machine.
+	build func(root, output, version string) error
+
+	goos, goarch string
+}
+
+// newBinarySource is the real one: HTTP and the go on PATH. A variable so the package's tests can
+// replace it for every engine they build.
+var newBinarySource = func() binarySource {
+	source := binarySource{download: httpDownload, goos: runtime.GOOS, goarch: runtime.GOARCH}
+
+	if _, err := exec.LookPath("go"); err == nil {
+		source.build = goBuild
+	}
+
+	return source
+}
+
+func httpDownload(url string) ([]byte, error) {
+	client := http.Client{Timeout: 5 * time.Minute}
+
+	response, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%s answered %s", url, response.Status)
+	}
+
+	// A binary is tens of megabytes; anything past this is not one
+	return io.ReadAll(io.LimitReader(response.Body, 512<<20))
+}
+
+func goBuild(root, output, version string) error {
+	args := []string{"build"}
+	if version != "" {
+		args = append(args, "-ldflags", "-X github.com/hiberus-magento/hiberus-dockergento/internal/cli.Version="+version)
+	}
+	args = append(args, "-o", output, "./cmd/hm")
+
+	command := exec.Command("go", args...)
+	command.Dir = root
+
+	if said, err := command.CombinedOutput(); err != nil {
+		if text := strings.TrimSpace(string(said)); text != "" {
+			return errors.New(text)
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (e *Engine) binarySource() binarySource {
+	if e.binaries != nil {
+		return *e.binaries
+	}
+
+	return newBinarySource()
+}
+
+// releaseAsset is the asset name of this platform, or "" when releases do not publish one for it.
+func releaseAsset(goos, goarch string) string {
+	if (goos != "darwin" && goos != "linux") || (goarch != "amd64" && goarch != "arm64") {
+		return ""
+	}
+
+	return "hm_" + goos + "_" + goarch
+}
+
+// RefreshBinary obtains the compiled command for what the installation has checked out now and
+// puts it at bin/hm. On failure the previous binary is untouched and the refusal says why.
+func (e *Engine) RefreshBinary() error {
+	root := e.options.Root
+	git := installationGit(root)
+	source := e.binarySource()
+	target := filepath.Join(root, "bin", "hm")
+
+	tag, err := git.run("describe", "--tags", "--exact-match", "HEAD")
+	if err != nil {
+		tag = ""
+	}
+
+	version, err := git.run("describe", "--tags")
+	if err != nil {
+		version = ""
+	}
+
+	reasons := []string{}
+
+	if tag != "" {
+		if asset := releaseAsset(source.goos, source.goarch); asset == "" {
+			reasons = append(reasons, fmt.Sprintf("releases publish no binary for %s/%s", source.goos, source.goarch))
+		} else if binary, err := releaseBinary(source, tag, asset); err != nil {
+			reasons = append(reasons, err.Error())
+		} else if err := replaceWith(target, func(path string) error { return os.WriteFile(path, binary, 0o755) }); err != nil {
+			reasons = append(reasons, "could not install the downloaded binary: "+err.Error())
+		} else {
+			return nil
+		}
+	} else {
+		reasons = append(reasons, "the checkout is not a release, so there is no binary to download for it")
+	}
+
+	if source.build == nil {
+		reasons = append(reasons, "there is no Go toolchain to build it")
+	} else if err := replaceWith(target, func(path string) error { return source.build(root, path, version) }); err != nil {
+		reasons = append(reasons, "building it failed: "+err.Error())
+	} else {
+		return nil
+	}
+
+	now := version
+	if now == "" {
+		now = git.current()
+	}
+
+	return core.Refusal{
+		Kind: "binary_not_refreshed",
+		Code: 1,
+		Message: fmt.Sprintf("The installation is now at %s, but its compiled command could not be obtained (%s). "+
+			"%s keeps the previous one, which may not match", now, strings.Join(reasons, "; "), target),
+		Hint: fmt.Sprintf("Install Go and run: cd %s && go build -o bin/hm ./cmd/hm", root),
+	}
+}
+
+// releaseBinary downloads asset of the release tag and checks it against the release's
+// checksums.txt. Fail closed: no manifest, no line for the asset, or a different digest is no
+// binary.
+func releaseBinary(source binarySource, tag, asset string) ([]byte, error) {
+	binary, err := source.download(releaseDownloads + "/" + tag + "/" + asset)
+	if err != nil {
+		return nil, fmt.Errorf("downloading %s of %s failed: %v", asset, tag, err)
+	}
+
+	manifest, err := source.download(releaseDownloads + "/" + tag + "/checksums.txt")
+	if err != nil {
+		return nil, fmt.Errorf("downloading the checksums of %s failed: %v", tag, err)
+	}
+
+	want := ""
+	scanner := bufio.NewScanner(bytes.NewReader(manifest))
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) == 2 && strings.TrimPrefix(fields[1], "*") == asset {
+			want = strings.ToLower(fields[0])
+		}
+	}
+
+	if want == "" {
+		return nil, fmt.Errorf("the checksums of %s do not list %s", tag, asset)
+	}
+
+	digest := sha256.Sum256(binary)
+	if got := hex.EncodeToString(digest[:]); got != want {
+		return nil, fmt.Errorf("%s of %s does not match its checksum (sha256 %s, expected %s)", asset, tag, got, want)
+	}
+
+	return binary, nil
+}
+
+// replaceWith has write produce the new file at a temporary path beside target, makes it
+// executable and renames it over target. Whatever fails, target is as it was.
+func replaceWith(target string, write func(path string) error) error {
+	dir := filepath.Dir(target)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+
+	temporary, err := os.CreateTemp(dir, ".hm-new-*")
+	if err != nil {
+		return err
+	}
+	path := temporary.Name()
+	_ = temporary.Close()
+
+	done := false
+	defer func() {
+		if !done {
+			_ = os.Remove(path)
+		}
+	}()
+
+	if err := write(path); err != nil {
+		return err
+	}
+
+	if info, err := os.Stat(path); err != nil {
+		return err
+	} else if info.Size() == 0 {
+		return errors.New("the new binary is empty")
+	}
+
+	if err := os.Chmod(path, 0o755); err != nil {
+		return err
+	}
+
+	if err := os.Rename(path, target); err != nil {
+		return err
+	}
+
+	done = true
+
+	return nil
+}
