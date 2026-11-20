@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# The mail catcher: choosing it, rendering it, and the mail actually arriving.
+# The mail catcher: the mail actually arriving, and what the binary reports about it.
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
@@ -13,79 +13,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-REQUIREMENTS_JSON=$(jq -c '."2.4.7"' "$DATA_DIR/requirements.json")
-
-#
-# Render the project's compose file the way the tool does, for one choice
-#
-render() {
-    local choice="$1" dir="$LAB/$2"
-    mkdir -p "$dir"
-    (
-        export REQUIREMENTS="$REQUIREMENTS_JSON"
-        export MAIL_SERVICE="$choice"
-        export DOCKER_COMPOSE_FILE="$dir/docker-compose.yml"
-        export DOCKER_COMPOSE_FILE_LINUX="$dir/docker-compose.dev.linux.yml"
-        export DOCKER_COMPOSE_FILE_MAC="$dir/docker-compose.dev.mac.yml"
-        bash "$TASKS_DIR/write_from_docker-compose_templates.sh"
-    ) >"$LAB/out" 2>"$LAB/err"
-    STATUS=$?
-    # The real flow substitutes this one afterwards, in the version manager
-    [ -f "$dir/docker-compose.yml" ] && sed -e 's|{YML_VERSION}||' "$dir/docker-compose.yml" > "$dir/tmp" &&
-        mv "$dir/tmp" "$dir/docker-compose.yml"
-    return 0
-}
-
-service_of() {
-    ( cd "$LAB/$1" && docker compose -f docker-compose.yml config --format json 2>/dev/null ) |
-        jq -r '.services | keys[] | select(. == "mailhog" or . == "mailpit")'
-}
-
-field_of() {
-    ( cd "$LAB/$1" && docker compose -f docker-compose.yml config --format json 2>/dev/null ) |
-        jq -r "$2"
-}
-
-# ---------------------------------------------------------------- the default is untouched
-
-test_case "with no preference the service is still Mailhog"
-render "" default
-assert_equals "mailhog" "$(service_of default)"
-
-test_case "and it is the same image as before this choice existed"
-assert_equals "hiberusmagento/mailhog:1" "$(field_of default '.services.mailhog.image')"
-
-test_case "asking for Mailhog explicitly gives the same thing"
-render mailhog explicit
-assert_equals "$(field_of default '.services.mailhog')" "$(field_of explicit '.services.mailhog')"
-
-# ---------------------------------------------------------------- choosing Mailpit
-
-test_case "choosing Mailpit renders its own service"
-render mailpit pit
-assert_equals "mailpit" "$(service_of pit)"
-
-test_case "with its own image"
-assert_equals "hiberusmagento/mailpit:1" "$(field_of pit '.services.mailpit.image')"
-
-test_case "PHP depends on whichever was chosen"
-assert_equals "true" "$(field_of pit '.services.phpfpm.depends_on | has("mailpit")')"
-
-test_case "and it still answers to the name Magento has configured"
-assert_contains "$(field_of pit '.services.mailpit.networks.default.aliases | join(",")')" "mailhog"
-
-test_case "Mailhog answers to that name too, harmlessly"
-assert_contains "$(field_of default '.services.mailhog.networks.default.aliases | join(",")')" "mailhog"
-
-test_case "the mailbox is published on the same port either way"
-assert_equals "$(field_of default '.services.mailhog.ports[0].published')" \
-              "$(field_of pit '.services.mailpit.ports[0].published')"
-
-# ---------------------------------------------------------------- a choice that does not exist
-
-test_case "an unsupported catcher is a usage error"
-render sendgrid bad
-assert_contains "$(cat "$LAB/err")$(cat "$LAB/out")" "not a mail catcher"
+# What the rendered compose file says about the catcher —Mailhog by default, Mailpit when chosen,
+# the same alias and port either way— is pinned in Go against core.RenderCompose and the real
+# template (dockergento/core). What follows checks the mail actually arriving.
 
 # ---------------------------------------------------------------- the mail actually arrives
 

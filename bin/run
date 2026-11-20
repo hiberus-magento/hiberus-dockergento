@@ -60,7 +60,6 @@ import_dependencies() {
     source "$COMPONENTS_DIR"/print_json.sh
     source "$HELPERS_DIR"/exit_codes.sh
     source "$HELPERS_DIR"/global_options.sh
-    source "$HELPERS_DIR"/map_arguments.sh
     source "$HELPERS_DIR"/process_hm_options.sh
     source "$TASKS_DIR"/set_machine_specific_properties.sh
     source "$TASKS_DIR"/set_environment_labels.sh

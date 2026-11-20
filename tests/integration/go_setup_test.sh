@@ -181,19 +181,7 @@ ejecutar -f -i
 test_case "a project behind the proxy gets its overlay"
 assert_equals "0" "$([ -f "$DIR/docker-compose.proxy.yml" ] && echo 0 || echo 1)"
 
-(
-    export MAIL_SERVICE="mailhog" DOMAIN="tienda.test"
-    COMPOSE_PROJECT_NAME=$(jq -r '.COMPOSE_PROJECT_NAME' "$DIR/config/docker/properties.json")
-    export COMPOSE_PROJECT_NAME
-    export HM_PROXY_NETWORK="hm-gateway" DOCKER_COMPOSE_FILE="$LAB/shell/docker-compose.yml"
-    mkdir -p "$LAB/shell"
-    source "$TASKS_DIR/proxy.sh"
-    hm_proxy_write_overlay
-) >/dev/null 2>&1
-
-test_case "and it is the one the shell implementation writes"
-assert_equals "$(cat "$LAB/shell/docker-compose.proxy.yml" 2>/dev/null)" \
-              "$(cat "$DIR/docker-compose.proxy.yml")"
+# What the overlay says is pinned in Go, against core.ProxyOverlay (dockergento/core/proxy_test.go)
 
 #
 # Removing it matters as much as writing it: a project that stopped using the proxy and kept the

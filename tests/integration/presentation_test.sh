@@ -73,22 +73,10 @@ assert_empty "$offenders" "these prompts echo a credential:"
 
 # ---------------------------------------------------------------- questions
 
-test_case "asking does not clear the screen"
-offenders=$(LC_ALL=C grep -n -A3 -E '^(custom_question|custom_select)\(\)' \
-    "$COMMAND_BIN_DIR/console/components/input_info.sh" | LC_ALL=C grep -c "clear_screen" || true)
-assert_equals "0" "$offenders"
-
-# A bare `clear` as a command, which is what wipes the user's scrollback. The one inside
-# clear_screen is the implementation of the helper itself and is allowed.
+# A bare `clear` as a command, which is what wipes the user's scrollback.
 test_case "no command clears the screen behind the user's back"
 offenders=$(LC_ALL=C grep -rn -E '^[[:space:]]*clear[[:space:]]*$' \
-    "$COMMAND_BIN_DIR/console" 2>/dev/null |
-    LC_ALL=C grep -v "input_info.sh" || true)
+    "$COMMAND_BIN_DIR/console" 2>/dev/null || true)
 assert_empty "$offenders" "these still clear the screen:"
-
-test_case "the only clear left is inside the helper kept for the TUI"
-remaining=$(LC_ALL=C grep -c -E '^[[:space:]]*clear[[:space:]]*$' \
-    < "$COMMAND_BIN_DIR/console/components/input_info.sh" || true)
-assert_equals "1" "$remaining"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

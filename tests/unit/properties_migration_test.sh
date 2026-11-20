@@ -52,29 +52,7 @@ assert_equals "./src" "$(jq -r '.MAGENTO_DIR' "$CUSTOM_PROPERTIES_DIR/properties
 test_case "and the new value is there too"
 assert_equals "recuperado.test" "$(jq -r '.DOMAIN' "$CUSTOM_PROPERTIES_DIR/properties.json")"
 
-# ---------------------------------------------------------------- and nothing writes to it now
-
-test_case "the domain read from the database goes into properties.json"
-preparar
-printf '{"COMPOSE_PROJECT_NAME": "tienda", "MAGENTO_DIR": "./src"}\n' > "$CUSTOM_PROPERTIES_DIR/properties.json"
-
-# The database is stubbed: what is being tested is where the answer is written, not how it is asked
-query() {
-    case "$1" in
-        *core_config_data*LIKE*|*"SHOW TABLES"*) echo "core_config_data" ;;
-        *base_url*)                              echo "https://recuperado.test/" ;;
-    esac
-}
-unset DOMAIN
-source "$COMMAND_BIN_DIR/console/tasks/set_magento_configs.sh"
-set_current_domain
-
-assert_equals "recuperado.test" "$(jq -r '.DOMAIN' "$CUSTOM_PROPERTIES_DIR/properties.json")"
-
-test_case "and the project keeps its identity"
-assert_equals "tienda" "$(jq -r '.COMPOSE_PROJECT_NAME' "$CUSTOM_PROPERTIES_DIR/properties.json")"
-
-test_case "no file in the old format is left behind"
-assert_equals "no" "$([ -f "$CUSTOM_PROPERTIES_DIR/properties" ] && echo yes || echo no)"
+# Writing the domain read from the database into properties.json, and keeping the project's
+# identity there, is pinned in Go against Importer.rememberDomain (dockergento/app/import_test.go)
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

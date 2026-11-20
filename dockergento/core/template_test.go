@@ -58,3 +58,27 @@ func TestElTamanoSeLeeDeUnVistazo(t *testing.T) {
 		}
 	}
 }
+
+// A template name cannot hold a slash, so whatever follows the first one is the name: a second
+// slash read as another separator would address a project that does not exist.
+func TestOnlyTheFirstSlashSeparatesProjectFromName(t *testing.T) {
+	project, name := ParseTemplate("a/b/c", "tienda")
+	if project != "a" || name != "b/c" {
+		t.Fatalf("ParseTemplate(a/b/c) = %q, %q, want a and b/c", project, name)
+	}
+}
+
+// The address a listing prints is the one a person types back, so it has to read as what it was.
+func TestATemplateAddressReadsBackAsWhatItWas(t *testing.T) {
+	project, name := ParseTemplate(TemplateAddress("otra", "base"), "tienda")
+	if project != "otra" || name != "base" {
+		t.Fatalf("ParseTemplate(TemplateAddress(otra, base)) = %q, %q, want otra and base", project, name)
+	}
+}
+
+// Templates are found by their volumes, so the volume name is a format other code relies on.
+func TestTheTemplateVolumeIsNamedAfterProjectAndName(t *testing.T) {
+	if got := TemplateVolume("tienda", "base"); got != "hm-template-tienda-base" {
+		t.Fatalf("TemplateVolume(tienda, base) = %q, want hm-template-tienda-base", got)
+	}
+}

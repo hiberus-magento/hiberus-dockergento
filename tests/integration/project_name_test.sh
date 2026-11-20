@@ -128,35 +128,10 @@ test_case "so a worktree does not invent a second environment"
 assert_equals "principal" "$(hm_name "$LAB/principal")"
 
 # ------------------------------------------------- what setup records
-
-# The properties file is committed, so what it says travels to every clone. Recording a name that
-# the directory would have produced anyway is what made a clone inherit the original's identity.
-record() {
-    local dir="$1" existing="$2" chosen="$3"
-    mkdir -p "$dir/config/docker"
-    printf '%s' "$existing" > "$dir/config/docker/properties.json"
-    (
-        cd "$dir" || exit 1
-        export CUSTOM_PROPERTIES_DIR="$PWD/config/docker" DOCKER_CONFIG_DIR="config/docker"
-        export MAGENTO_DIR="." DOMAIN="x.local" COMPOSE_PROJECT_NAME="$chosen" HM_ROOT="$PWD"
-        source "$COMPONENTS_DIR/print_message.sh"
-        source "$HELPERS_DIR/properties.sh"
-        save_properties >/dev/null 2>&1
-    )
-    jq -c . "$dir/config/docker/properties.json"
-}
-
-test_case "accepting the proposed name records nothing"
-assert_equals "false" "$(record "$LAB/rec-a" '{}' "rec-a" | jq 'has("COMPOSE_PROJECT_NAME")')"
-
-test_case "a name of your own is recorded"
-assert_equals "otro" "$(record "$LAB/rec-b" '{}' "otro" | jq -r '.COMPOSE_PROJECT_NAME')"
-
-test_case "a project that already had a name keeps it"
-assert_equals "viejo" "$(record "$LAB/rec-c" '{"COMPOSE_PROJECT_NAME":"viejo"}' "viejo" | jq -r '.COMPOSE_PROJECT_NAME')"
-
-test_case "and other properties are no longer wiped"
-assert_equals "custom/bin" "$(record "$LAB/rec-d" '{"BIN_DIR":"custom/bin"}' "rec-d" | jq -r '.BIN_DIR')"
+#
+# Pinned in Go now, against app.Setup.Save (dockergento/app/setup_test.go): accepting the proposed
+# name records nothing, a name of your own is recorded, an existing one is kept, nothing else is
+# wiped.
 
 # ------------------------------------------------- the label stops being empty
 

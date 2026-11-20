@@ -1,0 +1,102 @@
+package toolinfo
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+//
+// Whether this copy of the data has been anonymised.
+//
+// Unknown is the honest answer for data nobody has touched, and it is never treated as safe. The
+// record lives outside the checkout, so it never travels with a commit to somebody else's copy.
+//
+
+func TestAnUntouchedProjectIsUnknownWithNoDate(t *testing.T) {
+	state, at := State{Dir: t.TempDir()}.Anonymisation("tienda")
+
+	if state != "unknown" || at != "" {
+		t.Fatalf("Anonymisation = (%q, %q), want (unknown, no date)", state, at)
+	}
+}
+
+func TestARecordedAnonymisationIsYesWithItsDate(t *testing.T) {
+	state := State{Dir: t.TempDir()}
+
+	if err := state.Record("tienda", "2026-11-20T10:00:00Z"); err != nil {
+		t.Fatalf("Record = %v, want no error", err)
+	}
+
+	answer, at := state.Anonymisation("tienda")
+	if answer != "yes" || at != "2026-11-20T10:00:00Z" {
+		t.Fatalf("Anonymisation = (%q, %q), want (yes, the recorded date)", answer, at)
+	}
+}
+
+func TestTheRecordLivesUnderTheStateDirectoryOfHome(t *testing.T) {
+	// With no directory given it goes under the user's home, which is outside every checkout
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := (State{}).Record("tienda", "2026-11-20T10:00:00Z"); err != nil {
+		t.Fatalf("Record = %v, want no error", err)
+	}
+
+	contents, err := os.ReadFile(filepath.Join(home, ".hm", "state", "tienda.json"))
+	if err != nil {
+		t.Fatalf("reading <home>/.hm/state/tienda.json = %v, want the record there", err)
+	}
+
+	if !strings.Contains(string(contents), "2026-11-20T10:00:00Z") {
+		t.Fatalf("record = %q, want the date in it", contents)
+	}
+
+	if answer, _ := (State{}).Anonymisation("tienda"); answer != "yes" {
+		t.Fatalf("Anonymisation = %q, want yes read back from the same place", answer)
+	}
+}
+
+func TestClearingMakesItUnknownAgain(t *testing.T) {
+	state := State{Dir: t.TempDir()}
+
+	if err := state.Record("tienda", "2026-11-20T10:00:00Z"); err != nil {
+		t.Fatalf("Record = %v, want no error", err)
+	}
+
+	if err := state.Clear("tienda"); err != nil {
+		t.Fatalf("Clear = %v, want no error", err)
+	}
+
+	if answer, at := state.Anonymisation("tienda"); answer != "unknown" || at != "" {
+		t.Fatalf("Anonymisation after Clear = (%q, %q), want (unknown, no date)", answer, at)
+	}
+}
+
+func TestClearingWhatWasNeverRecordedIsNotAnError(t *testing.T) {
+	// Every import clears it, and most projects were never anonymised
+	if err := (State{Dir: t.TempDir()}).Clear("tienda"); err != nil {
+		t.Fatalf("Clear(never recorded) = %v, want no error", err)
+	}
+}
+
+func TestOneProjectsStateIsNotAnothers(t *testing.T) {
+	state := State{Dir: t.TempDir()}
+
+	if err := state.Record("tienda", "2026-11-20T10:00:00Z"); err != nil {
+		t.Fatalf("Record = %v, want no error", err)
+	}
+
+	if answer, _ := state.Anonymisation("otra-tienda"); answer != "unknown" {
+		t.Fatalf("Anonymisation(otra-tienda) = %q, want unknown", answer)
+	}
+
+	if err := state.Clear("otra-tienda"); err != nil {
+		t.Fatalf("Clear(otra-tienda) = %v, want no error", err)
+	}
+
+	if answer, _ := state.Anonymisation("tienda"); answer != "yes" {
+		t.Fatalf("Anonymisation(tienda) after clearing another = %q, want yes", answer)
+	}
+}

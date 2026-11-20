@@ -87,3 +87,42 @@ func TestAnAbortedQuestionIsNotAFailure(t *testing.T) {
 		t.Fatalf("stderr = %q, want no document, not even in JSON mode", stderr.String())
 	}
 }
+
+//
+// A terminal that cannot be drawn on still gets a list it can answer.
+//
+
+func TestAPipeCannotBeDrawnOn(t *testing.T) {
+	// TERM says it could draw, so what refuses is the pipe at both ends
+	t.Setenv("TERM", "xterm-256color")
+
+	var drawable bool
+
+	askingWith(t, "", func() { drawable = canDraw() })
+
+	if drawable {
+		t.Fatal("canDraw() with stdin and stdout on pipes = true, want false")
+	}
+}
+
+func TestTheNumberedListStillChoosesByNumber(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	t.Setenv("HM_NON_INTERACTIVE", "")
+	t.Setenv("TERM", "xterm-256color")
+
+	var chosen string
+	var err error
+
+	// Through choose, so it is the fallback a non-drawable input actually gets that is checked
+	stdout, _ := askingWith(t, "2\n", func() {
+		chosen, err = choose("¿qué hacemos?", []string{"guardar", "destruir", "cancelar"})
+	})
+
+	if err != nil || chosen != "destruir" {
+		t.Fatalf("choose with \"2\" piped in = (%q, %v), want (destruir, no error)", chosen, err)
+	}
+
+	if !strings.Contains(stdout, "2) destruir") {
+		t.Fatalf("stdout = %q, want the numbered list drawn", stdout)
+	}
+}

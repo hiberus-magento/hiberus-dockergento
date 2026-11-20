@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 #
-# The global proxy: the overlay it generates, and the routing it actually does.
+# The global proxy: the routing it actually does.
 #
-# Two halves on purpose. The first checks what the generator writes, which is cheap and catches
-# the mistakes that matter (a service left publishing a port, a duplicated YAML key). The second
-# brings up a real Traefik and two real projects, because "routes by domain" is not something to
-# take on trust.
+# What the generator writes —no port left published, no duplicated YAML key— is pinned in Go
+# (dockergento/core/proxy_test.go). This brings up a real Traefik and two real projects, because
+# "routes by domain" is not something to take on trust.
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
@@ -31,57 +30,6 @@ cleanup() {
 }
 trap cleanup EXIT
 cleanup
-
-# ---------------------------------------------------------------- what the generator writes
-
-overlay_for() {
-    local dir="$LAB/generated"
-    mkdir -p "$dir"
-    (
-        export REQUIREMENTS='{"mariadb":"10.6"}'
-        export MAIL_SERVICE="${2:-mailhog}"
-        export DOMAIN="$1"
-        export COMPOSE_PROJECT_NAME="generated"
-        export HM_PROXY_NETWORK="hm-gateway"
-        export DOCKER_COMPOSE_FILE="$dir/docker-compose.yml"
-        source "$TASKS_DIR/proxy.sh"
-        hm_proxy_write_overlay
-    )
-    cat "$dir/docker-compose.proxy.yml"
-}
-
-overlay=$(overlay_for "shop.local")
-
-test_case "every service stops publishing ports"
-missing=""
-for service in phpfpm nginx db redis varnish rabbitmq mailhog search; do
-    printf '%s' "$overlay" | grep -A1 "^  $service:" | grep -q 'ports: !reset' || missing="$missing $service"
-done
-assert_empty "$missing"
-
-test_case "no service is declared twice, which would silently drop the first block"
-duplicated=$(printf '%s' "$overlay" | grep -E '^  [a-z]+:' | sort | uniq -d)
-assert_empty "$duplicated"
-
-test_case "hitch is removed, because the proxy terminates TLS now"
-assert_contains "$overlay" "hitch: !reset null"
-
-test_case "the storefront is routed on the project's domain"
-assert_contains "$overlay" 'Host(`shop.local`)'
-
-test_case "the mail interface gets its own subdomain"
-assert_contains "$overlay" 'Host(`mail.shop.local`)'
-
-test_case "and so do the queue and the search engine"
-assert_contains "$overlay" 'Host(`queue.shop.local`)'
-assert_contains "$overlay" 'Host(`search.shop.local`)'
-
-test_case "the chosen mail catcher is the one routed"
-pit=$(overlay_for "shop.local" "mailpit")
-assert_contains "$pit" "  mailpit:"
-
-test_case "routed services join the shared network"
-assert_contains "$overlay" "- hm-gateway"
 
 # ---------------------------------------------------------------- the real thing
 
@@ -148,15 +96,17 @@ YAML
     cp "$dir/docker-compose.yml" "$dir/docker-compose.dev.linux.yml"
 }
 
-(
-    export COMMAND_BIN_NAME="$COMMAND_BIN_NAME"
-    source "$TASKS_DIR/proxy.sh"
-    hm_proxy_ensure_network
-    hm_proxy_write_compose
-    hm_proxy_write_certificate "proxyone.local"
-    hm_proxy_write_certificate "proxytwo.local"
-    docker compose -p hm-proxy -f "$HM_PROXY_DIR/docker-compose.yml" up -d
-) >/dev/null 2>&1
+# The binary brings the proxy up: its network, its compose file, the container. The certificates
+# are what setup and ssl leave for a domain: a mkcert pair for it and its wildcard, and the
+# dynamic file that names them
+"$HM" proxy up >/dev/null 2>&1
+for domain in proxyone.local proxytwo.local; do
+    mkdir -p "$HM_PROXY_DIR/certs" "$HM_PROXY_DIR/dynamic"
+    mkcert -cert-file "$HM_PROXY_DIR/certs/$domain.pem" -key-file "$HM_PROXY_DIR/certs/$domain-key.pem" \
+        "$domain" "*.$domain" >/dev/null 2>&1
+    printf 'tls:\n  certificates:\n    - certFile: /etc/traefik/certs/%s.pem\n      keyFile: /etc/traefik/certs/%s-key.pem\n' \
+        "$domain" "$domain" > "$HM_PROXY_DIR/dynamic/$domain.yml"
+done
 
 build_project proxyone
 build_project proxytwo
