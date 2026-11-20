@@ -139,7 +139,17 @@ func install(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	// so the install enables every module, and put back over Magento's afterwards
 	os.RemoveAll(filepath.Join(etc, "env.php")) //nolint:errcheck
 
-	if exists(config) {
+	//
+	// A backup already there is the project's own, left by an install that failed — and the
+	// config.php beside it is what that install wrote. It is kept and that one dropped, where
+	// the shell's mv put Magento's over the project's for good.
+	//
+	switch {
+	case exists(backup):
+		if err := os.RemoveAll(config); err != nil {
+			return installer.fail(err)
+		}
+	case exists(config):
 		if err := os.Rename(config, backup); err != nil {
 			return installer.fail(err)
 		}

@@ -204,6 +204,24 @@ func TestInstallRemovesEnvAndPutsConfigBack(t *testing.T) {
 	}
 }
 
+// TestInstallAfterAFailedOneKeepsTheProjectsConfig: a failed install leaves the project's
+// config.php set aside and Magento's in its place. Setting that one aside over the backup would
+// lose the project's for good; the backup is kept and is what comes back.
+func TestInstallAfterAFailedOneKeepsTheProjectsConfig(t *testing.T) {
+	installLab(t)
+	writeFile(t, "app/etc/_config.php", "<?php // the project's")
+	writeFile(t, "app/etc/config.php", "<?php // what the failed install left")
+
+	if code, _, stderr := runInstall(t, false); code != exitOK {
+		t.Fatalf("install = %d, stderr %q", code, stderr)
+	}
+
+	config, _ := os.ReadFile(filepath.Join(here(), "app/etc/config.php"))
+	if string(config) != "<?php // the project's" {
+		t.Errorf("config.php = %q, want the project's own back", config)
+	}
+}
+
 // TestInstallStopsWhenSetupInstallFails: set -e, with setup:install's own status. Nothing after
 // it runs, and config.php stays set aside, as the shell left it.
 func TestInstallStopsWhenSetupInstallFails(t *testing.T) {
