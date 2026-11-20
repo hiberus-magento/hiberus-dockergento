@@ -6,14 +6,14 @@ import (
 	"strings"
 )
 
-// completionMacOnly is what generate_completion.sh left out on Linux: the two commands of
+// completionMacOnly is what is left out on Linux: the two commands of
 // Composer's macOS vendor dance, which have nothing to copy anywhere else.
 var completionMacOnly = map[string]bool{"copy-from-container": true, "copy-to-container": true}
 
 // completion answers `hm completion bash|zsh`: the shell completion, printed for the shell to
 // source. The commands are the keys of data/command_descriptions.json that do not start with "_",
-// sorted the way jq's keys sorted them — the list generate_completion.sh writes into
-// console/hm-completion.bash, so the bash script printed here is that file byte for byte.
+// sorted by byte. It replaced the console/hm-completion.bash that generate_completion.sh used to
+// write, and prints the same bash script that file held.
 func completion(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	usage := binaryName() + " completion <bash|zsh>"
 
@@ -59,7 +59,7 @@ func completionCommands() ([]string, error) {
 	return commands, nil
 }
 
-// bashCompletion is what generate_completion.sh's `echo -e` wrote: every command on a line of its
+// bashCompletion is what the old generator's `echo -e` wrote, kept byte for byte: every command on a line of its
 // own inside the word list, the last one followed by a newline too.
 func bashCompletion(commands []string) string {
 	words := ""

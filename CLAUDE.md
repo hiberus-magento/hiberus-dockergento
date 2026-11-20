@@ -8,7 +8,7 @@ Hiberus Dockergento is a CLI tool (`hm`) for creating and managing Docker-based 
 
 **Core Concept**: This project is a command router that translates simplified Magento 2-specific commands into operations on the dockerized services. For example, `hm magento cache:clean` runs the Magento CLI inside the PHP container through Compose, which the binary uses as a library (`dockergento/adapters/composelib`), and the Docker API (`dockergento/adapters/dockerd`).
 
-**Implementation Language**: The `cmd/hm` Go binary is the entry point; `internal/cli/run.go` answers every invocation: the 66 commands, the help (`hm`, `--help`, `<cmd> --help`), `--version`, and a project's own scripts under `config/hm/commands` (`internal/cli/project_command.go`). There is no Bash entry point any more: `bin/run` and the `console/` tree are gone, except `console/hm-completion.bash`, which `generate_completion.sh` writes and users' shell profiles source — `MIGRATION.md` keeps the history.
+**Implementation Language**: The `cmd/hm` Go binary is the entry point; `internal/cli/run.go` answers every invocation: the 66 commands, the help (`hm`, `--help`, `<cmd> --help`), `--version`, and a project's own scripts under `config/hm/commands` (`internal/cli/project_command.go`). There is no Bash entry point any more: `bin/run` and the `console/` tree are gone, and the shell completion is printed by the binary itself (`hm completion bash|zsh`, `internal/cli/completion.go`) — `MIGRATION.md` keeps the history.
 
 ## Architecture Documentation
 
@@ -74,7 +74,7 @@ hm <command> [args]
 
 ### Key Files for Common Tasks
 
-- **Add command**: an entry in `data/command_descriptions.json` (help, groups and shell completion read it; regenerate the completion with `./generate_completion.sh`), a `case` in `internal/cli/run.go`, its handler in `internal/cli/<command>.go` with `_test.go` against the fake engine (`internal/cli/fake_engine_test.go`), the use case in `dockergento/app`, a method on the `commands` interface (`internal/cli/engine.go`) when it needs the engine, `docs/<command>.md`, and its row in `MIGRATION.md`'s command table (`tests/unit/migration_status_test.sh` checks it)
+- **Add command**: an entry in `data/command_descriptions.json` (help, groups and `hm completion` read it, so the completion follows with a rebuild), a `case` in `internal/cli/run.go`, its handler in `internal/cli/<command>.go` with `_test.go` against the fake engine (`internal/cli/fake_engine_test.go`), the use case in `dockergento/app`, a method on the `commands` interface (`internal/cli/engine.go`) when it needs the engine, `docs/<command>.md`, and its row in `MIGRATION.md`'s command table (`tests/unit/migration_status_test.sh` checks it)
 - **Add a container operation**: a port method in `dockergento/ports`, implemented in `composelib` or `dockerd` — not a `docker` subprocess
 - **Modify service versions**: Edit `data/requirements.json`
 - **Change default properties**: Edit `data/properties.json`

@@ -1143,8 +1143,8 @@ to the tool. Those scripts, and later the shell entry point itself, were deleted
 #### Scenario: Looking for a shell entry point
 
 - **WHEN** the repository is searched for `bin/run` or a script under `console/`
-- **THEN** neither exists, except `console/hm-completion.bash`, the generated completion that
-  users' shell profiles source by that path
+- **THEN** neither exists: the shell completion is printed by `hm completion bash|zsh`, and the
+  installer replaces the 1.x profile line that sourced `console/hm-completion.bash`
 
 ### Requirement: A wrong-reason assertion is corrected to prove the fact it names
 

@@ -49,7 +49,7 @@ func runCompletion(t *testing.T, machine string, args ...string) (string, string
 	return stdout.String(), stderr.String(), code
 }
 
-// The bash script is what generate_completion.sh wrote into console/hm-completion.bash on macOS:
+// The bash script is what the 1.x generator wrote into console/hm-completion.bash on macOS:
 // every declared command, one per line of the word list, in jq's order.
 func TestTheBashCompletionListsEveryCommand(t *testing.T) {
 	stdout, stderr, code := runCompletion(t, "mac", "bash")

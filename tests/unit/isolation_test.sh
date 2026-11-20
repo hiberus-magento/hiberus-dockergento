@@ -21,20 +21,4 @@ case "$HM_CACHE_DIR" in
 esac
 assert_equals "isolated" "$r"
 
-# The completion registration writes to the shell profile, so it is the one thing most likely to
-# escape into the developer's dotfiles.
-test_case "regenerating the completion from another checkout leaves the profile alone"
-lab=$(mktemp -d)
-mkdir -p "$lab/checkout/data"
-cp "$COMMAND_BIN_DIR/generate_completion.sh" "$lab/checkout/"
-cp "$COMMAND_BIN_DIR/data/command_descriptions.json" "$lab/checkout/data/"
-printf '# untouched\n' > "$HOME/.zshrc"
-( cd "$lab/checkout" && bash ./generate_completion.sh >/dev/null 2>&1 )
-assert_equals "0" "$(LC_ALL=C grep -c 'hm-completion' "$HOME/.zshrc" | tr -d ' ')"
-
-test_case "but it still generates its own completion file"
-[ -f "$lab/checkout/console/hm-completion.bash" ] && r=generated || r=missing
-assert_equals "generated" "$r"
-rm -rf "$lab"
-
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

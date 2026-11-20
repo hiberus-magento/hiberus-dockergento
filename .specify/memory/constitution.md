@@ -65,7 +65,7 @@ The tool MUST be implemented in Go, as one binary (`cmd/hm`, built with
   `mcp.go` uses `selfrun`).
 
 Shell survives only where it is not the tool: a project's own commands under
-`config/hm/commands` (run by the binary), the installer, `generate_completion.sh`,
+`config/hm/commands` (run by the binary), the installer,
 `build-publish.sh`, the Docker images and the shell test suites in `tests/`.
 
 **Rationale**: One compiled language with typed errors replaced a Bash tree whose correctness
@@ -87,7 +87,7 @@ Every invocation MUST go through one router:
   `command_not_found` (exit 2). A tool command always wins over a project command.
 - Every command is declared in `data/command_descriptions.json` (description, group, options,
   arguments, example). The help (`hm --help`, `hm <command> --help`) and the shell completion
-  (`console/hm-completion.bash`, written by `generate_completion.sh`) are generated from it.
+  (`hm completion bash|zsh`) are generated from it.
 - Handlers only parse options, call the engine through the `commands` interface
   (`internal/cli/engine.go`) and render text or the JSON envelope. Behaviour lives in
   `dockergento/app`.
@@ -259,12 +259,11 @@ Required to run `hm`:
 
 - Docker Engine (daemon running) with the Compose v2 plugin (the binary embeds Compose as a
   library; the plugin is used by `hm docker-compose` and by project commands)
-- git (the installation is a git checkout; `update` and `switch` move it)
 
 Required to install or build:
 
-- jq (used by the installer and by `generate_completion.sh`, not by the binary)
-- Go (version in `go.mod`), only when no prebuilt binary is available for the platform
+- curl or wget (the installer downloads a release binary; `update` and `switch` replace it)
+- Go (version in `go.mod`) and git, only to build from a checkout
 
 Optional, used by specific commands: mkcert (`ssl`), fzf (list selection), rsync and ssh
 (`transfer-media`, `transfer-db`), database clients (`dbeaver`, `sequelace`, `tableplus`).

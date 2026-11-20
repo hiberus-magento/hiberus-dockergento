@@ -1,6 +1,5 @@
 .DS_Store
 data/config.json
-console/hm-completion.bash
 .idea
 .idea/**
 .vscode

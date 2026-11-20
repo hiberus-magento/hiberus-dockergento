@@ -18,7 +18,7 @@ en `.specify/memory/constitution.md` (2.0.0).
 |---|---|---|
 | Comandos respondidos por el binario | **65 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
 | Comandos aún en shell | **0** | `rg -c "\| shell \|" MIGRATION.md` |
-| Ficheros de shell en `console/` | **0** (sólo queda `console/hm-completion.bash`, generado) | `git ls-files console` |
+| Ficheros de shell en `console/` | **0** (el autocompletado lo imprime `hm completion`) | `git ls-files console` |
 | `bin/run` | **borrado** | `test -e bin/run` falla |
 | Tests Go | todos pasan | `DOCKER_HOST=unix:///nonexistent go test ./...` · `./tests/run.sh unit` |
 | Binarios publicados por CI | sólo para etiquetas `>= 2.0`, sin `v` | `.github/workflows/release.yml` |
@@ -65,7 +65,6 @@ en `.specify/memory/constitution.md` (2.0.0).
 | `docker-stop-all` no interactivo para todos los contenedores sin preguntar | `go_passthrough_test.sh` lo ejecutaba con `HM_NON_INTERACTIVE=1` y el daemon accesible | Corregido en `a4927e6` (la prueba fija un `DOCKER_HOST` inexistente). Queda la regla: ninguna suite corre un comando de máquina sin cortar el daemon dentro de la propia prueba |
 | `update` sin Go: el aviso de la línea 74-80 de `update.go` y su prueba (R3-001 de `review-d173dd6c0796a3a6`) | `dockergento/update.go` | Aviso de revisión sin bloqueo; comprobar el caso que señala |
 | `install`: restauración de `config.php` (R3-002 de `review-d173dd6c0796a3a6`) | `internal/cli/install.go:209-211` | Aviso de revisión sin bloqueo |
-| El generador del autocompletado mezcla stderr con lo que escribe | `generate_completion.sh:47` | Un aviso de `jq` podría acabar dentro del fichero; separar los flujos |
 | La ayuda imprime literalmente secuencias que antes se interpretaban | `internal/cli/help.go:74` | Decidido así al quitar `bin/run`; revisar si alguna descripción las usaba |
 | El instalador comprueba las dependencias después de clonar | `installer.sh:356` | Si falta una, deja un clon a medias; comprobarlas antes |
 | `switch` decide con la rama local aunque esté desfasada respecto a `origin` | `dockergento/switch.go:57-58` | Una rama local vieja sin `cmd/hm` se rechazaría aunque `origin` ya lo tenga |

@@ -68,7 +68,7 @@ The environment is the one the shell entry point exported, so scripts written ag
 
 #### 2.3.2 What is left of `console/`
 
-Only `console/hm-completion.bash`, the shell completion `generate_completion.sh` writes from `data/command_descriptions.json`. It stays at that path because users' shell profiles source it there.
+Nothing. The shell completion that used to be generated into `console/hm-completion.bash` is printed by the binary (`hm completion bash|zsh`) from the embedded `data/command_descriptions.json`; the installer writes it under `~/.hm/completion/` and removes the 1.x profile line that sourced the old path.
 
 #### 2.3.3 Properties Loading System
 

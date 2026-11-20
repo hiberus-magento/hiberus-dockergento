@@ -28,5 +28,6 @@ Or write it once to a directory on `$fpath` as `_hm` (`hm completion zsh > ~/.zs
 
 On Linux the two macOS-only commands, `copy-to-container` and `copy-from-container`, are left out.
 
-`generate_completion.sh` still writes `console/hm-completion.bash` from a checkout, for the shell
-profiles that already source that path; its content is the same as `hm completion bash`.
+The installer writes the script to `~/.hm/completion/hm.<shell>` with `hm completion <shell>` and
+replaces the 1.x `source …/console/hm-completion.bash` line in your profile. There is no generated
+file in the repository any more: the binary is the only source of the completion.
