@@ -48,7 +48,9 @@ copy_working_tree() {
 
 copy_working_tree
 # The binary finds its installation where its executable is: a copy of it inside the clone moves
-# the clone and never the installation running this suite
+# the clone and never the installation running this suite. bin/ holds nothing tracked any more, so
+# a clone does not have it until something is put there
+mkdir -p "$CLONE/bin"
 cp "$COMMAND_BIN_DIR/bin/hm" "$CLONE/bin/hm"
 HM="$CLONE/bin/hm"
 
