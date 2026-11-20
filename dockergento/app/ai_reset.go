@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -33,21 +34,54 @@ func (a *AITools) Reset(confirm, interactive bool) int {
 		return 0
 	}
 
+	// A registration is a file anybody can edit: skills and agents that are not objects are not
+	// something the tool wrote, and nothing is removed on their word
+	for _, kind := range []any{skills, agents} {
+		if _, isObject := kind.(*core.AIObject); kind != nil && !isObject {
+			a.Console.Say(AIError, "Invalid registration JSON structure (skills and agents must be objects)", AILine)
+
+			return 1
+		}
+	}
+
 	a.say(AIInfo, "Collecting tracked files...")
 
-	var files []string
+	var files, refused []string
 
-	for _, kind := range []any{skills, agents} {
-		entries, _ := kind.(*core.AIObject)
+	// kept is what the registration still holds afterwards: what was refused, and what could not
+	// be removed
+	kept := emptyRegistration()
+	kindOf := map[string]string{}
+
+	for _, kind := range []string{"skills", "agents"} {
+		value, _ := registration.Get(kind)
+		entries, _ := value.(*core.AIObject)
 
 		keys := entries.Keys()
 		sort.Strings(keys)
 
 		for _, path := range keys {
-			if path != "" {
-				files = append(files, path)
+			if path == "" {
+				continue
 			}
+
+			if !a.removable(kind, path) {
+				refused = append(refused, path)
+				entry, _ := entries.Get(path)
+				keptEntries, _ := kept.Get(kind)
+				keptEntries.(*core.AIObject).Set(path, entry)
+
+				continue
+			}
+
+			files = append(files, path)
+			kindOf[path] = kind
 		}
+	}
+
+	// Deliberately unlike the script, which removed whatever path the registration named
+	for _, path := range refused {
+		a.Console.Say(AIError, "  Refusing to remove "+path+": not inside the project's AI tools directories", AILine)
 	}
 
 	count := 0
@@ -62,6 +96,10 @@ func (a *AITools) Reset(confirm, interactive bool) int {
 
 	if count == 0 {
 		a.say(AIInfo, "No files to remove")
+
+		if len(refused) > 0 {
+			return 1
+		}
 
 		return 0
 	}
@@ -97,35 +135,55 @@ func (a *AITools) Reset(confirm, interactive bool) int {
 	for _, file := range files {
 		path := a.path(file)
 
-		info, err := os.Stat(path)
+		info, err := os.Lstat(path)
 		if err != nil {
 			a.Console.Say(AIWarning, "  File not found (already removed?): "+file, AILine)
 
 			continue
 		}
 
+		// A link is removed as a link, whatever it points at
+		ok := false
+
 		switch {
 		case info.IsDir():
-			if os.RemoveAll(path) == nil {
+			if ok = os.RemoveAll(path) == nil; ok {
 				a.say(AIInfo, "  Removed directory: "+file)
-				removed++
 			} else {
 				a.Console.Say(AIError, "  Failed to remove directory: "+file, AILine)
 			}
-		case info.Mode().IsRegular():
-			if os.Remove(path) == nil {
+		default:
+			if ok = os.Remove(path) == nil; ok {
 				a.say(AIInfo, "  Removed file: "+file)
-				removed++
 			} else {
 				a.Console.Say(AIError, "  Failed to remove file: "+file, AILine)
 			}
 		}
+
+		if ok {
+			removed++
+
+			continue
+		}
+
+		// Still on disk, so still the tool's
+		entries, _ := registration.Get(kindOf[file])
+		entry, _ := entries.(*core.AIObject).Get(file)
+		keptEntries, _ := kept.Get(kindOf[file])
+		keptEntries.(*core.AIObject).Set(file, entry)
 	}
 
 	a.say(AIInfo, "Clearing registration...")
 
-	if !a.saveRegistration(emptyRegistration()) {
+	if !a.saveRegistration(kept) {
 		a.Console.Say(AIError, "Failed to clear registration file", AILine)
+
+		return 1
+	}
+
+	if notRemoved := length(mustGet(kept, "skills")) + length(mustGet(kept, "agents")); notRemoved > 0 {
+		a.Console.Say(AIWarning, fmt.Sprintf("Registration kept for %d items that were not removed", notRemoved), AILine)
+		a.say(AIInfo, fmt.Sprintf("Removed %d items", removed))
 
 		return 1
 	}
@@ -140,6 +198,80 @@ func (a *AITools) Reset(confirm, interactive bool) int {
 	a.say(AIInfo, "To re-download AI tools, run: hm ai-pull")
 
 	return 0
+}
+
+func mustGet(object *core.AIObject, key string) any {
+	value, _ := object.Get(key)
+
+	return value
+}
+
+// removable is whether a registered path is one ai-reset may remove: an entry directly inside the
+// project's own directory for that kind on some platform of the catalog, reached without leaving
+// the project through a link on the way there. The entry itself may be a link: that is removed,
+// not what it points at.
+func (a *AITools) removable(kind, path string) bool {
+	if filepath.IsAbs(path) || filepath.Clean(path) != path || strings.Contains(path, "\x00") {
+		return false
+	}
+
+	name, directory := filepath.Base(path), filepath.Dir(path)
+	if name == "." || name == ".." || name == "/" {
+		return false
+	}
+
+	known := false
+
+	for _, candidate := range a.catalog().Directories(kind) {
+		if filepath.Clean(candidate) == directory {
+			known = true
+
+			break
+		}
+	}
+
+	if !known {
+		return false
+	}
+
+	for _, part := range strings.Split(directory, "/") {
+		if part == ".." || part == "." || part == "" {
+			return false
+		}
+	}
+
+	root, err := filepath.EvalSymlinks(a.Dir)
+	if err != nil {
+		return false
+	}
+
+	resolved, err := filepath.EvalSymlinks(a.path(directory))
+	if err != nil {
+		// Nothing there to remove: not found is said later, and nothing leaves the project
+		return errors.Is(err, os.ErrNotExist) && !a.linkOnTheWay(directory)
+	}
+
+	return resolved == filepath.Join(root, directory)
+}
+
+// linkOnTheWay is whether some existing part of a relative directory is a link.
+func (a *AITools) linkOnTheWay(directory string) bool {
+	current := ""
+
+	for _, part := range strings.Split(directory, "/") {
+		current = filepath.Join(current, part)
+
+		info, err := os.Lstat(a.path(current))
+		if err != nil {
+			return false
+		}
+
+		if info.Mode()&os.ModeSymlink != 0 {
+			return true
+		}
+	}
+
+	return false
 }
 
 // length is jq's length, for what a registration can hold.

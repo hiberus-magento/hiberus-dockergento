@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -234,5 +235,134 @@ func TestAIResetStopsOnAnInvalidConfigurationBeforeRemoving(t *testing.T) {
 
 	if !f.exists(".claude/skills/hyva-checkout") {
 		t.Error("something was removed")
+	}
+}
+
+// A registration is a file anybody can edit: what it names outside the platforms' own skills and
+// agents directories under the project is refused, kept in the registration, and said.
+func TestAIResetRefusesWhatIsNotInsideTheToolsDirectories(t *testing.T) {
+	f := installed(t)
+
+	outside := t.TempDir()
+	plantFile(t, filepath.Join(outside, "victim", "keep.txt"), "keep\n", 0o644)
+	plantFile(t, filepath.Join(outside, "file.md"), "keep\n", 0o644)
+	plantFile(t, f.path("config/docker/keep.txt"), "keep\n", 0o644)
+	plantFile(t, f.path(".claude/skills/hyva-checkout/nested/keep.txt"), "keep\n", 0o644)
+
+	// A platform directory that leads out of the project
+	if err := os.MkdirAll(f.path(".cursor"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(outside, f.path(".cursor/skills")); err != nil {
+		t.Fatal(err)
+	}
+
+	hostile := []string{
+		filepath.Join(outside, "victim"),
+		"../" + filepath.Base(outside) + "/victim",
+		".claude/skills/../../config/docker/keep.txt",
+		"config/docker/keep.txt",
+		".claude/skills",
+		".claude/skills/hyva-checkout/nested",
+		".cursor/skills/victim",
+		".claude/agents/../../" + "config/docker/keep.txt",
+	}
+
+	registration := `{"skills": {".claude/skills/hyva-checkout": {"checksum": "x"}`
+	for _, path := range hostile[:7] {
+		registration += `, "` + path + `": {"checksum": "x"}`
+	}
+
+	registration += `}, "agents": {".claude/agents/reviewer.md": {"checksum": "x"}, "` + hostile[7] + `": {"checksum": "x"}}}`
+	plantFile(t, f.path(core.AIRegistrationFile), registration, 0o600)
+
+	_, stderr, code := f.run(t, "", "--no-json", "ai-reset", "--confirm")
+	if code != exitError {
+		t.Fatalf("ai-reset = %d, want 1\n%s", code, stderr)
+	}
+
+	for _, kept := range []string{
+		filepath.Join(outside, "victim", "keep.txt"), filepath.Join(outside, "file.md"),
+		f.path("config/docker/keep.txt"), f.path(".claude/skills/mine/SKILL.md"),
+	} {
+		if _, err := os.Stat(kept); err != nil {
+			t.Errorf("%s was removed", kept)
+		}
+	}
+
+	if f.exists(".claude/skills/hyva-checkout") || f.exists(".claude/agents/reviewer.md") {
+		t.Error("what was really installed was not removed")
+	}
+
+	for _, path := range hostile {
+		if want := "  Refusing to remove " + path + ": not inside the project's AI tools directories\n"; !strings.Contains(stderr, want) {
+			t.Errorf("stderr has no %q:\n%s", want, stderr)
+		}
+
+		if !strings.Contains(f.read(t, core.AIRegistrationFile), `"`+path+`"`) {
+			t.Errorf("the registration lost %s", path)
+		}
+	}
+
+	if strings.Contains(f.read(t, core.AIRegistrationFile), `".claude/skills/hyva-checkout"`) {
+		t.Error("the registration still names what was removed")
+	}
+}
+
+// What could not be removed stays registered, so a later reset still knows it is the tool's.
+func TestAIResetKeepsTheRegistrationOfWhatItCouldNotRemove(t *testing.T) {
+	f := installed(t)
+
+	if err := os.Chmod(f.path(".claude/agents"), 0o555); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { os.Chmod(f.path(".claude/agents"), 0o755) }) //nolint:errcheck
+
+	_, stderr, code := f.run(t, "", "--no-json", "ai-reset", "--confirm")
+	if code != exitError {
+		t.Fatalf("ai-reset = %d, want 1\n%s", code, stderr)
+	}
+
+	for _, line := range []string{
+		"  Failed to remove file: .claude/agents/reviewer.md\n",
+		"Registration kept for 1 items that were not removed\n",
+	} {
+		if !strings.Contains(stderr, line) {
+			t.Errorf("stderr has no %q:\n%s", line, stderr)
+		}
+	}
+
+	registration := f.read(t, core.AIRegistrationFile)
+	if !strings.Contains(registration, `".claude/agents/reviewer.md"`) || strings.Contains(registration, `".claude/skills/hyva-checkout"`) {
+		t.Errorf("registration = %s", registration)
+	}
+}
+
+// A registration whose skills or agents are not objects is refused before anything is removed.
+func TestAIResetRefusesARegistrationOfTheWrongShape(t *testing.T) {
+	for _, registration := range []string{
+		`{"skills": [".claude/skills/hyva-checkout"], "agents": {}}`,
+		`{"skills": {}, "agents": "x"}`,
+		`{"skills": {".claude/skills/hyva-checkout": {}}, "agents": 3}`,
+	} {
+		t.Run(registration, func(t *testing.T) {
+			f := installed(t)
+			plantFile(t, f.path(core.AIRegistrationFile), registration, 0o600)
+
+			_, stderr, code := f.run(t, "", "--no-json", "ai-reset", "--confirm")
+			if code != exitError {
+				t.Fatalf("ai-reset = %d, want 1\n%s", code, stderr)
+			}
+
+			if want := "Invalid registration JSON structure (skills and agents must be objects)\n"; !strings.Contains(stderr, want) {
+				t.Errorf("stderr has no %q:\n%s", want, stderr)
+			}
+
+			if !f.exists(".claude/skills/hyva-checkout") || f.read(t, core.AIRegistrationFile) != registration {
+				t.Error("something changed")
+			}
+		})
 	}
 }

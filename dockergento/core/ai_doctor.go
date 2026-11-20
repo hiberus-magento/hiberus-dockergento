@@ -208,6 +208,19 @@ func (c AIPlatformCatalog) Directory(platform, kind string) string {
 	return jqText(value, "")
 }
 
+// Directories is every directory the catalog's platforms keep a kind in, in no particular order.
+func (c AIPlatformCatalog) Directories(kind string) []string {
+	var directories []string
+
+	for platform := range c.platforms {
+		if directory := c.Directory(platform, kind); directory != "" {
+			directories = append(directories, directory)
+		}
+	}
+
+	return directories
+}
+
 // present is what jq's `//` keeps: anything but null and false.
 func present(value any) bool {
 	if value == nil {
