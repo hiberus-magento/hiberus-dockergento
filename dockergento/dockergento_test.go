@@ -132,20 +132,6 @@ func TestABranchEnvironmentTakesItsOwnOverlayAndNotTheProxys(t *testing.T) {
 	}
 }
 
-// Everywhere else nothing is handed over. A registration that does not apply is worse than none,
-// because the shell half trusts what it is given.
-func TestNothingIsHandedOverOutsideABranchEnvironment(t *testing.T) {
-	project := proyecto(t, `{"COMPOSE_PROJECT_NAME": "tienda"}`)
-
-	if handed := motor(t).registration(project.Root); len(handed) != 0 {
-		t.Fatalf("handed over from a main checkout = %v, want nothing", handed)
-	}
-
-	if handed := motor(t).registration(filepath.Join(project.Root, "no", "existe")); len(handed) != 0 {
-		t.Fatalf("handed over from a directory that is not a project = %v, want nothing", handed)
-	}
-}
-
 // setup's install door is this binary, not the shell CLI directly: the steps it runs are commands
 // of this same tool, and running them through the shell would mean going through a process that
 // does not know about them either.

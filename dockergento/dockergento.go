@@ -67,8 +67,9 @@ type Options struct {
 	// ~/.hm/worktrees.
 	WorktreeDir string
 
-	// ShellRoot is where the shell implementation lives, for the commands that are still its. It
-	// does not go away when the migration ends: a project can add commands of its own.
+	// ShellRoot is where the shell implementation lives, for the one door that still reaches it:
+	// the orchestrator's `proxy up` when no proxy is wired in. A project's own commands are run by
+	// the binary now.
 	ShellRoot string
 
 	// Binary is the name the tool is invoked as, because every hint an answer carries is a
@@ -1500,45 +1501,6 @@ func terminal(file *os.File) bool {
 func (e *Engine) Configuration(project core.Project) (core.Compose, error) {
 	return composecfg.Loader{Environment: e.Environment(project)}.
 		Load(project.Root, project.Name, e.ComposeFiles(project).Load)
-}
-
-// Shell runs a command of the shell implementation, for what is not ported and for the commands a
-// project adds of its own.
-//
-// The directory is where the command was run, which is what decides whether it is being run from a
-// branch environment.
-func (e *Engine) Shell(dir string, args []string) (int, error) {
-	return legacy.Runner{Root: e.options.ShellRoot, Registration: e.registration(dir)}.Run(args)
-}
-
-// registration is what the shell implementation would have read from the registry, for the branch
-// environment this is being run from.
-//
-// Nothing at all is the answer everywhere else, and it is the answer whenever anything is unclear:
-// resolution that fails, a directory that is not a project, a worktree with no registration. A
-// wrong one here would be worse than none, because the shell implementation trusts it.
-func (e *Engine) registration(dir string) []string {
-	project, err := e.Resolve(dir)
-	if err != nil || !project.IsWorktree() {
-		return nil
-	}
-
-	worktree := project.Worktree
-	vendor := "own"
-
-	if worktree.SharedVendor {
-		vendor = "shared"
-	}
-
-	return []string{
-		"HM_REGISTERED=" + worktree.Parent + "/" + worktree.Name,
-		"HM_REGISTERED_PATH=" + worktree.Path,
-		"HM_REGISTERED_BRANCH=" + worktree.Branch,
-		"HM_REGISTERED_PROFILE=" + worktree.Profile,
-		"HM_REGISTERED_DOMAIN=" + worktree.Domain,
-		"HM_REGISTERED_PROJECT=" + worktree.Project,
-		"HM_REGISTERED_VENDOR=" + vendor,
-	}
 }
 
 // ComposeFiles is what a project is built from.

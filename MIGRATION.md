@@ -4,7 +4,9 @@
 > la CLI, la TUI y la web se alimenten de las mismas piezas, que no haya nada duplicado y que la
 > arquitectura hexagonal se sostenga de verdad. El orden entre tandas se optimiza; el destino no
 > se negocia. Lo único que seguirá siendo shell son los comandos que un proyecto añada en
-> `config/hm/commands`, que por eso el puente a bash no desaparece.
+> `config/hm/commands`, y a esos los ejecuta ya el propio binario (`internal/cli/project_command.go`):
+> la ayuda, `--version` y los comandos del proyecto no pasan por `bin/run`, que el binario ya no
+> llama y queda pendiente de borrarse.
 >
 > El documento que se abre al empezar una sesión. Las decisiones están en
 > [docs/research/2.0-arquitectura.md](docs/research/2.0-arquitectura.md); esto es el estado.

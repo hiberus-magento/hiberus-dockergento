@@ -1,8 +1,9 @@
 // Package legacy runs the shell implementation.
 //
-// This is the strangler: the Go binary is the entry point and everything not ported yet still
-// runs, unchanged, through the shell CLI. It is not scaffolding to be removed — a project can add
-// commands of its own under config/hm/commands, and those will always be shell.
+// This was the strangler: the Go binary is the entry point, and everything not ported ran,
+// unchanged, through the shell CLI. The binary now answers every invocation itself, the help and a
+// project's own config/hm/commands scripts included, so the entry point no longer reaches this.
+// What still does is the orchestrator's door for `proxy up` when no proxy is wired in.
 package legacy
 
 import (

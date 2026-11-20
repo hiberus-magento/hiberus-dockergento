@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"fmt"
 	"io"
 	"os"
 )
@@ -13,21 +12,13 @@ var Version = ""
 
 // Run dispatches one invocation and returns the exit code.
 //
-// Everything the shell implementation still owns goes straight through to it, arguments
-// untouched. That is the requirement of this stage: somebody installs the binary and notices
-// nothing — same output, same prompts, same exit codes, same help.
-//
-// What is not passed through is a handful of commands prefixed with `hm-`, which the shell
-// implementation does not have and never will. They exist to see what the Go layer resolved
-// without changing what any real command does.
+// Every invocation is answered here: the help, the version, every command of the tool, and the
+// commands a project adds of its own under config/hm/commands, which are run the way bin/run ran
+// them. Nothing falls through to the shell entry point any more.
 func Run(args []string, stdout, stderr io.Writer) int {
 	//
-	// Ported commands. Everything else falls through to the shell implementation, and the list
-	// grows one command at a time — each with the tests of the one it replaces, and each checked
-	// against it by tests/integration/go_passthrough_test.sh.
-	//
 	// The tool's own flags are taken out first, wherever they appear, because the Go side owns
-	// the output format now. What is left is the command and its own arguments, which is why an
+	// the output format. What is left is the command and its own arguments, which is why an
 	// option nobody declared still reaches the command and is still a usage error.
 	//
 	format, rest := globals(args)
@@ -213,19 +204,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	//
 	// Not a command of the tool: one of the project's own, or nothing at all.
 	//
-	return legacyShell(args, stdout, stderr)
-}
-
-func legacyShell(args []string, stdout, stderr io.Writer) int {
-	code, err := engine(stdout, stderr, false).Shell(here(), args)
-	if err != nil {
-		fmt.Fprintf(stderr, "%s\n", err)
-
-		// The exit code for something wrong with the tool itself rather than with the project
-		return 3
-	}
-
-	return code
+	return projectCommand(rest[0], rest[1:], stdout, stderr, jsonOutput)
 }
 
 func isHelpFlag(argument string) bool {
