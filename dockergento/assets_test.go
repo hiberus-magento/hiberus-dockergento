@@ -3,6 +3,7 @@ package dockergento
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -79,5 +80,23 @@ func TestTheAssetsDirectoryOverridesTheEmbeddedCopy(t *testing.T) {
 	table, err := New(Options{}).Equivalents()
 	if err != nil || len(table) != 1 || table["9.9.9"] != "2.4.7" {
 		t.Errorf("Equivalents = %v, %v; want the override's table", table, err)
+	}
+}
+
+// The permissions an agent is given come from the tool's own files, which are the assets: there
+// is no data/ beside a release binary to read them from.
+func TestAgentPermissionsAreReadFromTheAssets(t *testing.T) {
+	engine := New(Options{Root: t.TempDir(), Assets: fstest.MapFS{
+		"data/command_descriptions.json": {Data: []byte(`{"status": {"safety": "safe"}}`)},
+		"data/ai-exclusions.json":        {Data: []byte(`{}`)},
+	}})
+
+	if _, err := engine.AgentPermissions(false); err != nil {
+		t.Fatalf("AgentPermissions = %v, want it read from the assets", err)
+	}
+
+	empty := New(Options{Root: t.TempDir(), Assets: fstest.MapFS{}})
+	if _, err := empty.AgentPermissions(false); err == nil || !strings.Contains(err.Error(), "command_descriptions.json") {
+		t.Fatalf("AgentPermissions with no assets = %v, want the missing file named", err)
 	}
 }

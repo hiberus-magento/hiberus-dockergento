@@ -1,8 +1,7 @@
 package dockergento
 
 import (
-	"os"
-	"path/filepath"
+	"io/fs"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -49,12 +48,12 @@ func (e *Engine) Update(options core.UpdateOptions) (core.Updated, error) {
 // AgentPermissions is the configuration an agent using this tool should be given, from the
 // tool's own command_descriptions.json and ai-exclusions.json.
 func (e *Engine) AgentPermissions(strict bool) (core.AgentPermissions, error) {
-	commands, err := os.ReadFile(filepath.Join(e.options.Root, "data", "command_descriptions.json"))
+	commands, err := fs.ReadFile(e.options.Assets, "data/command_descriptions.json")
 	if err != nil {
 		return core.AgentPermissions{}, err
 	}
 
-	exclusions, err := os.ReadFile(filepath.Join(e.options.Root, "data", "ai-exclusions.json"))
+	exclusions, err := fs.ReadFile(e.options.Assets, "data/ai-exclusions.json")
 	if err != nil {
 		return core.AgentPermissions{}, err
 	}
