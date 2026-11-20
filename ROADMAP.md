@@ -68,6 +68,7 @@ en `.specify/memory/constitution.md` (2.0.0).
 | La ayuda imprime literalmente secuencias que antes se interpretaban | `internal/cli/help.go:74` | Decidido así al quitar `bin/run`; revisar si alguna descripción las usaba |
 | El instalador comprueba las dependencias después de clonar | `installer.sh:356` | Si falta una, deja un clon a medias; comprobarlas antes |
 | `switch` decide con la rama local aunque esté desfasada respecto a `origin` | `dockergento/switch.go:57-58` | Una rama local vieja sin `cmd/hm` se rechazaría aunque `origin` ya lo tenga |
+| Algunas suites escriben en el `~/.hm/cache` real (`validated-*-lab-*`) | `tests/integration/*` | Inofensivo, pero las pruebas deberían usar su propio `HOME` |
 
 Ya resueltos (no reabrir): CI sin macOS, `gofmt` sin `./dockergento`, CI corriendo `tests/unit`
 como "todo" — los tres en `d03d54c`. El aviso de worktree «los contenedores sirven el código de…»,

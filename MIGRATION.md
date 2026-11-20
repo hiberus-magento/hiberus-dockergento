@@ -968,6 +968,21 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         sólo para tags 2.x o mayores, y `switch` y el instalador se niegan a bajar a una 1.x). Sus
         avisos, todos menores, quedan como defectos conocidos en la pista C del ROADMAP.
 
+        Revisado de `8426d3d` a `45badbb` en cinco tramos: `review-7536f60aa52f4984` (constitución
+        y documentación), `review-75d3264cd57680c2` (`install.sh`), `review-51929aa76d15c312`
+        (`clean`, etiquetas del passthrough, pruebas) y `review-1a76302267fbf17b` (binario
+        autosuficiente, versión estampada, certificado del proxy), aprobados y reconocidos. La
+        autoactualización (`review-f0dab0146fbd2222`) escaló `R4-describe-stamp-downgrade`: un
+        binario estampado con la salida de `git describe` contaba como anterior a su tag y
+        `update` lo habría bajado de versión; ahora se trata como compilado desde el código. Los
+        avisos con recorrido —el perfil del usuario reescrito sin atomicidad, el token de GitHub en
+        la línea de órdenes, la API consultada en cada ejecución, la configuración de `install` de
+        una 1.x sin migrar, `DATA_DIR` vacío para los scripts de proyecto— se arreglaron en los
+        commits que siguen a `45badbb`. Antes, las suites contra un Docker real (colima) dieron 6
+        fallos de 1111: `clean` borraba sin confirmar con la salida canalizada, el passthrough de
+        `docker-compose` no ponía las etiquetas `hm.*`, el certificado comodín del proxy no se
+        firmaba desde el port; arreglados, y dos pruebas desfasadas corregidas.
+
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
 
