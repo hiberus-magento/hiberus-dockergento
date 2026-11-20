@@ -20,15 +20,25 @@ trap 'chmod -R u+w "$LAB" 2>/dev/null; rm -rf "$LAB"; hm_test_home_cleanup' EXIT
 TOOLS="$LAB/tools"
 mkdir -p "$TOOLS"
 
-# curl: the releases API from $FAKE_API, assets from $FAKE_RELEASES/<tag>/<asset>, install.sh from
-# the project; every URL logged, anything missing a 404
+# curl: the releases API from $FAKE_API (or the HTTP status $FAKE_API_STATUS), the releases/latest
+# redirect to $FAKE_LATEST, assets from $FAKE_RELEASES/<tag>/<asset>, install.sh from the project;
+# every URL logged with its headers (a -H @file read, and its mode logged), the raw arguments logged
+# apart, anything missing a 404
 cat >"$TOOLS/curl" <<'EOF'
 #!/usr/bin/env bash
-out="" url="" headers=""
+echo "$*" >>"$FAKE_CURL_ARGV"
+out="" url="" headers="" write=""
 while [ $# -gt 0 ]; do
     case "$1" in
         -o) out="$2"; shift ;;
-        -H) headers="$headers $2"; shift ;;
+        -H)
+            header="$2"
+            if [[ "$header" == @* ]]; then
+                ls -l "${header#@}" | cut -c1-10 >>"$FAKE_CURL_MODES"
+                header="$(cat "${header#@}")"
+            fi
+            headers="$headers $header"; shift ;;
+        -w) write="$2"; shift ;;
         --retry) shift ;;
         -*) ;;
         *) url="$1" ;;
@@ -36,14 +46,22 @@ while [ $# -gt 0 ]; do
     shift
 done
 echo "$url$headers" >>"$FAKE_CURL_LOG"
+status() { [ "$write" == '%{http_code}' ] && printf '%s' "$1"; return 0; }
 case "$url" in
-    https://api.github.com/*) source="$FAKE_API" ;;
+    https://github.com/*/releases/latest)
+        if [ -n "${FAKE_LATEST:-}" ]; then location="${url%/latest}/tag/$FAKE_LATEST"; else location="${url%/latest}"; fi
+        [ "$write" == '%{redirect_url}' ] && printf '%s' "$location"
+        exit 0 ;;
+    https://api.github.com/*)
+        if [ -n "${FAKE_API_STATUS:-}" ]; then status "$FAKE_API_STATUS"; exit 22; fi
+        source="$FAKE_API" ;;
     https://github.com/*/releases/download/*) rest="${url#*/releases/download/}"; source="$FAKE_RELEASES/$rest" ;;
     https://raw.githubusercontent.com/*/install.sh) source="$HM_TEST_PROJECT_ROOT/install.sh" ;;
-    *) exit 22 ;;
+    *) status 404; exit 22 ;;
 esac
-[ -f "$source" ] || exit 22
+[ -f "$source" ] || { status 404; exit 22; }
 if [ -n "$out" ]; then cp "$source" "$out"; else cat "$source"; fi
+status 200
 EOF
 printf '#!/usr/bin/env bash\ncase "$1" in -s) echo "${FAKE_OS:-Linux}" ;; -m) echo x86_64 ;; *) echo "${FAKE_OS:-Linux}" ;; esac\n' >"$TOOLS/uname"
 # sudo: logged, then run with the directory it was needed for made writable for the moment
@@ -73,13 +91,17 @@ new_case() {
     export FAKE_RELEASES="$CASE/releases"
     export FAKE_API="$CASE/api.json"
     export FAKE_CURL_LOG="$CASE/curl.log"
+    export FAKE_CURL_ARGV="$CASE/curl.argv"
+    export FAKE_CURL_MODES="$CASE/curl.modes"
     export FAKE_SUDO_LOG="$CASE/sudo.log"
     export FAKE_JQ_LOG="$LAB/jq.log"
     export TMPDIR="$CASE/tmp"
     export SHELL=/bin/zsh
-    unset HM_VERSION HM_PRE HM_INSTALL_DIR FAKE_OS GITHUB_TOKEN
+    unset HM_VERSION HM_PRE HM_INSTALL_DIR FAKE_OS GITHUB_TOKEN FAKE_LATEST FAKE_API_STATUS
     mkdir -p "$HOME" "$HM_SYSTEM_BIN" "$FAKE_RELEASES" "$TMPDIR"
     : >"$FAKE_CURL_LOG"
+    : >"$FAKE_CURL_ARGV"
+    : >"$FAKE_CURL_MODES"
     : >"$FAKE_SUDO_LOG"
     printf '# my profile\nexport FOO=1\n' >"$HOME/.zshrc"
     api_releases
@@ -421,6 +443,56 @@ test_case "--uninstall never removes an hm it did not install"
 assert_equals "0" "$STATUS"
 assert_equals "yes" "$(exists "$HM_SYSTEM_BIN/hm")"
 assert_contains "$OUT" "no binary was removed"
+
+# ------------------------------------------------------------------ the token is never on argv
+
+new_case token-argv
+publish 2.0.0
+api_releases 2.0.0
+GITHUB_TOKEN=secret-token run_install --pre
+
+test_case "GITHUB_TOKEN reaches curl through a file only this user can read, never its arguments"
+assert_equals "0" "$STATUS"
+assert_contains "$(grep api.github.com "$FAKE_CURL_LOG")" "Authorization: Bearer secret-token"
+assert_not_contains "$(cat "$FAKE_CURL_ARGV")" "secret-token"
+assert_equals "-rw-------" "$(head -n 1 "$FAKE_CURL_MODES")"
+assert_equals "" "$(ls -A "$TMPDIR")"
+
+# ------------------------------------------------------------------ the API only when needed
+
+new_case latest-redirect
+publish 2.1.0
+api_releases 2.0.0
+export FAKE_LATEST=2.1.0
+run_install
+
+test_case "the latest final release comes from the releases/latest redirect, without the API"
+assert_equals "0" "$STATUS"
+assert_equals "hm 2.1.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
+assert_not_contains "$(cat "$FAKE_CURL_LOG")" "api.github.com"
+
+new_case latest-redirect-shell
+publish 2.0.0
+api_releases 2.0.0 1.6.1
+export FAKE_LATEST=1.6.1
+run_install
+
+test_case "a latest release of 1.x falls back to the API, which finds the newest 2.x"
+assert_equals "0" "$STATUS"
+assert_equals "hm 2.0.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
+assert_contains "$(cat "$FAKE_CURL_LOG")" "api.github.com"
+
+new_case rate-limited
+publish 2.0.0
+export FAKE_API_STATUS=403
+run_install --pre
+
+test_case "a rate-limited API says so, with how to get past it"
+assert_equals "1" "$STATUS"
+assert_contains "$OUT" "rate limit was reached (HTTP 403)"
+assert_contains "$OUT" "GITHUB_TOKEN"
+assert_contains "$OUT" "--version X.Y.Z"
+assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
 
 test_case "no case ever called jq"
 assert_equals "" "$(cat "$LAB/jq.log" 2>/dev/null)"

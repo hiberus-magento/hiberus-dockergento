@@ -118,26 +118,58 @@ version_gt() {
 
 # --------------------------------------------------------------------------------------- downloading
 
-# fetch <url> <file>: with curl, or wget when there is no curl. GITHUB_TOKEN goes to the API only.
+# token_header: a file holding the Authorization header for GITHUB_TOKEN, readable by this user
+# only, so the token never appears in curl's or wget's arguments (which ps shows to everyone)
+token_header() {
+    local file="$WORK/github-auth"
+    (umask 077 && printf 'Authorization: Bearer %s\n' "$GITHUB_TOKEN" >"$file") || return 1
+    printf '%s' "$file"
+}
+
+# fetch <url> <file>: with curl, or wget when there is no curl. GITHUB_TOKEN goes to the API only,
+# through a 0600 file removed afterwards. FETCH_STATUS is the HTTP status when curl could tell it.
 fetch() {
-    local url="$1" out="$2"
+    local url="$1" out="$2" header="" status=0
     local -a auth=()
+    FETCH_STATUS=""
 
     if [ -n "${GITHUB_TOKEN:-}" ] && [[ "$url" == https://api.github.com/* ]]; then
-        auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
+        header="$(token_header)" || die "Could not write a private file for GITHUB_TOKEN in $WORK."
+        auth=(-H "@$header")
     fi
 
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL --retry 2 ${auth[@]+"${auth[@]}"} -o "$out" "$url"
+        FETCH_STATUS="$(curl -fsSL --retry 2 ${auth[@]+"${auth[@]}"} -o "$out" -w '%{http_code}' "$url")" || status=$?
     elif command -v wget >/dev/null 2>&1; then
-        if [ ${#auth[@]} -gt 0 ]; then
-            wget -q --header "Authorization: Bearer $GITHUB_TOKEN" -O "$out" "$url"
+        if [ -n "$header" ]; then
+            # wget reads the header from a wgetrc of its own rather than from its arguments
+            (umask 077 && printf 'header = %s\n' "$(cat "$header")" >"$header.wgetrc") &&
+                wget -q --config="$header.wgetrc" -O "$out" "$url" || status=$?
         else
-            wget -q -O "$out" "$url"
+            wget -q -O "$out" "$url" || status=$?
         fi
     else
         die "Neither curl nor wget is installed; install one of them and run this again."
     fi
+
+    [ -z "$header" ] || rm -f "$header" "$header.wgetrc"
+    return "$status"
+}
+
+# latest_redirect: the tag GitHub's releases/latest page redirects to, without the API and its
+# rate limit; nothing when it cannot tell
+latest_redirect() {
+    local url="https://github.com/$REPOSITORY/releases/latest" location=""
+
+    if command -v curl >/dev/null 2>&1; then
+        location="$(curl -fsS -o /dev/null -w '%{redirect_url}' "$url" 2>/dev/null)" || location=""
+    elif command -v wget >/dev/null 2>&1; then
+        location="$(wget -q -S --max-redirect=0 -O /dev/null "$url" 2>&1 | awk 'tolower($1) == "location:" { print $2 }' | tr -d '\r' | head -n 1)" || location=""
+    fi
+
+    case "$location" in
+        */releases/tag/*) printf '%s' "${location##*/releases/tag/}" ;;
+    esac
 }
 
 sha256_of() {
@@ -159,12 +191,27 @@ release_tags() {
         awk -F'"' '/tag_name/ { tag = $4; next } /draft/ { if ($0 !~ /true/ && tag != "") print tag; tag = "" }'
 }
 
-# The newest release of 2.0 or later; a pre-release only when they are allowed
+# The newest release of 2.0 or later; a pre-release only when they are allowed. The latest final
+# release is read from the releases/latest redirect, which has no rate limit; the API is asked only
+# for pre-releases, or when that redirect does not name a release of 2.0 or later.
 latest_version() {
     local answer="$WORK/releases.json" tag best="" best_pre=""
 
-    fetch "$RELEASES_API" "$answer" ||
+    if [ "$PRE" != "1" ]; then
+        tag="$(latest_redirect)"
+        tag="${tag#v}"
+        if is_version "$tag" && [[ "$tag" != *-* ]] && [ "$(major_of "$tag")" -ge 2 ]; then
+            printf '%s' "$tag"
+            return 0
+        fi
+    fi
+
+    if ! fetch "$RELEASES_API" "$answer"; then
+        case "$FETCH_STATUS" in
+            403 | 429) die "GitHub's API rate limit was reached (HTTP $FETCH_STATUS) asking for the releases of $REPOSITORY. Wait an hour, set GITHUB_TOKEN to raise the limit, or name a version to skip the lookup: --version X.Y.Z" ;;
+        esac
         die "Could not ask GitHub for the releases of $REPOSITORY (offline, or the API rate limit; GITHUB_TOKEN raises it). Name a version to skip the lookup: --version X.Y.Z"
+    fi
 
     while IFS= read -r tag; do
         tag="${tag#v}"

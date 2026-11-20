@@ -15,7 +15,10 @@ curl -fsSL https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento
 What it does:
 
 1. Detects the system (`darwin` or `linux`) and the architecture (`amd64` or `arm64`).
-2. Picks the version: the newest **final** release of 2.0 or later, from the GitHub API.
+2. Picks the version: the newest **final** release of 2.0 or later, read from the
+   `releases/latest` redirect of github.com, which has no rate limit. The GitHub API is asked only
+   for `--pre`, or when that redirect does not name a 2.x release; when the API's rate limit is
+   reached it says so (set `GITHUB_TOKEN`, wait, or name the version with `--version`).
 3. Downloads `hm_<os>_<arch>` and `checksums.txt` from that release and checks the SHA-256. A
    mismatch installs nothing.
 4. Installs the binary (see [where](#where-it-is-installed)), replacing any previous one in a
@@ -37,7 +40,7 @@ Options go after `bash -s --`. Each one has an environment variable that does th
 | `--pre` | `HM_PRE=1` | The latest may be a pre-release. |
 | `--dir D` | `HM_INSTALL_DIR=D` | Install the binary in `D`. |
 | `--uninstall` | | Remove what the installer installed. |
-| | `GITHUB_TOKEN` | Sent to the GitHub API only, to avoid its rate limit. |
+| | `GITHUB_TOKEN` | Sent to the GitHub API only, to avoid its rate limit. It is handed to curl (or wget) in a file only you can read, removed afterwards, never on the command line where `ps` would show it. |
 
 ```bash
 curl -fsSL .../install.sh | bash -s -- --version 2.0.0 --dir ~/bin
