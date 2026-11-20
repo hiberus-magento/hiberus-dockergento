@@ -19,8 +19,12 @@ import (
 
 // Reader reads them.
 type Reader struct {
-	// Root is the tool's own directory, whose git describe is its version.
+	// Root is the checkout of a source build, whose git describe is its version.
 	Root string
+
+	// Stamped is the version a release binary was built with. When it is set, Version is it and
+	// git is not asked.
+	Stamped string
 
 	// WorkdirPHP is where the code lives inside the container.
 	WorkdirPHP string
@@ -29,6 +33,10 @@ type Reader struct {
 // Version is the tool's own version, from git rather than from a file: a file is a second place
 // to remember to change, and it is always the one that is wrong.
 func (r Reader) Version() string {
+	if r.Stamped != "" {
+		return r.Stamped
+	}
+
 	command := exec.Command("git", "describe", "--tags", "--abbrev=0")
 	command.Dir = r.Root
 

@@ -23,7 +23,7 @@ func version(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	installed, tooling := newEngine(stdout, stderr, jsonOutput).Installed()
 
 	if jsonOutput {
-		return document(stdout, stderr, "version", map[string]any{
+		answer := map[string]any{
 			"version": installed.Version, "tag": installed.Tag,
 			"commits_ahead": installed.CommitsAhead, "commit": installed.Commit,
 			"branch": installed.Branch, "detached": installed.Detached,
@@ -33,23 +33,17 @@ func version(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 				"version": tooling.Docker, "compose": tooling.Compose,
 				"compose_command": tooling.ComposeCommand,
 			},
-		})
+		}
+
+		if installed.Release {
+			answer["release"] = true
+		}
+
+		return document(stdout, stderr, "version", answer)
 	}
 
 	fmt.Fprint(stdout, header(binaryName()+" "+installed.Version+"\n"))
-
-	if installed.Detached {
-		fmt.Fprintf(stdout, "  %-12s %s\n", "version", orUnknown(installed.Tag)+" (detached checkout)")
-	} else {
-		fmt.Fprintf(stdout, "  %-12s %s\n", "branch", installed.Branch)
-	}
-
-	fmt.Fprintf(stdout, "  %-12s %s\n", "commit", orUnknown(installed.Commit))
-	fmt.Fprintf(stdout, "  %-12s %s\n", "installed", installed.Path)
-
-	if installed.Dirty {
-		fmt.Fprint(stdout, warning("  uncommitted changes in the installation directory\n"))
-	}
+	printInstallation(stdout, installed)
 
 	fmt.Fprintf(stdout, "\n")
 	fmt.Fprintf(stdout, "  %-12s %s\n", "docker", orMissing(tooling.Docker))

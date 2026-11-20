@@ -19,6 +19,16 @@ type Installation struct {
 	Detached     bool   `json:"detached"`
 	Dirty        bool   `json:"dirty"`
 	Path         string `json:"path"`
+
+	// Release is a binary built and stamped as a release: its version is the stamp, it has no
+	// checkout to describe, and Path is the executable itself.
+	Release bool `json:"release,omitempty"`
+}
+
+// ReleaseInstallation is the installation of a binary stamped with version at build time, which
+// is installed at path. Nothing about it is asked of git: there is no checkout beside it.
+func ReleaseInstallation(version, path string) Installation {
+	return Installation{Version: version, Tag: version, Path: path, Release: true}
 }
 
 // Tooling is what is underneath: the daemon and the compose that drive the containers.

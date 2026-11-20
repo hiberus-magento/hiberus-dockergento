@@ -353,7 +353,8 @@ func TestMCPConfigPrintsTheClientConfiguration(t *testing.T) {
 		executable = resolved
 	}
 
-	binary := filepath.Join(filepath.Dir(filepath.Dir(executable)), "bin", "hm")
+	// The running binary itself, wherever it is installed: a release has no bin/ of its own
+	binary := executable
 
 	for _, c := range []struct {
 		args []string

@@ -54,10 +54,15 @@ import (
 // default: the tool's own directory is worked out from the running executable, which is right for
 // `hm` and is the web server's binary for anything else.
 type Options struct {
-	// Root is the tool's own installation. Its data/properties.json holds the defaults every
-	// project's own file is merged over, and its compose template is what answers "which ports
-	// would an environment need here" when there is no project to ask.
+	// Root is the checkout a binary built from source belongs to, which git describes when there
+	// is no Version: `version`, `describe` and the HM_VERSION label read it then, and nothing else
+	// does — the tool's files come from Assets. Empty means the directory above the executable's.
 	Root string
+
+	// Version is the release this binary was stamped as at build time. When it is set it is the
+	// tool's version everywhere and git is never asked; empty means a source build, described by
+	// git at Root.
+	Version string
 
 	// Assets is the files the tool ships with — data/, docker-compose/ and skills/ — read from
 	// wherever they are and never from Root. Nil means hm.Assets(): the copy compiled into the
@@ -183,7 +188,7 @@ func (e *Engine) describer(project core.Project) app.Describer {
 		Engine:  dockerd.Engine{Timeout: e.options.Timeout},
 		Compose: composecfg.Loader{Environment: e.Environment(project)},
 		Magento: magentofiles.Reader{},
-		Tooling: toolinfo.Reader{Root: e.options.Root, WorkdirPHP: e.Property(project, "WORKDIR_PHP")},
+		Tooling: toolinfo.Reader{Root: e.options.Root, Stamped: e.options.Version, WorkdirPHP: e.Property(project, "WORKDIR_PHP")},
 		State:   toolinfo.State{Dir: e.options.StateDir},
 		Machine: Platform(),
 	}
@@ -208,9 +213,9 @@ func (e *Engine) WriteAgentContext(dir string) (core.AgentContextResult, error) 
 			return e.describer(project).Describe(project, e.ComposeFiles(project), false)
 		},
 		Assets:  e.options.Assets,
-		Command: filepath.Join(e.options.Root, "bin", "hm"),
+		Command: e.executable(),
 		Binary:  e.options.Binary,
-		Version: os.Getenv("HM_VERSION"),
+		Version: orElse(os.Getenv("HM_VERSION"), e.options.Version),
 	}.Write()
 }
 
@@ -232,7 +237,7 @@ func (e *Engine) Diagnose(dir, only string) (core.Diagnosis, error) {
 		Engine:  dockerd.Engine{Timeout: e.options.Timeout},
 		Compose: composecfg.Loader{Environment: e.Environment(project)},
 		Magento: magentofiles.Reader{},
-		Tooling: toolinfo.Reader{Root: e.options.Root},
+		Tooling: toolinfo.Reader{Root: e.options.Root, Stamped: e.options.Version},
 		State:   toolinfo.State{Dir: e.options.StateDir},
 		Machine: machine.Host{},
 		FS:      osfs.FS{},
@@ -653,9 +658,14 @@ func (e *Engine) Clone(dir, address string, force bool) (core.Template, error) {
 //
 // It takes no project, because the problem being reported may be that there is no project.
 func (e *Engine) Installed() (core.Installation, core.Tooling) {
-	reader := toolinfo.Reader{Root: e.options.Root}
+	reader := toolinfo.Reader{Root: e.options.Root, Stamped: e.options.Version}
 
-	return gitvcs.Git{}.Installed(e.options.Root), core.Tooling{
+	installed := core.ReleaseInstallation(e.options.Version, e.executable())
+	if e.options.Version == "" {
+		installed = gitvcs.Git{}.Installed(e.options.Root)
+	}
+
+	return installed, core.Tooling{
 		Docker:         reader.DockerVersion(),
 		Compose:        reader.ComposeVersion(),
 		ComposeCommand: reader.ComposeCommand(),
@@ -1639,7 +1649,7 @@ func (e *Engine) Environment(project core.Project) map[string]string {
 func (e *Engine) CreationEnvironment(project core.Project) map[string]string {
 	environment := e.Environment(project)
 
-	tooling := toolinfo.Reader{Root: e.options.Root}
+	tooling := toolinfo.Reader{Root: e.options.Root, Stamped: e.options.Version}
 	environment["HM_VERSION"] = tooling.Version()
 	environment["HM_MAGENTO"] = magentofiles.Reader{}.Version(project.Root, project.MagentoDir)
 
@@ -1806,10 +1816,29 @@ func (e *Engine) worktreeDir() string {
 	return filepath.Join(home, ".hm", "worktrees")
 }
 
-// installedRoot is the tool's own directory, worked out from the running executable.
-//
-// Right for `hm`, which lives in bin/ of the tree it belongs to, and wrong for anything else —
-// which is why it is only the default and Options.Root exists.
+// executable is the running binary, every symlink resolved: what an agent's MCP configuration
+// launches. Empty when the system cannot say.
+func (e *Engine) executable() string {
+	path, err := runningExecutable()
+	if err != nil {
+		return ""
+	}
+
+	return path
+}
+
+// orElse is value, or fallback when value is empty.
+func orElse(value, fallback string) string {
+	if value != "" {
+		return value
+	}
+
+	return fallback
+}
+
+// installedRoot is the checkout a source build lives in, worked out from the running executable:
+// right for `go build -o bin/hm`, meaningless for a release binary, which is why it is read only
+// when there is no Version.
 func installedRoot() string {
 	executable, err := os.Executable()
 	if err != nil {
@@ -1979,7 +2008,7 @@ func (e *Engine) aiTools(dir string, console app.AIConsole) *app.AITools {
 			return err == nil
 		},
 		Version: func() string {
-			if version := os.Getenv("HM_VERSION"); version != "" {
+			if version := orElse(os.Getenv("HM_VERSION"), e.options.Version); version != "" {
 				return version
 			}
 

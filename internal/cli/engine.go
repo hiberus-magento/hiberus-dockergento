@@ -94,6 +94,7 @@ var newEngine = func(stdout, stderr io.Writer, jsonOutput bool) commands {
 func engine(stdout, stderr io.Writer, jsonOutput bool) *dockergento.Engine {
 	return dockergento.New(dockergento.Options{
 		Binary:   binaryName(),
+		Version:  Version,
 		Assets:   toolAssets(),
 		StateDir: os.Getenv("HM_STATE_DIR"),
 

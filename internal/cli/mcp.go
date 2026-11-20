@@ -74,7 +74,7 @@ func mcp(args []string, in io.Reader, stdout, stderr io.Writer, jsonOutput bool)
 		}
 	}
 
-	executable := filepath.Join(toolRoot(), "bin", "hm")
+	executable := executablePath()
 
 	if showConfig {
 		//
@@ -203,6 +203,10 @@ func (s mcpServer) handle(line string) (string, bool) {
 		name := binaryName()
 
 		toolVersion := os.Getenv("HM_VERSION")
+		if toolVersion == "" {
+			toolVersion = Version
+		}
+
 		if toolVersion == "" {
 			toolVersion = "unknown"
 		}

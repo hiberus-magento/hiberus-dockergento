@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
@@ -115,5 +116,38 @@ func TestOnlyTheFirstArgumentAsksForTheVersion(t *testing.T) {
 
 	if !bytes.HasPrefix(stdout.Bytes(), []byte("hm 1.6.0-rc.2-5-gabc1234\n")) {
 		t.Fatalf("-v whatever = %q, want the version", stdout.String())
+	}
+}
+
+// A release binary has no checkout beside it: its version is the one GoReleaser stamped, and git
+// is never asked, so it can never answer "unknown".
+func TestAStampedReleaseNamesItsVersionWithoutAskingGit(t *testing.T) {
+	answering(t)
+	pinHelp(t, "/opt/hm", "mac")
+	t.Setenv("NO_COLOR", "1")
+
+	originalVersion, originalInstallation := Version, installation
+	Version = "2.0.0-test"
+	installation = func(string) core.Installation {
+		t.Fatal("a stamped release asked git about its installation")
+
+		return core.Installation{}
+	}
+	t.Cleanup(func() { Version, installation = originalVersion, originalInstallation })
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--version", "--no-json"}, &stdout, &stderr)
+
+	want := "hm 2.0.0-test\n  installed    " + executablePath() + "\n\n"
+	if code != 0 || stdout.String() != want || stderr.String() != "" {
+		t.Fatalf("= %d %q %q, want %q", code, stdout.String(), stderr.String(), want)
+	}
+
+	stdout.Reset()
+	Run([]string{"--version", "--json"}, &stdout, &stderr)
+
+	if !strings.Contains(stdout.String(), `"version": "2.0.0-test"`) ||
+		!strings.Contains(stdout.String(), `"release": true`) {
+		t.Fatalf("--version --json = %s", stdout.String())
 	}
 }

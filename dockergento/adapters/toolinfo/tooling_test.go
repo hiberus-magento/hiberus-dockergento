@@ -150,3 +150,10 @@ func readJSON(t *testing.T, file string) map[string]any {
 
 	return document
 }
+
+// A release binary's version is its stamp, even from a directory git knows nothing about.
+func TestAStampedVersionIsTheVersionWithoutGit(t *testing.T) {
+	if got := (Reader{Root: t.TempDir(), Stamped: "2.0.0"}).Version(); got != "2.0.0" {
+		t.Fatalf("Version = %q, want the stamp", got)
+	}
+}

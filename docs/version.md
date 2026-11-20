@@ -9,13 +9,24 @@ hm version --json
 
 ```console
 $ hm version
-hm 1.5.0-rc.3-4-g32a9490
-  branch       release/1.5.0
-  commit       32a9490
-  installed    /Users/someone/hm
+hm 2.0.0
+  installed    /usr/local/bin/hm
 
   docker       27.4.0
   compose      2.34.0
+```
+
+A release binary reports the version it was built as, and where the binary is; git is never
+asked, and the JSON carries `"release": true`. A binary built from a checkout with
+`go build -o bin/hm ./cmd/hm` has no stamped version, so it is described by git instead — the
+nearest tag and the commits past it, the branch, the commit and the checkout:
+
+```console
+$ hm version
+hm 2.0.0-4-g32a9490
+  branch       release/2.0.0
+  commit       32a9490
+  installed    /Users/someone/src/hiberus-dockergento
 ```
 
 It does not require a project: it exists to be pasted into a bug report, and the problem being
