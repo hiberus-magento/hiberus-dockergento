@@ -33,6 +33,16 @@
 
 [Gates determined based on constitution file]
 
+For hm (constitution 2.0.0), at least:
+
+- [ ] I/II: behaviour lives in `dockergento/core` or `dockergento/app`; `internal/cli` only parses, calls the engine and renders; the command is declared in `data/command_descriptions.json`
+- [ ] III: container operations go through `composelib`/`dockerd`, not the `docker` CLI (exceptions: `composecli` passthrough, `toolinfo` version probe)
+- [ ] IV: expected failures are `core.Refusal`s with the contract's exit codes; `--json` and non-interactive mode (`--yes`, `HM_NON_INTERACTIVE`) are covered
+- [ ] V/VI: macOS and Linux both considered; configuration precedence respected
+- [ ] VII: no change to existing options, exit codes or JSON shapes, or the break is documented
+- [ ] VIII: tests written first, through the public interface, with no real Docker daemon
+- [ ] IX: behaviour from a git worktree and confirmation of destructive steps defined
+
 ## Project Structure
 
 ### Documentation (this feature)
