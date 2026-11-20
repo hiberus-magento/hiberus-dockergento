@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 	"unicode/utf8"
 )
 
@@ -33,6 +35,9 @@ type fakeDashRunner struct {
 	answers map[string]string
 	fails   map[string]bool
 	handed  int
+
+	// during is what happens while a command has the terminal
+	during func()
 }
 
 func (f *fakeDashRunner) Capture(dir string, combined bool, args ...string) (string, bool) {
@@ -44,6 +49,10 @@ func (f *fakeDashRunner) Capture(dir string, combined bool, args ...string) (str
 
 func (f *fakeDashRunner) Hand(dir string, args ...string) int {
 	f.calls = append(f.calls, dashCall{dir: dir, args: strings.Join(args, " "), handed: true})
+
+	if f.during != nil {
+		f.during()
+	}
 
 	return f.handed
 }
@@ -936,5 +945,74 @@ func TestAResizeRecomposesOnTheNextPaint(t *testing.T) {
 		if visibleWidth(row) > 50 {
 			t.Errorf("%q is wider than the resized terminal", row)
 		}
+	}
+}
+
+// interruptWatched runs the dashboard's interruption handling on a channel the test feeds, and
+// records the exit it asks for instead of ending the test binary.
+func interruptWatched(t *testing.T, board *dashboard) (chan os.Signal, chan int) {
+	t.Helper()
+
+	signals, exited := make(chan os.Signal, 1), make(chan int, 1)
+
+	original := exitProcess
+	exitProcess = func(code int) { exited <- code }
+
+	t.Cleanup(func() { exitProcess = original })
+
+	go board.watchInterrupts(signals)
+
+	return signals, exited
+}
+
+// TestCtrlCDuringAHandedCommandEndsOnlyThatCommand: the terminal sends it to the whole foreground
+// group, so the command gets it and ends — logs -f is left that way — and the dashboard, as the
+// shell's did, says how it ended and comes back.
+func TestCtrlCDuringAHandedCommandEndsOnlyThatCommand(t *testing.T) {
+	l := lab(t, "lq", 1)
+	signals, exited := interruptWatched(t, l.board)
+
+	l.runner.handed = 130
+	l.runner.during = func() {
+		signals <- syscall.SIGINT
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if code := l.board.run(); code != exitOK {
+		t.Fatalf("dashboard = %d", code)
+	}
+
+	select {
+	case code := <-exited:
+		t.Fatalf("the dashboard exited %d on a Ctrl-C meant for the command it handed the terminal to", code)
+	default:
+	}
+
+	if !strings.Contains(l.out.String(), "Failed with exit code 130. Press any key to go back to the dashboard.") ||
+		l.pauses != 1 {
+		t.Errorf("did not come back to the dashboard: %q", l.out.String())
+	}
+}
+
+// TestAnInterruptionOutsideAHandedCommandRestoresAndEnds: a TERM at any time, or an INT with
+// nothing handed, gives the terminal back and ends.
+func TestAnInterruptionOutsideAHandedCommandRestoresAndEnds(t *testing.T) {
+	for name, received := range map[string]os.Signal{"INT": syscall.SIGINT, "TERM": syscall.SIGTERM} {
+		t.Run(name, func(t *testing.T) {
+			l := lab(t, "", 1)
+			l.board.inScreen, l.board.hidden = true, true
+			signals, exited := interruptWatched(t, l.board)
+
+			signals <- received
+
+			select {
+			case code := <-exited:
+				if code != 130 || !strings.HasSuffix(l.out.String(), "\033[?1049l\033[?25h") {
+					t.Errorf("exited %d after %q", code, l.out.String())
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("did not end")
+			}
+		})
 	}
 }

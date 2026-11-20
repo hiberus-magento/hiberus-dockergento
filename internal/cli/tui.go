@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -98,8 +99,12 @@ type dashboard struct {
 
 	mu        sync.Mutex
 	suspended bool
-	inScreen  bool
-	hidden    bool
+
+	// handing is whether a command has the terminal; read by the interruption handler, which
+	// cannot take mu because the action holds it for as long as the command runs
+	handing  atomic.Bool
+	inScreen bool
+	hidden   bool
 
 	rows, cols   int
 	composedCols int
@@ -169,13 +174,26 @@ func tui(stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 	}()
 
-	go func() {
-		<-interrupted
-		board.restore()
-		exitProcess(130)
-	}()
+	go board.watchInterrupts(interrupted)
 
 	return board.run()
+}
+
+// watchInterrupts gives the terminal back and ends the process on an interruption — except a
+// Ctrl-C while a command has the terminal. The terminal sends that to the whole foreground group:
+// it is the command's to end (logs -f is left that way), and the dashboard comes back once it
+// has, as the shell's did. A TERM is meant for the dashboard, handed command or not.
+func (d *dashboard) watchInterrupts(signals <-chan os.Signal) {
+	for received := range signals {
+		if received == os.Interrupt && d.handing.Load() {
+			continue
+		}
+
+		d.restore()
+		exitProcess(130)
+
+		return
+	}
 }
 
 // terminalSize is the terminal's size, always usable: the terminal itself, then the shell's
@@ -440,7 +458,9 @@ func (d *dashboard) runAction(args ...string) {
 	fmt.Fprintf(d.out, "%s%s %s%s  in %s\n\n", code("\033[1m"), binaryName(), strings.Join(args, " "),
 		code(reset), name)
 
+	d.handing.Store(true)
 	status := d.runner.Hand(root, args...)
+	d.handing.Store(false)
 
 	fmt.Fprint(d.out, "\n")
 
