@@ -113,3 +113,27 @@ func TestAnInterruptionWhileHoldingOnlyCloses(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+func TestASecondInterruptionWhileOpeningEndsAtOnce(t *testing.T) {
+	stop, signals, seen := interruptible(t)
+
+	stop.opening()
+	signals <- syscall.SIGINT
+
+	// The first is being handled: closed once, waiting for the opening to return
+	deadline := time.Now().Add(2 * time.Second)
+	for seen.count() == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	signals <- syscall.SIGINT
+
+	select {
+	case code := <-seen.exited:
+		if code != 130 || seen.count() != 2 {
+			t.Errorf("exited %d after %d closes, want 130 after two", code, seen.count())
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("a second interruption did not end the wait for the opening")
+	}
+}

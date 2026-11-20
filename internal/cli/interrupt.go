@@ -18,7 +18,8 @@ import (
 //   - before opening, at the question: nothing to close yet, and the process ends at once without
 //     closing anything — what is there was opened by another terminal, not by this process
 //   - while opening: the relay may be in the middle of being created, so it is closed now and
-//     again once the opening returns, and then the process ends
+//     again once the opening returns — or at once on a second interruption — and then the
+//     process ends
 //   - while holding: it is closed, which ends the wait, and the command finishes on its own
 //
 
@@ -66,8 +67,10 @@ func closeOnInterrupt(close func()) *interruption {
 		case phaseOpening:
 			close()
 
+			// A second interruption is somebody who will not wait for the grace
 			select {
 			case <-state.done:
+			case <-signals:
 			case <-time.After(openingGrace):
 			}
 
