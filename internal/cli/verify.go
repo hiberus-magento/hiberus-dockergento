@@ -12,10 +12,16 @@ import (
 // so that it can be chained. A check whose tool is missing is skipped with the reason, never
 // failed.
 //
-// Ported from verify.sh: the same options, checks, refusals, JSON document and text. One
-// difference on purpose: a failure's output is printed one line per line, where the shell printed
-// it as one line glued together with record separators — it folded the lines to store them and
-// never unfolded them for printing.
+// Ported from verify.sh: the same options, checks, refusals, JSON document and text. The
+// differences are on purpose:
+//
+//   - a failure's output is printed one line per line, where the shell printed it as one line
+//     glued together with record separators — it folded the lines to store them and never
+//     unfolded them for printing
+//   - a changed file name that bash would not read literally is quoted in the command run in the
+//     container, where the shell let a space split it and a metacharacter run something
+//   - a container that does not answer when a tool is looked for is an error, where the shell
+//     reported the tool as not installed
 func verify(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	options := core.VerifyOptions{}
 
