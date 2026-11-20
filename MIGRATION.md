@@ -937,6 +937,14 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         cual. Los avisos con recorrido se arreglaron en `899e64d`…`61305eb` —scripts sin shebang,
         `update` sin Go, restauración de `config.php`, estado de anonimización, suites debilitadas—.
 
+        Revisado de `e08fcaf` a `c587fdd`, en tres tramos, todos aprobados y reconocidos:
+        `review-d173dd6c0796a3a6` (scripts sin shebang, la regla del binario en `update`, `switch` y
+        el instalador, la restauración de `config.php`, las pruebas restauradas),
+        `review-a826f07344de4a21` (mensaje del filtro SQL de `mcp`, proxy nulo, autocompletado,
+        estado de anonimización, ayuda literal) y `review-ee1567b33ee42450` (la CI publica binarios
+        sólo para tags 2.x o mayores, y `switch` y el instalador se niegan a bajar a una 1.x). Sus
+        avisos, todos menores, quedan como defectos conocidos en la pista C del ROADMAP.
+
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
 
