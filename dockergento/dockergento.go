@@ -2104,6 +2104,12 @@ func (e *Engine) InstallSettings() ([]core.Setting, error) {
 
 	contents, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
+		if copied, ok := e.copyLegacyInstallSettings(path); ok {
+			contents, err = copied, nil
+		}
+	}
+
+	if errors.Is(err, fs.ErrNotExist) {
 		defaults := core.DefaultInstallSettings()
 
 		return defaults, e.SaveInstallSettings(defaults)
@@ -2128,6 +2134,55 @@ func (e *Engine) SaveInstallSettings(settings []core.Setting) error {
 	}
 
 	return os.WriteFile(path, []byte(core.RenderInstallSettings(settings)), 0o644) //nolint:gosec
+}
+
+// copyLegacyInstallSettings copies, once, the settings a 1.x installation kept in
+// ~/hm/data/config.json to path, when that file is a valid settings document; it never overwrites
+// path, and says what it copied. Only for the default ~/.hm/config.json: a caller naming its own
+// file has no 1.x installation.
+func (e *Engine) copyLegacyInstallSettings(path string) ([]byte, bool) {
+	if e.options.InstallSettingsFile != "" {
+		return nil, false
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, false
+	}
+
+	legacy := filepath.Join(home, "hm", "data", "config.json")
+
+	contents, err := os.ReadFile(legacy) //nolint:gosec
+	if err != nil || !json.Valid(contents) {
+		return nil, false
+	}
+
+	if _, err := core.ReadInstallSettings(string(contents)); err != nil {
+		return nil, false
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, false
+	}
+
+	// O_EXCL: whatever appeared at path meanwhile is kept, never replaced
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gosec
+	if err != nil {
+		return nil, false
+	}
+
+	_, writeErr := file.Write(contents)
+	if closeErr := file.Close(); writeErr != nil || closeErr != nil {
+		_ = os.Remove(path)
+
+		return nil, false
+	}
+
+	if e.options.Announce != nil {
+		e.options.Announce("Copied the install settings of hm 1.x from " + legacy + " to " + path + "\n")
+	}
+
+	return contents, true
 }
 
 func (e *Engine) installSettingsFile() (string, error) {

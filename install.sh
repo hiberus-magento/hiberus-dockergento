@@ -515,6 +515,25 @@ legacy_notice() {
     say "It was left in place. To delete it: rm -rf $checkout"
 }
 
+# migrate_settings <checkout>: a 1.x installation kept the store and admin settings of `hm install`
+# in <checkout>/data/config.json; hm 2 keeps them in ~/.hm/config.json. Copied once, when that is
+# absent and the old file is a JSON object; never overwritten.
+migrate_settings() {
+    local source="$1/data/config.json" target="$STATE_DIR/config.json"
+    [ -n "$1" ] && [ -f "$source" ] && [ ! -e "$target" ] && [ ! -L "$target" ] || return 0
+
+    if ! tr -d ' \t\r\n' <"$source" | grep -q '^{.*}$'; then
+        CHANGES+=("the 1.x install settings $source are not a JSON object and were not copied")
+        return 0
+    fi
+
+    if mkdir -p "$STATE_DIR" && cp "$source" "$target"; then
+        CHANGES+=("copied the 1.x install settings $source to $target")
+    else
+        CHANGES+=("could not copy the 1.x install settings $source to $target: copy it by hand")
+    fi
+}
+
 write_receipt() {
     mkdir -p "$STATE_DIR"
     printf 'path=%s\nversion=%s\nsha256=%s\n' "$1" "$2" "$(sha256_of "$1")" >"$RECEIPT"
@@ -612,6 +631,7 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
 
     drop_legacy_completion
     install_completion "$TARGET"
+    migrate_settings "$LEGACY_CHECKOUT"
 
     local change
     for change in ${CHANGES[@]+"${CHANGES[@]}"}; do say "  - $change"; done

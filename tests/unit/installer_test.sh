@@ -628,6 +628,29 @@ assert_contains "$OUT" "git clone -b main"
 assert_contains "$OUT" "go build -o hm ./cmd/hm"
 assert_equals "" "$(cat "$FAKE_CURL_LOG")"
 
+# ------------------------------------------------------------------ 1.x install settings
+
+new_case settings
+publish 2.0.0
+api_releases 2.0.0
+mkdir -p "$HOME/hm/bin" "$HOME/hm/data"
+printf '#!/bin/sh\n' >"$HOME/hm/bin/run"
+printf '{\n  "currency": "USD"\n}\n' >"$HOME/hm/data/config.json"
+git -C "$HOME/hm" init -q
+ln -s "$HOME/hm/bin/run" "$HM_SYSTEM_BIN/hm"
+run_install
+
+test_case "a 1.x installation's install settings are copied to ~/.hm/config.json"
+assert_equals "0" "$STATUS"
+assert_equals "same" "$(cmp -s "$HOME/hm/data/config.json" "$HOME/.hm/config.json" && echo same || echo different)"
+assert_contains "$OUT" "copied the 1.x install settings"
+
+printf '{"currency": "EUR"}\n' >"$HOME/.hm/config.json"
+run_install
+
+test_case "and never over settings already there"
+assert_equals '{"currency": "EUR"}' "$(cat "$HOME/.hm/config.json")"
+
 test_case "no case ever called jq"
 assert_equals "" "$(cat "$LAB/jq.log" 2>/dev/null)"
 

@@ -469,7 +469,9 @@ there is an error. Project scripts under `config/hm/commands` get `DATA_DIR` set
 `$HM_ASSETS_DIR/data` then, and empty otherwise.
 
 The store and admin settings `hm install` passes to `setup:install` live in `~/.hm/config.json`,
-outside the installation, shared by every project.
+outside the installation, shared by every project. A 1.x installation kept them in
+`~/hm/data/config.json`: when `~/.hm/config.json` does not exist yet, a valid 1.x file is copied
+there once (by the installer, or by the first `hm install`), and never over an existing one.
 
 ## Where to look next
 

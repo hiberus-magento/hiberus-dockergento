@@ -3,6 +3,7 @@ package dockergento
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -70,5 +71,76 @@ func TestEquivalentsAreReadFromTheDataDirectory(t *testing.T) {
 	table, err := New(Options{Assets: assets}).Equivalents()
 	if err != nil || table["2.4.7-p1"] != "2.4.7" {
 		t.Errorf("Equivalents = %v, %v", table, err)
+	}
+}
+
+// A 1.x installation kept the settings in ~/hm/data/config.json. The first time hm 2 asks for
+// ~/.hm/config.json and it is missing, a valid 1.x file is copied once and said so; an invalid
+// one is not, and an existing ~/.hm/config.json is never overwritten.
+func TestTheSettingsOfA1xInstallationAreCopiedOnce(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	legacy := filepath.Join(home, "hm", "data", "config.json")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	old := core.RenderInstallSettings(core.SetInstallSetting(core.DefaultInstallSettings(), "currency", "USD"))
+	if err := os.WriteFile(legacy, []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	said := ""
+	engine := New(Options{Assets: fstest.MapFS{}, Announce: func(message string) { said += message }})
+
+	settings, err := engine.InstallSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if value, _ := core.InstallSetting(settings, "currency"); value != "USD" {
+		t.Errorf("currency = %q, want the 1.x USD", value)
+	}
+
+	target := filepath.Join(home, ".hm", "config.json")
+	if written, _ := os.ReadFile(target); string(written) != old {
+		t.Errorf("~/.hm/config.json = %q, want the 1.x file", written)
+	}
+
+	if !strings.Contains(said, legacy) || !strings.Contains(said, target) {
+		t.Errorf("announced %q, want both paths", said)
+	}
+
+	// Never again, and never over what is there now
+	if err := os.WriteFile(legacy, []byte(core.RenderInstallSettings(core.DefaultInstallSettings())), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	again, _ := engine.InstallSettings()
+	if value, _ := core.InstallSetting(again, "currency"); value != "USD" {
+		t.Errorf("currency = %q after the 1.x file changed, want ~/.hm's USD", value)
+	}
+}
+
+func TestAnInvalid1xSettingsFileIsNotCopied(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	legacy := filepath.Join(home, "hm", "data", "config.json")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacy, []byte("{ broken"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, err := New(Options{Assets: fstest.MapFS{}}).InstallSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if core.RenderInstallSettings(settings) != core.RenderInstallSettings(core.DefaultInstallSettings()) {
+		t.Errorf("settings = %v, want the defaults", settings)
 	}
 }
