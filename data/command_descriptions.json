@@ -521,11 +521,11 @@
     },
     "proxy": {
         "description": "The global proxy, so several projects can be up at once",
-        "usage": "proxy <up|down|status>",
+        "usage": "proxy <up|down|status|certify> [domain]",
         "args": [
             {
                 "name": "<subcommand>",
-                "description": "up, down or status"
+                "description": "up, down, status, or certify <domain> to sign and load a project's certificate"
             }
         ],
         "group": "environment",

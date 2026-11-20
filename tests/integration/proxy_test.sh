@@ -95,16 +95,18 @@ YAML
     cp "$dir/docker-compose.yml" "$dir/docker-compose.dev.linux.yml"
 }
 
-# The binary brings the proxy up: its network, its compose file, the container. The certificates
-# are what setup and ssl leave for a domain: a mkcert pair for it and its wildcard, and the
-# dynamic file that names them
+# The binary brings the proxy up: its network, its compose file, the container
 "$HM" proxy up >/dev/null 2>&1
+started_before=$(docker inspect -f '{{.State.StartedAt}}' hm-proxy 2>/dev/null)
+
+# The certificates are hm's own, signed the way setup signs them, with the proxy already running:
+# hm has to restart it itself, because Traefik's file watcher is not to be relied on (colima's
+# virtiofs never delivers the host's events). Nothing in this suite restarts the proxy for it.
+HAS_MKCERT=false
+command -v mkcert >/dev/null 2>&1 && HAS_MKCERT=true
+certified=""
 for domain in proxyone.local proxytwo.local; do
-    mkdir -p "$HM_PROXY_DIR/certs" "$HM_PROXY_DIR/dynamic"
-    mkcert -cert-file "$HM_PROXY_DIR/certs/$domain.pem" -key-file "$HM_PROXY_DIR/certs/$domain-key.pem" \
-        "$domain" "*.$domain" >/dev/null 2>&1
-    printf 'tls:\n  certificates:\n    - certFile: /etc/traefik/certs/%s.pem\n      keyFile: /etc/traefik/certs/%s-key.pem\n' \
-        "$domain" "$domain" > "$HM_PROXY_DIR/dynamic/$domain.yml"
+    certified="$certified$("$HM" proxy certify "$domain" --no-json 2>&1)"$'\n'
 done
 
 build_project proxyone
@@ -148,26 +150,26 @@ served_names() {
         openssl x509 -noout -ext subjectAltName 2>/dev/null
 }
 
-# The certificates above are written after the proxy started, and Traefik only learns of them
-# through its file watcher. Some VM mounts never deliver those events from the host (colima's
-# virtiofs, checked: the files are in the container and Traefik never reloads), so there it keeps
-# serving its own default until it restarts. That is the mount, not the configuration: restart
-# it, say so, and still check the certificate itself.
-names=$(served_names)
-if [[ "$names" == *"traefik.default"* ]]; then
-    echo "  - note: this Docker's mount does not deliver file changes to Traefik's watcher;" \
-        "restarting the proxy to check the certificate"
-    docker restart hm-proxy >/dev/null 2>&1
+if $HAS_MKCERT; then
+    test_case "hm restarted the running proxy itself after signing the certificates"
+    assert_contains "$certified" "Restarting the proxy so it serves the certificate for proxyone.local"
+    started_after=$(docker inspect -f '{{.State.StartedAt}}' hm-proxy 2>/dev/null)
+    assert_equals "restarted" "$([ -n "$started_after" ] && [ "$started_after" != "$started_before" ] && echo restarted || echo "not restarted ($started_before)")"
+
+    # A restarted Traefik reads the files at start; give it the time it takes, and no more help
     waited=0
     until [[ "$(served_names)" == *"proxyone.local"* ]] || [ "$waited" -gt 30 ]; do
         sleep 2
         waited=$((waited + 2))
     done
-    names=$(served_names)
-fi
 
-test_case "the certificate served covers the wildcard, so subdomains work"
-assert_contains "$names" "*.proxyone.local"
+    test_case "the certificate served covers the wildcard, so subdomains work"
+    assert_contains "$(served_names)" "*.proxyone.local"
+else
+    echo "  - skipped: mkcert is not installed, so hm signs no certificate to check"
+    test_case "without mkcert hm says why it signed nothing"
+    assert_contains "$certified" "mkcert is not installed"
+fi
 
 test_case "the proxy reports what it routes"
 status=$( "$HM" proxy status --json 2>/dev/null | jq -r '.data.routes[].host' )

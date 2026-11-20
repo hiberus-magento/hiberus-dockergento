@@ -6,6 +6,7 @@ One proxy per machine, so more than one project can be up at a time.
 hm proxy status
 hm proxy up
 hm proxy down
+hm proxy certify shop.local   # what setup does for a project's certificate, on its own
 ```
 
 ## The problem it solves
@@ -86,6 +87,12 @@ Try: Stop that environment first: it does not go through the proxy
 Each project gets a wildcard certificate for `*.<domain>`, because a certificate per domain does
 not cover the subdomains the auxiliary interfaces live on. They are stored with the proxy in
 `~/.hm/proxy/certs/` and loaded by Traefik automatically.
+
+`setup` signs it with mkcert; `hm proxy certify <domain>` runs the same step alone. A pair that
+still covers both names for more than 30 days is kept. When it signs a new pair, or rewrites the
+file that names it, and the proxy is running, hm restarts the proxy itself: Traefik watches its
+dynamic directory, but some VM mounts (colima's virtiofs) never deliver the host's file events, and
+it would keep serving its own default certificate.
 
 ## Where it lives
 

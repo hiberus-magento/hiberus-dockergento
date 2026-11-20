@@ -1,5 +1,5 @@
-Usage: hm proxy <up|down|status>
+Usage: hm proxy <up|down|status|certify> [domain]
 Description: The global proxy, so several projects can be up at once
 Arguments:
-   <<subcommand>>  up, down or status
+   <<subcommand>>  up, down, status, or certify <domain> to sign and load a project's certificate
 

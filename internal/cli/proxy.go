@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"regexp"
 )
 
 //
@@ -25,11 +26,36 @@ func proxy(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return proxyDown(stdout, stderr, jsonOutput)
 	case "status":
 		return proxyStatus(stdout, stderr, jsonOutput)
+	case "certify":
+		return proxyCertify(args[1:], stdout, stderr, jsonOutput)
 	}
 
 	return failure(stderr, jsonOutput, "proxy", exitUsage, "unknown_subcommand",
 		fmt.Sprintf("'%s' is not something %s proxy does", subcommand, binaryName()),
-		binaryName()+" proxy up | down | status")
+		binaryName()+" proxy up | down | status | certify <domain>")
+}
+
+// A domain: dot-separated labels of letters, digits and inner hyphens. It also names files in the
+// proxy's directory, so nothing else is accepted.
+var proxyDomain = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$`)
+
+// proxyCertify is the step setup runs for a project on the proxy: a mkcert pair for the domain and
+// its wildcard, the dynamic file naming it, and a restart of a running proxy when either changed.
+func proxyCertify(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	if len(args) != 1 || !proxyDomain.MatchString(args[0]) {
+		return failure(stderr, jsonOutput, "proxy", exitUsage, "invalid_argument",
+			"proxy certify takes one domain", binaryName()+" proxy certify <domain>")
+	}
+
+	if err := engine(stdout, stderr, jsonOutput).Certify(args[0]); err != nil {
+		return report(stderr, jsonOutput, "proxy", err)
+	}
+
+	if jsonOutput {
+		return document(stdout, stderr, "proxy", map[string]any{"certified": args[0]})
+	}
+
+	return exitOK
 }
 
 func proxyUp(stdout, stderr io.Writer, jsonOutput bool) int {
