@@ -62,8 +62,8 @@ done <<< "$(commands_named)"
 assert_empty "$orphaned"
 
 #
-# The reverse direction, over the sixty-five retired by name and not "every routed command":
-# two routed commands legitimately still have a file (the partials `db` and `proxy`), and a blanket rule would be false today.
+# The reverse direction, over the sixty-five retired by name: every routed command is one of them
+# now, and none has a shell file left.
 #
 test_case "and what the binary owns outright has no file to drift from"
 RETIRED="copy-to-container copy-from-container varnish-on varnish-off purge npm
