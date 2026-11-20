@@ -195,7 +195,7 @@ func (d Doctor) wantedPorts(shared facts) []string {
 	seen := map[int]bool{}
 	numbers := []int{}
 
-	for _, match := range published.FindAllStringSubmatch(d.FS.Read(d.Template), -1) {
+	for _, match := range published.FindAllStringSubmatch(asset(d.Assets, d.Template), -1) {
 		port, err := strconv.Atoi(match[1])
 		if err != nil || seen[port] {
 			continue

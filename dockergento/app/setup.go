@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,9 +25,9 @@ type Setup struct {
 	Legacy     ports.Legacy
 	Proxy      *Proxy
 
-	// Root is the tool's own installation, which is where the templates and the requirements it
-	// reads live.
-	Root string
+	// Assets is the files the tool ships with: the compose templates and the requirements it
+	// reads, by slash-separated name.
+	Assets fs.FS
 
 	// Platform is "mac" or "linux".
 	Platform string
@@ -299,7 +300,7 @@ func (s Setup) requirementsFor(version string) (map[string]string, error) {
 		}
 	}
 
-	table, err := core.ReadRequirements(s.FS.Read(filepath.Join(s.Root, "data", "requirements.json")))
+	table, err := core.ReadRequirements(asset(s.Assets, "data/requirements.json"))
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +321,7 @@ func (s Setup) requirementsFor(version string) (map[string]string, error) {
 // equivalent is the row of the table a version resolves to.
 func (s Setup) equivalent(version string) string {
 	table, err := core.ReadEquivalents(
-		s.FS.Read(filepath.Join(s.Root, "data", "equivalent_versions.json")))
+		asset(s.Assets, "data/equivalent_versions.json"))
 	if err != nil {
 		return ""
 	}
@@ -333,9 +334,9 @@ func (s Setup) equivalent(version string) string {
 // All of them, every time, because they are generated: a machine overlay left over from an older
 // version of this tool is a project running something nobody can find in the repository.
 func (s Setup) Write(dir string, decided Decided, requirements map[string]string) error {
-	template := s.FS.Read(filepath.Join(s.Root, "docker-compose", "docker-compose.template.yml"))
+	template := asset(s.Assets, "docker-compose/docker-compose.template.yml")
 	if template == "" {
-		return fmt.Errorf("the compose template is missing from %s", s.Root)
+		return fmt.Errorf("the compose template docker-compose/docker-compose.template.yml is missing from the tool's assets")
 	}
 
 	written, err := core.RenderCompose(template, requirements, decided.Mail)
@@ -354,7 +355,7 @@ func (s Setup) Write(dir string, decided Decided, requirements map[string]string
 		"docker-compose.dev.mac.yml":   "docker-compose.dev.mac.template.yml",
 		"docker-compose.dev.linux.yml": "docker-compose.dev.linux.template.yml",
 	} {
-		contents := s.FS.Read(filepath.Join(s.Root, "docker-compose", template))
+		contents := asset(s.Assets, "docker-compose/"+template)
 		contents = strings.ReplaceAll(contents, "{YML_VERSION}", version)
 		contents = strings.ReplaceAll(contents, "{MAGENTO_DIR}", decided.MagentoDir)
 
@@ -389,7 +390,7 @@ func (s Setup) bindMounts(dir, magentoDir, existing string) string {
 	defaults := map[string]bool{}
 
 	for name, value := range core.ReadFlags(
-		s.FS.Read(filepath.Join(s.Root, "data", "default_files_magento.json"))) {
+		asset(s.Assets, "data/default_files_magento.json")) {
 		defaults[name] = value
 	}
 

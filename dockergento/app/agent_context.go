@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -28,8 +29,9 @@ type AgentContext struct {
 	// Describe is the project, resolved. It is asked once, after the daemon has answered.
 	Describe func() (core.Description, error)
 
-	// Exclusions is the path of data/ai-exclusions.json.
-	Exclusions string
+	// Assets is the files the tool ships with, whose data/ai-exclusions.json says what an agent
+	// is not to read.
+	Assets fs.FS
 
 	// Command is what .mcp.json starts the MCP server with.
 	Command string
@@ -68,7 +70,7 @@ func (a AgentContext) Write() (core.AgentContextResult, error) {
 		}
 	}
 
-	shipped, err := os.ReadFile(a.Exclusions)
+	shipped, err := fs.ReadFile(a.Assets, "data/ai-exclusions.json")
 	if err != nil {
 		return core.AgentContextResult{}, err
 	}

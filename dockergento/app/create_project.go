@@ -155,7 +155,7 @@ func (s Setup) version(options core.CreateProjectOptions) (string, error) {
 // latest is the newest release the tool has images for.
 func (s Setup) latest() string {
 	table, err := core.ReadEquivalents(
-		s.FS.Read(filepath.Join(s.Root, "data", "equivalent_versions.json")))
+		asset(s.Assets, "data/equivalent_versions.json"))
 	if err != nil {
 		return ""
 	}

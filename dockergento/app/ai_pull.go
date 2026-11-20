@@ -145,7 +145,16 @@ func (a *AITools) pullAll(repositories []any, platforms, types, resources string
 		// The skills that come with the tool are installed from the installed copy of it, not
 		// downloaded, and not filtered by type: they describe the tool in use
 		if repository.Local {
-			dir, filter = a.Tool, ""
+			// The copy inside the binary, written out once to be installed like any other
+			dir, filter = temp+"/.tool", ""
+			if extractAssets(a.Tool, dir, "skills", "agents") != nil {
+				a.Console.Say(AIWarning, "Failed to unpack the tool's own skills, skipping...", AILine)
+
+				failed++
+
+				continue
+			}
+
 			a.branch = ""
 
 			if a.Version != nil {

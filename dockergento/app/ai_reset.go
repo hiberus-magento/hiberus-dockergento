@@ -293,8 +293,7 @@ func length(value any) int {
 // preserved is show_preserved_summary: how many of each platform's skills and agents are somebody's
 // own, and will still be there afterwards. Not zero is the exit code the script stopped with there.
 func (a *AITools) preserved() int {
-	file := a.data("ai-platforms.json")
-	if info, err := os.Stat(file); err != nil || info.IsDir() {
+	if !a.hasData("ai-platforms.json") {
 		return 0
 	}
 

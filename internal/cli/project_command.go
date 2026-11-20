@@ -132,7 +132,8 @@ func (r *projectRun) prepare(resolved hmRoot) int {
 	r.set("COMMAND_BIN_NAME", binaryName())
 	r.set("COMMAND_TOOLNAME", "Hiberus Dockergento")
 	r.set("COMMAND_BIN_DIR", r.tool)
-	r.set("DATA_DIR", filepath.Join(r.tool, "data"))
+	// The data is inside the binary: there is no directory to name
+	r.set("DATA_DIR", "")
 	r.set("HM_ROOT", resolved.Root)
 	r.set("HM_IS_WORKTREE", strconv.FormatBool(resolved.IsWorktree))
 	r.set("HM_WORKTREE", resolved.Worktree)
@@ -202,11 +203,13 @@ func (r *projectRun) directories(root string) {
 // loadProperties is load_properties: the tool's properties, the project's over them, every one
 // exported.
 func (r *projectRun) loadProperties() {
-	for _, path := range []string{
-		filepath.Join(r.tool, "data", "properties.json"),
-		filepath.Join(r.get("CUSTOM_PROPERTIES_DIR"), "properties.json"),
+	for _, read := range []func() (map[string]any, error){
+		func() (map[string]any, error) { return readAssetObject("data/properties.json") },
+		func() (map[string]any, error) {
+			return readJSONObject(filepath.Join(r.get("CUSTOM_PROPERTIES_DIR"), "properties.json"))
+		},
 	} {
-		properties, err := readJSONObject(path)
+		properties, err := read()
 		if err != nil {
 			continue
 		}

@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -117,8 +118,8 @@ func valueFor(value, domain string) string {
 func (d Importer) settings(project core.Project) (map[string][]setting, error) {
 	own := filepath.Join(project.Root, settingsFile)
 
-	if _, err := os.Stat(own); err != nil && d.Settings != "" {
-		shipped, err := os.ReadFile(d.Settings)
+	if _, err := os.Stat(own); err != nil && d.Assets != nil {
+		shipped, err := fs.ReadFile(d.Assets, "data/local_settings.json")
 		if err != nil {
 			return nil, err
 		}

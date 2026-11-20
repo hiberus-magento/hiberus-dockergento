@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,11 +52,16 @@ func pinHelp(t *testing.T, tool, machine string) {
 	t.Setenv("TERM", "xterm-256color")
 
 	originalRoot, originalMachine, originalTerminal := toolRoot, helpMachine, helpTerminal
+	originalAssets := toolAssets
 	toolRoot = func() string { return tool }
+	toolAssets = func() fs.FS { return os.DirFS(tool) }
 	helpMachine = func() string { return machine }
 	helpTerminal = func(io.Writer) bool { return false }
 
-	t.Cleanup(func() { toolRoot, helpMachine, helpTerminal = originalRoot, originalMachine, originalTerminal })
+	t.Cleanup(func() {
+		toolRoot, helpMachine, helpTerminal = originalRoot, originalMachine, originalTerminal
+		toolAssets = originalAssets
+	})
 }
 
 // helpProject is the fixture project, copied somewhere that is not inside any repository: from a

@@ -3,7 +3,9 @@ package fsprops
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -14,6 +16,10 @@ type Reader struct {
 	// a project that never set WORKDIR_PHP or DOCKER_COMPOSE_FILE has no value for them, and the
 	// answer silently differs from the shell implementation's — which merges the two.
 	Defaults string
+
+	// Assets is where Defaults is read from when it is set: the files the tool ships with, in
+	// which Defaults is a slash-separated name. Nil means Defaults is a path on disk.
+	Assets fs.FS
 }
 
 // Load returns the properties of the project rooted at dir, merged over the defaults the tool
@@ -28,7 +34,7 @@ func (r Reader) Load(dir string) (map[string]string, error) {
 
 	// The tool's defaults first, so the project's file only has to say what it changes
 	if r.Defaults != "" {
-		defaults, err := read(r.Defaults)
+		defaults, err := r.defaults()
 		if err != nil {
 			return nil, err
 		}
@@ -57,6 +63,22 @@ func (r Reader) Load(dir string) (map[string]string, error) {
 	return properties, nil
 }
 
+func (r Reader) defaults() (map[string]string, error) {
+	if r.Assets == nil {
+		return read(r.Defaults)
+	}
+
+	contents, err := fs.ReadFile(r.Assets, r.Defaults)
+	if errors.Is(err, fs.ErrNotExist) {
+		return map[string]string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return parse(contents)
+}
+
 func read(file string) (map[string]string, error) {
 	contents, err := os.ReadFile(file)
 	if os.IsNotExist(err) {
@@ -66,6 +88,10 @@ func read(file string) (map[string]string, error) {
 		return nil, err
 	}
 
+	return parse(contents)
+}
+
+func parse(contents []byte) (map[string]string, error) {
 	var raw map[string]any
 	if err := json.Unmarshal(contents, &raw); err != nil {
 		return nil, err

@@ -15,7 +15,7 @@ HERE="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd -P "$HERE/../../../.." && pwd)"
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
-# Beside data/, which is where the binary finds the declarations it prints
+# Built from this checkout, so the declarations it prints are the ones compiled in from data/
 RUN="$ROOT/bin/hm"
 ( cd "$ROOT" && go build -o "$RUN" ./cmd/hm )
 

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"regexp"
 	"strings"
@@ -25,8 +26,9 @@ type Importer struct {
 	Properties   ports.Properties
 	OneOff       ports.OneOff
 
-	// Settings is the tool's own local_settings.json, copied into a project that has none.
-	Settings string
+	// Assets is the files the tool ships with: its data/local_settings.json is copied into a
+	// project that has none. Nil copies nothing.
+	Assets fs.FS
 
 	// Progress and Announce are how the long parts say what they are doing.
 	Progress func(label string) func(ok bool, note string)

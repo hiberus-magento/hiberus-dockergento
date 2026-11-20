@@ -94,6 +94,7 @@ var newEngine = func(stdout, stderr io.Writer, jsonOutput bool) commands {
 func engine(stdout, stderr io.Writer, jsonOutput bool) *dockergento.Engine {
 	return dockergento.New(dockergento.Options{
 		Binary:   binaryName(),
+		Assets:   toolAssets(),
 		StateDir: os.Getenv("HM_STATE_DIR"),
 
 		// --force is a decision about one invocation, which is why it is read from the

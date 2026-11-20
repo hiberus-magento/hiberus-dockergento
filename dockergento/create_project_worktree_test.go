@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -26,7 +27,7 @@ func TestCreateProjectIsRefusedFromAWorktreeWithNoEnvironmentOfItsOwn(t *testing
 		t.Fatal(err)
 	}
 
-	engine := New(Options{Root: t.TempDir(), StateDir: t.TempDir()})
+	engine := New(Options{Root: t.TempDir(), Assets: fstest.MapFS{}, StateDir: t.TempDir()})
 	err = engine.CreateProject(worktree, core.CreateProjectOptions{
 		ProjectName: "other", Domain: "other.local", Edition: "community", Version: "2.4.7", UseDefault: true,
 	}, false)
@@ -54,7 +55,7 @@ func TestCreateProjectFromAWorktreeIsAllowedWhenForced(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	_, worktree := worktreeOfAProject(t)
 
-	engine := New(Options{Root: t.TempDir(), StateDir: t.TempDir(), Forced: true})
+	engine := New(Options{Root: t.TempDir(), Assets: fstest.MapFS{}, StateDir: t.TempDir(), Forced: true})
 	err := engine.CreateProject(worktree, core.CreateProjectOptions{
 		ProjectName: "other", Domain: "other.local", Edition: "community", Version: "2.4.7", UseDefault: true,
 	}, false)

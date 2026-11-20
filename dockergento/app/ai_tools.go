@@ -67,11 +67,12 @@ type AITools struct {
 	// relative path is resolved here and printed as it is.
 	Dir string
 
-	// Tool is the tool's installation: its data/ and the skills/ that come with it.
-	Tool string
+	// Tool is the files the tool ships with: its data/ and the skills/ that come with it.
+	Tool fs.FS
 
-	// Repositories is the list of repositories ai-pull installs from (HM_AI_REPOSITORIES, or the
-	// tool's own). ai-init always read the tool's own.
+	// Repositories is the path of the list of repositories ai-pull installs from
+	// (HM_AI_REPOSITORIES). Empty is the tool's own data/ai-repositories.json, which ai-init
+	// always reads.
 	Repositories string
 
 	// Binary is the name the tool was invoked as, for the hint of a question nobody can answer.
@@ -134,7 +135,24 @@ func (a *AITools) path(name string) string {
 	return a.Dir + "/" + name
 }
 
-func (a *AITools) data(name string) string { return a.Tool + "/data/" + name }
+// data is the name of one of the tool's data files, inside Tool.
+func (a *AITools) data(name string) string { return "data/" + name }
+
+// readData is one of the tool's data files, or an error when the tool has no such file.
+func (a *AITools) readData(name string) ([]byte, error) {
+	if a.Tool == nil {
+		return nil, fs.ErrNotExist
+	}
+
+	return fs.ReadFile(a.Tool, a.data(name))
+}
+
+// hasData is whether the tool has that data file, the script's `[ -f ]`.
+func (a *AITools) hasData(name string) bool {
+	_, err := a.readData(name)
+
+	return err == nil
+}
 
 func (a *AITools) now() time.Time {
 	if a.Now != nil {
@@ -305,20 +323,35 @@ func (a *AITools) digest(path string) string {
 
 // catalog is data/ai-platforms.json; one that is not there knows no platform.
 func (a *AITools) catalog() core.AIPlatformCatalog {
-	contents, _ := os.ReadFile(a.data("ai-platforms.json"))
+	contents, _ := a.readData("ai-platforms.json")
 
 	return core.ReadAIPlatformCatalog(contents)
 }
 
 // repositories is resolve_repositories: the default ones and the configuration's own after them.
+// file is a list on disk; empty is the tool's own data/ai-repositories.json.
 func (a *AITools) repositories(file string, config any) ([]any, bool) {
 	merged := []any{}
 
-	if info, err := os.Stat(file); err == nil && !info.IsDir() {
-		contents, err := os.ReadFile(file)
+	var (
+		contents []byte
+		found    bool
+	)
+
+	if file == "" {
+		var err error
+		contents, err = a.readData("ai-repositories.json")
+		found = err == nil
+	} else if info, err := os.Stat(file); err == nil && !info.IsDir() {
+		contents, err = os.ReadFile(file)
 		if err != nil {
 			return nil, false
 		}
+
+		found = true
+	}
+
+	if found {
 
 		value, err := core.ParseAIJSON(contents)
 		if err != nil {
@@ -524,7 +557,7 @@ func (a *AITools) install(repository, kind, directory, types string, force bool)
 	if filtered {
 		wanted = strings.Split(types, ",")
 
-		if info, err := os.Stat(a.data("ai-skill-types.json")); err != nil || info.IsDir() {
+		if !a.hasData("ai-skill-types.json") {
 			a.Console.Say(AIError, "Skill types configuration not found: "+a.data("ai-skill-types.json"), AILine)
 
 			return false

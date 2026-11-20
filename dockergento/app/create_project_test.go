@@ -119,7 +119,7 @@ func creating(t *testing.T, legacy *stepRecorder, properties map[string]string) 
 		FS:         onDisk{},
 		Tooling:    tools{compose: "2.30.0"},
 		Legacy:     legacy,
-		Root:       toolFixture(t),
+		Assets:     os.DirFS(toolFixture(t)),
 		Platform:   "linux",
 		Binary:     "hm",
 	}

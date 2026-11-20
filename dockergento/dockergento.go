@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	hm "github.com/hiberus-magento/hiberus-dockergento"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/composecfg"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/composecli"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/composelib"
@@ -57,6 +58,15 @@ type Options struct {
 	// project's own file is merged over, and its compose template is what answers "which ports
 	// would an environment need here" when there is no project to ask.
 	Root string
+
+	// Assets is the files the tool ships with — data/, docker-compose/ and skills/ — read from
+	// wherever they are and never from Root. Nil means hm.Assets(): the copy compiled into the
+	// binary, or the directory HM_ASSETS_DIR names. A test hands an fstest.MapFS.
+	Assets fs.FS
+
+	// InstallSettingsFile is where the store and admin settings `install` passes to setup:install
+	// are kept, shared by every project. Empty means ~/.hm/config.json.
+	InstallSettingsFile string
 
 	// StateDir is where this machine's copy of the data is recorded — whether it has been
 	// anonymised, and when. Empty means ~/.hm/state.
@@ -117,6 +127,10 @@ type Engine struct {
 func New(options Options) *Engine {
 	if options.Root == "" {
 		options.Root = installedRoot()
+	}
+
+	if options.Assets == nil {
+		options.Assets = hm.Assets()
 	}
 
 	if options.Binary == "" {
@@ -193,10 +207,10 @@ func (e *Engine) WriteAgentContext(dir string) (core.AgentContextResult, error) 
 		Describe: func() (core.Description, error) {
 			return e.describer(project).Describe(project, e.ComposeFiles(project), false)
 		},
-		Exclusions: filepath.Join(e.options.Root, "data", "ai-exclusions.json"),
-		Command:    filepath.Join(e.options.Root, "bin", "hm"),
-		Binary:     e.options.Binary,
-		Version:    os.Getenv("HM_VERSION"),
+		Assets:  e.options.Assets,
+		Command: filepath.Join(e.options.Root, "bin", "hm"),
+		Binary:  e.options.Binary,
+		Version: os.Getenv("HM_VERSION"),
 	}.Write()
 }
 
@@ -226,7 +240,8 @@ func (e *Engine) Diagnose(dir, only string) (core.Diagnosis, error) {
 		Project:      project,
 		InProject:    inProject,
 		ComposeFiles: e.ComposeFiles(project),
-		Template:     filepath.Join(e.options.Root, "docker-compose", "docker-compose.template.yml"),
+		Assets:       e.options.Assets,
+		Template:     "docker-compose/docker-compose.template.yml",
 		Platform:     Platform(),
 		Binary:       e.options.Binary,
 		Profile:      os.Getenv("HM_PROFILE"),
@@ -550,7 +565,7 @@ func (e *Engine) importer(project core.Project) app.Importer {
 		State:        toolinfo.State{Dir: e.options.StateDir},
 		Properties:   e.properties(),
 		OneOff:       dockerd.OneOff{Out: e.options.Stdout},
-		Settings:     filepath.Join(e.options.Root, "data", "local_settings.json"),
+		Assets:       e.options.Assets,
 		Progress:     e.options.Progress,
 		Announce:     e.options.Announce,
 		Errors:       e.errors(),
@@ -738,7 +753,7 @@ func (e *Engine) CopyFrom(dir string, paths []string) error {
 // workdir, so the host's own copies have to be in there first or they come back as Composer left
 // them. Sorted, the way `jq 'keys'` answered it for the shell implementation.
 func (e *Engine) DefaultMagentoFiles() ([]string, error) {
-	contents, err := os.ReadFile(filepath.Join(e.options.Root, "data", "default_files_magento.json"))
+	contents, err := fs.ReadFile(e.options.Assets, "data/default_files_magento.json")
 	if err != nil {
 		return nil, err
 	}
@@ -932,7 +947,7 @@ func (e *Engine) setup() app.Setup {
 		Magento:    magentofiles.Reader{},
 		Legacy:     selfrun.Runner{},
 		Proxy:      e.proxyFor(),
-		Root:       e.options.Root,
+		Assets:     e.options.Assets,
 		Platform:   Platform(),
 		Ask:        e.options.Ask,
 		Choose:     e.options.Choose,
@@ -1730,12 +1745,11 @@ func (e *Engine) orchestratorWith(environment map[string]string) composelib.Orch
 }
 
 func (e *Engine) properties() fsprops.Reader {
-	if e.options.Root == "" {
-		return fsprops.Reader{}
-	}
-
-	return fsprops.Reader{Defaults: filepath.Join(e.options.Root, "data", "properties.json")}
+	return fsprops.Reader{Assets: e.options.Assets, Defaults: "data/properties.json"}
 }
+
+// Assets is the files the tool ships with, as this engine reads them.
+func (e *Engine) Assets() fs.FS { return e.options.Assets }
 
 // registry is where branch environments are recorded.
 //
@@ -1921,10 +1935,9 @@ func (e *Engine) AIDoctor(dir string) (core.AIDoctorReport, error) {
 	}
 
 	return app.AIDoctor{
-		Root:      root,
-		Dir:       dir,
-		Tool:      e.options.Root,
-		Platforms: filepath.Join(e.options.Root, "data", "ai-platforms.json"),
+		Root: root,
+		Dir:  dir,
+		Tool: e.options.Assets,
 	}.Report()
 }
 
@@ -1951,15 +1964,10 @@ func (e *Engine) AIReset(dir string, confirm, interactive bool, console app.AICo
 func (e *Engine) aiTools(dir string, console app.AIConsole) *app.AITools {
 	root := e.options.Root
 
-	repositories := os.Getenv("HM_AI_REPOSITORIES")
-	if repositories == "" {
-		repositories = filepath.Join(root, "data", "ai-repositories.json")
-	}
-
 	return &app.AITools{
 		Dir:          dir,
-		Tool:         root,
-		Repositories: repositories,
+		Tool:         e.options.Assets,
+		Repositories: os.Getenv("HM_AI_REPOSITORIES"),
 		Binary:       e.options.Binary,
 		Console:      console,
 		TempRoot:     "/tmp",
@@ -2008,7 +2016,7 @@ func (w consoleWriter) Write(p []byte) (int, error) {
 // data directory.
 func (e *Engine) Compatibility() (string, error) {
 	read := func(name string) (string, error) {
-		contents, err := os.ReadFile(filepath.Join(e.options.Root, "data", name))
+		contents, err := fs.ReadFile(e.options.Assets, "data/"+name)
 
 		return string(contents), err
 	}
@@ -2045,7 +2053,7 @@ func (e *Engine) DockerReachable() bool {
 // Equivalents is the table that sends each Magento release to the row of images it uses, read
 // from the tool's own data directory.
 func (e *Engine) Equivalents() (map[string]string, error) {
-	contents, err := os.ReadFile(filepath.Join(e.options.Root, "data", "equivalent_versions.json"))
+	contents, err := fs.ReadFile(e.options.Assets, "data/equivalent_versions.json")
 	if err != nil {
 		return nil, err
 	}
@@ -2053,11 +2061,15 @@ func (e *Engine) Equivalents() (map[string]string, error) {
 	return core.ReadEquivalents(string(contents))
 }
 
-// InstallSettings is data/config.json: the store and admin settings `install` passes to
+// InstallSettings is ~/.hm/config.json: the store and admin settings `install` passes to
 // setup:install. It is shared by every project, as it always was, and created with the tool's
-// defaults the first time it is asked for.
+// defaults the first time it is asked for. It lived in the installation's data/ while the
+// installation was a checkout; a binary has nowhere to write beside itself.
 func (e *Engine) InstallSettings() ([]core.Setting, error) {
-	path := filepath.Join(e.options.Root, "data", "config.json")
+	path, err := e.installSettingsFile()
+	if err != nil {
+		return nil, err
+	}
 
 	contents, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -2073,8 +2085,29 @@ func (e *Engine) InstallSettings() ([]core.Setting, error) {
 	return core.ReadInstallSettings(string(contents))
 }
 
-// SaveInstallSettings writes data/config.json back, the way jq printed it.
+// SaveInstallSettings writes ~/.hm/config.json back, the way jq printed it.
 func (e *Engine) SaveInstallSettings(settings []core.Setting) error {
-	return os.WriteFile(filepath.Join(e.options.Root, "data", "config.json"),
-		[]byte(core.RenderInstallSettings(settings)), 0o644) //nolint:gosec
+	path, err := e.installSettingsFile()
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, []byte(core.RenderInstallSettings(settings)), 0o644) //nolint:gosec
+}
+
+func (e *Engine) installSettingsFile() (string, error) {
+	if e.options.InstallSettingsFile != "" {
+		return e.options.InstallSettingsFile, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(home, ".hm", "config.json"), nil
 }

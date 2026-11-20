@@ -25,11 +25,9 @@ type AIDoctor struct {
 	// looked for from here, as the script did with paths relative to $PWD.
 	Dir string
 
-	// Tool is the tool's own installation, whose skills/ and agents/ are the copies it shipped.
-	Tool string
-
-	// Platforms is the catalog of where each platform keeps its skills and agents.
-	Platforms string
+	// Tool is the files the tool ships with: its skills/ and agents/ are the copies it shipped,
+	// and its data/ai-platforms.json the catalog of where each platform keeps them.
+	Tool fs.FS
 }
 
 // Report is the state of every resource installed for the platforms the project asks for, and of
@@ -52,8 +50,7 @@ func (d AIDoctor) Report() (core.AIDoctorReport, error) {
 		return core.AIDoctorReport{}, err
 	}
 
-	catalogue, _ := os.ReadFile(d.Platforms)
-	catalog := core.ReadAIPlatformCatalog(catalogue)
+	catalog := core.ReadAIPlatformCatalog([]byte(asset(d.Tool, "data/ai-platforms.json")))
 
 	for _, platform := range core.ReadAIPlatforms(properties) {
 		for _, kind := range []string{"skills", "agents"} {
@@ -116,9 +113,11 @@ func (d AIDoctor) installed(registration core.AIRegistration, platform, kind, di
 		// For what came with the tool there is a source of truth on this machine, so whether it
 		// is up to date can be answered offline
 		var shipped *string
-		if copied := d.Tool + "/" + kind + "/" + name; isDirectory(copied) {
-			digest := core.DigestPath(os.DirFS(d.Tool+"/"+kind), name)
-			shipped = &digest
+		if assetDir(d.Tool, kind+"/"+name) {
+			if copies, err := fs.Sub(d.Tool, kind); err == nil {
+				digest := core.DigestPath(copies, name)
+				shipped = &digest
+			}
 		}
 
 		resources = append(resources, core.AIResource{

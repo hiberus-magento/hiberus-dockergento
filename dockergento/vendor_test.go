@@ -41,7 +41,7 @@ func TestDefaultMagentoFilesAreTheKeysOfTheToolsOwnList(t *testing.T) {
 
 	sort.Strings(want)
 
-	got, err := New(Options{Root: root}).DefaultMagentoFiles()
+	got, err := New(Options{Assets: os.DirFS(root)}).DefaultMagentoFiles()
 	if err != nil {
 		t.Fatalf("DefaultMagentoFiles() = %v, want no error", err)
 	}

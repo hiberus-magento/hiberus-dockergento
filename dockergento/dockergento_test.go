@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/selfrun"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
@@ -15,7 +16,7 @@ import (
 func motor(t *testing.T) *Engine {
 	t.Helper()
 
-	return New(Options{Root: t.TempDir()})
+	return New(Options{Root: t.TempDir(), Assets: fstest.MapFS{}})
 }
 
 // proyecto writes a project on disk and answers where it is.

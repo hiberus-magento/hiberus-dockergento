@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -78,7 +79,7 @@ func TestSetupIsRefusedFromAWorktreeWithNoEnvironmentOfItsOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	engine := New(Options{Root: t.TempDir(), StateDir: t.TempDir()})
+	engine := New(Options{Root: t.TempDir(), Assets: fstest.MapFS{}, StateDir: t.TempDir()})
 	err = engine.Setup(worktree, core.SetupOptions{ProjectName: "other", Domain: "other.test", UseDefault: true}, false)
 
 	var refusal core.Refusal
@@ -103,7 +104,7 @@ func TestSetupFromAWorktreeIsAllowedWhenForced(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	_, worktree := worktreeOfAProject(t)
 
-	engine := New(Options{Root: t.TempDir(), StateDir: t.TempDir(), Forced: true})
+	engine := New(Options{Root: t.TempDir(), Assets: fstest.MapFS{}, StateDir: t.TempDir(), Forced: true})
 	err := engine.Setup(worktree, core.SetupOptions{ProjectName: "other", Domain: "other.test", UseDefault: true}, false)
 
 	// It goes on to the next thing setup checks, which in this fixture is the missing composer.lock
@@ -128,7 +129,7 @@ func TestSetupIsRefusedFromAWorktreeWhoseProjectDoesNotResolve(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	engine := New(Options{Root: t.TempDir(), StateDir: t.TempDir()})
+	engine := New(Options{Root: t.TempDir(), Assets: fstest.MapFS{}, StateDir: t.TempDir()})
 	err = engine.Setup(worktree, core.SetupOptions{ProjectName: "other", Domain: "other.test", UseDefault: true}, false)
 
 	var refusal core.Refusal

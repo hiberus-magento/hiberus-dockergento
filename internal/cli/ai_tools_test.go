@@ -82,7 +82,7 @@ func aiTooling(t *testing.T) *aiFixture {
 	plantFile(t, filepath.Join(remote, "agents", "reviewer.md"), "# reviewer\n", 0o644)
 
 	fixture.fake.aiTools = &app.AITools{
-		Tool:         fixture.tool,
+		Tool:         os.DirFS(fixture.tool),
 		Repositories: filepath.Join(data, "ai-repositories.json"),
 		Binary:       "hm",
 		Now:          func() time.Time { return aiNow },

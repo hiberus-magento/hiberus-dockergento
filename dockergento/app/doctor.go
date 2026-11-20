@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"io/fs"
 	"time"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
@@ -32,8 +33,10 @@ type Doctor struct {
 	InProject bool
 
 	// ComposeFiles is what the project is built from, and Template is the one the tool ships —
-	// used to know which ports an environment would need when there is no project to ask.
+	// used to know which ports an environment would need when there is no project to ask. It is
+	// a name inside Assets, the files the tool ships with.
 	ComposeFiles core.ComposeFiles
+	Assets       fs.FS
 	Template     string
 
 	// Platform is "mac" or "linux": the conditions that matter are not the same on both.

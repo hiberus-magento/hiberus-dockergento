@@ -91,7 +91,7 @@ type helpData struct {
 }
 
 func loadHelpData(root string) (helpData, error) {
-	descriptions, err := readJSONObject(filepath.Join(toolRoot(), "data", "command_descriptions.json"))
+	descriptions, err := readAssetObject("data/command_descriptions.json")
 	if err != nil {
 		return helpData{}, err
 	}

@@ -90,7 +90,7 @@ func (a *AITools) Init(options AIInitOptions, interactive bool) int {
 
 	a.Console.Say(AIInfo, "Resolving repositories...\n", AIDecorated)
 
-	repositories, ok := a.repositories(a.data("ai-repositories.json"), config)
+	repositories, ok := a.repositories("", config)
 	if !ok {
 		a.Console.Say(AIError, "Failed to resolve repositories", AIDecorated)
 
@@ -114,7 +114,7 @@ func (a *AITools) Init(options AIInitOptions, interactive bool) int {
 
 func (a *AITools) createDirectories(platforms, resources string) {
 	file := a.data("ai-platforms.json")
-	if info, err := os.Stat(file); err != nil || info.IsDir() {
+	if !a.hasData("ai-platforms.json") {
 		a.Console.Say(AIError, "Platform definitions not found: "+file, AIDecorated)
 		a.Console.Say(AIWarning, "Some directories could not be created", AIDecorated)
 
@@ -244,7 +244,7 @@ func (a *AITools) wizard(existing any, interactive bool) *core.AIObject {
 func (a *AITools) options(file, key, missing string) ([]aiOption, bool) {
 	path := a.data(file)
 
-	contents, err := os.ReadFile(path)
+	contents, err := a.readData(file)
 	if err != nil {
 		a.Console.Say(AIError, missing+path, AIDecoratedErr)
 		a.Console.Stderr("\n")

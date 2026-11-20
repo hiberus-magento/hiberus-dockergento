@@ -60,10 +60,10 @@ func (s agentScene) writer(t *testing.T, root, repository string) AgentContext {
 		Describe: func() (core.Description, error) {
 			return describer.Describe(project, core.ComposeFiles{}, false)
 		},
-		Exclusions: filepath.Join(repository, "data", "ai-exclusions.json"),
-		Command:    filepath.Join(repository, "bin", "hm"),
-		Binary:     s.binary,
-		Version:    s.version,
+		Assets:  os.DirFS(repository),
+		Command: filepath.Join(repository, "bin", "hm"),
+		Binary:  s.binary,
+		Version: s.version,
 	}
 }
 

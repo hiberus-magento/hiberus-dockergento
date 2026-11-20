@@ -2,6 +2,7 @@ package dockergento
 
 import (
 	"testing"
+	"testing/fstest"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/selfrun"
 )
@@ -12,7 +13,7 @@ import (
 // at that step with config_failed. Through this binary, like setup's install steps, it reaches the
 // command that answers.
 func TestSetHostWritesTheBaseURLThroughThisBinary(t *testing.T) {
-	engine := New(Options{Root: t.TempDir()})
+	engine := New(Options{Root: t.TempDir(), Assets: fstest.MapFS{}})
 
 	if _, ok := engine.hosts().Legacy.(selfrun.Runner); !ok {
 		t.Fatalf("set-host runs its magento step through %T, want this binary (selfrun.Runner)",

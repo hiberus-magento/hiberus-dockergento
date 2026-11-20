@@ -2,10 +2,12 @@ package app
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -37,7 +39,7 @@ const shippedSettings = `{
   ]
 }`
 
-func settingsLab(t *testing.T) (root, shipped string) {
+func settingsLab(t *testing.T) (root string, shipped fs.FS) {
 	t.Helper()
 
 	root = t.TempDir()
@@ -45,10 +47,7 @@ func settingsLab(t *testing.T) (root, shipped string) {
 		t.Fatal(err)
 	}
 
-	shipped = filepath.Join(t.TempDir(), "local_settings.json")
-	if err := os.WriteFile(shipped, []byte(shippedSettings), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	shipped = fstest.MapFS{"data/local_settings.json": {Data: []byte(shippedSettings)}}
 
 	return root, shipped
 }
@@ -56,7 +55,7 @@ func settingsLab(t *testing.T) (root, shipped string) {
 func TestDevelopmentSettingsRunOneMagentoCommandPerEntry(t *testing.T) {
 	root, shipped := settingsLab(t)
 	recorder := &execRecorder{}
-	importer := Importer{Orchestrator: recorder, Settings: shipped}
+	importer := Importer{Orchestrator: recorder, Assets: shipped}
 
 	err := importer.ConfigureForDevelopment(core.Project{Root: root, Domain: "shop.test"}, core.ComposeFiles{})
 	if err != nil {
@@ -90,7 +89,7 @@ func TestDevelopmentSettingsRunOneMagentoCommandPerEntry(t *testing.T) {
 func TestDevelopmentSettingsNeedADomain(t *testing.T) {
 	root, shipped := settingsLab(t)
 	recorder := &execRecorder{}
-	importer := Importer{Orchestrator: recorder, Settings: shipped, Binary: "hm"}
+	importer := Importer{Orchestrator: recorder, Assets: shipped, Binary: "hm"}
 
 	err := importer.ConfigureForDevelopment(core.Project{Root: root}, core.ComposeFiles{})
 

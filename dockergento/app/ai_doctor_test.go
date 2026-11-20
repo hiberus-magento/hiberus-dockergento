@@ -79,10 +79,9 @@ func doctorFixture(t *testing.T) AIDoctor {
 	plant(t, filepath.Join(project, core.AIRegistrationFile), registration)
 
 	return AIDoctor{
-		Root:      project,
-		Dir:       project,
-		Tool:      tool,
-		Platforms: filepath.Join(tool, "data", "ai-platforms.json"),
+		Root: project,
+		Dir:  project,
+		Tool: os.DirFS(tool),
 	}
 }
 
