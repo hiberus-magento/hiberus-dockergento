@@ -170,9 +170,54 @@ func (s State) Anonymisation(project string) (string, string) {
 	return "yes", state.AnonymisedAt
 }
 
-// Record writes down that this copy of the data was anonymised.
+// Record writes down that this copy of the data was anonymised. The state file may hold other
+// keys, which anonymisation.sh kept: the date is merged into them, not written over them.
 func (s State) Record(environment, at string) error {
+	return s.update(environment, func(document map[string]json.RawMessage) bool {
+		value, _ := json.Marshal(at)
+		document["anonymised_at"] = value
+
+		return true
+	})
+}
+
+// Clear is called by everything that replaces the database. Whatever it brought in, nobody
+// anonymised it, and a reassuring "yes" left over from before is worse than no record at all.
+// Only the anonymisation's key goes; the rest of the file stays.
+func (s State) Clear(environment string) error {
+	return s.update(environment, func(document map[string]json.RawMessage) bool {
+		if _, recorded := document["anonymised_at"]; !recorded {
+			return false
+		}
+
+		delete(document, "anonymised_at")
+
+		return true
+	})
+}
+
+// update reads the state file (a missing or unreadable one is empty, as the shell's `|| echo
+// '{}'` had it), lets change edit it, and writes it back atomically when change says it changed.
+func (s State) update(environment string, change func(map[string]json.RawMessage) bool) error {
 	file, err := s.file(environment)
+	if err != nil {
+		return err
+	}
+
+	document := map[string]json.RawMessage{}
+	if contents, err := os.ReadFile(file); err == nil {
+		if json.Unmarshal(contents, &document) != nil || document == nil {
+			document = map[string]json.RawMessage{}
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	if !change(document) {
+		return nil
+	}
+
+	encoded, err := json.Marshal(document)
 	if err != nil {
 		return err
 	}
@@ -181,23 +226,33 @@ func (s State) Record(environment, at string) error {
 		return err
 	}
 
-	document, err := json.Marshal(map[string]string{"anonymised_at": at})
+	temporary, err := os.CreateTemp(filepath.Dir(file), "."+filepath.Base(file)+".*")
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(file, append(document, '\n'), 0o644) //nolint:gosec
-}
+	if _, err := temporary.Write(append(encoded, '\n')); err != nil {
+		temporary.Close()
+		os.Remove(temporary.Name())
 
-// Clear is called by everything that replaces the database. Whatever it brought in, nobody
-// anonymised it, and a reassuring "yes" left over from before is worse than no record at all.
-func (s State) Clear(environment string) error {
-	file, err := s.file(environment)
-	if err != nil {
 		return err
 	}
 
-	if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+	if err := temporary.Close(); err != nil {
+		os.Remove(temporary.Name())
+
+		return err
+	}
+
+	if err := os.Chmod(temporary.Name(), 0o644); err != nil {
+		os.Remove(temporary.Name())
+
+		return err
+	}
+
+	if err := os.Rename(temporary.Name(), file); err != nil {
+		os.Remove(temporary.Name())
+
 		return err
 	}
 

@@ -1,6 +1,7 @@
 package toolinfo
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,4 +100,53 @@ func TestOneProjectsStateIsNotAnothers(t *testing.T) {
 	if answer, _ := state.Anonymisation("tienda"); answer != "yes" {
 		t.Fatalf("Anonymisation(tienda) after clearing another = %q, want yes", answer)
 	}
+}
+
+// The state file is the project's, not only the anonymisation's: anonymisation.sh merged its key
+// into whatever else was there and deleted only that key. Recording or clearing keeps the rest.
+func TestRecordingAndClearingKeepTheOtherKeys(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "tienda.json")
+	if err := os.WriteFile(file, []byte(`{"other":"kept","count":3}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state := State{Dir: dir}
+
+	if err := state.Record("tienda", "2026-11-20T10:00:00Z"); err != nil {
+		t.Fatalf("Record = %v, want no error", err)
+	}
+	if got := readJSON(t, file); got["other"] != "kept" || got["count"] != float64(3) || got["anonymised_at"] != "2026-11-20T10:00:00Z" {
+		t.Fatalf("after Record = %v, want the other keys kept and the date added", got)
+	}
+
+	if err := state.Clear("tienda"); err != nil {
+		t.Fatalf("Clear = %v, want no error", err)
+	}
+	got := readJSON(t, file)
+	if _, still := got["anonymised_at"]; still || got["other"] != "kept" || got["count"] != float64(3) {
+		t.Fatalf("after Clear = %v, want only anonymised_at gone", got)
+	}
+	if answer, _ := state.Anonymisation("tienda"); answer != "unknown" {
+		t.Fatalf("Anonymisation after Clear = %q, want unknown", answer)
+	}
+
+	if leftovers, _ := filepath.Glob(filepath.Join(dir, ".*")); len(leftovers) != 0 {
+		t.Errorf("temporary files left behind: %v", leftovers)
+	}
+}
+
+func readJSON(t *testing.T, file string) map[string]any {
+	t.Helper()
+
+	contents, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var document map[string]any
+	if err := json.Unmarshal(contents, &document); err != nil {
+		t.Fatalf("%s is not JSON: %v\n%s", file, err, contents)
+	}
+
+	return document
 }
