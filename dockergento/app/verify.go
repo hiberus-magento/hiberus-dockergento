@@ -167,6 +167,8 @@ func (v Verifier) syntax(run func(string) (string, int, error), changed bool, fi
 	// Its status says nothing: grep's, which the command already forgives
 	output, _, err := run(command)
 	if err != nil {
+		done(false, "")
+
 		return core.Check{}, err
 	}
 
@@ -190,6 +192,8 @@ func (v Verifier) withBinary(run func(string) (string, int, error), container, n
 
 	output, status, err := run(command)
 	if err != nil {
+		done(false, "")
+
 		return core.Check{}, err
 	}
 

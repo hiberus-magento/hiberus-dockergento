@@ -1,6 +1,8 @@
 package app
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -37,16 +39,23 @@ type scripted struct {
 	installed map[string]bool
 	answers   map[string]answer
 	ran       []string
+
+	// broken is the command, or the binary probed with test -x, the container cannot run at all
+	broken string
 }
 
 func (s *scripted) Run(string, []string, []string, io.Writer) (int, error) { return 0, nil }
 
 func (s *scripted) Feed(string, []string, io.Reader, io.Writer) (int, error) { return 0, nil }
 
-func (s *scripted) Capture(container string, command []string, out, errors io.Writer) (int, error) {
+func (s *scripted) Capture(container string, command []string, out, complaints io.Writer) (int, error) {
 	s.container = container
 
 	if len(command) == 3 && command[0] == "test" && command[1] == "-x" {
+		if s.broken != "" && command[2] == "vendor/bin/"+s.broken {
+			return 0, errors.New("the daemon went away")
+		}
+
 		if s.installed[strings.TrimPrefix(command[2], "vendor/bin/")] {
 			return 0, nil
 		}
@@ -57,9 +66,13 @@ func (s *scripted) Capture(container string, command []string, out, errors io.Wr
 	line := strings.Join(command[2:], " ")
 	s.ran = append(s.ran, line)
 
+	if s.broken != "" && line == s.broken {
+		return 0, errors.New("the daemon went away")
+	}
+
 	reply := s.answers[line]
-	out.Write([]byte(reply.out))          //nolint:errcheck
-	errors.Write([]byte(reply.complaint)) //nolint:errcheck
+	out.Write([]byte(reply.out))              //nolint:errcheck
+	complaints.Write([]byte(reply.complaint)) //nolint:errcheck
 
 	return reply.status, nil
 }
@@ -337,5 +350,34 @@ func TestChangedFileNamesReachTheContainerShellAsOneWordEach(t *testing.T) {
 	}
 	if !reflect.DeepEqual(container.ran, want) {
 		t.Fatalf("ran %v, want %v", container.ran, want)
+	}
+}
+
+// TestAStepThatCannotRunClosesItsProgress: the label went up, so it comes down as failed — a
+// spinner left running would draw over the error that follows.
+func TestAStepThatCannotRunClosesItsProgress(t *testing.T) {
+	for _, step := range []struct {
+		name      string
+		container *scripted
+	}{
+		{"syntax", &scripted{broken: syntaxEverywhere}},
+		{"tool", &scripted{installed: map[string]bool{"phpcs": true}, broken: phpcsCommand + "app/code"}},
+	} {
+		t.Run(step.name, func(t *testing.T) {
+			v := verifier(step.container, &branch{}, &[]string{})
+
+			closed := []string{}
+			v.Progress = func(label string) func(bool, string) {
+				return func(ok bool, _ string) { closed = append(closed, fmt.Sprintf("%s %v", label, ok)) }
+			}
+
+			if _, err := v.Verify(verified, core.VerifyOptions{}); err == nil {
+				t.Fatal("verify did not fail when a step could not run")
+			}
+
+			if len(closed) == 0 || !strings.HasSuffix(closed[len(closed)-1], " false") {
+				t.Fatalf("progress closed as %v, want the last step closed as failed", closed)
+			}
+		})
 	}
 }
