@@ -11,6 +11,7 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
+# console/commands is gone, so with no directory every reference found here is a dead one
 test_case "every command script referred to by path exists"
 dead=""
 while IFS=: read -r file line match; do

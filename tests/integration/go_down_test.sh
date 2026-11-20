@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Stop and remove the environment, ported.
+# `hm down`, answered by the binary against a real Docker daemon: what it stops, what it keeps,
+# its usage errors, and the question it asks before `-v` destroys the data.
 #
 # Without `-v` this destroys nothing that cannot be rebuilt. With it the volumes go and the
 # database with them: one letter of difference, no warning and no way back. An environment on this
@@ -11,7 +12,6 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
-SHELL_CLI="$COMMAND_BIN_DIR/bin/run"
 PROJECT="hm-go-abajo"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 
@@ -108,8 +108,7 @@ assert_equals "si" "$(hay_volumen)"
 # ---------------------------------------------------------------- the refusals
 
 for CASO in "down --tonteria" "down -t nada"; do
-    ( cd "$DIR" && $SHELL_CLI $CASO >"$LAB/shell.err" 2>&1 ); ESTADO_SHELL=$?
-    ( cd "$DIR" && $GO_BINARY  $CASO >"$LAB/go.err" 2>&1 );   ESTADO_GO=$?
+    ( cd "$DIR" && $GO_BINARY $CASO >"$LAB/go.err" 2>&1 ); ESTADO_GO=$?
 
     test_case "'$CASO' is a usage error"
     assert_equals "2" "$ESTADO_GO"

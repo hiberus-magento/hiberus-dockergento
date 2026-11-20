@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Database templates: a byte copy of a data directory, frozen and cloned as files.
+# Database templates (`hm db freeze|templates|clone|drop`), answered by the binary against a real
+# Docker daemon: a byte copy of a data directory, frozen and cloned as files.
 #
 # Nothing here talks to a database server — it replaces the files underneath one, which is what
 # makes it seconds instead of the tens of minutes an import costs, and also why the environment has
@@ -10,7 +11,6 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
-SHELL_CLI="$COMMAND_BIN_DIR/bin/run"
 PROJECT="hm-go-plantillas"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 
@@ -91,32 +91,21 @@ assert_equals "$PROJECT/base" "$(jq -r '.data.template' < "$LAB/go.out")"
 test_case "and the document is not mixed with what it printed on the way"
 assert_equals "1" "$(jq -r '.ok' < "$LAB/go.out" | grep -c true)"
 
-test_case "and the two implementations list it the same way"
-assert_equals "$( cd "$DIR" && "$SHELL_CLI" db templates --json | jq -S . )" \
-              "$( cd "$DIR" && "$GO_BINARY" db templates --json | jq -S . )"
+test_case "and it is listed"
+assert_equals "1" "$( cd "$DIR" && "$GO_BINARY" db templates --json | jq -r '.data.templates | length' )"
 
-test_case "including the table a person reads"
-assert_equals "$( cd "$DIR" && "$SHELL_CLI" --no-json db templates 2>&1 )" \
-              "$( cd "$DIR" && "$GO_BINARY" --no-json db templates 2>&1 )"
-
-test_case "freezing again over one that is there is refused, the same way"
-( cd "$DIR" && "$SHELL_CLI" db freeze --name=base >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
-( cd "$DIR" && "$GO_BINARY"  db freeze --name=base >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+test_case "freezing again over one that is there is refused"
+( cd "$DIR" && "$GO_BINARY" db freeze --name=base >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
 assert_equals "2" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
-assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
 
 # ---------------------------------------------------------------- cloning
 #
 # The environment has to be down: this replaces the files a server has open, and a server that
 # finds its data directory changed underneath it does not notice until much later.
 
-test_case "cloning while the environment runs is refused, the same way"
-( cd "$DIR" && "$SHELL_CLI" db clone base >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
-( cd "$DIR" && "$GO_BINARY"  db clone base >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+test_case "cloning while the environment runs is refused"
+( cd "$DIR" && "$GO_BINARY" db clone base >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
 assert_equals "6" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
-assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
 
 #
 # The round trip, which is the whole point: drop the table, clone, and it is back — without a
@@ -136,12 +125,9 @@ done
 test_case "cloning puts the data back, without a server doing anything"
 assert_contains "$( cd "$DIR" && "$GO_BINARY" mysql -q "SELECT id FROM marca" 2>&1 )" "42"
 
-test_case "and a template nobody made is refused, the same way"
-( cd "$DIR" && "$SHELL_CLI" db clone no/existe >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
-( cd "$DIR" && "$GO_BINARY"  db clone no/existe >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
+test_case "and a template nobody made is refused"
+( cd "$DIR" && "$GO_BINARY" db clone no/existe >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
 assert_equals "2" "$GO_STATUS"
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
-assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
 
 # ---------------------------------------------------------------- dropping
 
@@ -154,18 +140,17 @@ test_case "and saying so deletes it, saying what it freed"
 assert_contains "$(cat "$LAB/go.out")" "Dropped $PROJECT/base"
 assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" db templates --json | jq -r '.data.templates | length' )"
 
-test_case "dropping one that is not there is refused, the same way"
-( cd "$DIR" && "$SHELL_CLI" db drop no/existe >"$LAB/shell.err" 2>&1 ); SHELL_STATUS=$?
-( cd "$DIR" && "$GO_BINARY"  db drop no/existe >"$LAB/go.err" 2>&1 );    GO_STATUS=$?
-assert_equals "$SHELL_STATUS" "$GO_STATUS"
-assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
+test_case "dropping one that is not there is refused"
+( cd "$DIR" && "$GO_BINARY" db drop no/existe >"$LAB/go.err" 2>&1 ); GO_STATUS=$?
+assert_equals "2" "$GO_STATUS"
+assert_equals "unknown_template" "$(jq -r '.error.type' < "$LAB/go.err")"
 
 # ---------------------------------------------------------------- and the other family
 #
-# `db` is two families that share a name. The snapshots are still the shell implementation's, and
-# the boundary is between independent operations rather than down the middle of one.
+# `db` is two families that share a name: the templates above and the snapshots, which answer
+# beside them in the same binary.
 
-test_case "a snapshot subcommand still reaches the shell implementation"
+test_case "a snapshot subcommand answers beside them"
 ( cd "$DIR" && "$GO_BINARY" db list >"$LAB/go.out" 2>&1 )
 assert_equals "0" "$?"
 

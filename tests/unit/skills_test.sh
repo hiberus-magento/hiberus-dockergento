@@ -72,6 +72,7 @@ done
 
 # ---------------------------------------------------------------- the commands
 
+# A command exists when the binary routes it: console/commands, the other place it could be, is gone
 test_case "every command a skill mentions exists"
 routed_names="$(hm_routed_commands)"
 unknown=""
@@ -79,7 +80,6 @@ while IFS=$'\t' read -r skill invocation; do
     [ -z "$invocation" ] && continue
     set -- $invocation
     command_name="$2"
-    [ -f "$COMMAND_BIN_DIR/console/commands/$command_name.sh" ] && continue
     grep -qx "$command_name" <<< "$routed_names" && continue
     unknown="${unknown}${skill}: hm ${command_name}\n"
 done <<< "$(invocations)"

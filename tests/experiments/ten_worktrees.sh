@@ -20,8 +20,7 @@
 #
 set -uo pipefail
 
-HM="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/bin/run"
-HM_BINARY="$(dirname "$HM")/hm"
+HM_BINARY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/bin/hm"
 WORKTREES="${1:-10}"
 MEMORY_FLOOR_MB="${MEMORY_FLOOR_MB:-500}"
 
@@ -178,7 +177,7 @@ done
 note "base de datos lista tras $waited s"
 
 started=$(date +%s)
-( cd "$LAB/$PROJECT" && "$HM" db freeze --name=base ) >/dev/null 2>&1
+( cd "$LAB/$PROJECT" && "$HM_BINARY" db freeze --name=base ) >/dev/null 2>&1
 note "plantilla de base de datos congelada en $(elapsed_since "$started")"
 
 base_free=$(vm_memory_free_mb)

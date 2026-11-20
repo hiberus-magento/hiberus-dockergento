@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 #
-# Named copies of a project's database, ported.
+# Named copies of a project's database (`hm db snapshot|list|restore|remove|clear`), answered by
+# the binary over a real database.
 #
 # The other half of `db` freezes the data directory; this one writes a dump. It is the copy that
 # outlives the environment — it survives `down -v`, which is the moment it is needed — and it is
 # what `down` offers to take before destroying anything.
 #
-# Both implementations are compared over the same real database: what one saves the other lists,
-# and what one refuses the other refuses the same way.
-#
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
-SHELL_CLI="$COMMAND_BIN_DIR/bin/run"
 PROJECT="hm-go-copias"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 
@@ -109,40 +106,29 @@ assert_equals "100" "$(consulta "SELECT total FROM pedidos WHERE id = 1")"
 test_case "and no half-written file is left beside it"
 assert_empty "$(find "$HM_SNAPSHOT_DIR" -name '*.partial' 2>/dev/null)"
 
-# ---------------------------------------------------------------- what one saves the other lists
+# ---------------------------------------------------------------- listing it
 
-test_case "what the ported half saved, the shell one lists"
-assert_contains "$( cd "$DIR" && "$SHELL_CLI" db list --json | jq -r '.data.snapshots[].name' )" "antes"
-
-test_case "and both list it the same way"
-assert_equals "$( cd "$DIR" && "$SHELL_CLI" db list --json | jq -S '.data.snapshots | map(.name)' )" \
-              "$( cd "$DIR" && "$GO_BINARY" db list --json | jq -S '.data.snapshots | map(.name)' )"
-
-#
-# The size is read from the file rather than recorded, so both have to measure it the same way:
-# `du` reports what a file takes on disk, and a copy reported smaller than it is would be the
-# wrong answer in the one direction that matters when a disk is filling up.
-#
-test_case "including the size, which both measure as disk usage"
-assert_equals "$( cd "$DIR" && "$SHELL_CLI" db list --json | jq -S '.data.snapshots | map(.size)' )" \
-              "$( cd "$DIR" && "$GO_BINARY" db list --json | jq -S '.data.snapshots | map(.size)' )"
-
-test_case "and the table a person reads"
-assert_equals "$( cd "$DIR" && "$SHELL_CLI" --no-json db list 2>&1 )" \
-              "$( cd "$DIR" && "$GO_BINARY" --no-json db list 2>&1 )"
+test_case "what was saved is listed"
+assert_contains "$( cd "$DIR" && "$GO_BINARY" db list --json | jq -r '.data.snapshots[].name' )" "antes"
 
 # ---------------------------------------------------------------- the refusals
 
-for CASO in "db snapshot --name=antes" "db snapshot --name=../fuera" "db snapshot --tonteria" \
-            "db restore" "db restore noexiste" "db remove" "db remove noexiste" \
-            "db clear --tonteria"; do
-    ( cd "$DIR" && $SHELL_CLI $CASO >"$LAB/shell.err" 2>&1 ); ESTADO_SHELL=$?
-    ( cd "$DIR" && $GO_BINARY  $CASO >"$LAB/go.err" 2>&1 );   ESTADO_GO=$?
+while read -r TIPO CASO; do
+    ( cd "$DIR" && $GO_BINARY $CASO >"$LAB/go.err" 2>&1 ); ESTADO_GO=$?
 
-    test_case "'$CASO' is refused the same way"
-    assert_equals "$ESTADO_SHELL" "$ESTADO_GO"
-    assert_equals "$(jq -S . < "$LAB/shell.err")" "$(jq -S . < "$LAB/go.err")"
-done
+    test_case "'$CASO' is refused as $TIPO"
+    assert_equals "2" "$ESTADO_GO"
+    assert_equals "$TIPO" "$(jq -r '.error.type' < "$LAB/go.err")"
+done <<'CASOS'
+snapshot_exists db snapshot --name=antes
+invalid_name db snapshot --name=../fuera
+invalid_argument db snapshot --tonteria
+missing_name db restore
+unknown_snapshot db restore noexiste
+missing_name db remove
+unknown_snapshot db remove noexiste
+invalid_argument db clear --tonteria
+CASOS
 
 test_case "and overwriting is allowed when it is asked for"
 assert_equals "0" "$( cd "$DIR" && "$GO_BINARY" --force db snapshot --name=antes --json >/dev/null 2>&1; echo $? )"
@@ -236,8 +222,9 @@ test_case "and reaches every project when it is"
 ( cd "$DIR" && printf 'all\n' | "$GO_BINARY" --no-json db clear --all >/dev/null 2>&1 )
 assert_empty "$(find "$HM_SNAPSHOT_DIR" -name '*.sql.gz' 2>/dev/null)"
 
-test_case "clearing nothing says so instead of failing, in both"
-assert_equals "$( cd "$DIR" && "$SHELL_CLI" db clear --json | jq -S . )" \
-              "$( cd "$DIR" && "$GO_BINARY" db clear --json | jq -S . )"
+test_case "clearing nothing says so instead of failing"
+salida=$( cd "$DIR" && "$GO_BINARY" db clear --json )
+assert_equals "true" "$(printf '%s' "$salida" | jq -r '.ok')"
+assert_equals "0" "$(printf '%s' "$salida" | jq -r '.data.removed')"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"

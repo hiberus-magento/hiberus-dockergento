@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 #
-# The Go binary against the shell one: the same answers.
-#
-# This is the promise of the strangler. Somebody installs the binary and notices nothing — same
-# output, same exit codes, same prompts — and everything not ported yet still runs. A test that
-# compares the two is the only way to keep that true while commands move across.
+# The binary's own answers, and the seam with bin/run: the binary answers every command itself,
+# and only `--version` and an unknown command are still compared with what bin/run says.
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
@@ -266,15 +263,10 @@ assert_contains "$(cat "$LAB/go.err")$(cat "$LAB/go.out")" "$(head -c 40 "$LAB/s
 
 # ---------------------------------------------------------------- what the Go layer resolved
 #
-# The two implementations answer the same question separately, and a test compares them. That is
-# how a command gets ported without anybody reading both.
-
-#
 # Resolution used to have a diagnostic of its own. It does not need one any more: describe,
-# doctor, start and logs all go through the same resolver and every one of them is compared
-# against the shell implementation, which is a stronger check than a command nobody runs.
+# doctor, start and logs all go through the same resolver, so describe's answer is enough.
 #
-test_case "the Go layer resolves the same project as the shell one"
+test_case "the Go layer resolves the project from its properties"
 resolved=$( cd "$DIR" && "$GO_BINARY" describe --json )
 assert_equals "$PROJECT" "$(printf '%s' "$resolved" | jq -r '.data.project.name')"
 assert_equals "go.test" "$(printf '%s' "$resolved" | jq -r '.data.project.domain')"
