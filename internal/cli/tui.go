@@ -458,9 +458,14 @@ func (d *dashboard) runAction(args ...string) {
 	fmt.Fprintf(d.out, "%s%s %s%s  in %s\n\n", code("\033[1m"), binaryName(), strings.Join(args, " "),
 		code(reset), name)
 
+	//
+	// Handing until the key that takes the terminal back: the Ctrl-C that ends the command reaches
+	// the dashboard at the same moment, and its handler can run after the command has exited.
+	// While that key is awaited the terminal is raw, so a Ctrl-C there is a key, not a signal.
+	//
 	d.handing.Store(true)
+
 	status := d.runner.Hand(root, args...)
-	d.handing.Store(false)
 
 	fmt.Fprint(d.out, "\n")
 
@@ -471,6 +476,7 @@ func (d *dashboard) runAction(args ...string) {
 	}
 
 	d.pause()
+	d.handing.Store(false)
 	d.resume()
 	d.loadFleet()
 }

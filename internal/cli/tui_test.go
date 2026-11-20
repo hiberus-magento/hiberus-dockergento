@@ -994,6 +994,34 @@ func TestCtrlCDuringAHandedCommandEndsOnlyThatCommand(t *testing.T) {
 	}
 }
 
+// TestACtrlCHandledLateStillEndsOnlyTheCommand: the Ctrl-C that ends a handed command reaches the
+// dashboard at the same moment, and its handler can run after the command has already exited. It
+// is still the command's: the dashboard stays handing until the key that takes it back, when the
+// terminal is raw and a Ctrl-C is a key, not a signal.
+func TestACtrlCHandledLateStillEndsOnlyTheCommand(t *testing.T) {
+	l := lab(t, "lq", 1)
+	signals, exited := interruptWatched(t, l.board)
+
+	l.runner.handed = 130
+	l.board.pause = func() {
+		// The interruption, handled only now that the command is over
+		signals <- syscall.SIGINT
+		time.Sleep(100 * time.Millisecond)
+
+		l.pauses++
+	}
+
+	if code := l.board.run(); code != exitOK {
+		t.Fatalf("dashboard = %d", code)
+	}
+
+	select {
+	case code := <-exited:
+		t.Fatalf("the dashboard exited %d on a Ctrl-C that ended the command it handed the terminal to", code)
+	default:
+	}
+}
+
 // TestAnInterruptionOutsideAHandedCommandRestoresAndEnds: a TERM at any time, or an INT with
 // nothing handed, gives the terminal back and ends.
 func TestAnInterruptionOutsideAHandedCommandRestoresAndEnds(t *testing.T) {
