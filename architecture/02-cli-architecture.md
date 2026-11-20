@@ -2,7 +2,7 @@
 
 ### 2.1 Design Pattern: Command Router
 
-The tool implements a **Command Router** pattern. The `cmd/hm` Go binary is the entry point and answers every command: `internal/cli/run.go`'s switch routes each one to its handler. What the switch does not know falls through, arguments untouched, to the `bin/run` Bash bridge, which now only serves help (`hm`, `hm --help`, `hm <cmd> --help`), `--version`, project-defined commands in `config/hm/commands/*.sh`, and the `command_moved_to_binary` refusal for a known command that reaches it directly. `MIGRATION.md` has the history of the migration.
+The tool implements a **Command Router** pattern. The `cmd/hm` Go binary is the entry point and answers every command: `internal/cli/run.go`'s switch routes each one to its handler. The binary also answers the help (`hm`, `hm --help`, `hm <cmd> --help`) and `--version`/`-v`. What the switch does not know is a project-defined command, `config/hm/commands/<name>.sh`, run by `internal/cli/project_command.go`; any other name is `command_not_found`. There is no Bash entry point: `bin/run` and the `console/` tree were deleted once the binary answered everything. `MIGRATION.md` has the history of the migration.
 
 ### 2.2 Execution Flow
 
@@ -29,9 +29,9 @@ User executes: hm <command> [options] [arguments]
 Anything not in the switch:
 
 ```
-   internal/cli.Run → bin/run
+   internal/cli.Run → projectCommand (internal/cli/project_command.go)
           ↓
-   help / --version / config/hm/commands/<command>.sh / command_moved_to_binary refusal
+   config/hm/commands/<command>.sh, or command_not_found (exit 2)
 ```
 
 ### 2.3 Main Components
@@ -46,41 +46,25 @@ Anything not in the switch:
 
 Adding a command: a `case` in `run.go`, its handler and test in `internal/cli`, the use case in `dockergento/app`, and its entry in `data/command_descriptions.json`, which the help and the shell completion read.
 
-#### 2.3.1 Entry Point (`bin/run`)
+#### 2.3.1 Project-defined commands (`internal/cli/project_command.go`)
 
-The Bash bridge. It keeps the structure it had as the dispatcher, but no command script ships in `console/commands/` any more: `check_command_dir` finds only project-defined commands, and refuses a known command with `command_moved_to_binary`.
+A project adds commands of its own as executable scripts at `config/hm/commands/<name>.sh` under its root. The router reaches them only after every routed name, so a command of the tool always wins. Before the script runs, the binary:
 
-```bash
-# Structure of bin/run
-1. resolve_absolute_dir()    # Resolves absolute paths for the CLI
-2. init_dirs()                # Exports system directory variables
-3. import_dependencies()      # Loads tasks, helpers, components
-4. check_command_dir()        # Validates if the command exists
-5. docker_env_variables()     # Configures DOCKER_COMPOSE and COMPOSE_PROJECT_NAME
-6. validate_command()         # Verifies that Docker is running
-7. execute()                  # Executes the specific command
+```
+1. Resolves the project root (from a worktree, the main checkout's)
+2. Builds the script's environment: COMMAND_BIN_NAME, COMMAND_TOOLNAME, COMMAND_BIN_DIR,
+   DATA_DIR, HM_ROOT, COMMANDS_DIR / CUSTOM_COMMANDS_DIR (the project's commands directory),
+   the merged properties, the colour variables, HM_EXIT_*, MACHINE, HM_OUTPUT_FORMAT,
+   COMPOSE_PROJECT_NAME (configured, or derived from the directory), DOCKER_COMPOSE
+3. Checks that Docker answers and that the Compose configuration is valid (cached per file)
+4. Runs the script with the remaining arguments, and returns its exit code
 ```
 
-**Exported environment variables:**
-- `COMMAND_BIN_NAME="hm"`
-- `COMMAND_TOOLNAME="Hiberus Dockergento"`
-- `COMMAND_BIN_DIR`: Path to the CLI root directory
-- `COMMANDS_DIR`: Path to `console/commands/` (no longer shipped; replaced by `CUSTOM_COMMANDS_DIR` for a project command)
-- `CUSTOM_COMMANDS_DIR`: Path to project custom commands (if they exist)
-- `TASKS_DIR`: Path to `console/tasks/`
-- `HELPERS_DIR`: Path to `console/helpers/`
-- `COMPONENTS_DIR`: Path to `console/components/`
-- `DATA_DIR`: Path to `data/`
+The environment is the one the shell entry point exported, so scripts written against it keep working — except that `HELPERS_DIR`, `TASKS_DIR` and `COMPONENTS_DIR` are no longer set: the shell tree they pointed at is gone.
 
-#### 2.3.2 Functional Directory Structure
+#### 2.3.2 What is left of `console/`
 
-What is left under `console/` is what `bin/run` loads:
-
-**`console/tasks/`**: `load_properties.sh` (loads and merges JSON properties), `set_machine_specific_properties.sh` (detects Mac/Linux), `set_environment_labels.sh`, `worktree_env.sh`, ...
-
-**`console/helpers/`**: `docker.sh`, `global_options.sh`, `process_hm_options.sh`, `print_help.sh` (help system), `version.sh`, `project_name.sh`, ...
-
-**`console/components/`**: `print_message.sh` (colored printing: print_info, print_error, print_warning), `print_json.sh`
+Only `console/hm-completion.bash`, the shell completion `generate_completion.sh` writes from `data/command_descriptions.json`. It stays at that path because users' shell profiles source it there.
 
 #### 2.3.3 Properties Loading System
 
@@ -92,13 +76,13 @@ Properties are loaded through a **cascade merge** system:
 2. Default properties: data/properties.json
 ```
 
-**Loading process** (`console/tasks/load_properties.sh`):
-```bash
+**Loading process** (`dockergento/adapters/fsprops`):
+```
 1. Load data/properties.json (default values)
-2. If config/docker/properties.json exists, merge over defaults
-3. Convert JSON to environment variables with jq:
-   {"MAGENTO_DIR": "."} → export MAGENTO_DIR="."
-4. Use 'set -a' to auto-export all variables
+2. If config/docker/properties.json exists, merge it over the defaults
+3. A directory with no properties of its own is not a project: nothing is returned
+4. COMPOSE_PROJECT_NAME, when the project does not configure it, is the name Docker Compose
+   derives from the directory (core.DeriveProjectName, applied in app.Resolver)
 ```
 
 **Key properties:**
@@ -111,18 +95,7 @@ Properties are loaded through a **cascade merge** system:
 
 #### 2.3.4 Validation and Routing
 
-**Command validation** (`check_command_dir`, in `bin/run`):
-```bash
-1. Search in config/hm/commands/<command>.sh (project-defined commands)
-2. If it is a command declared in data/command_descriptions.json, refuse with
-   command_moved_to_binary: the binary answers it
-3. Otherwise, show error and suggest 'hm --help'
-```
-
-**Docker validation** (`validate_command`):
-- Commands like `setup`, `create-project`, `compatibility`, `update` don't require Docker
-- Rest of commands execute `is_docker_service_running` before proceeding
-- Validates existence of `docker-compose.yml` before execution
+Each handler validates for itself: its own options (an undeclared one is a usage error, exit 2), then whether it needs a project (exit 4 outside one) and a running Docker daemon (exit 3). A name the switch does not route is looked up as a project command, and otherwise refused with `command_not_found` and the hint `hm --help`.
 
 #### 2.3.5 Help System and Metadata
 
@@ -146,14 +119,8 @@ Command metadata is stored in `data/command_descriptions.json`:
 
 1. **Custom Commands Support**: Projects can define additional commands in `config/hm/commands/` that integrate automatically
 
-2. **Global Options Processing**: Before routing, processes `--help`, `-h`, `--version`, `-v`
+2. **Global Options Processing**: Before routing, takes out `--help`, `-h`, `--version`, `-v`, `--json`, `--no-json`, `--yes`, `--no-color`
 
-3. **Dynamic Docker Compose Configuration**: 
-   ```bash
-   DOCKER_COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.dev.mac.yml"
-   ```
-   Built dynamically based on the detected operating system
+3. **Dynamic Docker Compose Configuration**: the compose files are chosen for the detected operating system (`Engine.ComposeFiles`), and a project command gets them as `DOCKER_COMPOSE`
 
-4. **Cascade Sourcing**: Commands can load additional helpers/tasks/components as needed via `source`
-
-5. **Exit Early Pattern**: Validations fail fast with descriptive error messages before executing costly operations
+4. **Exit Early Pattern**: Validations fail fast with descriptive error messages before executing costly operations

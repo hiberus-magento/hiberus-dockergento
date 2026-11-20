@@ -79,7 +79,9 @@ GitHub release of the tag the checkout is at (`hm_<os>_<arch>`, checked against 
 with an error and leaves any existing installation as it was: install [Go](https://go.dev/dl/)
 and run it again, or build it yourself with `cd ~/hm && go build -o bin/hm ./cmd/hm`.
 
-A link from an older installation to `bin/run` is moved to `bin/hm` when the installer runs.
+A link from an older installation to `bin/run`, the shell entry point hm used to be (it no longer
+exists), is moved to `bin/hm` when the installer runs. The shell completion is still written to
+`~/hm/console/hm-completion.bash`, the path existing shell profiles already source.
 
 `hm update` and `hm switch` get the binary again, the same way, every time they move the checkout.
 See [update](docs/update.md).
@@ -276,6 +278,38 @@ HM_NON_INTERACTIVE=1 hm setup -p myproject -d myproject.local -r .
 <br>
 
 ## Custom CLI Commands
+
+A project can add commands of its own: an executable script at
+`config/hm/commands/<name>.sh`, under the project's root, is run by `hm <name> [args]`.
+
+```bash
+mkdir -p config/hm/commands
+cat > config/hm/commands/deploy.sh <<'SH'
+#!/usr/bin/env bash
+$DOCKER_COMPOSE exec phpfpm bin/magento deploy:mode:show
+SH
+chmod +x config/hm/commands/deploy.sh
+hm deploy
+```
+
+- The tool's own commands always win: a script named like one of them is never run.
+- The script must be executable; it is run directly, so its shebang decides the interpreter. It
+  gets the arguments that follow the name — without the tool's own flags (`--json`, `--yes`,
+  `--no-color`...) — the terminal, and its exit code becomes `hm`'s.
+- Before it runs, `hm` checks that Docker answers and that the project's Compose files are valid.
+- It is looked up from the project's root (run `hm <name>` there, not from a subdirectory); from
+  a git worktree it is the main checkout's script that runs.
+- Its environment carries the project's properties (`COMPOSE_PROJECT_NAME`, `DOMAIN`,
+  `MAGENTO_DIR`, ...), `HM_ROOT`, `DOCKER_COMPOSE` (the `docker compose -f ...` command for this
+  project), `MACHINE`, `HM_OUTPUT_FORMAT`, the exit codes as `HM_EXIT_*` and the colour
+  variables. Scripts written against the old shell entry point that sourced files from its
+  `console/` directory (`$HELPERS_DIR`, `$TASKS_DIR`, `$COMPONENTS_DIR`) have to stop doing so:
+  that directory is gone.
+- `hm --help` lists the project's commands; an optional `config/hm/commands/command_descriptions.json`
+  describes them in the same format as the tool's own `data/command_descriptions.json`, and
+  `hm <name> --help` prints that description.
+
+## Command reference
 
 | Command | Description |
 |---|---|

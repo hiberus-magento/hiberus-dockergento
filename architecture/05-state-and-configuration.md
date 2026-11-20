@@ -121,40 +121,10 @@ project/
 
 #### 5.3.1 Initialization Flow
 
-The Go binary reads the same two files itself, with the project's values over the defaults (`Engine.Properties` in `dockergento/dockergento.go`, through the `fsprops` adapter). `bin/run`, which now only serves help, `--version` and project-defined commands, loads them into environment variables for those:
+The Go binary reads the two files itself, the project's values over the defaults (`Engine.Properties` in `dockergento/dockergento.go`, through the `fsprops` adapter). A directory with no `config/docker/properties.json` of its own is not a project. `app.Resolver` turns the properties into the project: when `COMPOSE_PROJECT_NAME` is not configured, the name is the one Docker Compose derives from the root directory (`core.DeriveProjectName`: lowercase, only `[a-z0-9_-]` kept, leading `-`/`_` trimmed); a configured name always wins.
 
-```bash
-# bin/run → init_dirs() → import_dependencies()
-1. source "$TASKS_DIR"/load_properties.sh
-     ↓
-2. refactor_old_version()  # Converts old format if it exists
-     ↓
-3. load_colors()  # Defines color variables for UI
-     ↓
-4. load_properties()
-     ↓
-     a. Read data/properties.json
-     b. If config/docker/properties.json exists, read and merge
-     c. Convert JSON → Environment variables with jq
-     d. set -a to auto-export
-```
+A project-defined command (`config/hm/commands/<name>.sh`) gets the merged properties as environment variables (`projectRun.loadProperties` in `internal/cli/project_command.go`), the way the shell entry point exported them:
 
-**Merge implementation** (`console/tasks/load_properties.sh`):
-
-```bash
-if [[ -f "$CUSTOM_PROPERTIES_DIR"/properties.json ]]; then
-    # Merge both JSON files
-    jq -r 'to_entries[] | .key + "=\"" + .value + "\""' \
-        "$DATA_DIR"/properties.json \
-        "$CUSTOM_PROPERTIES_DIR"/properties.json
-else
-    # Only global properties
-    jq -r 'to_entries[] | .key + "=\"" + .value + "\""' \
-        "$DATA_DIR"/properties.json
-fi | eval  # Execute to set variables
-```
-
-**Result**: Globally available variables:
 ```bash
 export MAGENTO_DIR="./src"
 export COMPOSE_PROJECT_NAME="myproject"
@@ -164,25 +134,16 @@ export BIN_DIR="./vendor/bin"
 # etc.
 ```
 
+The shell implementation also converted the pre-JSON `config/docker/properties` file into `properties.json` on every invocation; that conversion was not carried over to the binary.
+
 #### 5.3.2 Operating System Detection
 
-```bash
-# console/tasks/set_machine_specific_properties.sh
-uname -s
-  ↓
-"Darwin" → export MACHINE="mac"
-           export DOCKER_COMPOSE_FILE_MACHINE="docker-compose.dev.mac.yml"
-  ↓
-"Linux"  → export MACHINE="linux"
-           export DOCKER_COMPOSE_FILE_MACHINE="docker-compose.dev.linux.yml"
-```
+`Platform()` in `dockergento/dockergento.go` answers `mac` or `linux` from the running OS, and the compose files are `DOCKER_COMPOSE_FILE` plus `DOCKER_COMPOSE_FILE_MAC` or `DOCKER_COMPOSE_FILE_LINUX`. A project-defined command is handed the result:
 
-**Building `$DOCKER_COMPOSE`**:
 ```bash
-# In bin/run
-DOCKER_COMPOSE="docker-compose -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_MACHINE"
-# Result on Mac:
-# docker-compose -f docker-compose.yml -f docker-compose.dev.mac.yml
+MACHINE="mac"
+DOCKER_COMPOSE_FILE_MACHINE="docker-compose.dev.mac.yml"
+DOCKER_COMPOSE="docker compose -f docker-compose.yml -f docker-compose.dev.mac.yml"
 ```
 
 ### 5.4 System State Variables
@@ -191,19 +152,19 @@ DOCKER_COMPOSE="docker-compose -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_M
 
 | Variable | Origin | Purpose | Example |
 |----------|--------|---------|---------|
-| `COMMAND_BIN_NAME` | bin/run | CLI command name | "hm" |
-| `COMMAND_TOOLNAME` | bin/run | Full tool name | "Hiberus Dockergento" |
-| `COMMAND_BIN_DIR` | bin/run | Tool root directory | "~/hm" |
-| `COMMANDS_DIR` | bin/run | Commands directory | "~/hm/console/commands" |
-| `DATA_DIR` | bin/run | Data directory | "~/hm/data" |
+| `COMMAND_BIN_NAME` | the binary, for a project command | CLI command name | "hm" |
+| `COMMAND_TOOLNAME` | the binary, for a project command | Full tool name | "Hiberus Dockergento" |
+| `COMMAND_BIN_DIR` | the binary, for a project command | Tool root directory | "~/hm" |
+| `COMMANDS_DIR` | the binary, for a project command | The project's commands directory | "<project>/config/hm/commands" |
+| `DATA_DIR` | the binary, for a project command | Data directory | "~/hm/data" |
 | `MAGENTO_DIR` | properties.json | Path to Magento code | "." or "./src" |
 | `DOMAIN` | properties.json | Local domain | "myproject.local" |
-| `COMPOSE_PROJECT_NAME` | properties.json | Docker project name | "myproject" |
-| `MACHINE` | set_machine_specific_properties.sh | Operating system | "mac" or "linux" |
-| `DOCKER_COMPOSE` | bin/run | Full docker-compose command | "docker-compose -f docker-compose.yml -f docker-compose.dev.mac.yml" |
+| `COMPOSE_PROJECT_NAME` | properties.json, or derived from the directory | Docker project name | "myproject" |
+| `MACHINE` | the binary (`Platform()`) | Operating system | "mac" or "linux" |
+| `DOCKER_COMPOSE` | the binary, for a project command | Full docker-compose command | "docker-compose -f docker-compose.yml -f docker-compose.dev.mac.yml" |
 | `WORKDIR_PHP` | properties.json | Working directory in container | "/var/www/html" |
 | `USER_PHP` | properties.json | User in PHP container | "app" |
-| `REQUIREMENTS` | version_manager.sh | JSON with service versions | '{"php":"8.2-buster",...}' |
+| `REQUIREMENTS` | `data/requirements.json`, read by the binary | JSON with service versions | '{"php":"8.2-buster",...}' |
 | `MAGENTO_VERSION` | the binary (`hm setup`, `hm create-project`) | Selected Magento version | "2.4.6" |
 | `MAGENTO_EDITION` | the binary (`hm create-project`) | Magento edition | "community" or "enterprise" |
 | `XDEBUG_HOST` | retired — see 5.8.1 | Host IP for xDebug, resolved in Go | empty on macOS; `docker0`'s inet address on Linux |
@@ -211,7 +172,7 @@ DOCKER_COMPOSE="docker-compose -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_M
 
 #### 5.4.2 Color Variables (UI)
 
-Defined in `load_properties.sh`:
+Handed to a project command as the escaped strings the shell held (`projectRun.palette`), empty when colour is off:
 ```bash
 export BLUE="\033[0;34m"
 export GREEN="\033[0;32m"
@@ -221,13 +182,7 @@ export COLOR_RESET="\033[0m"
 # etc.
 ```
 
-Used by `console/components/print_message.sh`:
-```bash
-print_info()    # Green
-print_error()   # Red
-print_warning() # Yellow
-print_code()    # Brown
-```
+The binary's own output is painted in Go (`internal/cli/bashfmt.go` and the renderers), with the same colours.
 
 ### 5.5 Configuration Persistence
 
@@ -294,7 +249,7 @@ hm magento config:set web/unsecure/base_url https://myproject.local/
 
 #### 5.6.2 Extracting Domains from Database
 
-**Where**: `console/tasks/set_etc_hosts.sh`, on Linux after an environment starts
+**Where**: `addSelfRoutingEntries` in `dockergento/app/after_start.go`, on Linux after an environment starts (ported from the shell `set_etc_hosts.sh`, shown below)
 
 ```bash
 # Read all domains configured in Magento, through the binary

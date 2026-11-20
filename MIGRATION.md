@@ -4,9 +4,8 @@
 > la CLI, la TUI y la web se alimenten de las mismas piezas, que no haya nada duplicado y que la
 > arquitectura hexagonal se sostenga de verdad. El orden entre tandas se optimiza; el destino no
 > se negocia. Lo único que seguirá siendo shell son los comandos que un proyecto añada en
-> `config/hm/commands`, y a esos los ejecuta ya el propio binario (`internal/cli/project_command.go`):
-> la ayuda, `--version` y los comandos del proyecto no pasan por `bin/run`, que el binario ya no
-> llama y queda pendiente de borrarse.
+> `config/hm/commands`, y a esos los ejecuta el propio binario (`internal/cli/project_command.go`).
+> `bin/run` y el árbol `console/` ya no existen (ver «Cierre» abajo).
 >
 > El documento que se abre al empezar una sesión. Las decisiones están en
 > [docs/research/2.0-arquitectura.md](docs/research/2.0-arquitectura.md); esto es el estado.
@@ -24,13 +23,33 @@
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
+## Cierre: el punto de entrada de shell, borrado
+
+Con los 65 comandos, la ayuda, `--version` y los comandos del proyecto respondidos por el binario,
+`bin/run` y todo `console/` se borraron en la rama `delete-bin-run`:
+
+- `1094e18` — el binario deriva `COMPOSE_PROJECT_NAME` del directorio cuando el proyecto no lo
+  configura (lo último que sólo hacía `bin/run`).
+- `d564d01` — fuera `bin/run`, `console/` (salvo `console/hm-completion.bash`, que los perfiles de
+  shell de los usuarios cargan por esa ruta), el paquete `dockergento/adapters/legacy`, la opción
+  `ShellRoot`, la ruta `HM_LEGACY_ROOT` de `selfrun` y la negativa `command_moved_to_binary`.
+  Un comando del proyecto ya no recibe `HELPERS_DIR`, `TASKS_DIR` ni `COMPONENTS_DIR`.
+- `d67db23` — fuera las suites que sólo probaban el árbol de shell; las demás preguntan a `bin/hm`.
+  `08dce8d` — el clon de `version_switching_test.sh` crea `bin/`, que ya no guarda nada versionado.
+- El commit siguiente a ese — la documentación (README, CLAUDE.md, `architecture/`, este fichero,
+  `ROADMAP.md` y los specs de `openspec/specs/`) describe el estado final.
+
+Lo que el shell hacía y el binario no: convertir el antiguo `config/docker/properties` en
+`properties.json` en cada invocación (`load_properties.sh`, `refactor_old_version`). Está en la
+pista C de `ROADMAP.md`. El resto de este documento es historia y se conserva como tal.
+
 ## Cómo continuar si esta sesión se corta
 
 ```bash
 git checkout release/2.0.0
 go build -o bin/hm ./cmd/hm    # el binario
 go test ./...                  # los tests de Go
-./tests/run.sh tests/unit      # la suite de bash, la parte rápida
+./tests/run.sh unit            # la suite de bash, la parte rápida
 ./bin/hm hm-go-project         # lo que la capa Go resuelve aquí
 ```
 
@@ -42,7 +61,7 @@ capa Go no tiene dónde mirarse. Cada una muere en un sitio concreto:
 
 | | qué enseña | desaparece cuando |
 |---|---|---|
-| `hm _registry` | lo que guarda el registro | nada en shell necesite leerlo: hoy es también por donde lo lee `bin/run` |
+| `hm _registry` | lo que guarda el registro | nada en shell necesite leerlo — condición cumplida desde que `bin/run` no existe; sólo lo miran ya las suites (`go_passthrough_test.sh`) |
 
 El código está en dos mitades. `dockergento/` es la herramienta como librería —dominio, puertos,
 casos de uso, adaptadores y una fachada— y es pública porque `internal/` es una regla del lenguaje
@@ -1021,7 +1040,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 
 1. Se escribe el caso de uso en `internal/app`, contra puertos, con sus tests y sin Docker.
 2. Se escribe el adaptador que haga falta en `internal/adapters`.
-3. Se conecta en `internal/cli` y se quita del puente.
+3. Se conecta en `internal/cli` (el puente ya no existe).
 4. Se porta el test de integración del shell, que pasa a ejecutar el binario.
 5. Se marca aquí, en la tabla y en el contador de arriba.
 

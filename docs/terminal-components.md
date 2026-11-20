@@ -1,8 +1,10 @@
 # Terminal components
 
-`console/components/tui.sh` holds the primitives for drawing on a terminal: size, cursor,
-alternate screen, keyboard and resize handling. It is the base the terminal dashboard is
-built on, and it has no dependencies.
+The terminal dashboard (`hm tui`) draws with a handful of primitives: size, cursor, alternate
+screen, keyboard and resize handling. They were first written in Bash (`console/components/tui.sh`,
+gone with the rest of the shell tree); the dashboard is Go now (`internal/cli/tui.go`,
+`tui_frame.go`, `tui_render.go`), and the rules below are the ones it keeps. The function names
+and the Bash 3.2 notes are the shell version's, kept as the reasoning behind those rules.
 
 ## Why raw sequences and not `tput`
 

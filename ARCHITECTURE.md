@@ -102,8 +102,7 @@
 
 - **`cmd/hm` and `internal/cli/run.go`** (the Go binary and its router): Section 2
 - **`dockergento/app`, `dockergento/core`, ports and adapters**: Sections 2, 4
-- **`bin/run`** (help, `--version`, project-defined commands, refusal for moved commands): Section 2.3.1
-- **`console/tasks/`, `console/helpers/`** (what `bin/run` still loads): Sections 2.3.2, 5, 6
+- **`internal/cli/project_command.go`** (a project's own commands under `config/hm/commands`): Section 2.3.1
 - **`data/properties.json`**: Section 5.2.1
 - **`docker-compose` templates**: Section 3.3
 

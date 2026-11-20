@@ -1,5 +1,11 @@
 ## 4. Command Translation Layer
 
+> **Where this lives now.** The translations below are what each command does; the shell
+> snippets are from the Bash implementation (`console/commands/*.sh`), which is gone, and are kept
+> as the reference the Go handlers were ported from. Each command is now a `case` in
+> `internal/cli/run.go`, its handler in `internal/cli/<command>.go` and its use case in
+> `dockergento/app`.
+
 ### 4.1 Translation Principle
 
 Each `hm` command is a **wrapper** that translates a high-level operation into one or more low-level Docker/Docker Compose commands. The translation includes:

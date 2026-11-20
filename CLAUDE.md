@@ -8,7 +8,7 @@ Hiberus Dockergento is a CLI tool (`hm`) for creating and managing Docker-based 
 
 **Core Concept**: This project is a command router that translates simplified Magento 2-specific commands into Docker commands that interact with various dockerized services. For example, `hm magento cache:clean` is translated into the appropriate `docker-compose exec` command to run Magento CLI inside the PHP container.
 
-**Implementation Language**: The `cmd/hm` Go binary is the entry point; `internal/cli/run.go` answers every invocation: the 65 commands, the help (`hm`, `--help`, `<cmd> --help`), `--version`, and a project's own scripts under `config/hm/commands`, which it runs with the environment `bin/run` used to export. The binary no longer calls the `bin/run` Bash bridge, which is pending deletion — `MIGRATION.md` tracks the state.
+**Implementation Language**: The `cmd/hm` Go binary is the entry point; `internal/cli/run.go` answers every invocation: the 65 commands, the help (`hm`, `--help`, `<cmd> --help`), `--version`, and a project's own scripts under `config/hm/commands` (`internal/cli/project_command.go`). There is no Bash entry point any more: `bin/run` and the `console/` tree are gone, except `console/hm-completion.bash`, which `generate_completion.sh` writes and users' shell profiles source — `MIGRATION.md` keeps the history.
 
 ## Architecture Documentation
 
@@ -53,7 +53,7 @@ Hiberus Dockergento is a CLI tool (`hm`) for creating and managing Docker-based 
 - **Use cases**: `dockergento/app` - what each command does, written against ports
 - **Domain rules**: `dockergento/core` - pure functions and types (compose rendering, properties, refusals)
 - **Ports and adapters**: `dockergento/ports` (interfaces) and `dockergento/adapters/*` (Docker, Compose, filesystem, git, registry...), wired in `dockergento/dockergento.go`
-- **Shell bridge**: `bin/run` + `console/` - help, `--version`, project-defined commands and the refusal for moved commands
+- **Project commands**: `internal/cli/project_command.go` - runs a project's own `config/hm/commands/<name>.sh` for any name the router does not know
 - **Data**: `data/*.json` - Configuration (requirements, properties, command descriptions)
 - **Templates**: `docker-compose/*.yml` - Docker Compose templates
 
@@ -65,7 +65,7 @@ hm <command> [args]
   → handler in internal/cli (parses its options)
   → engine (dockergento.Engine) → use case in dockergento/app
   → ports → adapters: docker compose exec / docker / filesystem
-  → anything the switch does not know falls through to bin/run (help, project commands)
+  → anything the switch does not know: the project's config/hm/commands/<name>.sh, or command_not_found
 ```
 
 ### Key Files for Common Tasks
@@ -213,7 +213,7 @@ hm update
 ### Linux
 
 - Uses `docker-compose.dev.linux.yml` overlay with bind mounts
-- Automatically fixes permissions after container start (`console/tasks/fix_linux_permissions.sh`)
+- Automatically fixes permissions after container start (`dockergento/app/after_start.go`)
 - Sets `/etc/hosts` entries for self-routing domains
 
 ## Service Stack

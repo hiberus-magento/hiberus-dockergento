@@ -1,5 +1,15 @@
 ## 6. I/O and Error Handling
 
+> **Where this lives now.** This section was written against the Bash implementation, which is
+> gone: `bin/run` and the `console/` tree were deleted once the Go binary answered every command.
+> The conventions it describes — messages and their streams, prompts, validations, exit codes —
+> are what the binary reproduces, and the shell snippets below are kept as the reference they were
+> ported from. The current homes are: the JSON envelope and readable errors in
+> `internal/cli/output.go`, the colours in `internal/cli/palette.go` and `internal/cli/bashfmt.go`,
+> questions in `internal/cli/ask.go` and `internal/cli/select.go`, the exit codes in
+> `dockergento/contract/contract.go`, the Docker and Compose checks in
+> `dockergento/adapters/dockerd` and `dockergento/adapters/composecfg`.
+
 ### 6.1 Error Handling Philosophy
 
 The tool implements a **"fail-fast"** approach: errors immediately stop execution to avoid inconsistent states. This is achieved through systematic use of `set -euo pipefail` in all scripts.
@@ -60,7 +70,7 @@ fi
 
 #### 6.3.1 Semantic Print Functions
 
-**Defined in**: `console/components/print_message.sh`
+**Defined in**: `console/components/print_message.sh` (shell, gone; now `internal/cli/bashfmt.go` and `internal/cli/palette.go`)
 
 | Function | Color | Use | Example |
 |---------|-------|-----|---------|
@@ -125,7 +135,7 @@ print_default " to see commands available\n"
 
 #### 6.4.1 Interactive Input Functions
 
-**Defined in**: `console/components/input_info.sh`
+**Defined in**: `console/components/input_info.sh` (shell, gone; now `internal/cli/ask.go` and `internal/cli/select.go`)
 
 **`custom_question()`**: Text response question
 
@@ -223,7 +233,7 @@ sql_port=${input_sql_port:-${sql_port}}
 
 #### 6.5.1 Docker Validation
 
-**Function**: `is_docker_service_running()` in `console/helpers/docker.sh`
+**Function**: `is_docker_service_running()` in `console/helpers/docker.sh` (shell, gone; now `Daemon.Reachable()` in `dockergento/adapters/dockerd/daemon.go`)
 
 ```bash
 is_docker_service_running() {
@@ -241,7 +251,7 @@ is_docker_service_running() {
 
 #### 6.5.2 Service Validation
 
-**Function**: `is_run_service()` in `console/helpers/docker.sh`
+**Function**: `is_run_service()` in `console/helpers/docker.sh` (shell, gone; now the container lookups in `dockergento/app`)
 
 ```bash
 is_run_service() {
@@ -263,7 +273,7 @@ is_run_service() {
 
 #### 6.5.3 Docker Compose Config Validation
 
-**Script**: `console/tasks/validate_docker_compose.sh`
+**Script**: `console/tasks/validate_docker_compose.sh` (shell, gone; now `composecfg`, and `projectRun.validate` for a project command)
 
 ```bash
 CONFIG_IS_VALID=$($DOCKER_COMPOSE config -q && echo true || echo false)
@@ -316,7 +326,7 @@ fi
 
 #### 6.5.6 Operating System Validation
 
-**Script**: `console/tasks/set_machine_specific_properties.sh`
+**Script**: `console/tasks/set_machine_specific_properties.sh` (shell, gone; now `Platform()` in `dockergento/dockergento.go`)
 
 ```bash
 unameout="$(uname -s)"

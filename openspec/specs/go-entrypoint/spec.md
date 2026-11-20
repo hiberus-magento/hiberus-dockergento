@@ -3,30 +3,42 @@
 ## Purpose
 TBD - created by archiving change go-skeleton-and-bridge. Update Purpose after archive.
 ## Requirements
-### Requirement: Everything not ported runs unchanged
+### Requirement: Every invocation is answered by the binary
 
-The binary SHALL execute the shell implementation for every command it does not implement,
-passing the arguments through untouched and returning its exit code.
+The binary SHALL answer every command, the help (`hm`, `--help`, `<command> --help`) and
+`--version`/`-v` itself. For a name it does not route it SHALL run the project's own
+`config/hm/commands/<name>.sh`, passing the remaining arguments through and returning the script's
+exit code, and SHALL refuse any other name with `command_not_found` (exit 2). There is no shell
+implementation to fall through to.
+(Previously: the binary executed the shell implementation, `bin/run`, for every command it did not
+implement, and said so when it could not find the shell tree. `bin/run` and `console/` were deleted
+once every command, the help, `--version` and the project commands were answered by the binary.)
 
-#### Scenario: A command the binary does not implement
+#### Scenario: A project's own command
 
-- **WHEN** the user runs any command through the binary
-- **THEN** the shell implementation runs it and its output is identical to running it directly
-
-#### Scenario: The exit code
-
-- **WHEN** the shell implementation exits with a usage error, a refusal or a success
-- **THEN** the binary exits with the same code, because they are a contract that callers branch on
+- **WHEN** the user runs a name the router does not know and the project has
+  `config/hm/commands/<name>.sh`
+- **THEN** the binary runs that script with the arguments that follow the name, without the tool's
+  own global flags, and exits with the script's code
 
 #### Scenario: The terminal
 
-- **WHEN** a command asks a question or streams output
-- **THEN** it reads and writes the same terminal as it would without the binary
+- **WHEN** a project command asks a question or streams output
+- **THEN** it reads and writes the same terminal the binary was given
 
-#### Scenario: The shell implementation cannot be found
+#### Scenario: A name nobody answers for
 
-- **WHEN** the binary cannot locate the shell tree
-- **THEN** it says so and exits with the code for something wrong with the tool itself
+- **WHEN** the name is neither routed nor a project command — including a metadata key of
+  `data/command_descriptions.json` such as `_groups`
+- **THEN** the binary refuses with `command_not_found`, exit 2, and the hint `hm --help`
+
+#### Scenario: Every declared command is answered
+
+- **WHEN** `<command> --help` is asked for each command `data/command_descriptions.json` declares
+- **THEN** the binary answers each with exit 0
+
+Pinned by `tests/integration/cli_contract_test.sh` and
+`TestADeclaredNameWithNoCommandIsNotFound` (`internal/cli/project_command_test.go`).
 
 ### Requirement: The project is resolved by the Go layer
 
@@ -83,8 +95,9 @@ command does.
 
 ### Requirement: Installing the binary
 
-The release SHALL publish a binary per platform, and the installation SHALL make it the command,
-without taking the shell implementation away from a machine that cannot get it.
+The release SHALL publish a binary per platform, and the installation SHALL make it the command.
+(Previously: a machine that could not get the binary was pointed at the shell implementation,
+which no longer exists.)
 
 #### Scenario: An installation
 
@@ -95,13 +108,14 @@ without taking the shell implementation away from a machine that cannot get it.
 #### Scenario: A machine that cannot fetch it
 
 - **WHEN** the binary cannot be downloaded
-- **THEN** the command points at the shell implementation and says so, rather than leaving the
-  machine without a tool
+- **THEN** it is built with a local Go toolchain; with neither, the installer stops with an error
+  and leaves any existing installation as it was
 
-#### Scenario: Finding the shell tree from where it is installed
+#### Scenario: Finding its own data from where it is installed
 
 - **WHEN** the binary is invoked through the symlink an installation leaves in the path
-- **THEN** it finds the shell tree beside it, whatever directory it was invoked from
+- **THEN** it finds the tool's `data/` beside it, whatever directory it was invoked from, with no
+  shell tree present
 
 ### Requirement: The state of the migration is written down and true
 
@@ -170,7 +184,8 @@ and SHALL answer identically whichever one runs.
 #### Scenario: One that has not
 
 - **WHEN** a subcommand that has not been ported is asked for
-- **THEN** it reaches the shell implementation unchanged
+- **THEN** no such subcommand remains: every family is answered by the binary, and the shell
+  implementation it used to reach is gone
 
 ### Requirement: Documentation does not overstate what remains unported
 
@@ -180,9 +195,10 @@ is entirely or 100% Bash once any command is wired in Go.
 #### Scenario: Describing how a command reaches its implementation
 
 - **WHEN** a document explains the routing between the two implementations
-- **THEN** it describes the strangler pattern: the `cmd/hm` Go binary as the entry point,
-  `bin/run` as the bridge for what is not yet ported, and `internal/cli/run.go`'s switch as what
-  decides between them
+- **THEN** it describes the `cmd/hm` Go binary as the only entry point, `internal/cli/run.go`'s
+  switch as what routes every command, and a project's own `config/hm/commands/<name>.sh` as what
+  a name the switch does not know reaches — not a `bin/run` bridge, which no longer exists
+  (Previously: the strangler pattern, with `bin/run` as the bridge for what was not yet ported)
 
 #### Scenario: No absolute claim remains
 
@@ -1017,9 +1033,11 @@ this change: `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-
 `restart`, `docker-stop-all`, `masquerade`, `web`, `worktree`, `stop`, `start`, `down`, `mysql`,
 `setup`, `doctor`, `clean`, `create-project`, `composer`, `exec`, `cloud`, `cloud-login`, `dbeaver`,
 `sequelace`, `tableplus`, `config-env`, `post-start`, `rebuild`, `grunt`, `update`, `ssl`, `transfer-media`,
-`launch`, `permissions`, `ai-context`, `proxy`, `share`, `tunnel`, `compatibility`, `transfer-db`, `switch`, `verify`, `mcp`, `tui`, `install`, `ai-doctor`, `db`, `ai-init`, `ai-pull`, `ai-reset`), the shell tree SHALL NOT carry an implementation for it, and the shell entry point SHALL answer a request for that command by naming the binary as where it lives,
-rather than failing as though the command did not exist.
-(Previously: named sixty-four commands. This adds `ai-reset` — ported to Go with the same whitelist deletion, its shell file (321 lines) removed.
+`launch`, `permissions`, `ai-context`, `proxy`, `share`, `tunnel`, `compatibility`, `transfer-db`, `switch`, `verify`, `mcp`, `tui`, `install`, `ai-doctor`, `db`, `ai-init`, `ai-pull`, `ai-reset`), there SHALL be no shell implementation of it, and the binary SHALL answer it.
+(Previously: the shell tree carried no implementation for it and the shell entry point answered a
+request for it by naming the binary (`command_moved_to_binary`). With all sixty-five retired, the
+shell entry point and the shell tree were deleted, and that refusal with them. Before that it named
+sixty-four commands. This adds `ai-reset` — ported to Go with the same whitelist deletion, its shell file (321 lines) removed.
 Before that it added `ai-pull` — ported to Go over the shared digest and registration, its shell file (299 lines) removed.
 Before that it added `ai-init` — ported to Go, the AI tools wizard, its shell file (364 lines) removed.
 Before that it added `db` — its usage and unknown-subcommand refusal ported to Go, so the whole command is routed, its shell file (709 lines) removed.
@@ -1103,68 +1121,30 @@ retirement mechanism of its own.)
 - **THEN** none exists — the file was removed, not replaced
 - **AND** the router still answers for it, so the absence is a retirement and not a lost command
 
-Pinned by "and what the binary owns outright has no file to drift from" in
-`tests/unit/command_safety_test.sh`, which walks the sixty-five by name (Previously: sixty-four) and
-fails in both directions: a resurrected `.sh` and a lost route are each a failure.
+Pinned by "every entry is a command the binary routes" and "and every command the binary routes
+has an entry" in `tests/unit/command_safety_test.sh`, which compare the declarations with the
+router in both directions. (Previously: "and what the binary owns outright has no file to drift
+from" walked the sixty-five by name against `console/commands`, which no longer exists.)
 
-#### Scenario: The RETIRED list gains its name only once the file is gone
+#### Scenario: Asking for a retired command
 
-- **GIVEN** `command_safety_test.sh`'s `RETIRED` array (`:69-71`) and the drift check (`:75-79`),
-  which fails the moment a listed name still has a `console/commands/<name>.sh` file
-- **WHEN** `debug-on` is added to `RETIRED`
-- **THEN** that edit lands in the same commit that deletes `debug-on.sh`, never in an earlier
-  commit where the file still exists — reversing the order turns the suite red
+- **WHEN** any of the sixty-five is asked for
+- **THEN** the binary answers it; there is no shell entry point left to refuse it
+  (Previously: the shell entry point answered `command_moved_to_binary`, pinned in
+  `tests/integration/cli_contract_test.sh`, and a shell caller needing an absent binary was refused
+  by `hm_run_binary`, pinned in `tests/unit/exit_codes_test.sh`; both are gone with the shell tree)
 
-Test: "and what the binary owns outright has no file to drift from" in
-`tests/unit/command_safety_test.sh` (ordering constraint on an existing, unmodified assertion).
+### Requirement: No command keeps a shell entry point
 
-#### Scenario: Asking the shell entry point for a retired command
+No command SHALL keep a shell script as its entry point: the binary is the only one.
+(Previously: `docker-stop-all`, `docker-compose` and `worktree` kept shell scripts that delegated
+to the tool. Those scripts, and later the shell entry point itself, were deleted.)
 
-- **WHEN** the shell entry point is asked to run a command the binary owns and that has no shell
-  twin
-- **THEN** it answers that the command is now part of the binary and names the invocation to use,
-  exiting with the usage-error code (2), without running any Docker validation first
+#### Scenario: Looking for a shell entry point
 
-Pinned by the `command_moved_to_binary` cases in `tests/integration/cli_contract_test.sh`,
-which gains one such case for `describe`.
-
-#### Scenario: A shell caller needs the binary and it is not installed
-
-- **GIVEN** a shell command that reaches a retired command by asking the binary for it
-- **WHEN** the binary is not present in the installation directory
-- **THEN** it refuses before doing any of the work, naming the command that needed the binary and
-  how to build it, and exits with the error code (1) rather than continuing without it
-
-Pinned by "hm_run_binary refuses when the binary is not installed" in
-`tests/unit/exit_codes_test.sh`.
-
-### Requirement: A ported command's shell entry point still answers by delegating
-
-When a command is fully answered by the tool but keeps a shell script as its entry point — today
-`docker-stop-all`, `docker-compose`, and the branch-environment command (`worktree`) — that script
-SHALL delegate to the tool rather than duplicate or lose the behavior, so invoking it through the
-shell entry point reaches the same answer. This is a different case from a command whose shell
-twin is retired outright: those have no delegating script at all — see "A command proved in Go has
-no shell twin."
-(Previously: read as universal, with no named scope and no distinction from a command that no
-longer has a shell entry point at all.)
-
-#### Scenario: Running a ported docker tool through the shell entry point
-
-- **GIVEN** `docker-stop-all` or `docker-compose` is answered by the tool
-- **WHEN** either is invoked through the shell entry point instead of the tool directly
-- **THEN** the shell script delegates to the tool, and the answer is the same
-
-#### Scenario: The question still reaches the same terminal
-
-- **WHEN** `docker-stop-all`'s confirmation is asked through the delegated shell entry point
-- **THEN** the terminal that asks and reads the answer is the same one the tool would use directly
-
-#### Scenario: Running the branch-environment command through the shell entry point
-
-- **GIVEN** `worktree` is answered by the tool
-- **WHEN** it is invoked through its shell entry point instead of the tool directly
-- **THEN** the shell script delegates to the tool, and the answer is the same
+- **WHEN** the repository is searched for `bin/run` or a script under `console/`
+- **THEN** neither exists, except `console/hm-completion.bash`, the generated completion that
+  users' shell profiles source by that path
 
 ### Requirement: A wrong-reason assertion is corrected to prove the fact it names
 
@@ -1201,6 +1181,10 @@ happen with the entry point unchanged.
   Compose's
 
 #### Scenario: Tightened only, because the entry point cannot move
+
+(Superseded: the binary derives the name from the directory since `1094e18`, `bin/run` is gone,
+and `project_name_test.sh` reads the name through `describe --json` on the binary. What follows is
+the reasoning as it stood before.)
 
 - **GIVEN** `bin/run:103` derives `COMPOSE_PROJECT_NAME` from the directory when the property is
   absent, while `dockergento/app/resolve.go:116` reads only `properties["COMPOSE_PROJECT_NAME"]`

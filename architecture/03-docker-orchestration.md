@@ -6,10 +6,10 @@ The tool **does not directly manage the Docker daemon**, but acts as an **abstra
 
 ### 3.2 Central Variable: `DOCKER_COMPOSE`
 
-The core of orchestration is the list of compose files for the platform. The Go binary builds it in `Engine.ComposeFiles` (`dockergento/dockergento.go`) and runs Compose through its adapters; `bin/run`, which now only serves help, `--version` and project-defined commands, still exports the same list as the `DOCKER_COMPOSE` variable for those project commands:
+The core of orchestration is the list of compose files for the platform. The Go binary builds it in `Engine.ComposeFiles` (`dockergento/dockergento.go`) and runs Compose through its adapters. A project-defined command (`config/hm/commands/<name>.sh`) gets the same list as the `DOCKER_COMPOSE` variable (`internal/cli/project_command.go`):
 
 ```bash
-# What bin/run exports for a project-defined command
+# What a project-defined command is handed
 DOCKER_COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.dev.mac.yml"
 # or
 DOCKER_COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.dev.linux.yml"
@@ -86,7 +86,7 @@ volumes:
 
 ### 3.4 Operating System Detection and Configuration
 
-**Automatic process** (`console/tasks/set_machine_specific_properties.sh`):
+**Automatic process** (`Platform()` in `dockergento/dockergento.go`):
 
 ```bash
 uname -s
@@ -98,7 +98,7 @@ uname -s
 Other → ERROR: "Unsupported system type"
 ```
 
-Exports variables:
+A project-defined command is handed:
 - `MACHINE`: "mac" or "linux"
 - `DOCKER_COMPOSE_FILE_MACHINE`: Path to the correct overlay
 
@@ -106,21 +106,21 @@ Exports variables:
 
 #### 3.5.1 Docker Daemon Validation
 
-**Function**: `is_docker_service_running()` in `console/helpers/docker.sh`
+**Function**: `Daemon.Reachable()` in `dockergento/adapters/dockerd/daemon.go`
 
-```bash
-docker info >/dev/null 2>&1
+```
+Docker API ping
   ↓
-Exit code 0 → Docker running, continue
+Answers → Docker running, continue
   ↓
-Exit code ≠ 0 → "Docker is not running!", exit 1
+No answer → docker_unavailable, "Docker is not running", exit 3
 ```
 
-**Executed by**: All commands except `setup`, `create-project`, `compatibility`, `update`
+**Executed by**: every command that needs the daemon, in its own handler; `setup`, `create-project`, `compatibility`, `update` and the help do not ask
 
 #### 3.5.2 Docker Compose Configuration Validation
 
-**Function**: `validate_docker_compose.sh`
+**Where**: before a project-defined command runs (`projectRun.validate` in `internal/cli/project_command.go`); the binary's own commands read the configuration through `composecfg` and refuse with `project_not_configured` when it does not load
 
 ```bash
 $DOCKER_COMPOSE config -q
@@ -138,15 +138,12 @@ Validates:
 
 #### 3.5.3 Running Services Validation
 
-**Function**: `is_run_service()` in `console/helpers/docker.sh`
+**Where**: the use cases that need a service up (`dockergento/app/container.go` and others) look up its container by the Compose project and service labels
 
-```bash
-# Example: is_run_service "db"
-docker ps -qf name="$COMPOSE_PROJECT_NAME"-"$service" -qf name="$COMPOSE_PROJECT_NAME"_"$service"
+```
+Container found running → continue
   ↓
-Container ID returned → Service running
-  ↓
-Empty → "Error: $service service is not running!", exit 1
+None → service_not_running, exit 5
 ```
 
 **Used by**: Commands that require specific services (mysql, masquerade, transfer-db)

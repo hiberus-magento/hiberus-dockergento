@@ -44,9 +44,9 @@ docker ps -a --filter "label=hm.project=myproject"
 docker ps --filter "label=hm.project=myproject" --filter "label=com.docker.compose.service=db"
 ```
 
-The helper functions in `console/helpers/docker.sh` (`hm_environments`,
-`hm_environment_label`, `hm_environment_containers`, `hm_environment_branch`,
-`hm_environment_is_orphan`, `hm_service_container`) wrap all of this.
+The binary wraps all of this: `hm list` reads the inventory through `app.Inventory`
+(`dockergento/app/environments.go`). The shell helpers that did it before (`console/helpers/docker.sh`)
+are gone with the shell tree.
 
 ## Existing projects
 

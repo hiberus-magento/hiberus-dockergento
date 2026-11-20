@@ -126,21 +126,18 @@ and without a dump, and by the order assertions in `tests/integration/go_setup_t
 
 Pinned by `TestTheInstallDoorIsTheBinary` in `dockergento/dockergento_test.go`.
 
-#### Scenario: An unported step still reaches the bridge
+#### Scenario: Every step is answered by the binary
 
-- **GIVEN** an install step whose command the binary's router does not answer for — `install` and
-  `ssl` have no case at all
+- **GIVEN** any install step the door runs
 - **WHEN** that step runs through the door
-- **THEN** the binary hands it to the shell bridge, and the shell entry point receives it with the
-  same arguments it received before
+- **THEN** it is a command of the binary, run again through `HM_SELF` or `os.Executable()`; there is
+  no shell bridge left for a step to reach
+  (Previously: a step the router did not answer for was handed to the shell bridge, pinned by "a step
+  the binary does not route reaches the bridge" in `tests/integration/go_setup_test.sh`; the bridge
+  and that case are gone)
 
-Pinned by "a step the binary does not route reaches the bridge" in
-`tests/integration/go_setup_test.sh`: the binary is asked for `install` against a recorded shell
-tree, and the recorded line is exactly `--no-json install` — the tool's own global flags reach the
-bridge too, because `run.go` hands `Shell()` the arguments untouched and `bin/run` splits its own
-globals off itself. It is asserted with `install` and not with
-`composer install`, because `composer` does have a router case and reaches the bridge only on
-macOS, so a `composer` assertion would prove nothing on Linux.
+The order of the steps is pinned in `tests/integration/go_setup_test.sh` against a recorder named
+by `HM_SELF`.
 
 ### Requirement: What cannot be answered without asking
 
