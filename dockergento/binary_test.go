@@ -410,3 +410,27 @@ func TestABinarySourceThatIsMissingKeepsTheOldBinary(t *testing.T) {
 	}
 	noLeftovers(t, installed)
 }
+
+// TestACompletionFailureDoesNotHideTheBinaryRefusal: both went wrong, and both are said. The
+// binary is the one that matters — the command does not match the checkout — so it is the kind.
+func TestACompletionFailureDoesNotHideTheBinaryRefusal(t *testing.T) {
+	origin, installed := installation(t)
+	writeOldBinary(t, installed)
+	if err := os.WriteFile(filepath.Join(origin, "generate_completion.sh"), []byte("#!/bin/sh\nexit 3\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	git(t, origin, "add", "-A")
+	git(t, origin, "commit", "-qm", "broken completion")
+	fake := &fakeSource{}
+
+	refusal := refusalOf(t, engineWith(installed, fake.source(nil)).Update())
+	if refusal.Kind != "binary_not_refreshed" || refusal.Code != 1 {
+		t.Fatalf("refusal = %+v, want binary_not_refreshed with code 1", refusal)
+	}
+	if !strings.Contains(refusal.Message, "no Go toolchain") || !strings.Contains(refusal.Message, "shell completion could not be generated") {
+		t.Errorf("message = %q, want both the binary and the completion failure", refusal.Message)
+	}
+	if !strings.Contains(refusal.Hint, "generate_completion.sh") || !strings.Contains(refusal.Hint, "go build") {
+		t.Errorf("hint = %q, want how to fix both", refusal.Hint)
+	}
+}

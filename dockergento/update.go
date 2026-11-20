@@ -1,6 +1,7 @@
 package dockergento
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -65,12 +66,24 @@ func (e *Engine) Update() error {
 
 	refreshed := e.RefreshBinary()
 
-	if err := exec.Command(filepath.Join(root, "generate_completion.sh")).Run(); err != nil {
+	completion := filepath.Join(root, "generate_completion.sh")
+
+	if err := exec.Command(completion).Run(); err != nil {
+		// Neither failure hides the other: a binary that was not refreshed stays the kind, since
+		// it is the command that no longer matches the checkout, and the completion is added to it
+		var binary core.Refusal
+		if errors.As(refreshed, &binary) {
+			binary.Message += "; the shell completion could not be generated either: " + err.Error()
+			binary.Hint += "; then run " + completion + " to see why the completion failed"
+
+			return binary
+		}
+
 		return core.Refusal{
 			Kind:    "completion_failed",
 			Code:    1,
 			Message: "Hiberus Dockergento was updated, but its shell completion could not be generated: " + err.Error(),
-			Hint:    "Run " + filepath.Join(root, "generate_completion.sh") + " to see why",
+			Hint:    "Run " + completion + " to see why",
 		}
 	}
 
