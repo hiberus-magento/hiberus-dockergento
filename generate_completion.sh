@@ -38,17 +38,35 @@ in_array() {
 # The command names come from the same declaration the help reads, data/command_descriptions.json;
 # its keys starting with "_" are metadata, not commands. There used to be one script per command
 # to list, and once they were gone the glob matched nothing and the completion offered a lone "*"
+#
+# Read into a variable first: a jq failing inside `< <(...)` is invisible to set -e, and the loop
+# then wrote a completion offering nothing over the good one. A declaration that cannot be read,
+# or that declares no command, fails here and leaves the existing completion as it is.
+#
+declarations="$dir/data/command_descriptions.json"
+if ! names=$(jq -r 'keys[] | select(startswith("_") | not)' "$declarations" 2>&1); then
+    echo "Could not read the commands from $declarations: $names" >&2
+    exit 1
+fi
+if [ -z "$names" ]; then
+    echo "$declarations declares no command; the completion was left as it was" >&2
+    exit 1
+fi
+
 commands=""
 while IFS= read -r command_name; do
     if $mac_machine || ! in_array "$command_name" "$exclude_commands"; then
         commands="${commands}${command_name}\n"
     fi
-done < <(jq -r 'keys[] | select(startswith("_") | not)' "$dir/data/command_descriptions.json")
+done <<< "$names"
 
 # Write autocomplete file. Its path is the one users' shell profiles source, so it stays
-# console/hm-completion.bash even though nothing else lives in console/ any more
+# console/hm-completion.bash even though nothing else lives in console/ any more. Written beside
+# it and renamed, so an interrupted write never leaves half a file for a shell to source.
 mkdir -p "$dir/console"
-echo -e "#!/usr/bin/env bash\n\ncomplete -W \"$commands\" hm" > "$dir"/console/hm-completion.bash
+partial="$dir/console/.hm-completion.bash.partial"
+echo -e "#!/usr/bin/env bash\n\ncomplete -W \"$commands\" hm" > "$partial"
+mv "$partial" "$dir"/console/hm-completion.bash
 
 #
 # Register it in the shell profile — but only for the installation that is actually on PATH.

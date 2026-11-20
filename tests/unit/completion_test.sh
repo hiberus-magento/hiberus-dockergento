@@ -44,4 +44,34 @@ if [ "$(uname -s)" == "Darwin" ]; then
     assert_equals "$(cat "$copy/console/hm-completion.bash")" "$(cat "$HM_TEST_PROJECT_ROOT/console/hm-completion.bash")"
 fi
 
+# ---------------------------------------------------------------- a declaration it cannot read
+
+# jq failing inside the process substitution used to go unnoticed: the generator wrote a completion
+# that offered nothing over the good one and exited 0. Now it fails and leaves the file alone.
+good=$(cat "$copy/console/hm-completion.bash")
+
+printf '{ not json' > "$copy/data/command_descriptions.json"
+test_case "an unreadable declaration fails the generator"
+output=$("$copy/generate_completion.sh" 2>&1)
+status=$?
+assert_equals "1" "$([ "$status" -ne 0 ] && echo 1 || echo 0)" "exit $status: $output"
+assert_contains "$output" "command_descriptions.json"
+
+test_case "and leaves the completion that was there"
+assert_equals "$good" "$(cat "$copy/console/hm-completion.bash")"
+
+rm "$copy/data/command_descriptions.json"
+test_case "a missing declaration fails it too, leaving the completion"
+output=$("$copy/generate_completion.sh" 2>&1)
+status=$?
+assert_equals "1" "$([ "$status" -ne 0 ] && echo 1 || echo 0)" "exit $status: $output"
+assert_equals "$good" "$(cat "$copy/console/hm-completion.bash")"
+
+printf '{"_meta": {}}' > "$copy/data/command_descriptions.json"
+test_case "and so does one that declares no command"
+output=$("$copy/generate_completion.sh" 2>&1)
+status=$?
+assert_equals "1" "$([ "$status" -ne 0 ] && echo 1 || echo 0)" "exit $status: $output"
+assert_equals "$good" "$(cat "$copy/console/hm-completion.bash")"
+
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
