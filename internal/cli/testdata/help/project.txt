@@ -66,8 +66,8 @@ Tools
   web                   Bring up the web interface and print the link to open it
 
 Versions
-  switch                Switch the installation to another version or branch
-  update                Update hiberus docker tool
+  switch                Switch the installation, and its compiled command, to another version or branch
+  update                Update the installation and its compiled command
   version               Show the version of the tool, Docker and Compose
 
 AI tools

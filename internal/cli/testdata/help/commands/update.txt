@@ -1,2 +1,2 @@
-Description: Update hiberus docker tool
+Description: Update the installation and its compiled command
 

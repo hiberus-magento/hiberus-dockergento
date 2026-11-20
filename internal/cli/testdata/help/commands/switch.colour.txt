@@ -1,5 +1,5 @@
 [0;32mUsage: [0m[0;33mhm switch [<version|branch>|--stable|--list]
-[0m[0;32mDescription:[0m Switch the installation to another version or branch
+[0m[0;32mDescription:[0m Switch the installation, and its compiled command, to another version or branch
 [0;32mOptions:
 [0m   [0;33m[-|--list]      [0m Show the available versions and branches
    [0;33m[-|--stable]    [0m Switch back to the stable branch

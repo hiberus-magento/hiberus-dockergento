@@ -66,8 +66,8 @@
   [0;32mweb                   [0mBring up the web interface and print the link to open it
 
 [1mVersions
-[0m  [0;32mswitch                [0mSwitch the installation to another version or branch
-  [0;32mupdate                [0mUpdate hiberus docker tool
+[0m  [0;32mswitch                [0mSwitch the installation, and its compiled command, to another version or branch
+  [0;32mupdate                [0mUpdate the installation and its compiled command
   [0;32mversion               [0mShow the version of the tool, Docker and Compose
 
 [1mAI tools
