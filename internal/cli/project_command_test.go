@@ -423,3 +423,23 @@ func TestARegisteredWorktreeRunsInItsOwnEnvironment(t *testing.T) {
 		t.Fatalf("= %d %q\ngot\n%s\nwant\n%s", code, stderr, stdout, want)
 	}
 }
+
+// bin/run executed the script from bash, and bash runs a file the kernel refuses for lacking a
+// `#!` line (ENOEXEC) as a shell script of its own. A script written that way keeps working.
+func TestAScriptWithoutAShebangRunsAsABashScript(t *testing.T) {
+	_, _, project := projectFixture(t)
+	writeScript(t, filepath.Join(project, "config", "hm", "commands", "bare.sh"), `printf 'args=%s\n' "$*"
+printf 'zero=%s\n' "$(basename "$0")"
+printf 'shell=%s\n' "${BASH_VERSION:+bash}"
+printf 'project=%s\n' "$COMPOSE_PROJECT_NAME"
+printf 'to stderr\n' >&2
+exit 5
+`, 0o755)
+
+	stdout, stderr, code := runProject(t, project, "bare", "uno", "dos tres")
+
+	want := "args=uno dos tres\nzero=bare.sh\nshell=bash\nproject=tienda\n"
+	if code != 5 || stdout != want || stderr != "to stderr\n" {
+		t.Fatalf("= %d %q %q, want 5 %q %q", code, stdout, stderr, want, "to stderr\n")
+	}
+}

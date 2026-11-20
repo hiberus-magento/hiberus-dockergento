@@ -410,6 +410,13 @@ func (r *projectRun) execute(script string, args []string, stdout, stderr io.Wri
 	defer signal.Stop(interrupts)
 
 	code, err := spawnProcess(script, args, r.environment(), os.Stdin, stdout, stderr)
+	if errors.Is(err, syscall.ENOEXEC) {
+		// No `#!` line: the kernel refuses it before anything ran. bin/run executed the script from
+		// bash, which then runs such a file as a bash script of its own with the same arguments,
+		// $0 being the script; this is that fallback.
+		code, err = spawnProcess("bash", append([]string{script}, args...), r.environment(), os.Stdin, stdout, stderr)
+	}
+
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %s\n", script, err)
 
