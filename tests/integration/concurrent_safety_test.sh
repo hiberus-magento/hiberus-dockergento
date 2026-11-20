@@ -8,7 +8,7 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
+HM="$COMMAND_BIN_DIR/bin/hm"
 # `describe`, `worktree` and `clean` are the binary's now.
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
@@ -67,32 +67,6 @@ assert_equals "." "$( cd "$DIR" && "$GO_BINARY" describe --json 2>/dev/null | jq
 
 test_case "which is the file that was there all along"
 assert_equals "." "$(jq -r '.MAGENTO_DIR' "$DIR/config/docker/properties.json")"
-
-# ---------------------------------------------------------------- two at once
-#
-# Two registrations written at the same time used to be a plain redirection each: one of the two
-# files could be left half written, and a half-written JSON is a worktree nobody can list again.
-
-test_case "two registrations at once leave two whole files"
-(
-    source "$COMPONENTS_DIR/print_message.sh"
-    source "$HELPERS_DIR/exit_codes.sh"
-    source "$TASKS_DIR/worktree_env.sh"
-    for i in 1 2 3 4 5 6 7 8; do
-        ( hm_worktree_save "$PROJECT" "carrera-$i" "/code/$i" "rama-$i" agent "d$i.test" "p-$i" own ) &
-    done
-    wait
-) >/dev/null 2>&1
-
-whole=0
-for i in 1 2 3 4 5 6 7 8; do
-    jq -e . "$HM_WORKTREE_DIR/$PROJECT/carrera-$i.json" >/dev/null 2>&1 && whole=$((whole + 1))
-done
-assert_equals "8" "$whole"
-
-test_case "and no temporary files behind them"
-assert_equals "" "$(ls "$HM_WORKTREE_DIR/$PROJECT"/*.XXXXXX* 2>/dev/null || true)"
-assert_equals "8" "$(ls "$HM_WORKTREE_DIR/$PROJECT"/carrera-*.json | wc -l | tr -d ' ')"
 
 # ---------------------------------------------------------------- collisions
 

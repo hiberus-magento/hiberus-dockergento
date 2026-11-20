@@ -2,16 +2,14 @@
 #
 # The risk each command declares, and the internal lists that must agree with it.
 #
-# The tool already classified its commands in two hand-written lists, in two files. This is the
-# third consumer of the same idea, and the point of these tests is that a fourth cannot appear
-# quietly out of step: the declaration is the source of truth for people, the Bash lists are a fast
-# copy, and a copy nobody checks is a copy that drifts.
+# The declaration is the source of truth for people, and the router is what answers: the point of
+# these tests is that the two cannot drift apart quietly. The shell lists this suite also compared
+# against (hm_alters_environment, hm_creates_containers) went with the shell tree; each command's
+# refusals are its handler's now, and tested there.
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/router.sh"
-source "$HELPERS_DIR/worktree.sh"
-source "$TASKS_DIR/set_environment_labels.sh"
 
 DESCRIPTIONS="$DATA_DIR/command_descriptions.json"
 
@@ -42,65 +40,20 @@ while IFS= read -r name; do
 done <<< "$(commands_named)"
 assert_empty "$invalid"
 
-test_case "every command with a file has an entry"
-missing=""
-for file in "$COMMANDS_DIR"/*.sh; do
-    [ -e "$file" ] || continue
-    name=$(basename "$file" .sh)
-    [ "$(jq -r --arg n "$name" 'has($n)' "$DESCRIPTIONS")" == "true" ] || missing="$missing $name"
-done
-assert_empty "$missing"
-
-test_case "and every entry has a file or a route"
+test_case "every entry is a command the binary routes"
 routed_names="$(hm_routed_commands)"
 orphaned=""
 while IFS= read -r name; do
-    [ -f "$COMMANDS_DIR/$name.sh" ] && continue
-    grep -qx "$name" <<< "$routed_names" && continue
-    orphaned="$orphaned $name"
+    grep -qx "$name" <<< "$routed_names" || orphaned="$orphaned $name"
 done <<< "$(commands_named)"
 assert_empty "$orphaned"
 
-#
-# The reverse direction, over the sixty-five retired by name: every routed command is one of them
-# now, and none has a shell file left.
-#
-test_case "and what the binary owns outright has no file to drift from"
-RETIRED="copy-to-container copy-from-container varnish-on varnish-off purge npm
-         n98-magerun test-unit test-integration mysqldump version set-host
-         list describe logs debug-on debug-off bash magento docker-compose restart
-         docker-stop-all masquerade web worktree stop start down mysql setup doctor clean
-         create-project composer exec cloud cloud-login dbeaver sequelace tableplus
-         config-env post-start rebuild grunt update ssl transfer-media
-         launch permissions ai-context proxy share tunnel compatibility transfer-db switch verify mcp tui install ai-doctor db ai-init ai-pull ai-reset"
-
-drift=""
-routed="$(hm_routed_commands)"
-for name in $RETIRED; do
-    [ -f "$COMMANDS_DIR/$name.sh" ] && drift="$drift ${name}(file)"
-    grep -qx "$name" <<< "$routed" || drift="$drift ${name}(not-routed)"
-done
-assert_empty "$drift"
-
-# ---------------------------------------------------------------- the internal lists agree
-
-# `hm_alters_environment` decides what a worktree refuses. Anything it refuses changes something,
-# so calling it side-effect-free somewhere else would be a contradiction.
-test_case "nothing that alters the environment is declared harmless"
-contradictions=""
+test_case "and every command the binary routes has an entry"
+undeclared=""
 while IFS= read -r name; do
-    hm_alters_environment "$name" || continue
-    [ "$(safety_of "$name")" == "safe" ] && contradictions="$contradictions $name"
-done <<< "$(commands_named)"
-assert_empty "$contradictions"
-
-test_case "nothing that creates containers is declared harmless either"
-contradictions=""
-while IFS= read -r name; do
-    hm_creates_containers "$name" || continue
-    [ "$(safety_of "$name")" == "safe" ] && contradictions="$contradictions $name"
-done <<< "$(commands_named)"
-assert_empty "$contradictions"
+    [ "$(jq -r --arg n "$name" 'has($n)' "$DESCRIPTIONS")" == "true" ] || undeclared="$undeclared $name"
+done <<< "$routed_names"
+assert_empty "$undeclared"
 
 # ---------------------------------------------------------------- the classification is sane
 

@@ -108,9 +108,7 @@ assert_contains "$reachable" "yes"
 
     # ---------------------------------------------------------------- what the CLI reports
 
-HM="$COMMAND_BIN_DIR/bin/run"
-# `describe` is the binary's now; `doctor` stays the shell implementation's and keeps asking
-# bin/run through `$HM`.
+HM="$COMMAND_BIN_DIR/bin/hm"
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 
 make_project() {

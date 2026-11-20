@@ -5,16 +5,12 @@
 #
 
 # Allow a suite to run standalone (`bash tests/unit/foo_test.sh`) as well as through
-# tests/run.sh, by bootstrapping the directory variables the components expect.
-if [ -z "${COMPONENTS_DIR:-}" ]; then
+# tests/run.sh, by bootstrapping the directory variables the suites read.
+if [ -z "${HM_TEST_PROJECT_ROOT:-}" ]; then
     _hm_test_root="$(cd -P "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
     export COMMAND_BIN_NAME="hm"
     export COMMAND_TOOLNAME="Hiberus Dockergento"
     export COMMAND_BIN_DIR="$_hm_test_root"
-    export COMMANDS_DIR="$_hm_test_root/console/commands"
-    export TASKS_DIR="$_hm_test_root/console/tasks"
-    export HELPERS_DIR="$_hm_test_root/console/helpers"
-    export COMPONENTS_DIR="$_hm_test_root/console/components"
     export DATA_DIR="$_hm_test_root/data"
     export HM_TEST_PROJECT_ROOT="$_hm_test_root"
 fi

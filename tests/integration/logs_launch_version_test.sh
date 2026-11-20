@@ -5,13 +5,8 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
+HM="$COMMAND_BIN_DIR/bin/hm"
 
-#
-# `version` has no shell implementation any more: it was retired with the other eleven twins, and
-# the shell entry point now answers `command_moved_to_binary` for it. So the version cases below
-# ask the binary, while `logs` and `launch` keep asking `bin/run`, which still owns them.
-#
 GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
 
 LAB=$(cd "$(mktemp -d)" && pwd -P)
@@ -31,10 +26,6 @@ run_in_lab() {
     return 0
 }
 
-#
-# The binary's twin of run_in_lab. `logs` and `describe` are the binary's now; `launch` is still
-# the shell implementation's and keeps asking bin/run through run_in_lab above.
-#
 run_in_lab_go() {
     ( cd "$LAB" && "$GO_BINARY" "$@" >"$LAB/out" 2>"$LAB/err" )
     STATUS=$?
@@ -68,10 +59,7 @@ test_case "an unknown option is a usage error"
 ( cd "$LAB" && "$GO_BINARY" version --nonsense >"$LAB/out" 2>"$LAB/err" )
 assert_equals "2" "$?"
 
-# Asked of the binary rather than through run_in_lab on purpose: `bin/run` also answers 2 for
-# `version`, but with command_moved_to_binary, so the old case passed on the refusal rather than
-# on the usage error it names.
-test_case "and it is a usage error, not the entry point refusing a retired command"
+test_case "and it is a usage error"
 assert_json_field "$(cat "$LAB/err")" '.error.type' "invalid_argument"
 
 test_case "the flag still answers as it did"

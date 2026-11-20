@@ -4,15 +4,9 @@
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
-source "$HELPERS_DIR/project_name.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
-# `bin/run:103` derives COMPOSE_PROJECT_NAME from the directory when the property is absent;
-# `dockergento/app/resolve.go:116` reads only the configured property, with no such fallback.
-# Name derivation is not ported, so `HM` (and `hm_name()` below) stay on the shell entry point.
-# `GO_BINARY` is only used at `:157` for the inventory check, which is behaviourally identical
-# today and keeps this suite green once `list.sh` is gone.
-GO_BINARY="$COMMAND_BIN_DIR/bin/hm"
+HM="$COMMAND_BIN_DIR/bin/hm"
+GO_BINARY="$HM"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 
 cleanup() {
@@ -56,12 +50,9 @@ compose_name() {
         jq -r '.name'
 }
 
-# `describe` is the binary's now, and the binary reports the configured name rather than the one
-# this entry point derives (`bin/run:103` against `app/resolve.go:116`): derivation is not ported.
-# What is under test here is bin/run's own resolution, so the window onto it stays inside bin/run.
-# `db list` is still the shell implementation's and prints the name it resolved (`db.sh:171-174`).
+# The name the binary resolved: a configured one, or the directory's when none is configured
 hm_name() {
-    ( cd "$1" && "$HM" db list --json 2>/dev/null ) | jq -r '.data.project // ""'
+    ( cd "$1" && "$HM" describe --json 2>/dev/null ) | jq -r '.data.project.name // ""'
 }
 
 # ------------------------------------------------- the rule matches Compose, not a table of ours
@@ -69,7 +60,7 @@ hm_name() {
 for directory in "UPPER" "con espacio" "punto.com" "acentúado" "my_project-1" "2fast" "--weird--"; do
     test_case "'$directory' derives the same name as Compose gives it"
     make_project "$LAB/$directory"
-    assert_equals "$(compose_name "$LAB/$directory")" "$(hm_derive_project_name "$directory")"
+    assert_equals "$(compose_name "$LAB/$directory")" "$(hm_name "$LAB/$directory")"
 done
 
 # ------------------------------------------------- resolution through the CLI
@@ -87,13 +78,11 @@ assert_equals "hmnametest" "$(hm_name "$LAB/otro-directorio")"
 
 test_case "a directory with no usable name is refused, not passed to Compose"
 make_project "$LAB/___"
-# The refusal under test is bin/run:106's no_project_name, raised in docker_env_variables before
-# any command file is reached, so any surviving shell command is an equally good window.
-( cd "$LAB/___" && "$HM" db list --json >"$LAB/out" 2>"$LAB/err" )
+( cd "$LAB/___" && "$HM" describe --json >"$LAB/out" 2>"$LAB/err" )
 assert_equals "4" "$?"
 
 test_case "and the refusal says what to do about it"
-assert_json_field "$(cat "$LAB/err")" '.error.type' "no_project_name"
+assert_json_field "$(cat "$LAB/err")" '.error.type' "project_not_configured"
 
 # ------------------------------------------------- two copies are two environments
 

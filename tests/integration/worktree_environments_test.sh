@@ -9,7 +9,7 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
+HM="$COMMAND_BIN_DIR/bin/hm"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
 PROJECT="hm-worktree-selftest"
 BARE="hm-worktree-noproxy"
@@ -208,37 +208,9 @@ test_case "nothing is linked into the worktree"
 assert_equals "false" "$([ -L "$TREE/vendor" ] && echo true || echo false)"
 assert_equals "false" "$([ -L "$TREE/node_modules" ] && echo true || echo false)"
 
-#
-# The mounts are generated on the platform that bind mounts the code, so the overlay is written
-# directly here rather than through `worktree add`: what is being checked is that Compose merges
-# them the way this depends on, and that is the same on every platform.
-#
-export COMPONENTS_DIR HELPERS_DIR TASKS_DIR COMMAND_BIN_NAME
-source "$TASKS_DIR/worktree_env.sh"
-
-MOUNTS=$(hm_worktree_vendor_mounts "$MAIN" "/var/www/html")
-hm_worktree_write_overlay "$LAB/con-vendor.yml" "agent" "feature-x.shop.test" \
-    "$PROJECT-feature-x" "phpfpm nginx db search redis varnish hitch mailhog rabbitmq" \
-    "hm-gateway" "$MOUNTS"
-
-RESOLVED=$( cd "$TREE" && docker compose \
-    -f "$TREE/docker-compose.yml" -f "$LAB/con-vendor.yml" config --format json 2>/dev/null )
-
-test_case "the dependencies of the main checkout are mounted where PHP looks for them"
-assert_equals "$MAIN/vendor" \
-    "$(printf '%s' "$RESOLVED" | jq -r '.services.phpfpm.volumes[] | select(.target == "/var/www/html/vendor") | .source')"
-
-test_case "read-only, so one branch cannot corrupt what the others read"
-assert_equals "true" \
-    "$(printf '%s' "$RESOLVED" | jq -r '.services.phpfpm.volumes[] | select(.target == "/var/www/html/vendor") | .read_only')"
-
-test_case "and the code mount is still there underneath"
-assert_equals "1" \
-    "$(printf '%s' "$RESOLVED" | jq -r '[.services.phpfpm.volumes[] | select(.target == "/var/www/html")] | length')"
-
-test_case "no other service is given the dependencies"
-assert_equals "0" \
-    "$(printf '%s' "$RESOLVED" | jq -r '[.services.nginx.volumes[]? | select(.target == "/var/www/html/vendor")] | length')"
+# How the overlay mounts them was checked here against the shell implementation's writer, which is
+# gone with the shell tree; the overlay the binary writes is pinned by the Go tests of the worktree
+# use case.
 
 #
 # The refusal reads the recorded decision, so it is tested against a registration that says the
@@ -268,25 +240,6 @@ test_case "a bridged command run from a branch environment stays in it"
 binario_en "$TREE" docker-compose config --format json
 assert_equals "0" "$STATUS"
 assert_equals "$PROJECT-feature-x" "$(printf '%s' "$STDOUT" | jq -r '.name')"
-
-#
-# And it arrives by being handed over rather than by being looked up again. Shown against a shell
-# tree that does nothing but print what it was given: the answer above would be right either way,
-# because the shell half can also ask for it, and "right either way" is how a path stops working
-# without any test noticing.
-#
-test_case "and the registration is handed to it, not looked up again"
-mkdir -p "$LAB/fake/bin" "$LAB/fake/console"
-printf '#!/usr/bin/env bash
-printf "%%s\\n" "$HM_REGISTERED" "$HM_REGISTERED_PROJECT"
-' \
-    > "$LAB/fake/bin/run"
-chmod +x "$LAB/fake/bin/run"
-# A name the binary will never answer for, so it always reaches the shell tree, whichever commands
-# are ported by then
-( cd "$TREE" && HM_LEGACY_ROOT="$LAB/fake" "$COMMAND_BIN_DIR/bin/hm" hm-never-a-command >"$LAB/out" 2>&1 )
-assert_equals "$PROJECT/feature-x" "$(sed -n 1p "$LAB/out")"
-assert_equals "$PROJECT-feature-x" "$(sed -n 2p "$LAB/out")"
 
 # ---------------------------------------------------------------- the guardrails
 

@@ -2,7 +2,7 @@
 #
 # installer.sh never links hm to bin/run, and moves a link it made earlier to bin/run onto bin/hm.
 #
-# bin/run is a launcher that refuses every command now, so a link to it is an installation that does
+# bin/run, the launcher hm used to be, is gone, so a link to it is an installation that does
 # nothing. Each case runs the installer against a HOME and a link folder of its own, with fake curl,
 # uname, go, jq and sudo first on PATH: nothing reaches the network, a real toolchain or a system
 # folder.

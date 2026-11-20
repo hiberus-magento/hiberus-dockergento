@@ -47,10 +47,10 @@ copy_working_tree() {
 }
 
 copy_working_tree
-HM="$CLONE/bin/run"
-# update and switch are the binary's, which finds its installation where its executable is: a copy
-# of it inside the clone moves the clone and never the installation running this suite
+# The binary finds its installation where its executable is: a copy of it inside the clone moves
+# the clone and never the installation running this suite
 cp "$COMMAND_BIN_DIR/bin/hm" "$CLONE/bin/hm"
+HM="$CLONE/bin/hm"
 
 # update and switch get the binary again for the checkout they move to, from GitHub or with a go
 # build. HM_BINARY_SOURCE has them copy this file instead, the binary under test, so the suite

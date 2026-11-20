@@ -6,26 +6,19 @@
 #   tests/run.sh <file>     a single shell suite
 #   tests/run.sh --shell    only the shell suites
 #
-# Two suites, and the balance between them moves. What is written in Go is tested in Go — the
-# packages underneath and, in test/e2e, the built binary run the way somebody runs it. What is
-# still shell is tested in shell, and its suite goes when the command does.
-#
-# Both are reported, so that a test moving from one to the other does not read as coverage
-# disappearing.
+# Two suites. What is written in Go is tested in Go — the packages underneath and, in test/e2e, the
+# built binary run the way somebody runs it. The shell suites drive bin/hm from the outside, against
+# real directories, Compose and, when it is there, Docker.
 #
 set -uo pipefail
 
 TESTS_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -P "$TESTS_DIR/.." && pwd)"
 
-# Directory variables the components expect when sourced outside of bin/run
+# Directory variables the suites read
 export COMMAND_BIN_NAME="hm"
 export COMMAND_TOOLNAME="Hiberus Dockergento"
 export COMMAND_BIN_DIR="$PROJECT_ROOT"
-export COMMANDS_DIR="$PROJECT_ROOT/console/commands"
-export TASKS_DIR="$PROJECT_ROOT/console/tasks"
-export HELPERS_DIR="$PROJECT_ROOT/console/helpers"
-export COMPONENTS_DIR="$PROJECT_ROOT/console/components"
 export DATA_DIR="$PROJECT_ROOT/data"
 export HM_TEST_PROJECT_ROOT="$PROJECT_ROOT"
 

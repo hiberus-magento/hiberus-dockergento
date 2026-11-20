@@ -8,7 +8,7 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
+HM="$COMMAND_BIN_DIR/bin/hm"
 # setup and install are the binary's. The daemon is cut for both: nothing here should reach it, and
 # --yes would let a step that did go ahead without asking
 export DOCKER_HOST=unix:///nonexistent

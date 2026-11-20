@@ -8,7 +8,6 @@
 #
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
-source "$HELPERS_DIR/version.sh"
 
 HM="$COMMAND_BIN_DIR/bin/hm"
 

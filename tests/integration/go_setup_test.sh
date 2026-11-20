@@ -32,17 +32,17 @@ export GOCACHE="$LAB/go-build"
 }
 
 #
-# A shell tree that installs nothing and writes down what it was asked to do. Everything after the
-# files is still the shell implementation's, and what has to be right here is that it is asked for
-# the right things in the right order.
+# A stand-in for the binary run again (HM_SELF) that installs nothing and writes down what it was
+# asked to do. Everything after the files is a further command of this same tool, and what has to
+# be right here is that each is asked for in the right order.
 #
-mkdir -p "$LAB/fake/bin" "$LAB/fake/console"
-cat > "$LAB/fake/bin/run" <<'FAKE'
+mkdir -p "$LAB/fake"
+cat > "$LAB/fake/hm" <<'FAKE'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$HM_FAKE_LOG"
 FAKE
-chmod +x "$LAB/fake/bin/run"
-export HM_LEGACY_ROOT="$LAB/fake"
+chmod +x "$LAB/fake/hm"
+export HM_SELF="$LAB/fake/hm"
 export HM_FAKE_LOG="$LAB/pasos.txt"
 
 PROJECT="hm-go-setup"
@@ -139,17 +139,6 @@ assert_contains "$(cat "$HM_FAKE_LOG")" "set-host tienda.test --no-database"
 
 test_case "with no dump, nothing is imported"
 assert_not_contains "$(cat "$HM_FAKE_LOG")" "mysql -i"
-
-#
-# Once the install door is this binary, nothing else in this file watches the ordinary case: a
-# step whose command the router does not answer for still has to reach the shell bridge, with the
-# same arguments the shell entry point would have received directly.
-#
-test_case "a step the binary does not route reaches the bridge"
-: > "$HM_FAKE_LOG"
-# A name the binary will never route, so it reaches the bridge whichever commands are ported
-"$GO_BINARY" --no-json hm-never-a-command >/dev/null 2>&1
-assert_equals "--no-json hm-never-a-command" "$(cat "$HM_FAKE_LOG")"
 
 # ---------------------------------------------------------------- a dump instead of an install
 

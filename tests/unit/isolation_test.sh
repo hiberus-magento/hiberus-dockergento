@@ -25,9 +25,8 @@ assert_equals "isolated" "$r"
 # escape into the developer's dotfiles.
 test_case "regenerating the completion from another checkout leaves the profile alone"
 lab=$(mktemp -d)
-mkdir -p "$lab/checkout/console/helpers" "$lab/checkout/data"
+mkdir -p "$lab/checkout/data"
 cp "$COMMAND_BIN_DIR/generate_completion.sh" "$lab/checkout/"
-cp "$COMMAND_BIN_DIR/console/helpers/array_manager.sh" "$lab/checkout/console/helpers/"
 cp "$COMMAND_BIN_DIR/data/command_descriptions.json" "$lab/checkout/data/"
 printf '# untouched\n' > "$HOME/.zshrc"
 ( cd "$lab/checkout" && bash ./generate_completion.sh >/dev/null 2>&1 )

@@ -66,9 +66,8 @@ run_in_go() {
 
 # A worktree with no environment of its own keeps resolving against the main checkout
 # (`app/resolve.go:59-63`), and the binary names a worktree only when it has one
-# (`app/describe.go:108-110`). That a worktree is recognised at all is proved below, by the eight
-# commands refused from it with exit 6 — seven through `bin/run`, which still has their shell
-# twins, and `restart` through the binary, which has the only one left.
+# (`app/describe.go:108-110`). That a worktree is recognised at all is proved below, by the
+# commands refused from it with exit 6.
 test_case "a worktree with no environment of its own resolves to the main checkout"
 run_in_go "$LAB/wt" describe --json
 assert_json_field "$STDOUT" '.data.project.worktree' ""
@@ -85,7 +84,6 @@ assert_json_field "$STDOUT" '.data.project.name' "$PROJECT"
 
 # ------------------------------------------------------------------ guardrails
 
-# install is the binary's now; bin/run would only say it moved
 test_case "install is refused from a worktree"
 run_in_go "$LAB/wt" install --json
 assert_equals "6" "$STATUS"

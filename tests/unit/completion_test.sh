@@ -10,9 +10,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 copy=$(mktemp -d)
 trap 'rm -rf "$copy"; hm_test_home_cleanup' EXIT
 
-mkdir -p "$copy/console/helpers" "$copy/data"
+# Only the generator and the declaration: there is no shell tree for it to lean on any more
+mkdir -p "$copy/data"
 cp "$HM_TEST_PROJECT_ROOT/generate_completion.sh" "$copy/"
-cp "$HM_TEST_PROJECT_ROOT/console/helpers/array_manager.sh" "$copy/console/helpers/"
 cp "$HM_TEST_PROJECT_ROOT/data/command_descriptions.json" "$copy/data/"
 
 test_case "the generator runs"
