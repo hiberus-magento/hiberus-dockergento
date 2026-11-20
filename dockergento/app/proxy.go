@@ -3,6 +3,7 @@ package app
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -226,16 +227,24 @@ func (p Proxy) write() error {
 // A running proxy is restarted when something changed. Traefik watches the dynamic directory, but
 // some VM mounts (colima's virtiofs) never deliver the host's file events, and there it would keep
 // serving its default certificate until somebody restarted it.
+// ErrNoMkcert is Certify's answer when mkcert is not on this machine: nothing was signed or
+// written. What to make of it is the caller's — setup notes it and carries on, `proxy certify`
+// refuses — because the same absence is a footnote to one and the whole answer of the other.
+var ErrNoMkcert = errors.New("mkcert is not installed")
+
+// MkcertNote is the one line that says what ErrNoMkcert means for a domain.
+func MkcertNote(domain string) string {
+	return fmt.Sprintf("mkcert is not installed, so the proxy serves its own certificate for %s: "+
+		"install it and run setup again", domain)
+}
+
 func (p Proxy) Certify(domain string) error {
 	if p.Programs == nil {
 		return nil
 	}
 
 	if _, err := p.Programs.LookPath("mkcert"); err != nil {
-		p.say(fmt.Sprintf("mkcert is not installed, so the proxy serves its own certificate for %s: "+
-			"install it and run setup again\n", domain))
-
-		return nil
+		return ErrNoMkcert
 	}
 
 	signed, err := p.sign(domain)

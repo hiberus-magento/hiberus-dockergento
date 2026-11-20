@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -193,8 +194,10 @@ func TestCertifySignsAWildcardPairAndNamesItForTheProxy(t *testing.T) {
 func TestCertifyWithoutMkcertSkipsAndSaysSo(t *testing.T) {
 	proxy, log, said := certifyingProxy(t, true)
 
-	if err := proxy.Certify(certifiedDomain); err != nil {
-		t.Fatalf("Certify: %v", err)
+	// Says nothing itself and answers with ErrNoMkcert: setup turns it into a note and carries
+	// on, and `proxy certify` into a refusal — a success would claim a certificate nobody signed
+	if err := proxy.Certify(certifiedDomain); !errors.Is(err, ErrNoMkcert) {
+		t.Fatalf("Certify = %v, want ErrNoMkcert", err)
 	}
 
 	if got := mkcertCalls(*log); len(got) != 0 {
@@ -207,8 +210,8 @@ func TestCertifyWithoutMkcertSkipsAndSaysSo(t *testing.T) {
 		}
 	}
 
-	if len(*said) != 1 || !strings.Contains((*said)[0], "mkcert") || strings.Count((*said)[0], "\n") != 1 {
-		t.Errorf("want a one-line note naming mkcert, got %q", *said)
+	if len(*said) != 0 {
+		t.Errorf("said %q, want the caller to decide what to say", *said)
 	}
 
 	if got := restarts(*log); len(got) != 0 {

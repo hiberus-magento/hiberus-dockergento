@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -511,7 +512,9 @@ func (s Setup) routing(dir string, decided Decided) error {
 	if s.Proxy != nil {
 		// A certificate this cannot sign is not a reason to stop: the environment is written and
 		// the address works over plain HTTP until somebody signs one
-		s.Proxy.Certify(decided.Domain) //nolint:errcheck
+		if err := s.Proxy.Certify(decided.Domain); errors.Is(err, ErrNoMkcert) {
+			s.say(MkcertNote(decided.Domain) + "\n")
+		}
 	}
 
 	return nil

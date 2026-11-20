@@ -981,7 +981,18 @@ func (e *Engine) ProxyDown() (bool, error) { return e.proxy().Down() }
 func (e *Engine) ProxyStatus() (core.ProxyState, error) { return e.proxy().Status() }
 
 // Certify signs a wildcard certificate for a domain and tells the proxy to serve it.
-func (e *Engine) Certify(domain string) error { return e.proxy().Certify(domain) }
+func (e *Engine) Certify(domain string) error {
+	if err := e.proxy().Certify(domain); !errors.Is(err, app.ErrNoMkcert) {
+		return err
+	}
+
+	return core.Refusal{
+		Kind:    "mkcert_missing",
+		Code:    1,
+		Message: app.MkcertNote(domain),
+		Hint:    "brew install mkcert, or " + e.options.Binary + " ssl, which installs it; then " + e.options.Binary + " proxy certify " + domain,
+	}
+}
 
 func (e *Engine) proxy() app.Proxy {
 	return app.Proxy{

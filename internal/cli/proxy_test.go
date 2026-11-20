@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -77,16 +78,35 @@ func TestProxyCertifyRefusesWhatIsNotADomain(t *testing.T) {
 	}
 }
 
-// Without mkcert nothing is signed and the proxy is not touched, as in setup, and it says why.
-func TestProxyCertifyWithoutMkcertSaysSo(t *testing.T) {
+// Without mkcert nothing is signed and the proxy is not touched, and asked for on its own that is
+// a refusal: answering {"certified": …} with 0 would claim a certificate nobody signed.
+func TestProxyCertifyWithoutMkcertIsRefused(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("HM_PROXY_DIR", t.TempDir())
 	t.Setenv("NO_COLOR", "1")
 
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"--no-json", "proxy", "certify", "shop.local"}, &stdout, &stderr)
+	code := Run([]string{"--json", "proxy", "certify", "shop.local"}, &stdout, &stderr)
 
-	if code != exitOK || !bytes.Contains(append(stdout.Bytes(), stderr.Bytes()...), []byte("mkcert is not installed")) {
+	var envelope struct {
+		Error struct {
+			Type string `json:"type"`
+			Hint string `json:"hint"`
+		} `json:"error"`
+	}
+	_ = json.Unmarshal(stderr.Bytes(), &envelope)
+
+	if code != exitError || envelope.Error.Type != "mkcert_missing" || stdout.Len() != 0 {
 		t.Fatalf("= %d\nstdout %s\nstderr %s", code, stdout.String(), stderr.String())
+	}
+
+	if !strings.Contains(envelope.Error.Hint, "mkcert") {
+		t.Errorf("hint = %q, want it to say how to get mkcert", envelope.Error.Hint)
+	}
+
+	var text bytes.Buffer
+	if code := Run([]string{"--no-json", "proxy", "certify", "shop.local"}, &bytes.Buffer{}, &text); code != exitError ||
+		!strings.Contains(text.String(), "mkcert is not installed") {
+		t.Errorf("text mode = %d, %q", code, text.String())
 	}
 }
