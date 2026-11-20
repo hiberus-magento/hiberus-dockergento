@@ -588,6 +588,56 @@ assert_equals "0" "$STATUS"
 assert_equals "hm 2.0.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
 assert_contains "$(cat "$FAKE_CURL_LOG")" "api.github.com"
 
+# A machine with wget and no curl: wget prints the redirect among the server's headers on stderr and
+# exits 8 because it was told to follow none, as GNU wget does
+WGET_TOOLS="$LAB/wget-tools"
+NO_CURL="$LAB/no-curl"
+mkdir -p "$WGET_TOOLS" "$NO_CURL"
+for tool in /usr/bin/* /bin/*; do
+    case "$(basename "$tool")" in curl | wget) continue ;; esac
+    [ -e "$NO_CURL/$(basename "$tool")" ] || ln -s "$tool" "$NO_CURL/$(basename "$tool")"
+done
+cp "$TOOLS/uname" "$TOOLS/sudo" "$TOOLS/jq" "$WGET_TOOLS/"
+cat >"$WGET_TOOLS/wget" <<'EOF'
+#!/usr/bin/env bash
+out="" url="" headers=false
+for argument in "$@"; do
+    case "$argument" in
+        -S) headers=true ;;
+        -*) ;;
+        *) [ "$previous" == "-O" ] && out="$argument" || url="$argument" ;;
+    esac
+    previous="$argument"
+done
+echo "$url" >>"$FAKE_CURL_LOG"
+case "$url" in
+    https://github.com/*/releases/latest)
+        if $headers && [ -n "${FAKE_LATEST:-}" ]; then
+            printf '  HTTP/1.1 302 Found\r\n  Location: %s\r\n' "${url%/latest}/tag/$FAKE_LATEST" >&2
+            echo "0 redirections exceeded." >&2
+        fi
+        exit 8 ;;
+    https://api.github.com/*) source="$FAKE_API" ;;
+    https://github.com/*/releases/download/*) source="$FAKE_RELEASES/${url#*/releases/download/}" ;;
+    *) exit 8 ;;
+esac
+[ -f "$source" ] || exit 8
+cp "$source" "$out"
+EOF
+chmod +x "$WGET_TOOLS"/*
+
+new_case latest-redirect-wget
+publish 2.1.0
+api_releases 2.0.0
+export FAKE_LATEST=2.1.0
+(PATH="$WGET_TOOLS:$NO_CURL" bash "$INSTALL_SH" >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+
+test_case "with wget and no curl, the latest final release still comes from the redirect, without the API"
+assert_equals "0" "$STATUS"
+assert_equals "hm 2.1.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
+assert_not_contains "$(cat "$FAKE_CURL_LOG")" "api.github.com"
+
 new_case rate-limited
 publish 2.0.0
 export FAKE_API_STATUS=403

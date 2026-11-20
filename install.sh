@@ -159,12 +159,15 @@ fetch() {
 # latest_redirect: the tag GitHub's releases/latest page redirects to, without the API and its
 # rate limit; nothing when it cannot tell
 latest_redirect() {
-    local url="https://github.com/$REPOSITORY/releases/latest" location=""
+    local url="https://github.com/$REPOSITORY/releases/latest" location="" headers=""
 
     if command -v curl >/dev/null 2>&1; then
         location="$(curl -fsS -o /dev/null -w '%{redirect_url}' "$url" 2>/dev/null)" || location=""
     elif command -v wget >/dev/null 2>&1; then
-        location="$(wget -q -S --max-redirect=0 -O /dev/null "$url" 2>&1 | awk 'tolower($1) == "location:" { print $2 }' | tr -d '\r' | head -n 1)" || location=""
+        # wget exits non-zero when told to follow no redirect and given one, which is the answer
+        # here: its status is ignored and the Location header read from what it printed
+        headers="$(wget -q -S --max-redirect=0 -O /dev/null "$url" 2>&1)" || true
+        location="$(printf '%s\n' "$headers" | awk 'tolower($1) == "location:" { print $2; exit }' | tr -d '\r')"
     fi
 
     case "$location" in
