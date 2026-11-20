@@ -301,56 +301,32 @@ func String(t *testing.T, output, path string) string {
 }
 
 //
-// Standing in for the half that is not ported yet.
+// Standing in for the steps the binary hands to itself.
 //
-// Some commands still hand steps to the shell implementation, and what a test about those steps
-// has to check is that the right thing was asked for in the right order — not that a Magento
-// answered. So the shell tree is replaced by one that writes down what it was told and returns
-// success.
+// Some commands run further commands of this same tool — `set-host` asks `magento config:set` —
+// and what a test about those steps has to check is that the right thing was asked for in the
+// right order, not that a Magento answered. So the binary run again is replaced by a script that
+// writes down what it was told and returns success.
 //
 
-// Recorder points this session's bridge at a shell tree that records instead of running, and
-// answers with what has been asked of it so far.
+// Recorder points this session's self-runs (HM_SELF) at a script that records instead of running,
+// and answers with what has been asked of it so far.
 func Recorder(t *testing.T, session *Session) func() string {
 	t.Helper()
 
-	tree := filepath.Join(t.TempDir(), "shell")
-	log := filepath.Join(tree, "asked.txt")
+	dir := t.TempDir()
+	log := filepath.Join(dir, "asked.txt")
+	script := filepath.Join(dir, "hm")
 
-	if err := os.MkdirAll(filepath.Join(tree, "bin"), 0o755); err != nil {
+	contents := "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> " + log + "\n"
+
+	if err := os.WriteFile(script, []byte(contents), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	// `console/` is what makes a directory a shell tree, as far as the bridge is concerned
-	if err := os.MkdirAll(filepath.Join(tree, "console"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	script := "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> " + log + "\n"
-
-	if err := os.WriteFile(filepath.Join(tree, "bin", "run"), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	session.With("HM_LEGACY_ROOT=" + tree)
+	session.With("HM_SELF=" + script)
 
 	return func() string { return session.Reads(log) }
-}
-
-// RunShell runs the shell entry point instead of the binary.
-//
-// For the one thing worth checking about it: that `bin/run <command>` arrives where `hm <command>`
-// arrives. It is a delegator for everything ported, and a delegator that stopped delegating would
-// be a second implementation nobody is testing.
-func (s *Session) RunShell(t *testing.T, dir string, args ...string) Result {
-	t.Helper()
-
-	root, err := repositoryRoot()
-	if err != nil {
-		t.Fatalf("finding the repository root: %v", err)
-	}
-
-	return s.run(t, exec.Command(filepath.Join(root, "bin", "run"), args...), dir, "")
 }
 
 // RunWithInput answers whatever the command asks, which is how a question is tested.

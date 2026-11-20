@@ -1,9 +1,7 @@
 // Package selfrun runs this binary again, for the install door and for the MCP server's tools.
 //
 // `setup`'s install steps are commands of this same tool — `start`, `install`, `set-host` and the
-// rest — so the door that runs them is this executable, not the shell CLI directly. What is not
-// ported yet still reaches the shell tree, one hop later, through the ordinary router and its own
-// bridge (`dockergento.Engine.Shell`).
+// rest — so the door that runs them is this executable.
 package selfrun
 
 import (
@@ -11,7 +9,6 @@ import (
 	"errors"
 	"os"
 	"os/exec"
-	"path/filepath"
 )
 
 // Runner runs this binary again with a step's arguments, wired to this process's terminal, and
@@ -93,11 +90,7 @@ func (r Runner) CaptureStatus(args []string, combined bool) ([]byte, int, error)
 //
 //  1. Executable, if set (lets a test or a caller pin exactly what runs)
 //  2. HM_SELF, if set
-//  3. $HM_LEGACY_ROOT/bin/run, only when HM_LEGACY_ROOT is set — deliberately third, and not
-//     first, so that redirecting the shell tree and redirecting this binary stay two separate
-//     questions. A suite that redirects the tree without redirecting the binary must not silently
-//     fall through to the real os.Executable().
-//  4. os.Executable(), as the last resort.
+//  3. os.Executable(), as the last resort.
 //
 // A resolved path that is not executable is an error, not an exec attempt — the same refusal
 // `hm_run_binary` makes on the shell side.
@@ -106,12 +99,6 @@ func (r Runner) resolve() (string, error) {
 
 	if executable == "" {
 		executable = os.Getenv("HM_SELF")
-	}
-
-	if executable == "" {
-		if root := os.Getenv("HM_LEGACY_ROOT"); root != "" {
-			executable = filepath.Join(root, "bin", "run")
-		}
 	}
 
 	if executable == "" {

@@ -55,7 +55,7 @@ func runCapturing(t *testing.T, project core.Project, args []string) (stdout, st
 	}
 
 	if len(fake.calls) == 0 {
-		t.Fatalf("%v asked the fake engine nothing: it fell through to the legacy runner", args)
+		t.Fatalf("%v asked the fake engine nothing: it fell through to the project-command lookup", args)
 	}
 
 	return out.String(), errs.String()

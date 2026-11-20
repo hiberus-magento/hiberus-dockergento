@@ -26,7 +26,14 @@ else
     sourceFile="$HOME/.bashrc"
 fi
 
-source "$dir/console/helpers/array_manager.sh"
+# in_array <word> <space-separated list>
+in_array() {
+    local word
+    for word in $2; do
+        [[ "$word" == "$1" ]] && return 0
+    done
+    return 1
+}
 
 # The command names come from the same declaration the help reads, data/command_descriptions.json;
 # its keys starting with "_" are metadata, not commands. There used to be one script per command
@@ -38,7 +45,9 @@ while IFS= read -r command_name; do
     fi
 done < <(jq -r 'keys[] | select(startswith("_") | not)' "$dir/data/command_descriptions.json")
 
-# Write autocomplete file
+# Write autocomplete file. Its path is the one users' shell profiles source, so it stays
+# console/hm-completion.bash even though nothing else lives in console/ any more
+mkdir -p "$dir/console"
 echo -e "#!/usr/bin/env bash\n\ncomplete -W \"$commands\" hm" > "$dir"/console/hm-completion.bash
 
 #
@@ -58,7 +67,7 @@ if [ -n "$installed_target" ]; then
         installed_target="$(readlink "$installed_target")"
         [[ $installed_target != /* ]] && installed_target="$link_dir/$installed_target"
     done
-    # bin/run -> the installation directory
+    # bin/hm -> the installation directory
     installed_dir=$(cd -P "$(dirname "$(dirname "$installed_target")")" 2>/dev/null && pwd) || installed_dir=""
 else
     installed_dir=""

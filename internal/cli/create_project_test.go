@@ -100,7 +100,7 @@ func TestAFailedCreateProjectKeepsItsCode(t *testing.T) {
 }
 
 // TestTheRouterAnswersForCreateProject: the case line in run.go is what reaches the handler; without
-// it the command falls through to the legacy runner and the fake is asked nothing.
+// it the command falls through to the project-command lookup and the fake is asked nothing.
 func TestTheRouterAnswersForCreateProject(t *testing.T) {
 	fake := answering(t)
 
@@ -108,6 +108,6 @@ func TestTheRouterAnswersForCreateProject(t *testing.T) {
 
 	if len(fake.calls) == 0 || fake.calls[0].Method != "CreateProject" {
 		t.Fatalf("create-project asked %v, want the router to reach the handler instead of falling "+
-			"through to the legacy runner", fake.calls)
+			"through to the project-command lookup", fake.calls)
 	}
 }

@@ -88,8 +88,7 @@ RELEASES="https://github.com/hiberus-magento/hiberus-dockergento/releases"
 # built with a local Go toolchain. A checkout that is not at a tag is built when Go is there, and
 # only otherwise given the latest release.
 #
-# There is no fallback to bin/run: it is a launcher that refuses every command now, so a link to it
-# is an installation that does nothing.
+# There is no fallback to a shell entry point: bin/run, the launcher hm used to be, is gone.
 #
 release_asset() {
     local system architecture
@@ -232,7 +231,7 @@ create_link_to_command() {
     fi
 
     # A link this installer made earlier is moved to the binary: one made while hm was shell only
-    # points at bin/run, which now refuses every command
+    # points at bin/run, which no longer exists
     local current
     current="$(readlink "$HM_LINK" || true)"
 

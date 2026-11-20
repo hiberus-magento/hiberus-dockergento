@@ -66,11 +66,6 @@ type Options struct {
 	// ~/.hm/worktrees.
 	WorktreeDir string
 
-	// ShellRoot is where the shell implementation lives, for the one door that still reaches it:
-	// the orchestrator's `proxy up` when no proxy is wired in. A project's own commands are run by
-	// the binary now.
-	ShellRoot string
-
 	// Binary is the name the tool is invoked as, because every hint an answer carries is a
 	// command the reader is meant to be able to paste. Empty means "hm".
 	Binary string
@@ -117,8 +112,8 @@ type Engine struct {
 	binaries *binarySource
 }
 
-// New builds an engine. The zero Options are the right ones for a program installed beside the
-// shell tree, which is what `hm` is.
+// New builds an engine. The zero Options are the right ones for a program installed in its
+// checkout, beside data/ and docker-compose/, which is what `hm` is.
 func New(options Options) *Engine {
 	if options.Root == "" {
 		options.Root = installedRoot()
@@ -664,8 +659,7 @@ func (e *Engine) hosts() app.Hosts {
 	return app.Hosts{
 		Properties: e.properties(),
 		Resolver:   machine.Resolver{},
-		// This binary, not the shell entry point: the step is `magento config:set`, and magento's
-		// shell twin is retired, so bin/run would only name the binary
+		// This binary: the step is `magento config:set`
 		Legacy:   selfrun.Runner{},
 		File:     os.Getenv("HM_HOSTS_FILE"),
 		Announce: e.options.Announce,

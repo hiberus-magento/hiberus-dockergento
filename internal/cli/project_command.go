@@ -81,13 +81,6 @@ func projectCommand(name string, args []string, stdout, stderr io.Writer, jsonOu
 
 	script := filepath.Join(customCommandsDir(resolved.Root), name+".sh")
 	if info, err := os.Stat(script); err != nil || !info.Mode().IsRegular() {
-		descriptions, _ := readJSONObject(filepath.Join(tool, "data", "command_descriptions.json"))
-
-		if _, declared := descriptions[name]; declared {
-			return run.fail(exitUsage, "command_moved_to_binary",
-				"'"+name+"' is part of the "+binaryName()+" binary now", binaryName()+" "+name)
-		}
-
 		return run.fail(exitUsage, "command_not_found", "Command not found: "+name, binaryName()+" --help")
 	}
 
@@ -132,17 +125,14 @@ func (r *projectRun) set(key, value string) { r.env[key] = value }
 
 func (r *projectRun) get(key string) string { return r.env[key] }
 
-// prepare exports what bin/run exported before the script ran, in the order it did: the
-// directories, the properties, the palette and the exit codes, the platform, the output decision,
+// prepare exports what bin/run exported before the script ran, in the order it did — except where
+// the shell implementation's own directories were, which are gone: the directories, the properties, the palette and the exit codes, the platform, the output decision,
 // then the project's identity, its branch environment if it has one, and the compose command.
 func (r *projectRun) prepare(resolved hmRoot) int {
 	r.set("COMMAND_BIN_NAME", binaryName())
 	r.set("COMMAND_TOOLNAME", "Hiberus Dockergento")
 	r.set("COMMAND_BIN_DIR", r.tool)
 	r.set("DATA_DIR", filepath.Join(r.tool, "data"))
-	r.set("HELPERS_DIR", filepath.Join(r.tool, "console", "helpers"))
-	r.set("TASKS_DIR", filepath.Join(r.tool, "console", "tasks"))
-	r.set("COMPONENTS_DIR", filepath.Join(r.tool, "console", "components"))
 	r.set("HM_ROOT", resolved.Root)
 	r.set("HM_IS_WORKTREE", strconv.FormatBool(resolved.IsWorktree))
 	r.set("HM_WORKTREE", resolved.Worktree)
@@ -502,8 +492,8 @@ func (r *projectRun) isFile(path string) bool {
 }
 
 //
-// The on-disk cache of console/helpers/cache.sh, shared with it: the same directory, the same
-// keys, a token on the first line and the value on the second.
+// The on-disk cache the shell implementation kept (console/helpers/cache.sh, now gone), in its
+// format: the same directory, the same keys, a token on the first line and the value on the second.
 //
 
 func (r *projectRun) cacheDir() string {

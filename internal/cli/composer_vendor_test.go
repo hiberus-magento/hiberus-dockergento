@@ -291,7 +291,7 @@ func TestTheRouterAnswersEveryComposerInvocation(t *testing.T) {
 
 	Run([]string{"composer", "install"}, io.Discard, io.Discard)
 
-	// Falling through to the legacy runner would reach the real engine and leave the fake unasked
+	// Falling through to the project-command lookup would reach the real engine and leave the fake unasked
 	if len(fake.calls) < 2 || fake.calls[1].Method != "Restart" {
 		t.Fatalf("composer install asked the engine %v, want the dance through the handler", fake.calls)
 	}

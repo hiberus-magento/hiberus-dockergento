@@ -315,13 +315,28 @@ func TestTheRefusalIsPaintedLikeTheShells(t *testing.T) {
 	}
 }
 
-func TestADeclaredNameWithNoCommandIsPartOfTheBinary(t *testing.T) {
+// A key of the declarations that is not a command — the metadata starting with "_" — is not
+// found like any other unknown name. There is no shell implementation left for it to have moved
+// out of.
+func TestADeclaredNameWithNoCommandIsNotFound(t *testing.T) {
 	_, _, project := projectFixture(t)
 
 	_, stderr, code := runProject(t, project, "_groups", "--no-json")
 
-	if code != exitUsage || stderr != "\n'_groups' is part of the hm binary now\n\n  hm _groups\n\n" {
-		t.Fatalf("= %d %q, want command_moved_to_binary", code, stderr)
+	if code != exitUsage || stderr != "\nCommand not found: _groups\n\n  hm --help\n\n" {
+		t.Fatalf("= %d %q, want command_not_found", code, stderr)
+	}
+}
+
+// The script is not told where a shell implementation would live: there is none.
+func TestTheScriptIsNotPointedAtAShellTree(t *testing.T) {
+	_, _, project := projectFixture(t)
+	t.Setenv("SHOW", "HELPERS_DIR TASKS_DIR COMPONENTS_DIR")
+
+	stdout, _, _ := runProject(t, project, "hello", "--no-json")
+
+	if want := "args=\nHELPERS_DIR=\nTASKS_DIR=\nCOMPONENTS_DIR=\n"; stdout != want {
+		t.Fatalf("got %q\nwant %q", stdout, want)
 	}
 }
 

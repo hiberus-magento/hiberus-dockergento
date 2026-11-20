@@ -54,8 +54,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	//
 	// Each has a condition for disappearing, written down in MIGRATION.md:
 	//
-	//   _registry  goes when nothing in shell needs to read the registry: it is also how
-	//              `bin/run` reads it, now that the registry is a database
+	//   _registry  goes when nothing in shell needs to read the registry — which, with the
+	//              shell entry point gone, is now; only the suites still look through it
 	//
 	case "_registry":
 		return registryState(stdout, stderr)

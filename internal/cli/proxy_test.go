@@ -9,8 +9,7 @@ import (
 //
 // A proxy subcommand nobody knows is a usage error the binary answers, with the shell
 // implementation's type, message and hint. Up, down and status were already the binary's; this was
-// the last thing proxy.sh did, and answering(t) pins the fallthrough to a directory with no bin/run,
-// so a call that still reached it would fail with 3 here.
+// the last thing proxy.sh did.
 //
 
 func TestAnUnknownProxySubcommandIsAUsageError(t *testing.T) {

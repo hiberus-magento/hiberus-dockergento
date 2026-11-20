@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #
-# Regenerates the help goldens from the real shell implementation. Run from anywhere, with bash:
+# Regenerates the help goldens. They were first captured from the shell implementation, which is
+# gone; they are the binary's own output now, so a recapture is reviewed as a diff — a change to a
+# golden nobody meant is a change to the help nobody meant. Run from anywhere, with bash:
 #
 #   bash internal/cli/testdata/help/capture.sh
 #
@@ -11,9 +13,11 @@ set -euo pipefail
 
 HERE="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd -P "$HERE/../../../.." && pwd)"
-RUN="$ROOT/bin/run"
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
+# Beside data/, which is where the binary finds the declarations it prints
+RUN="$ROOT/bin/hm"
+( cd "$ROOT" && go build -o "$RUN" ./cmd/hm )
 
 mkdir "$SCRATCH/empty"
 cp -R "$HERE/project" "$SCRATCH/project"

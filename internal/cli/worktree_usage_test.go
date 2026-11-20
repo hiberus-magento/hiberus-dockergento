@@ -12,8 +12,8 @@ import (
 //
 // It used to fall through to the shell entry point, whose worktree.sh did nothing but exec the
 // binary again with the same arguments: binary, bin/run, worktree.sh, binary, for as long as Docker
-// was up for bin/run's validation to pass. answering(t) pins the fallthrough to a directory with no
-// bin/run, so a call that still falls through fails with 3 here instead of looping.
+// was up for bin/run's validation to pass. The shell entry point is gone; a call that fell through
+// now would be refused as an unknown project command.
 //
 
 func TestWorktreeWithoutAKnownSubcommandIsAUsageError(t *testing.T) {

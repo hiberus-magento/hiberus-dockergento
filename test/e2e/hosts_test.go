@@ -238,7 +238,7 @@ func TestSetHostWritesTheBaseURLs(t *testing.T) {
 
 	session, project := hosts(t, "")
 
-	// A shell tree that installs nothing and writes down what it was asked to do: what has to be
+	// A stand-in that installs nothing and writes down what it was asked to do: what has to be
 	// right here is that Magento is asked for the right thing, not that Magento answers
 	asked := e2e.Recorder(t, session)
 
@@ -249,7 +249,7 @@ func TestSetHostWritesTheBaseURLs(t *testing.T) {
 		"magento config:set web/unsecure/base_url https://tienda.invalid/",
 	} {
 		if got := asked(); !strings.Contains(got, want) {
-			t.Errorf("asked of the shell half = %q, want it to contain %q", got, want)
+			t.Errorf("asked of the binary = %q, want it to contain %q", got, want)
 		}
 	}
 }
@@ -263,6 +263,6 @@ func TestSetHostAsksNothingOfMagentoWhenToldNotTo(t *testing.T) {
 	session.Run(t, project.Root, "--no-json", "set-host", "tienda.invalid", "--no-database")
 
 	if got := asked(); got != "" {
-		t.Errorf("asked of the shell half = %q, want nothing", got)
+		t.Errorf("asked of the binary = %q, want nothing", got)
 	}
 }

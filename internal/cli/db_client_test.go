@@ -351,7 +351,7 @@ func TestTheRouterAnswersForTheDatabaseLaunchers(t *testing.T) {
 
 			Run([]string{client, "--print"}, io.Discard, io.Discard)
 
-			// An unrouted command falls through to the legacy runner, which never reaches the fake
+			// An unrouted command falls through to the project-command lookup, which never reaches the fake
 			if len(fake.calls) == 0 {
 				t.Fatalf("%s asked the fake engine nothing, want the router to reach the handler", client)
 			}

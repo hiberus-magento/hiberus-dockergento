@@ -664,10 +664,6 @@ func TestFakeEngineRecordsCaptureAndXdebugHost(t *testing.T) {
 //     independently of any interactive bool, so a RED run never blocks on a question.
 //   - DOCKER_HOST: an unrouted call into toolinfo's DockerVersion dials with no deadline of its
 //     own; pointed at a socket that cannot exist, the dial fails fast instead of hanging.
-//   - HM_LEGACY_ROOT: reached only when Hosts.Set's own resolution falls through to the legacy
-//     branch, which execs <root>/bin/run (legacy/runner.go:94) when ShellRoot is empty. A
-//     developer's own HM_LEGACY_ROOT would have a RED run shell out to the Bash half; a fresh
-//     temporary directory makes that exec fail with ENOENT instead.
 //   - t.Chdir(t.TempDir()): app/hosts.go:49 writes properties.json under the resolved project
 //     root, which without this pin is the directory the test binary happens to run in — the
 //     package's own checkout.
@@ -678,7 +674,6 @@ func answering(t *testing.T) *fakeEngine {
 	t.Setenv("HM_HOSTS_FILE", filepath.Join(t.TempDir(), "hosts"))
 	t.Setenv("HM_NON_INTERACTIVE", "1")
 	t.Setenv("DOCKER_HOST", "unix:///nonexistent")
-	t.Setenv("HM_LEGACY_ROOT", t.TempDir())
 	t.Chdir(t.TempDir())
 
 	fake := &fakeEngine{}
