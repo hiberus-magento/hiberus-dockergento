@@ -167,9 +167,16 @@ test_case "list works from a worktree"
 run_in_go "$LAB/wt" list --json
 assert_equals "0" "$STATUS"
 
+# Not "exits 0": doctor exits 1 whenever a check is an error (docs/doctor.md), and in this lab
+# worktree.local never resolves, since nothing may write /etc/hosts. What a worktree must not
+# do to doctor is refuse it (exit 6): it has to run and report on the main checkout.
 test_case "doctor works from a worktree"
 run_in_go "$LAB/wt" doctor --json
-assert_equals "0" "$STATUS"
+[ "$STATUS" -ne 6 ] && r=runs || r=refused
+assert_equals "runs" "$r"
+
+test_case "and reports its checks"
+assert_json_field "$STDOUT" '.command' "doctor"
 
 # magento is the binary's, and so is the note: codeProjectOr (internal/cli/engine.go) prints it
 # before anything reaches a container, so it is there even with no daemon to answer
