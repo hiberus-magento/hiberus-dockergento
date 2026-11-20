@@ -51,11 +51,11 @@ It is 20 alphanumeric characters — no symbols, because the password travels as
 `docker compose exec` and every symbol is a chance for a layer of quoting to break it. Twenty
 alphanumerics carry more entropy than twelve with symbols, and neither is meant to be typed.
 
-**It is not written down.** `data/config.json` lives in the tool's directory, is shared by every
-project, and records what you answer — a password written there becomes the next project's default
-and sits in plain text on disk.
+**It is not written down.** `~/.hm/config.json` is shared by every project and records what you
+answer — a password written there becomes the next project's default and sits in plain text on
+disk.
 
-If you want a fixed password instead, set it in `data/config.json` and it is respected.
+If you want a fixed password instead, set it in `~/.hm/config.json` and it is respected.
 
 ### If you lose it
 

@@ -8,7 +8,7 @@ Hiberus Dockergento is a CLI tool (`hm`) for creating and managing Docker-based 
 
 **Core Concept**: This project is a command router that translates simplified Magento 2-specific commands into operations on the dockerized services. For example, `hm magento cache:clean` runs the Magento CLI inside the PHP container through Compose, which the binary uses as a library (`dockergento/adapters/composelib`), and the Docker API (`dockergento/adapters/dockerd`).
 
-**Implementation Language**: The `cmd/hm` Go binary is the entry point; `internal/cli/run.go` answers every invocation: the 65 commands, the help (`hm`, `--help`, `<cmd> --help`), `--version`, and a project's own scripts under `config/hm/commands` (`internal/cli/project_command.go`). There is no Bash entry point any more: `bin/run` and the `console/` tree are gone, except `console/hm-completion.bash`, which `generate_completion.sh` writes and users' shell profiles source — `MIGRATION.md` keeps the history.
+**Implementation Language**: The `cmd/hm` Go binary is the entry point; `internal/cli/run.go` answers every invocation: the 66 commands, the help (`hm`, `--help`, `<cmd> --help`), `--version`, and a project's own scripts under `config/hm/commands` (`internal/cli/project_command.go`). There is no Bash entry point any more: `bin/run` and the `console/` tree are gone, except `console/hm-completion.bash`, which `generate_completion.sh` writes and users' shell profiles source — `MIGRATION.md` keeps the history.
 
 ## Architecture Documentation
 
@@ -59,6 +59,7 @@ Hiberus Dockergento is a CLI tool (`hm`) for creating and managing Docker-based 
 - **Project commands**: `internal/cli/project_command.go` - runs a project's own `config/hm/commands/<name>.sh` for any name the router does not know
 - **Data**: `data/*.json` - Configuration (requirements, properties, command descriptions)
 - **Templates**: `docker-compose/*.yml` - Docker Compose templates
+- **Embedded assets**: `assets.go` (package `hm`, module root) compiles `data/`, `docker-compose/` and `skills/` into the binary with `go:embed`; `hm.Assets()` is that `fs.FS`, or `os.DirFS($HM_ASSETS_DIR)` when the contributor override is set. It reaches readers through `dockergento.Options.Assets` (and `toolAssets` in `internal/cli`); nothing reads tool files from beside the executable, so tests inject an `fstest.MapFS`. A new data file must be added to the `//go:embed` list
 
 ### Command Flow (Simplified)
 

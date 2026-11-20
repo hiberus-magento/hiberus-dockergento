@@ -443,6 +443,33 @@ them anyway, for that invocation only. See [worktree](docs/worktree.md).
   a project; the skills that teach an agent this tool live in `skills/`. See
   [skills](docs/skills.md).
 
+## Shell completion
+
+`hm completion bash` and `hm completion zsh` print the completion script, built from the
+commands the binary itself declares. The installer writes it to `~/.hm/completion/` for you; to
+load it by hand, add `source <(hm completion bash)` to `~/.bashrc`, or
+`source <(hm completion zsh)` to `~/.zshrc` after `compinit`. See [completion](docs/completion.md).
+
+## Working on hm itself
+
+The binary is self-contained: `data/`, `docker-compose/` and `skills/` are compiled into it with
+`go:embed`, so it reads nothing from beside the executable and an edit to one of those files
+needs a rebuild (`go build -o bin/hm ./cmd/hm`) to be seen.
+
+To try an edit without rebuilding, point `HM_ASSETS_DIR` at a checkout:
+
+```bash
+HM_ASSETS_DIR=~/src/hiberus-dockergento hm compatibility
+```
+
+When it is set, every one of those files is read from that directory (laid out like the root of
+the repository) instead of from the binary, with no fallback to the embedded copy: a file missing
+there is an error. Project scripts under `config/hm/commands` get `DATA_DIR` set to
+`$HM_ASSETS_DIR/data` then, and empty otherwise.
+
+The store and admin settings `hm install` passes to `setup:install` live in `~/.hm/config.json`,
+outside the installation, shared by every project.
+
 ## Where to look next
 
 - [docs/](docs/): one page per command, plus [questions](docs/questions.md),
