@@ -149,11 +149,13 @@ Behavior:
   - Reads tracked files from config/docker/ai-registration.json
   - Removes ONLY files that were downloaded by hm ai-init/ai-pull
   - Preserves custom skills/agents that you created manually
-  - Clears ai-registration.json after successful deletion
+  - Clears ai-registration.json of what was deleted; what could not be deleted stays registered
   - Does NOT modify ai-properties.json (configuration is preserved)
 
 Safety:
   - Whitelist-based approach: only registered files can be deleted
+  - Only entries directly inside a platform's skills/agents directory in the project are deleted;
+    any other registered path is refused and reported
   - Shows list of files to be deleted and asks for confirmation
   - Refuses to operate if registration file is corrupted
 
