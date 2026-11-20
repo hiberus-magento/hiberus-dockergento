@@ -74,30 +74,14 @@ assert_equals "$(commands | grep -c .)" "$total_declared"
 # A row that says shell when the router already answers for that command is the same drift,
 # read from the other side: the document has to catch up, not just avoid inventing.
 
-# db routes only part of its subcommands (`templateSubcommands` in run.go) — pinned from both
-# sides below, never a silent skip
-PARTIAL="db"
-is_partial() { case " $PARTIAL " in *" $1 "*) return 0 ;; esac; return 1; }
-
 test_case "every command the router answers for is tabled as go"
 drifted=""
 while IFS= read -r command; do
     [ -z "$command" ] && continue
-    is_partial "$command" && continue
     owner=$(rows | awk -F'\t' -v c="$command" '$1 == c { print $2 }')
     [ "$owner" == "go" ] || drifted="$drifted $command"
 done <<< "$(hm_routed_commands)"
 assert_equals "" "$drifted"
-
-test_case "the partial exception is still routed and still tabled shell"
-stale=""
-still_routed="$(hm_routed_commands)"
-for command in $PARTIAL; do
-    grep -qx "$command" <<< "$still_routed" || stale="$stale ${command}(not-routed)"
-    owner=$(rows | awk -F'\t' -v c="$command" '$1 == c { print $2 }')
-    [ "$owner" == "shell" ] || stale="$stale ${command}(owner=$owner)"
-done
-assert_equals "" "$stale"
 
 # ---------------------------------------------------------------- the way back in
 

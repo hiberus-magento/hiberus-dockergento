@@ -18,7 +18,7 @@
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 61 de 65 |
+| Comandos en Go | 62 de 65 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -156,7 +156,9 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         principal, que es justo lo que WT-01 existe para impedir
   - [x] `db` entero — las plantillas (`freeze`, `templates`, `clone`, `drop`), de las que depende
         `worktree`, y las instantáneas (`snapshot`, `list`, `restore`, `remove`, `clear`), de las
-        que depende `down`. Lo único que sigue en shell es el texto de uso
+        que depende `down`. El texto de uso y la negativa a un subcomando desconocido también
+        los contesta ya el binario, y sin pedir Docker: `bin/run` lo validaba antes de llegar a
+        `db.sh`, igual que hacía con los errores de argumentos de las dos familias
   - [x] `clean` — y con él ya nadie más escribe registraciones desde bash
   - [x] `down` — y con él el selector: la lista por la que se mueve uno, con `fzf` si está
         instalado, con las flechas si se puede dibujar, y numerada donde no. Es la pieza que
@@ -888,8 +890,8 @@ conciencia; el detalle y lo que se compra con ello, en `docs/research/2.0-arquit
 
 `db` son dos familias que comparten nombre: **instantáneas** (volcados en fichero, para guardar) y
 **plantillas** (copias byte a byte del directorio de datos en un volumen, para levantar entornos en
-segundos). Las plantillas van por Go; las instantáneas siguen en shell. La frontera está entre dos
-operaciones independientes, no por la mitad de una.
+segundos). Las dos familias van por Go, y con ellas el texto de uso y la negativa a un subcomando
+desconocido.
 
 `composer install|update|require|remove` sigue en shell **en macOS**: ahí no se ejecuta en el
 contenedor sin más, sino que se copia el `vendor` dentro, corre Composer y se copia el árbol
@@ -927,7 +929,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `copy-from-container` | files | 3 | go |
 | `copy-to-container` | files | 3 | go |
 | `create-project` | tools | 3 | go |
-| `db` | database | 2 | shell |
+| `db` | database | 2 | go |
 | `dbeaver` | database | 3 | go |
 | `debug-off` | tools | 3 | go |
 | `debug-on` | tools | 3 | go |
@@ -988,5 +990,5 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 
 El test `tests/unit/migration_status_test.sh` comprueba que esta tabla no miente en ninguna
 dirección: que están todos los comandos y que lo marcado como Go existe de verdad en el árbol
-de Go, y también al revés — que todo lo que el router ya resuelve está marcado `go` aquí, con la
-única excepción fijada de `db`, que sólo está portado a medias.
+de Go, y también al revés — que todo lo que el router ya resuelve está marcado `go` aquí, sin
+excepciones.

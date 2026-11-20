@@ -106,11 +106,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			// binary again with the same arguments — a loop for as long as Docker was up
 			return worktree(rest[1:], stdout, stderr, jsonOutput)
 		case "db":
-			// Both families of it. What is left over goes to the shell implementation, which is
-			// where the usage text and an unknown subcommand are still answered
-			if len(rest) > 1 && templateSubcommands[rest[1]] {
-				return db(rest[1:], stdout, stderr, jsonOutput)
-			}
+			// All of it: both families, the usage text and a subcommand it does not know
+			return db(rest[1:], stdout, stderr, jsonOutput)
 		case "bash":
 			return shell(rest[1:], stdout, stderr, jsonOutput)
 		case "masquerade":

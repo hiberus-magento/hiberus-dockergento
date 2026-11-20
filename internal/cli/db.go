@@ -20,18 +20,12 @@ import (
 // and that is why they are one command.
 //
 
-// templateSubcommands are the ones handled here, which is now both families.
-var templateSubcommands = map[string]bool{
-	"freeze": true, "templates": true, "clone": true, "drop": true,
-	"snapshot": true, "list": true, "restore": true, "remove": true, "clear": true,
-}
-
 func db(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
-	if len(args) == 0 {
-		return exitOK
+	subcommand, rest := "", []string(nil)
+	if len(args) > 0 {
+		subcommand, rest = args[0], args[1:]
 	}
 
-	subcommand, rest := args[0], args[1:]
 	forced := os.Getenv("HM_FORCE") == "1"
 
 	switch subcommand {
@@ -53,7 +47,45 @@ func db(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return removeSnapshot(rest, stdout, stderr, jsonOutput)
 	case "clear":
 		return clearSnapshots(rest, stdout, stderr, jsonOutput)
+	case "":
+		// `--help` and `-h` never get here: Run answers them from the command descriptions first
+		return dbUsage(stdout, stderr, jsonOutput)
 	}
+
+	return failure(stderr, jsonOutput, "db", exitUsage, "unknown_subcommand",
+		fmt.Sprintf("'%s' is not something %s db does", subcommand, binaryName()),
+		binaryName()+" db snapshot | list | restore | remove | clear | freeze | templates | clone | drop")
+}
+
+// dbUsage is what db.sh printed when it was given no subcommand. Its headings went through
+// print_info — green on stdout, plain on stderr under --json — and its lines through
+// print_default, which opened each with a colour reset and stayed on stdout either way.
+func dbUsage(stdout, stderr io.Writer, jsonOutput bool) int {
+	heading := func(text string) {
+		if jsonOutput {
+			fmt.Fprint(stderr, text)
+
+			return
+		}
+
+		fmt.Fprint(stdout, good(text))
+	}
+
+	line := func(text string) {
+		fmt.Fprint(stdout, code(reset)+"  "+binaryName()+" db "+text)
+	}
+
+	heading("Named copies of this project's database\n\n")
+	line("snapshot [--name=<name>] [--force]\n")
+	line("list\n")
+	line("restore <name>\n")
+	line("remove <name>\n")
+	line("clear [--all]\n\n")
+	heading("Frozen copies of the data directory, to stand environments up in seconds\n\n")
+	line("freeze [--name=<name>] [--force]\n")
+	line("templates\n")
+	line("clone [<project>/]<name> [--force]\n")
+	line("drop [<project>/]<name>\n\n")
 
 	return exitOK
 }
