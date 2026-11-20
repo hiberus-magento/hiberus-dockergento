@@ -773,6 +773,12 @@ func (f *fakeEngine) AIInit(dir string, options app.AIInitOptions, interactive b
 	return f.ai(dir, console).Init(options, interactive)
 }
 
+func (f *fakeEngine) AIPull(dir string, force bool, console app.AIConsole) int {
+	f.calls = append(f.calls, call{Method: "AIPull", Dir: dir})
+
+	return f.ai(dir, console).Pull(force)
+}
+
 func (f *fakeEngine) ai(dir string, console app.AIConsole) *app.AITools {
 	tools := *f.aiTools
 	tools.Dir, tools.Console = dir, console

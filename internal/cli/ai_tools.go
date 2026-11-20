@@ -113,6 +113,28 @@ Reconfiguration:
 
 `
 
+const aiPullUsage = `Usage: hm ai-pull [OPTIONS]
+
+Download/update AI tools (skills/agents) from configured repositories.
+
+Options:
+  --force    Force re-download and overwrite existing skills/agents (including custom)
+
+Prerequisites:
+  - ai-properties.json must exist (run 'hm ai-init' first)
+
+Behavior:
+  - Reads configuration from config/docker/ai-properties.json
+  - Downloads from all configured repositories (default + custom)
+  - Preserves custom skills/agents (unless --force is used)
+  - Updates ai-registration.json with tracked files
+
+Examples:
+  hm ai-pull
+  hm ai-pull --force
+
+`
+
 // aiInit configures the project's AI tooling and installs it for the first time.
 //
 // An option it does not know is refused the way the script refused it: the complaint with
@@ -147,4 +169,26 @@ func aiInit(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	return newEngine(stdout, stderr, jsonOutput).AIInit(here(), options, interactive(), console)
+}
+
+// aiPull installs again everything the configuration asks for.
+//
+// --force is the tool's own flag, taken out by the router before the command sees it, as bin/run
+// took it out: the option below is never reached, exactly as the script's was not.
+func aiPull(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	console := aiConsole{stdout, stderr, jsonOutput, "ai-pull"}
+	force := false
+
+	for _, argument := range args {
+		if argument != "--force" {
+			console.Say(app.AIError, "Unknown option: "+argument, app.AILine)
+			console.Stdout(aiPullUsage)
+
+			return exitUsage
+		}
+
+		force = true
+	}
+
+	return newEngine(stdout, stderr, jsonOutput).AIPull(here(), force, console)
 }

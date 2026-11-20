@@ -73,6 +73,7 @@ type commands interface {
 	Verify(dir string, options core.VerifyOptions) (core.Verification, error)
 	AIDoctor(dir string) (core.AIDoctorReport, error)
 	AIInit(dir string, options app.AIInitOptions, interactive bool, console app.AIConsole) int
+	AIPull(dir string, force bool, console app.AIConsole) int
 }
 
 var _ commands = (*dockergento.Engine)(nil)

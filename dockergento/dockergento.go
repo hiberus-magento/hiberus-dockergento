@@ -1971,6 +1971,11 @@ func (e *Engine) AIInit(dir string, options app.AIInitOptions, interactive bool,
 	return e.aiTools(dir, console).Init(options, interactive)
 }
 
+// AIPull is ai-pull in dir: everything the configuration asks for, installed again.
+func (e *Engine) AIPull(dir string, force bool, console app.AIConsole) int {
+	return e.aiTools(dir, console).Pull(force)
+}
+
 // aiTools is the three AI commands against dir, with what the scripts read from the environment:
 // HM_AI_REPOSITORIES for the list ai-pull installs from, and HM_VERSION, or the tool's own tag,
 // for the version its bundled skills are recorded with. Downloads go through curl, tar and git,

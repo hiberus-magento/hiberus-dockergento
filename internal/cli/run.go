@@ -81,6 +81,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return aiDoctor(rest[1:], stdout, stderr, jsonOutput)
 		case "ai-init":
 			return aiInit(rest[1:], stdout, stderr, jsonOutput)
+		case "ai-pull":
+			return aiPull(rest[1:], stdout, stderr, jsonOutput)
 		case "launch":
 			return launch(rest[1:], stdout, stderr, jsonOutput)
 		case "transfer-media":
