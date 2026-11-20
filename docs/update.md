@@ -48,6 +48,11 @@ yourself with `go build` has none unless you stamp it:
 go build -ldflags "-X github.com/hiberus-magento/hiberus-dockergento/internal/cli.Version=2.1.0" -o hm ./cmd/hm
 ```
 
+Stamp it with a release version. A stamp in the shape `git describe --tags` prints
+(`2.0.0-5-gdeadbee`, `-dirty`) or a GoReleaser snapshot's (`2.0.1-SNAPSHOT-deadbee`) names a build
+past or beside that release, so `hm update` and `hm switch` treat it as built from source
+(`built_from_source`) rather than replace it with an older release.
+
 ## For tests
 
 `HM_RELEASES_URL` replaces the address the releases are read from. Pointed at a `file://` JSON

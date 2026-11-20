@@ -3,6 +3,7 @@ package toolinfo
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -155,5 +156,34 @@ func readJSON(t *testing.T, file string) map[string]any {
 func TestAStampedVersionIsTheVersionWithoutGit(t *testing.T) {
 	if got := (Reader{Root: t.TempDir(), Stamped: "2.0.0"}).Version(); got != "2.0.0" {
 		t.Fatalf("Version = %q, want the stamp", got)
+	}
+}
+
+// A source build past its nearest tag is described with the commits past it, as `hm version`
+// describes it: rounded down to the tag, describe and the hm.version label named an older release
+// than the one running.
+func TestASourceBuildPastATagIsNotRoundedDownToIt(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		command := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t",
+			"-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false"}, args...)...)
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, output)
+		}
+	}
+
+	run("init", "-q")
+	run("commit", "-q", "--allow-empty", "-m", "one")
+	run("tag", "2.0.0")
+	run("commit", "-q", "--allow-empty", "-m", "two")
+
+	got := (Reader{Root: dir}).Version()
+	if !strings.HasPrefix(got, "2.0.0-1-g") {
+		t.Fatalf("Version = %q, want 2.0.0-1-g<hash>", got)
 	}
 }

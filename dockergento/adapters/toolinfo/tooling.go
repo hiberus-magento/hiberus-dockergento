@@ -32,12 +32,15 @@ type Reader struct {
 
 // Version is the tool's own version, from git rather than from a file: a file is a second place
 // to remember to change, and it is always the one that is wrong.
+//
+// `git describe --tags` without --abbrev=0, as `hm version` reads it: rounded to the nearest tag, a
+// build commits past it was described and labelled as that older release.
 func (r Reader) Version() string {
 	if r.Stamped != "" {
 		return r.Stamped
 	}
 
-	command := exec.Command("git", "describe", "--tags", "--abbrev=0")
+	command := exec.Command("git", "describe", "--tags")
 	command.Dir = r.Root
 
 	output, err := command.Output()

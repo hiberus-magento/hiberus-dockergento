@@ -634,3 +634,43 @@ func TestVersionsCompareAsSemanticVersions(t *testing.T) {
 		}
 	}
 }
+
+// A binary stamped with what `git describe --tags` says — a tag plus the commits past it — or with
+// a GoReleaser snapshot or a dirty-tree stamp is a build past (or beside) that tag, not a
+// pre-release before it. Read as semver it would sort below the tag, and update would "upgrade"
+// it to the older release: it is a source build, and is refused like one.
+func TestABinaryStampedWithGitDescribeIsNotDowngraded(t *testing.T) {
+	for _, running := range []string{"2.0.0-5-gdeadbee", "2.0.0-12-g0123456789ab-dirty",
+		"2.0.0-dirty", "2.0.1-SNAPSHOT-deadbee", "2.0.1-snapshot"} {
+		source := &fakeReleases{}
+		source.publish("2.0.0", false)
+		engine, target := installed(t, source)
+
+		_, err := engine.Update(core.UpdateOptions{Running: running})
+		if refusal := refusalOf(t, err); refusal.Kind != "built_from_source" ||
+			!strings.Contains(refusal.Message, "version "+running) {
+			t.Fatalf("update from %q: refusal = %+v", running, refusal)
+		}
+
+		_, err = engine.Switch(core.SwitchOptions{Running: running, Stable: true})
+		if refusal := refusalOf(t, err); refusal.Kind != "built_from_source" {
+			t.Fatalf("switch from %q: refusal = %+v", running, refusal)
+		}
+
+		if contentOf(t, target) != "old" || len(source.asked) != 0 {
+			t.Fatalf("running %q: the executable was touched or GitHub asked %v", running, source.asked)
+		}
+	}
+}
+
+// A real pre-release stamp is still a release: rc.1 updates to the final release.
+func TestAPreReleaseStampIsStillARelease(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.0.0", false)
+	engine, target := installed(t, source)
+
+	updated, err := engine.Update(core.UpdateOptions{Running: "2.0.0-rc.1"})
+	if err != nil || !updated.Updated || contentOf(t, target) == "old" {
+		t.Fatalf("updated = %+v, err = %v", updated, err)
+	}
+}

@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
@@ -345,8 +346,12 @@ func (e *Engine) releases(source releaseSource, preReleases bool) ([]published, 
 
 // runningRelease is the running version read, or a refusal for a binary that is not a release: one
 // built from a checkout has no version to compare and is updated where it was built.
+//
+// A stamp in the shape `git describe --tags` prints (2.0.0-5-gdeadbee, -dirty) or a GoReleaser
+// snapshot's (2.0.1-SNAPSHOT-deadbee) is a source build too: read as semver it is a pre-release
+// sorting below its tag, and update would "upgrade" a build past 2.0.0 to the older 2.0.0.
 func (e *Engine) runningRelease(running string) (semver, error) {
-	if version, ok := parseVersion(running); ok && version.major >= 2 {
+	if version, ok := parseVersion(running); ok && version.major >= 2 && !sourceStamp.MatchString(running) {
 		return version, nil
 	}
 
@@ -358,6 +363,10 @@ func (e *Engine) runningRelease(running string) (semver, error) {
 		Hint: "Update it where it was built: git pull && go build -o bin/hm ./cmd/hm",
 	}
 }
+
+// sourceStamp matches the stamps of builds that are not releases: the commits past a tag that git
+// describe adds, a dirty tree, or a snapshot.
+var sourceStamp = regexp.MustCompile(`(?i)-[0-9]+-g[0-9a-f]{4,}(-dirty)?$|-dirty$|snapshot`)
 
 func orDevel(version string) string {
 	if version == "" {
