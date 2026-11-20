@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -27,7 +28,12 @@ import (
 // and data files. After every move the binary is obtained again for what is checked out now: the
 // release asset when HEAD is exactly a release tag, verified against that release's checksums.txt,
 // or built with a local Go toolchain. A ref that is not a release is only ever built: a release
-// asset of another version would be the same disagreement again.
+// asset of another version would be the same disagreement again. When the process itself is bin/hm
+// built from exactly HEAD there is nothing to obtain, so an update that pulled nothing does not need
+// a toolchain.
+//
+// Without a binary for the new checkout the move is kept and the command fails: the binary is the
+// program, so reporting success would claim an update of the program that did not happen.
 //
 // The replacement is atomic — a temporary file in bin/, made executable, renamed over bin/hm — and a
 // failure leaves the previous binary in place. Renaming over the running executable is safe on
@@ -119,6 +125,57 @@ func goBuild(root, output, version string) error {
 	return nil
 }
 
+// runningBuild is the executable of this process, resolved, and the commit it was built from, ok
+// only when the build says which commit and was not built from a modified tree. A variable so that
+// tests do not depend on how the test binary was built.
+var runningBuild = func() (path, revision string, ok bool) {
+	executable, err := os.Executable()
+	if err != nil {
+		return "", "", false
+	}
+	if resolved, err := filepath.EvalSymlinks(executable); err == nil {
+		executable = resolved
+	}
+
+	info, available := debug.ReadBuildInfo()
+	if !available {
+		return "", "", false
+	}
+
+	modified := true
+	for _, setting := range info.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			revision = setting.Value
+		case "vcs.modified":
+			modified = setting.Value == "true"
+		}
+	}
+
+	return executable, revision, revision != "" && !modified
+}
+
+// alreadyCurrent: the process is bin/hm of root and was built from exactly HEAD, so bin/hm already
+// matches the checkout and there is nothing to obtain.
+func alreadyCurrent(root string, git installationGit) bool {
+	path, revision, ok := runningBuild()
+	if !ok {
+		return false
+	}
+
+	target := filepath.Join(root, "bin", "hm")
+	if resolved, err := filepath.EvalSymlinks(target); err == nil {
+		target = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
+
+	head, err := git.run("rev-parse", "HEAD")
+
+	return err == nil && path == target && head == revision
+}
+
 func (e *Engine) binarySource() binarySource {
 	if e.binaries != nil {
 		return *e.binaries
@@ -143,6 +200,11 @@ func (e *Engine) RefreshBinary() error {
 	git := installationGit(root)
 	source := e.binarySource()
 	target := filepath.Join(root, "bin", "hm")
+
+	// HM_BINARY_SOURCE always installs: it is what a test suite asked for
+	if source.local == "" && alreadyCurrent(root, git) {
+		return nil
+	}
 
 	tag, err := git.run("describe", "--tags", "--exact-match", "HEAD")
 	if err != nil {
@@ -197,9 +259,10 @@ func (e *Engine) RefreshBinary() error {
 	return core.Refusal{
 		Kind: "binary_not_refreshed",
 		Code: 1,
-		Message: fmt.Sprintf("The installation is now at %s, but its compiled command could not be obtained (%s). "+
-			"%s keeps the previous one, which may not match", now, strings.Join(reasons, "; "), target),
-		Hint: fmt.Sprintf("Install Go and run: cd %s && go build -o bin/hm ./cmd/hm", root),
+		Message: fmt.Sprintf("The installation was moved to %s, but its compiled command could not be obtained (%s). "+
+			"%s is still the previous build, which may not match the files it now runs over", now, strings.Join(reasons, "; "), target),
+		Hint: fmt.Sprintf("Install Go (https://go.dev/dl/) and run: cd %s && go build -o bin/hm ./cmd/hm"+
+			" — or pin a release, whose binary is downloaded: %s switch --list", root, e.options.Binary),
 	}
 }
 

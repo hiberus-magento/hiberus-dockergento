@@ -27,6 +27,7 @@ func TestMain(m *testing.M) {
 			goos: "linux", goarch: "amd64",
 		}
 	}
+	runningBuild = func() (string, string, bool) { return "", "", false }
 
 	os.Exit(m.Run())
 }
@@ -432,5 +433,72 @@ func TestACompletionFailureDoesNotHideTheBinaryRefusal(t *testing.T) {
 	}
 	if !strings.Contains(refusal.Hint, "generate_completion.sh") || !strings.Contains(refusal.Hint, "go build") {
 		t.Errorf("hint = %q, want how to fix both", refusal.Hint)
+	}
+}
+
+// running pretends the process is bin/hm of root built from revision, for one test.
+func running(t *testing.T, root, revision string) {
+	t.Helper()
+
+	original := runningBuild
+	runningBuild = func() (string, string, bool) { return filepath.Join(root, "bin", "hm"), revision, true }
+	t.Cleanup(func() { runningBuild = original })
+}
+
+func headOf(t *testing.T, root string) string {
+	t.Helper()
+
+	head, err := installationGit(root).run("rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return head
+}
+
+// TestABinaryBuiltFromTheCheckoutNeedsNothing: an update that pulled nothing, run by a bin/hm built
+// from exactly HEAD, has no binary to obtain, toolchain or not.
+func TestABinaryBuiltFromTheCheckoutNeedsNothing(t *testing.T) {
+	_, installed := installation(t)
+	writeOldBinary(t, installed)
+	running(t, installed, headOf(t, installed))
+	fake := &fakeSource{}
+
+	if err := engineWith(installed, fake.source(nil)).Update(); err != nil {
+		t.Fatalf("Update = %v, want nothing to refresh", err)
+	}
+	if content, _ := binaryOf(t, installed); content != "old" {
+		t.Errorf("bin/hm = %q, want it untouched", content)
+	}
+}
+
+// TestABinaryOfAnotherCommitIsStillRefreshed: the shortcut is only for the very commit.
+func TestABinaryOfAnotherCommitIsStillRefreshed(t *testing.T) {
+	_, installed := installation(t)
+	writeOldBinary(t, installed)
+	running(t, installed, "0123456789abcdef0123456789abcdef01234567")
+	fake := &fakeSource{}
+
+	if err := engineWith(installed, fake.source(fake.builder("built"))).RefreshBinary(); err != nil {
+		t.Fatalf("RefreshBinary = %v, want it built", err)
+	}
+	if content, _ := binaryOf(t, installed); content != "built" {
+		t.Errorf("bin/hm = %q, want it rebuilt", content)
+	}
+}
+
+// TestABranchWithoutAToolchainSaysTheCheckoutMovedAndHowToFinish: the refusal leads with what
+// happened and gives both ways out — build it, or pin a release whose binary can be downloaded.
+func TestABranchWithoutAToolchainSaysTheCheckoutMovedAndHowToFinish(t *testing.T) {
+	_, installed := installation(t)
+	writeOldBinary(t, installed)
+	fake := &fakeSource{}
+
+	refusal := refusalOf(t, engineWith(installed, fake.source(nil)).RefreshBinary())
+	if !strings.HasPrefix(refusal.Message, "The installation was moved to ") {
+		t.Errorf("message = %q, want it to lead with the checkout having moved", refusal.Message)
+	}
+	if !strings.Contains(refusal.Hint, "go build -o bin/hm ./cmd/hm") || !strings.Contains(refusal.Hint, "switch --list") {
+		t.Errorf("hint = %q, want how to build it and how to pin a release instead", refusal.Hint)
 	}
 }

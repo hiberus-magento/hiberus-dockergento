@@ -176,6 +176,22 @@ if $NO_GO_TESTABLE; then
     test_case "and the existing link is left as it was"
     assert_equals "$HOME/hm/bin/run" "$(link_of)"
 
+    # A checkout that is not at a release is only ever built, as hm update does: the latest
+    # release's binary would be another version than the files beside it
+    new_case branch
+    publish
+    git -C "$HOME/hm" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "after the release"
+    install
+
+    test_case "a branch checkout with no toolchain is not given the latest release"
+    assert_equals "1" "$STATUS"
+    assert_equals "" "$(cat "$FAKE_CURL_LOG")"
+    assert_equals "no" "$([ -e "$HOME/hm/bin/hm" ] && echo yes || echo no)"
+
+    test_case "and says how to build it or pin a release"
+    assert_contains "$STDERR" "go build -o bin/hm ./cmd/hm"
+    assert_contains "$STDERR" "git -C $HOME/hm checkout"
+
     new_case nothing
     install
 

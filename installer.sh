@@ -85,8 +85,8 @@ RELEASES="https://github.com/hiberus-magento/hiberus-dockergento/releases"
 # From 2.0 the command is the binary bin/hm. The installation is still the git checkout — that is
 # how `hm switch` and `hm update` work — and bin/hm is not in git, so it is obtained here: the
 # release asset of the tag the checkout is at, verified against that release's checksums.txt, or
-# built with a local Go toolchain. A checkout that is not at a tag is built when Go is there, and
-# only otherwise given the latest release.
+# built with a local Go toolchain. A checkout that is not at a tag is only ever built, as hm update
+# and hm switch do: the latest release's binary would be another version than the files beside it.
 #
 # There is no fallback to a shell entry point: bin/run, the launcher hm used to be, is gone.
 #
@@ -180,7 +180,7 @@ obtain_binary() {
     if [ -n "$tag" ]; then
         download_binary "$tag" || build_binary
     else
-        build_binary || download_binary ""
+        build_binary
     fi
 }
 
@@ -211,6 +211,9 @@ create_link_to_command() {
     if [ ! -x "$binary_entry" ] && ! obtain_binary; then
         echo -e "${red}Could not obtain the hm binary for $(uname -s)/$(uname -m): no release binary could be downloaded and verified, and there is no Go toolchain to build it.${colorReset}" >&2
         echo -e "${red}Install Go (https://go.dev/dl/) and run this installer again, or build it yourself: cd $home && go build -o bin/hm ./cmd/hm${colorReset}" >&2
+        if [ -z "$(git -C "$home" describe --tags --exact-match HEAD 2>/dev/null)" ]; then
+            echo -e "${red}Without Go, only a release has a binary to download: pin one and run this installer again: git -C $home checkout <version>   (versions: git -C $home tag)${colorReset}" >&2
+        fi
         if [ -e "$HM_LINK" ] || [ -L "$HM_LINK" ]; then
             echo -e "${orange}$HM_LINK was left as it was.${colorReset}" >&2
         fi
