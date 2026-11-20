@@ -2,7 +2,7 @@
 
 ## 1.1 Tool Purpose
 
-Hiberus Dockergento is a CLI tool that **simplifies and abstracts the complexity of working with Docker environments for Magento 2 development**. It acts as a command router that translates common Magento development operations into appropriate Docker/Docker Compose commands.
+Hiberus Dockergento is a CLI tool that **simplifies and abstracts the complexity of working with Docker environments for Magento 2 development**. It acts as a command router that translates common Magento development operations into operations on Docker and Docker Compose. Since 2.0 it is a single Go binary that uses Compose as a library and talks to the Docker API, organised in hexagonal layers so that the terminal, the dashboard, the HTTP API and the MCP server share the same use cases (section 2).
 
 ## 1.2 Problems It Solves
 
@@ -26,7 +26,9 @@ Hiberus Dockergento is a CLI tool that **simplifies and abstracts the complexity
 ## 1.3 Scope
 
 The tool supports:
-- **Magento Versions**: 2.3.0 to 2.4.7 (and their patched versions)
+- **Magento Versions**: 2.3.0 to 2.4.9 (and their patched versions)
 - **Operating Systems**: macOS and Linux
-- **Dockerized Services**: PHP (7.2-8.3), MariaDB (10.2-10.6), Elasticsearch (5.6-7.17), OpenSearch (1.2-2.12), Redis (5.0-7.2), Varnish (6.0-7.1), RabbitMQ 3.9, Mailhog, Hitch
-- **Operations**: Container management, Magento installation, database management, xDebug debugging, asset compilation, test execution
+- **Dockerized Services**: PHP (7.2-8.5), MariaDB (10.2-12.3), Elasticsearch (5.6-7.17), OpenSearch (1.2-3), Redis (5.0-7.0) or Valkey 9, Varnish (6.0-7.1), RabbitMQ (3.9-4.3), Mailhog or Mailpit, Hitch; `data/requirements.json` is the authoritative matrix
+- **Operations**: Container management, Magento installation, database management and snapshots, xDebug debugging, asset compilation, test execution
+- **Several environments at once**: a global proxy (`hm proxy`), one environment per git branch (`hm worktree`), a fleet dashboard (`hm tui`), temporary public addresses (`hm share`, `hm tunnel`)
+- **Machine consumers**: JSON output and stable exit codes for scripts and CI, read-only MCP tools for AI agents (`hm mcp`), an HTTP API behind `hm web`

@@ -11,7 +11,7 @@ hm ai-pull    # installs them, along with whatever else is configured
 There were five Dockergento skills in `hiberus-magento/ai-tools`, and the two most used of them
 taught commands the tool has never had:
 
-- `hm bash <command>` appeared about 150 times. `bash.sh` understands only `-r`; any other
+- `hm bash <command>` appeared about 150 times. `hm bash` understands only `-r`; any other
   argument is dropped and an interactive shell opens. An agent with no terminal hangs there.
 - `hm bash -c <service>` was never a thing, and the services it named — `mysql`,
   `elasticsearch` — are called `db` and `search`.

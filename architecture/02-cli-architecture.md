@@ -42,9 +42,13 @@ Anything not in the switch:
 - `internal/cli`: the driving adapter — argument parsing, output, one file per command
 - `dockergento/app`: use cases, written against ports
 - `dockergento/core`: pure rules and types (compose rendering, properties, refusals)
-- `dockergento/ports` and `dockergento/adapters/*`: the interfaces and their implementations, wired in `dockergento/dockergento.go`
+- `dockergento/ports` and `dockergento/adapters/*`: the interfaces and their implementations, wired in `dockergento/dockergento.go` (the `Engine` facade)
+- `dockergento/contract`: the JSON envelope and the exit codes, shared by every door
+- The other doors over the same engine: the dashboard (`internal/cli/tui*.go`), the MCP server (`internal/cli/mcp*.go`) and the HTTP API (`internal/api`, started by `hm web`)
 
-Adding a command: a `case` in `run.go`, its handler and test in `internal/cli`, the use case in `dockergento/app`, and its entry in `data/command_descriptions.json`, which the help and the shell completion read.
+Dependencies point inward: `core` imports nothing of the tool's, `app` imports `core` and `ports`, adapters implement ports, and `internal/*` reaches the engine through the facade. Handlers call it through the narrow `commands` interface (`internal/cli/engine.go`), built by the `newEngine` variable; tests replace that variable with a fake (`internal/cli/fake_engine_test.go`) and run handlers through `Run` with no daemon.
+
+Adding a command: its entry in `data/command_descriptions.json` (which the help, its groups and the shell completion read), a `case` in `run.go`, its handler and test (against the fake engine) in `internal/cli`, the use case in `dockergento/app` with a method on the `commands` interface when the handler needs the engine, `docs/<command>.md`, and its row in `MIGRATION.md`'s command table. The constitution (`.specify/memory/constitution.md`) lists the rules a new command follows.
 
 #### 2.3.1 Project-defined commands (`internal/cli/project_command.go`)
 

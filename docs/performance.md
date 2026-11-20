@@ -1,11 +1,15 @@
 # Performance
 
+> **History.** The measurements and the work below were done on the Bash implementation of hm,
+> before 2.0. The binary inherited the lessons — nothing computed until it is needed, caches in
+> `$HOME`, checks in parallel — and the budgets at the end now measure `bin/hm`.
+
 In a Bash CLI, performance is **how many processes you spawn**. There is no algorithm to
 optimise here: there are processes not to spawn. On a developer machine a `jq` costs about
 36 ms and a call to Docker between 70 and 190 ms, so a loop that asks the same question
 forty times is measured in seconds.
 
-## Where it went
+## Where it went (in the shell tool)
 
 | Path | Before | After |
 |---|---|---|
@@ -41,13 +45,16 @@ identical to the sequential one.
 
 ## Budgets
 
-`tests/performance/budget_test.sh` fails if a path goes over budget:
+`tests/performance/budget_test.sh` runs `bin/hm` and fails if a path goes over budget:
 
 | Path | Budget |
 |---|---|
-| `hm --help` | 800 ms |
-| `hm --version` | 600 ms |
-| `hm doctor` | 2 500 ms |
+| `hm --help` | 800 ms, and at most 5 `jq` processes spawned |
+| `hm --version` | 900 ms, and no call to Docker |
+| `hm doctor --json` | 2 500 ms |
+
+It skips itself when Docker is not available, because the timings would not be comparable.
+The dashboard's frame time is covered by the Go tests in `internal/cli/tui_test.go`.
 
 The budgets are loose on purpose. The same `docker compose config -q` measured 72 ms warm
 and 325 ms cold on the same machine, so a tight budget would fail for reasons that have

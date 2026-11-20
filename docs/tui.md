@@ -60,16 +60,16 @@ Two consequences worth knowing:
 
 Tres etapas con una frontera clara, porque de ahí sale que una tecla se sienta inmediata:
 
-1. **Cargar** habla con la CLI y produce JSON. Cuesta procesos, y ocurre sólo cuando lo pides:
-   al abrir, con `g`, o al terminar una acción.
-2. **Componer** convierte ese JSON en líneas ya recortadas al ancho del terminal. Aquí vive
-   `jq`. Se ejecuta al cargar y al redimensionar la ventana — el ancho es una entrada de esta
-   etapa, no de la siguiente.
-3. **Pintar** convierte esas líneas en una escritura. Sin procesos: sólo variables.
+1. **Cargar** pregunta al propio binario (`hm list`, `hm describe`, `hm doctor` en JSON). Cuesta
+   procesos, y ocurre sólo cuando lo pides: al abrir, con `g`, o al terminar una acción.
+2. **Componer** convierte ese JSON en líneas ya recortadas al ancho del terminal. Se ejecuta al
+   cargar y al redimensionar la ventana — el ancho es una entrada de esta etapa, no de la
+   siguiente.
+3. **Pintar** convierte esas líneas en una escritura. Sin procesos: sólo cadenas en memoria.
 
-Un fotograma mide **1,7 ms** con veinte entornos, y un test lo mantiene por debajo de 20 ms
-prohibiendo `jq` y `awk` en el camino de pintado. La primera versión costaba 404 ms por tecla,
-porque recalculaba el layout desde JSON en cada pulsación.
+La primera versión, la de shell, costaba 404 ms por tecla porque recalculaba el layout desde JSON
+en cada pulsación; separar las etapas lo bajó a 1,7 ms con veinte entornos. El dashboard es Go
+desde 2.0 (`internal/cli/tui.go`, `tui_frame.go`, `tui_render.go`) y conserva las tres etapas.
 
 Cuatro detalles que son la diferencia entre un panel que parpadea y uno que no:
 
@@ -103,10 +103,8 @@ Try: hm list --json
 
 Exit code `2`, and in JSON mode the error type is `requires_terminal`.
 
-It runs on the Bash that ships with macOS (3.2) with no dependency beyond what the CLI
-already needs. Terminal handling — the alternate screen, key reading, resizing — lives in
-[terminal components](terminal-components.md), which also documents what happens on a
-terminal too small or without colour.
+It is part of the `hm` binary and needs nothing beyond it. Terminal handling — the alternate
+screen, key reading, resizing — is described in [terminal components](terminal-components.md).
 
 ## When something goes wrong
 

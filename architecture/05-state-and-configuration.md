@@ -182,7 +182,7 @@ export COLOR_RESET="\033[0m"
 # etc.
 ```
 
-The binary's own output is painted in Go (`internal/cli/bashfmt.go` and the renderers), with the same colours.
+The binary's own output is painted in Go (`internal/cli/palette.go` and each command's renderer), with the same colours; see 6.3.
 
 ### 5.5 Configuration Persistence
 
@@ -207,7 +207,7 @@ When the project has no `DOMAIN`, the host of `web/secure/base_url` in `core_con
 
 #### 5.5.3 Docker Compose File Generation
 
-```bash
+```
 # core.RenderCompose (dockergento/core/setup.go), called by app.Setup
 1. Read the requirements for the Magento version
 2. Replace each <service_version> marker in docker-compose/docker-compose.template.yml
@@ -223,7 +223,7 @@ When the project has no `DOMAIN`, the host of `web/secure/base_url` in `core_con
 
 **Where**: `dockergento/app/configure.go` (applied after a database import or an installation)
 
-```bash
+```
 # Executed after DB import or installation
 1. Read config/docker/local_settings.json
 2. Replace placeholders:
@@ -249,60 +249,42 @@ hm magento config:set web/unsecure/base_url https://myproject.local/
 
 #### 5.6.2 Extracting Domains from Database
 
-**Where**: `addSelfRoutingEntries` in `dockergento/app/after_start.go`, on Linux after an environment starts (ported from the shell `set_etc_hosts.sh`, shown below)
+**Where**: `addSelfRoutingEntries` in `dockergento/app/after_start.go`, on Linux after an environment starts
 
-```bash
-# Read all domains configured in Magento, through the binary
-for DOMAIN in `hm_run_binary mysql -q "SELECT DISTINCT value FROM core_config_data WHERE path like 'web/%/base_url'"`
-do
-  if [[ "$DOMAIN" == *"://"* ]]; then
-    DOMAIN=$(echo "$DOMAIN" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
-    # ...written into the php container's /etc/hosts, pointing at the TLS terminator
-  fi
-done
+```
+1. Query core_config_data for the distinct values of web/%/base_url
+2. Keep the host of every value that is a URL (scheme and path dropped)
+3. Write each host into the php container's /etc/hosts, pointing at the TLS terminator,
+   so the store can call itself by its own domain
 ```
 
-**Usage**: only the self-routing entries of the php container. A separate `get_domains.sh` task
-did the same read and was called by nothing; it was removed with `mysql`'s shell twin.
+**Usage**: only the self-routing entries of the php container.
 
 ### 5.7 Docker Services State
 
 #### 5.7.1 State Validation
 
-The tool **does not maintain its own state of containers**, but queries Docker directly:
-
-```bash
-# Check if service is running
-is_run_service "phpfpm"
-  ↓
-container_id=$(docker ps -qf name="$COMPOSE_PROJECT_NAME"-"phpfpm")
-  ↓
-if [ -z "$container_id" ]; then
-    ERROR: "phpfpm service is not running!"
-fi
-```
+The tool **does not keep its own record of containers**: it asks Docker. A use case that needs a
+service looks its container up through the Docker API by its labels — `hm.project` (or
+`com.docker.compose.project` when that is absent) and `com.docker.compose.service`, see
+[environment labels](../docs/environment-labels.md) — in `resolveContainer`
+(`dockergento/app/container.go`), and refuses with `service_not_running`
+(exit 5) and the hint `hm start <service>` when it is not running.
 
 **Advantage**: No desynchronization between real state and assumed state.
 
-#### 5.7.2 Automatic Service Startup
+#### 5.7.2 No Automatic Service Startup
 
-```bash
-# start_service_if_not_running.sh
-$DOCKER_COMPOSE exec -T "$service" sh -c "echo 'check'" &>/dev/null
-  ↓
-exit code 1 → hm start
-exit code 0 → Continue
-```
-
-**Use**: Commands that assume running services (e.g., `mysql`, `composer`) automatically start them if they're not active.
+A command that needs a stopped service does not start it behind the user's back: it refuses with
+exit 5 and says which `hm start` to run. Starting an environment can repoint bind mounts or take
+ports another project holds, so it stays an explicit decision.
 
 ### 5.8 Tool-Specific Configuration
 
 #### 5.8.1 xDebug
 
 **Owner**: the Go binary. `hm debug-on` is `internal/cli`'s `debugOn`, and the host is resolved by
-`dockergento/adapters/machine/xdebug_host.go`. The shell twin
-(`console/tasks/set_xdebug_host_property.sh`) was retired once the port was proved.
+`dockergento/adapters/machine/xdebug_host.go`.
 
 > **This section was wrong in every particular until 2026-09-13**, and the correction is recorded
 > rather than quietly applied. It described a macOS default of `host.docker.internal`, a Linux
@@ -357,48 +339,40 @@ there is nothing to report as failure.
 - Priority: Project custom configuration
 - Fallback: Default configuration in Docker images
 
-**Execution**:
-```bash
-# hm masquerade
-$DOCKER_COMPOSE run --rm masquerade --config=/config magento2
-```
+**Execution** (`Importer.Anonymise` in `dockergento/app/anonymise.go`): the
+`hiberusmagento/masquerade` image runs as a one-off container on the database's network (not as a
+service of the project), with the database credentials read from the db container and, when the
+project has `config/docker/masquerade`, those rules mounted at `/app/masquerade` and passed as
+`--config`.
 
 #### 5.8.3 SSL Certificates
 
-**Management**: `hm ssl <domain>`
+**Management**: `hm ssl [domain]` (`Operator.InstallCertificate` in `dockergento/app/certificate.go`)
 
-```bash
-# Generate certificate with mkcert on host
-mkcert -key-file config/docker/ssl/$domain-key.pem \
-       -cert-file config/docker/ssl/$domain.pem \
-       $domain
-
-# Copy to hitch container
-docker-compose exec -T -u root hitch bash -c "cat > /etc/hitch/testcert.pem" < merged.pem
+```
+1. Refused from a git worktree with no environment of its own (the terminator is the main one's)
+2. mkcert is installed when missing (Homebrew on macOS, the release binary on Linux)
+3. A certificate for the domain, localhost, 127.0.0.1, 0.0.0.0 and ::1 is generated in a
+   temporary directory, signed by mkcert's local authority
+4. The pem is copied into the hitch container at /etc/hitch/testcert.pem and given to hitch
+5. hitch is restarted
 ```
 
-**Storage**: `config/docker/ssl/`
+**Storage**: nothing is kept in the project; the certificate lives in the hitch container.
 
 ### 5.9 Migration and Compatibility
 
 #### 5.9.1 Old Format Refactoring
 
-**Function**: `refactor_old_version()` in `load_properties.sh`
+Before 2.0 every invocation converted the old `config/docker/properties` (`KEY=value` lines) into
+`config/docker/properties.json`. The binary does not: a project that only has the old file is seen
+as not being a project (exit 4). Converting it by hand is one JSON object with the same keys:
 
-Converts old format (key=value) to JSON:
-
-```bash
-# Old format: config/docker/properties
-MAGENTO_DIR=./src
-DOMAIN=myproject.local
-
-  ↓ Conversion with jq ↓
-
-# New format: config/docker/properties.json
+```json
 {
     "MAGENTO_DIR": "./src",
     "DOMAIN": "myproject.local"
 }
 ```
 
-**Automatic**: Runs on every `hm` invocation if it detects the old file.
+Whether the binary should convert it again is an open decision, tracked in `ROADMAP.md` (Pista C).

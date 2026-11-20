@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Hiberus Dockergento is a CLI tool (`hm`) for creating and managing Docker-based Magento 2 development environments. The project provides pre-configured Docker images for various Magento versions (2.3.x - 2.4.7) with appropriate PHP, MariaDB, search engine (Elasticsearch/OpenSearch), Redis, and other service versions.
+Hiberus Dockergento is a CLI tool (`hm`) for creating and managing Docker-based Magento 2 development environments. The project provides pre-configured Docker images for Magento 2.3.x - 2.4.9 with the matching PHP, MariaDB, search engine (Elasticsearch/OpenSearch), Redis/Valkey and other service versions.
 
-**Core Concept**: This project is a command router that translates simplified Magento 2-specific commands into Docker commands that interact with various dockerized services. For example, `hm magento cache:clean` is translated into the appropriate `docker-compose exec` command to run Magento CLI inside the PHP container.
+**Core Concept**: This project is a command router that translates simplified Magento 2-specific commands into operations on the dockerized services. For example, `hm magento cache:clean` runs the Magento CLI inside the PHP container through Compose, which the binary uses as a library (`dockergento/adapters/composelib`), and the Docker API (`dockergento/adapters/dockerd`).
 
 **Implementation Language**: The `cmd/hm` Go binary is the entry point; `internal/cli/run.go` answers every invocation: the 65 commands, the help (`hm`, `--help`, `<cmd> --help`), `--version`, and a project's own scripts under `config/hm/commands` (`internal/cli/project_command.go`). There is no Bash entry point any more: `bin/run` and the `console/` tree are gone, except `console/hm-completion.bash`, which `generate_completion.sh` writes and users' shell profiles source — `MIGRATION.md` keeps the history.
 
@@ -47,12 +47,15 @@ Hiberus Dockergento is a CLI tool (`hm`) for creating and managing Docker-based 
 
 ### Key Components
 
-- **Entry point**: `cmd/hm` - the Go binary (`go build -o bin/hm ./cmd/hm`)
+- **Entry point**: `cmd/hm` - the Go binary (`go build -o bin/hm ./cmd/hm`); `bin/hm` is not versioned
 - **Router**: `internal/cli/run.go` - one `case` per command; the rest of `internal/cli` parses arguments and renders output (text or JSON envelope)
 - **Engine seam**: `internal/cli/engine.go` - the `commands` interface the handlers call, built by `newEngine`; tests swap in a fake
 - **Use cases**: `dockergento/app` - what each command does, written against ports
 - **Domain rules**: `dockergento/core` - pure functions and types (compose rendering, properties, refusals)
-- **Ports and adapters**: `dockergento/ports` (interfaces) and `dockergento/adapters/*` (Docker, Compose, filesystem, git, registry...), wired in `dockergento/dockergento.go`
+- **Ports and adapters**: `dockergento/ports` (interfaces) and `dockergento/adapters/*`, wired in `dockergento/dockergento.go` (the `Engine` facade): `composelib` (Compose as a library), `dockerd` (Docker API), `composecli` (the `hm docker-compose` passthrough, the only Compose subprocess), `composecfg`, `fsprops` (properties), `gitvcs`, `registry` (worktree environments, SQLite in `~/.hm/hm.db`), `selfrun`, `machine`, `toolinfo`, `traefik` (the proxy), `hmstate`, `magentofiles`, `osfs`
+- **Contract**: `dockergento/contract` - the JSON envelope and the exit codes, shared by every door
+- **Other doors**: `internal/cli/tui*.go` (dashboard), `internal/cli/mcp*.go` (MCP server), `internal/api` (HTTP, behind `hm web`)
+- **Governance**: `.specify/memory/constitution.md` - the principles every change follows
 - **Project commands**: `internal/cli/project_command.go` - runs a project's own `config/hm/commands/<name>.sh` for any name the router does not know
 - **Data**: `data/*.json` - Configuration (requirements, properties, command descriptions)
 - **Templates**: `docker-compose/*.yml` - Docker Compose templates
@@ -64,20 +67,35 @@ hm <command> [args]
   → cmd/hm → internal/cli.Run (global flags, then the switch in run.go)
   → handler in internal/cli (parses its options)
   → engine (dockergento.Engine) → use case in dockergento/app
-  → ports → adapters: docker compose exec / docker / filesystem
+  → ports → adapters: Compose library / Docker API / filesystem / git
   → anything the switch does not know: the project's config/hm/commands/<name>.sh, or command_not_found
 ```
 
 ### Key Files for Common Tasks
 
-- **Add command**: a `case` in `internal/cli/run.go` + its handler in `internal/cli/<command>.go` (with `_test.go` against the fake engine), the use case in `dockergento/app`, a method on the `commands` interface when it needs the engine, and an entry in `data/command_descriptions.json` (help and shell completion read it)
+- **Add command**: an entry in `data/command_descriptions.json` (help, groups and shell completion read it; regenerate the completion with `./generate_completion.sh`), a `case` in `internal/cli/run.go`, its handler in `internal/cli/<command>.go` with `_test.go` against the fake engine (`internal/cli/fake_engine_test.go`), the use case in `dockergento/app`, a method on the `commands` interface (`internal/cli/engine.go`) when it needs the engine, `docs/<command>.md`, and its row in `MIGRATION.md`'s command table (`tests/unit/migration_status_test.sh` checks it)
+- **Add a container operation**: a port method in `dockergento/ports`, implemented in `composelib` or `dockerd` — not a `docker` subprocess
 - **Modify service versions**: Edit `data/requirements.json`
 - **Change default properties**: Edit `data/properties.json`
 - **Modify Docker config**: Edit `docker-compose/docker-compose.template.yml`
 
 ## Development Commands
 
-### Environment Setup
+### Building and testing hm
+
+```bash
+go build -o bin/hm ./cmd/hm                              # the binary
+DOCKER_HOST=unix:///nonexistent go test ./...            # Go tests; never against the real daemon
+DOCKER_HOST=unix:///nonexistent ./tests/run.sh unit      # the fast shell suites (never tests/unit)
+./tests/run.sh tests/integration/<suite>_test.sh         # one shell suite (many need Docker)
+gofmt -l ./cmd ./internal ./dockergento && go vet ./...  # what CI checks besides the tests
+```
+
+- Tests go through the public interface; handlers are tested through `Run` with the fake engine, and stable output is pinned with goldens under `testdata/`.
+- `test/e2e` builds the binary and uses whatever Docker it finds, which is why `DOCKER_HOST` is cut for every broad run.
+- Commits: English, Conventional Commits, no AI attribution (no `Co-Authored-By`). Push, PR and release are a human decision. See `ROADMAP.md` for the rest of the rules.
+
+### Using hm: environment setup
 
 ```bash
 # Create environment for existing project
@@ -157,7 +175,7 @@ hm mysqldump /path/to/output.sql
 hm transfer-db
 ```
 
-### Testing
+### Magento tests
 
 ```bash
 # Run unit tests
@@ -220,15 +238,17 @@ hm update
 
 Docker services defined in `docker-compose.template.yml`:
 
-- **phpfpm** - PHP-FPM (versions: 7.2, 7.3, 7.4, 8.1, 8.2, 8.3)
-- **nginx** - Nginx 1.18
-- **db** - MariaDB (versions: 10.2, 10.3, 10.4, 10.6)
-- **search** - Elasticsearch (5.6, 6.5, 7.17) or OpenSearch (1.2, 2.5, 2.12)
-- **redis** - Redis (versions: 5.0, 6.2, 7.0, 7.2)
-- **varnish** - Varnish (versions: 6.0, 7.1)
+- **phpfpm** - PHP-FPM (7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5)
+- **nginx** - Nginx (1.18, 1.28, 1.30)
+- **db** - MariaDB (10.2, 10.3, 10.4, 10.6, 11.4, 11.8, 12.3)
+- **search** - Elasticsearch (5.6, 6.5, 7.17) or OpenSearch (1.2, 2.5, 3)
+- **redis** - Redis (5.0, 6.2, 7.0) or Valkey 9
+- **varnish** - Varnish (6.0, 7.1)
 - **hitch** - TLS termination proxy
-- **mailhog** - Email testing (port 8025)
+- **mail catcher** - Mailhog or Mailpit (`hm setup --mail=`), web UI on port 8025
 - **rabbitmq** - Message queue (ports 5672, 15672)
+
+`data/requirements.json` is the authoritative version matrix; the README lists the images.
 
 ## Important Notes
 

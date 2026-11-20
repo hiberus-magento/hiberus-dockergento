@@ -1,562 +1,213 @@
 ## 6. I/O and Error Handling
 
-> **Where this lives now.** This section was written against the Bash implementation, which is
-> gone: `bin/run` and the `console/` tree were deleted once the Go binary answered every command.
-> The conventions it describes — messages and their streams, prompts, validations, exit codes —
-> are what the binary reproduces, and the shell snippets below are kept as the reference they were
-> ported from. The current homes are: the JSON envelope and readable errors in
-> `internal/cli/output.go`, the colours in `internal/cli/palette.go` and `internal/cli/bashfmt.go`,
-> questions in `internal/cli/ask.go` and `internal/cli/select.go`, the exit codes in
-> `dockergento/contract/contract.go`, the Docker and Compose checks in
-> `dockergento/adapters/dockerd` and `dockergento/adapters/composecfg`.
+Where it lives:
+
+| Concern | Code |
+|---|---|
+| Exit codes and the JSON envelope | `dockergento/contract/contract.go` |
+| Typed refusals | `dockergento/core/refusal.go` (`core.Refusal`) |
+| Reporting an error, choosing the format | `internal/cli/output.go` (`failure`, `isTerminal`), `internal/cli/orchestrate.go` (`report`), `internal/cli/globals.go` (`globals`, `wanted`) |
+| Colours | `internal/cli/palette.go` |
+| Progress | `internal/cli/progress.go` |
+| Questions and lists | `internal/cli/ask.go`, `internal/cli/select.go` ([questions](../docs/questions.md)) |
+| Interruptions | `internal/cli/interrupt.go` (`share`, `tunnel`), `internal/cli/project_command.go`, `internal/cli/tui.go` |
+| Docker and project checks | `dockergento/adapters/dockerd/daemon.go`, `internal/cli/engine.go` (`projectOr`), `dockergento/app/container.go` (`resolveContainer`) |
 
 ### 6.1 Error Handling Philosophy
 
-The tool implements a **"fail-fast"** approach: errors immediately stop execution to avoid inconsistent states. This is achieved through systematic use of `set -euo pipefail` in all scripts.
+The tool is **fail-fast**: an operation stops at the first error, before it can leave an
+environment half-changed, and the error says what went wrong and what to do about it.
 
-### 6.2 Bash Execution Modes
+In Go that is not a shell option but a type. The layers below the CLI return errors; the ones
+they shape on purpose are `core.Refusal`:
 
-#### 6.2.1 Standard Configuration
-
-**All scripts begin with:**
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-```
-
-**Flag meanings:**
-
-- **`-e`** (errexit): Terminates the script if any command returns a non-zero exit code
-  ```bash
-  docker ps  # If fails (Docker not running)
-  # The script terminates here, does not continue
-  ```
-
-- **`-u`** (nounset): Treats undefined variables as errors
-  ```bash
-  echo $UNDEFINED_VAR  # Error: variable is not defined
-  exit 1
-  ```
-
-- **`-o pipefail`**: In pipelines, returns the exit code of the first command that fails
-  ```bash
-  docker ps | grep phpfpm  # If docker ps fails, the pipeline fails
-  # Without pipefail: only the exit code of grep would matter
-  ```
-
-#### 6.2.2 Temporary Error Disabling
-
-Some commands expect errors as part of their logic:
-
-```bash
-# console/tasks/start_service_if_not_running.sh
-
-set +e  # Disable "exit on error"
-$DOCKER_COMPOSE exec -T "$service" sh -c "echo 'check'" &>/dev/null
-service_running_error=$?  # Capture exit code
-set -e  # Re-enable "exit on error"
-
-if [ $service_running_error == 1 ]; then
-    $COMMAND_BIN_NAME start  # Service not running, start it
-fi
-```
-
-**When to use**:
-- When the exit code is part of the logic (not an actual error)
-- When validating existence of optional resources
-- In test/validation commands
-
-### 6.3 Structured Output System
-
-#### 6.3.1 Semantic Print Functions
-
-**Defined in**: `console/components/print_message.sh` (shell, gone; now `internal/cli/bashfmt.go` and `internal/cli/palette.go`)
-
-| Function | Color | Use | Example |
-|---------|-------|-----|---------|
-| `print_info()` | Green | Informational messages, progress | "Starting containers..." |
-| `print_error()` | Red | Errors that stop execution | "Docker is not running!" |
-| `print_warning()` | Yellow | Warnings, does not stop execution | "jq version is less than 1.6" |
-| `print_processing()` | Default + 🚀 | Operations in progress | "🚀 Fixing permissions" |
-| `print_question()` | Blue | Input prompts | "Magento version:" |
-| `print_code()` | Brown | Commands, paths, code | "hm setup" |
-| `print_link()` | Blue underline | URLs | "https://myproject.local/" |
-| `print_table()` | Cyan | Tabular data | Table headers |
-| `print_highlight()` | White | Emphasis | Important titles |
-| `print_default()` | No color | Normal text | General content |
-
-**Implementation**:
-```bash
-print_info() {
-    printf "$GREEN%b$COLOR_RESET" "$1"
-}
-
-print_error() {
-    printf "$RED%b$COLOR_RESET" "$1"
+```go
+type Refusal struct {
+    Kind    string // machine-readable type: "service_not_running", "docker_unavailable", ...
+    Code    int    // the exit code, from the contract
+    Message string // what happened
+    Hint    string // what to do about it, usually a command to run
 }
 ```
 
-**ANSI color codes**:
-```bash
-BLUE="\033[0;34m"
-GREEN="\033[0;32m"
-RED="\033[0;31m"
-YELLOW='\033[0;33m'
-COLOR_RESET="\033[0m"
+A use case that cannot proceed returns a refusal; nothing below the CLI prints an error or calls
+`os.Exit`. The handler turns the error into output and an exit code through `report`:
+
+```
+err == nil                     → exit 0
+a list was aborted             → "Nothing was chosen." on stderr, exit 130
+err is a core.Refusal          → its message and hint (or the JSON error), its own code
+any other error                → "docker_failed", exit 3
 ```
 
-#### 6.3.2 Usage Patterns
+Errors are never swallowed. Where a failure is expected and is part of the logic (a container
+that may not exist, an optional file), the code asks the question directly — the Docker API, the
+filesystem port — instead of running something and ignoring its exit code.
 
-**Error with exit**:
-```bash
-if [[ ! -f $import_database ]]; then
-    print_warning "No such file: $OPTARG\n"
-    exit 0
-fi
+### 6.2 Exit Codes
+
+The exit codes are a contract that scripts and agents branch on (`dockergento/contract`):
+
+| Code | Constant | Meaning |
+|------|----------|---------|
+| `0` | `ExitOK` | Success |
+| `1` | `ExitError` | Generic error |
+| `2` | `ExitUsage` | Invalid arguments, unknown command, or a question non-interactive mode cannot answer |
+| `3` | `ExitDocker` | Docker daemon unavailable, or Docker failed |
+| `4` | `ExitProject` | Not a configured Dockergento project |
+| `5` | `ExitService` | A required service is not running |
+| `6` | `ExitBlocked` | Refused on purpose: from a git worktree, a port already taken, ... |
+| `130` | `exitInterrupted` | A question or list was aborted |
+
+Commands that run something inside a container (`exec`, `magento`, `composer`, ...) return **that
+command's own exit code**: flattening it would break everything that branches on it. A project
+command's exit code is `hm`'s.
+
+A project command receives the codes as `HM_EXIT_OK`, `HM_EXIT_ERROR`, `HM_EXIT_USAGE`,
+`HM_EXIT_DOCKER`, `HM_EXIT_PROJECT`, `HM_EXIT_SERVICE` and `HM_EXIT_BLOCKED`.
+
+### 6.3 Output
+
+#### 6.3.1 Text or JSON
+
+The format is decided once, in `globals` and `wanted`:
+
+1. `--json` or `--no-json`, when given, win.
+2. Otherwise, a terminal gets readable text and anything else (a pipe, a file, `/dev/null`) gets
+   JSON. "A terminal" is asked of the terminal itself, not of the file mode: `/dev/null` is a
+   character device and must not look like one.
+
+Every JSON answer is one envelope, whichever door it came through (terminal, HTTP, MCP):
+
+```json
+{ "schema_version": 1, "command": "describe", "ok": true, "data": { ... } }
+{ "schema_version": 1, "command": "start", "ok": false,
+  "error": { "code": 3, "type": "docker_unavailable",
+             "message": "Docker is not running", "hint": "Start Docker and try again" } }
 ```
 
-**Long operation progress**:
-```bash
-print_processing "Waiting for everything to spin up..."
-sleep 5
-print_processing "Fixing permissions"
-"$TASKS_DIR"/fix_linux_permissions.sh
-print_processing "Permissions fix finished"
+Commands whose output *is* data are never wrapped: `mysqldump`, `mysql`, `copy-from-container`
+and the passthrough commands (`exec`, `bash`, `magento`, `composer`, `npm`, `n98-magerun`,
+`grunt`, `test-*`, `cloud`, `docker-compose`).
+
+#### 6.3.2 The streams
+
+- **stdout** carries the answer: the text a person reads or the JSON document.
+- **stderr** carries everything else: errors in both formats (so `hm <command> > file` never
+  captures a failure as output), questions, and — in JSON mode — progress and decoration.
+
+In text mode an error is printed as:
+
+```
+<message>
+  → <hint>
 ```
 
-**Informative messages with code**:
-```bash
-print_info "Execute "
-print_code "$COMMAND_BIN_NAME --help"
-print_default " to see commands available\n"
-```
+#### 6.3.3 Colour
 
-### 6.4 User Input Handling
+`coloured()` in `internal/cli/palette.go` decides, in this order: `--no-color` (which sets
+`HM_NO_COLOR`) or `NO_COLOR` set and non-empty, never; `TERM=dumb` or empty never; `FORCE_COLOR` or
+`CLICOLOR_FORCE` always; otherwise only when stdout is a terminal. Colour marks state — `good`
+(green), `bad` (red), `warning` (yellow), `section`/`link` (blue), `header` (bold white),
+`table` (cyan) — and the text is identical without it: removing the colour never removes
+information.
 
-#### 6.4.1 Interactive Input Functions
+A project command receives the palette as the escaped strings the shell tool used (`BLUE`,
+`GREEN`, `RED`, `YELLOW`, `COLOR_RESET`, ...), empty when colour is off.
 
-**Defined in**: `console/components/input_info.sh` (shell, gone; now `internal/cli/ask.go` and `internal/cli/select.go`)
+#### 6.3.4 Progress
 
-**`custom_question()`**: Text response question
+`begin(label, ...)` in `internal/cli/progress.go` announces a step and returns the function that
+ends it, saying whether it succeeded and, past two seconds, how long it took. It animates only when there is a terminal,
+the output is text, colour is allowed and `TERM` can draw; otherwise it prints one line. In JSON
+mode it writes to stderr, because stdout carries the document.
 
-```bash
-custom_question "Magento version:" "2.4.6"
-magento_version=${REPLY:-2.4.6}  # $REPLY contains the answer
-```
+### 6.4 User Input
 
-**Features**:
-- Shows default value in brackets
-- If user presses Enter without typing, uses the default
-- Result in global variable `$REPLY`
+#### 6.4.1 Questions
 
-**`custom_select()`**: Selection menu
+`ask(text, suggestion)` in `internal/cli/ask.go`:
 
-```bash
-options=("community" "enterprise")
-custom_select "Magento edition:" "${options[@]}"
-edition=$REPLY  # $REPLY contains the selected option
-```
+- With `--yes` or `HM_NON_INTERACTIVE=1` it never waits: a question with a suggestion takes it,
+  one without fails with an actionable error (exit `2`) naming the option to pass instead.
+- Otherwise it writes the question to **stderr** and reads one line from stdin, a byte at a time
+  so that answers piped in for later questions are not swallowed. An empty answer takes the
+  suggestion. An answer piped in is still an answer: `printf 'n\n' | hm masquerade` means no.
 
-**Implementation** (uses native Bash `select`):
-```bash
-custom_select() {
-    local label="$1"
-    shift
-    local options=("$@")
-    
-    print_question "$label"
-    select opt in "${options[@]}"; do
-        if [[ -n $opt ]]; then
-            export REPLY=$opt
-            break
-        fi
-    done
-}
-```
+#### 6.4.2 Lists
 
-**`confirm()`**: Yes/no question
+`choose(question, options)` in `internal/cli/select.go` picks the best way the terminal allows:
+
+1. `fzf`, when it is installed — whoever installed it has opinions about picking from a list.
+2. A selector moved with the arrow keys or `j`/`k`, Enter to take the highlighted option or the
+   digit of an option to take it directly. The first option is preselected, so the safest answer
+   is the one Enter gives.
+3. A numbered list, when the terminal cannot be drawn on.
+
+Escape does nothing on purpose; aborting (Ctrl-C) is `errNothingChosen`, reported as "Nothing was
+chosen." with exit `130` — never treated as an empty answer, which for `down -v` would be the
+wrong one.
+
+#### 6.4.3 Input from stdin
+
+Commands that consume data read it from stdin when it is not a terminal:
 
 ```bash
-confirm "Are you satisfied with these versions? [Y/n]"
-case $REPLY in
-    [Yy]*) continue_setup ;;
-    [Nn]*) change_versions ;;
-esac
-```
-
-#### 6.4.2 Input from STDIN
-
-**Detection**:
-```bash
-# console/commands/mysql.sh
-
-if [ ! -t 0 ]; then
-    # STDIN has content (redirection or pipe)
-    print_info "Importing database from stdin ...\n"
-    docker exec -i $mysql_container bash -c "mysql ..." 
-else
-    # Normal interactive mode
-    process_options "$@"
-fi
-```
-
-**Usage**:
-```bash
-cat dump.sql | hm mysql
 hm mysql < dump.sql
+cat dump.sql | hm mysql
 ```
 
-#### 6.4.3 Prompts with Default Values
-
-**Pattern for optional inputs**:
-```bash
-read -p "$(print_question "SSH Host" "$ssh_host")" input_ssh_host
-ssh_host=${input_ssh_host:-${ssh_host}}  # Use default if input empty
-```
-
-**Complete example** (transfer-db):
-```bash
-# Defaults
-ssh_host="ssh.eu-3.magento.cloud"
-sql_port="3306"
-
-# Prompt with visible default
-read -p "$(print_question "SSH Host" "$ssh_host")" input_ssh_host
-read -p "$(print_question "Database Port" "$sql_port")" input_sql_port
-
-# Apply defaults if user didn't enter anything
-ssh_host=${input_ssh_host:-${ssh_host}}
-sql_port=${input_sql_port:-${sql_port}}
-```
-
-### 6.5 Validations and Error Messages
-
-#### 6.5.1 Docker Validation
-
-**Function**: `is_docker_service_running()` in `console/helpers/docker.sh` (shell, gone; now `Daemon.Reachable()` in `dockergento/adapters/dockerd/daemon.go`)
-
-```bash
-is_docker_service_running() {
-    if [[ ! $(docker info >/dev/null 2>&1; echo $?) -eq 0 ]]; then
-        print_warning "Docker is not running!\n"
-        exit 1
-    fi
-}
-```
-
-**Output redirection**: `>/dev/null 2>&1`
-- `>/dev/null`: Discards stdout
-- `2>&1`: Redirects stderr to stdout (also discarded)
-- Only the exit code matters (`$?`)
-
-#### 6.5.2 Service Validation
-
-**Function**: `is_run_service()` in `console/helpers/docker.sh` (shell, gone; now the container lookups in `dockergento/app`)
-
-```bash
-is_run_service() {
-    is_docker_service_running
-    local service="${1:-phpfpm}"
-    container_id=$(docker ps -qf name="$COMPOSE_PROJECT_NAME"-"$service")
-    
-    if [ -z "$container_id" ]; then
-        print_warning "Error: $service service is not running!\n"
-        exit 1
-    fi
-}
-```
-
-**Used by**:
-- `mysql.sh`: Requires "db" service
-- `grunt.sh`: Requires "phpfpm" service
-- `transfer-db.sh`: Requires "phpfpm" and "db"
-
-#### 6.5.3 Docker Compose Config Validation
-
-**Script**: `console/tasks/validate_docker_compose.sh` (shell, gone; now `composecfg`, and `projectRun.validate` for a project command)
-
-```bash
-CONFIG_IS_VALID=$($DOCKER_COMPOSE config -q && echo true || echo false)
-
-if ! $CONFIG_IS_VALID ; then
-    print_error "\nDocker is not properly configured. Please execute:\n\n"
-    print_default "  $COMMAND_BIN_NAME setup\n"
-    exit 1
-fi
-```
-
-**Validates**:
-- Correct YAML syntax
-- Valid volume/network references
-- Required environment variables
-- Version compatibility
-
-#### 6.5.4 Argument Validation
-
-**Pattern with getopts**:
-```bash
-while getopts ":i:q:d:a" options; do
-    case "$options" in
-        i) import_database=${OPTARG} ;;
-        q) query "$OPTARG"; exit ;;
-        d) clean_definers=true ;;
-        a) anonymisation=true ;;
-        ?)
-            print_error "The command is not correct\n\n"
-            print_info "Use this format\n"
-            get_usage "$(basename ${0%.sh})"
-            exit 1
-        ;;
-    esac
-done
-```
-
-**`?` case**: Captures invalid options
-
-#### 6.5.5 File Existence Validation
-
-```bash
-import_database=${OPTARG/"~"/$HOME}  # Expand ~ to full path
-
-if [[ ! -f $import_database ]]; then
-    print_warning "No such file: $OPTARG\n"
-    exit 0
-fi
-```
-
-#### 6.5.6 Operating System Validation
-
-**Script**: `console/tasks/set_machine_specific_properties.sh` (shell, gone; now `Platform()` in `dockergento/dockergento.go`)
-
-```bash
-unameout="$(uname -s)"
-case "$unameout" in
-    Linux*) MACHINE="linux" ;;
-    Darwin*) MACHINE="mac" ;;
-    *)
-        MACHINE="UNKNOWN"
-        print_error "Error: Unsupported system type\n"
-        print_error "System must be a Macintosh or Linux\n"
-        exit 1
-    ;;
-esac
-```
-
-### 6.6 Output Redirection and Suppression
-
-#### 6.6.1 Redirection Patterns
-
-**Discard all output**:
-```bash
-command &>/dev/null
-# Equivalent to:
-command >/dev/null 2>&1
-```
-
-**Discard only stderr**:
-```bash
-command 2>/dev/null
-```
-
-**Example in use**:
-```bash
-# Test if command exists
-if ! command -v rsync &>/dev/null; then
-    print_error "Error: Rsync command not available\n"
-    exit 1
-fi
-```
-
-#### 6.6.2 Output Capture
-
-**Capture in variable**:
-```bash
-container_id=$($DOCKER_COMPOSE ps -q phpfpm)
-jq_version=$(jq --version | cut -d'-' -f2)
-```
-
-**Capture exit code**:
-```bash
-$DOCKER_COMPOSE exec -T "$service" sh -c "echo 'check'" &>/dev/null
-service_running_error=$?
-```
-
-#### 6.6.3 Input Redirection to Containers
-
-**SQL file import**:
-```bash
-docker exec -i $mysql_container bash -c "mysql -u\"root\" -p\"password\" \"magento\"" < dump.sql
-```
-
-**From pipe**:
-```bash
-cat dump.sql | docker exec -i $mysql_container bash -c "mysql ..."
-```
-
-**`-i` flag**: Keeps STDIN open for the container
-
-### 6.7 Logging and Traceability
-
-#### 6.7.1 Progress Messages
-
-**Long operations show progress**:
-```bash
-print_info "Importing database from file ...\n"
-docker exec -i $mysql_container bash -c "mysql ..." < $import_database
-
-print_info "Anonymising database in localhost...\n"
-masquerade_run
-
-print_info "Setup completed!!!\n"
-```
-
-#### 6.7.2 Visible Docker Commands
-
-**Important commands are shown before execution**:
-```bash
-print_processing "bin/magento $final_command"
-"$COMMANDS_DIR"/magento.sh $final_command
-```
-
-#### 6.7.3 No Persistent Logging
-
-**Design decision**: The tool **does not maintain its own logs**
-
-**Reasons**:
-- Docker Compose logs are accessible via `docker-compose logs`
-- Direct terminal output allows real-time debugging
-- Avoids log rotation management
-- Users can redirect output if they need logs: `hm start > log.txt 2>&1`
-
-**To view service logs**:
-```bash
-hm docker-compose logs -f phpfpm
-hm docker-compose logs --tail=100 db
-```
-
-### 6.8 Signal Handling and Cleanup
-
-#### 6.8.1 Interruption with Ctrl+C
-
-**Behavior**: `set -e` ensures that Ctrl+C terminates the script cleanly
-
-**Long-running commands**:
-```bash
-# grunt watch keeps process running
-docker-compose exec phpfpm bash -c "grunt exec:magento && grunt watch:magento"
-# Ctrl+C stops the watch and exits the script
-```
-
-#### 6.8.2 No Custom Signal Handlers
-
-The tool **does not use traps** for signals (SIGINT, SIGTERM)
-
-**Reason**: Docker containers handle signals independently, no additional cleanup required on the host
-
-### 6.9 Exit Codes
-
-#### 6.9.1 Conventions
-
-| Exit Code | Meaning | Examples |
-|-----------|---------|----------|
-| `0` | Success | Command completed correctly |
-| `1` | General error | Docker not running, service unavailable, file doesn't exist |
-| Exit code of last command | Propagated by `set -e` | If `docker-compose up` fails, its exit code is propagated |
-
-**All errors use `exit 1`**:
-```bash
-if [ ! -f "$file" ]; then
-    print_error "File not found\n"
-    exit 1
-fi
-```
-
-#### 6.9.2 Exit Code Propagation
-
-**With `set -e`**, the exit code of the first failing command is propagated:
-
-```bash
-# If docker-compose up fails with exit code 125
-$DOCKER_COMPOSE up -d
-# Script terminates with exit code 125
-```
-
-**User can capture**:
-```bash
-hm start
-echo $?  # Shows the exit code of hm start
-```
-
-### 6.10 Implemented Best Practices
-
-#### 6.10.1 Fail-Fast
-
-✅ **Does**: Terminates immediately on errors
-```bash
-set -euo pipefail
-docker info  # If fails, the entire script terminates
-```
-
-❌ **Avoids**: Continuing after errors
-```bash
-# BAD: Without set -e
-docker info  # Fails but the script continues
-docker-compose up  # Executes anyway
-```
-
-#### 6.10.2 Descriptive Messages
-
-✅ **Does**: Errors explain what went wrong and what to do
-```bash
-print_error "Docker is not properly configured. Please execute:\n\n"
-print_default "  $COMMAND_BIN_NAME setup\n"
-```
-
-❌ **Avoids**: Cryptic errors
-```bash
-echo "Error"
-exit 1
-```
-
-#### 6.10.3 Early Validations
-
-✅ **Does**: Validates preconditions before expensive operations
-```bash
-is_docker_service_running     # Validate first
-is_run_service "db"            # Validate service
-# Now yes, execute import (long operation)
-docker exec -i $mysql_container bash -c "mysql ..." < dump.sql
-```
-
-#### 6.10.4 Safe Input
-
-✅ **Does**: Sanitizes and validates inputs
-```bash
-import_database=${OPTARG/"~"/$HOME}  # Expand ~
-if [[ ! -f $import_database ]]; then
-    print_warning "No such file: $OPTARG\n"
-    exit 0
-fi
-```
-
-✅ **Does**: Confirmations for destructive operations
-```bash
-read -p "Are you sure you want to anonymise your database? [Y/n]: " confirmation
-if [ -z "$confirmation" ] || [ "$confirmation" == 'Y' ]; then
-    masquerade_run
-fi
-```
-
-#### 6.10.5 Clean Outputs
-
-✅ **Does**: Discards irrelevant output, shows only what's important
-```bash
-# Test command: discard output
-if ! command -v rsync &>/dev/null; then
-    print_error "Error: Rsync command not available\n"
-fi
-
-# Informative command: show output
-print_info "Importing database from file ...\n"
-docker exec -i $mysql_container bash -c "mysql ..." < $import_database
-```
+The dump is streamed into the database container's client through the Docker API
+(`Database.Feed` in `dockergento/app/database.go`).
+
+### 6.5 Validations
+
+Each handler validates in this order, before any costly operation:
+
+1. **Its own arguments.** An undeclared option or a missing value is a usage error
+   (`invalid_argument`, exit `2`) with a hint showing the right form.
+2. **The project.** `projectOr` resolves the current directory; outside a configured project it
+   refuses with `project_not_configured` (exit `4`) and the hint `hm setup`.
+3. **Docker.** `Daemon.Reachable()` pings the Docker API; with no answer it is
+   `docker_unavailable` (exit `3`), "Docker is not running", "Start Docker and try again".
+4. **The services it needs.** `resolveContainer` finds the service's container by its labels; a
+   stopped or missing one is `service_not_running` (exit `5`) with the hint `hm start <service>`.
+   Nothing is started behind the user's back.
+5. **Safety.** From a git worktree with no environment of its own, a command that would act on
+   the main environment is refused (exit `6`) unless `--force` is given for that invocation; a
+   destructive step asks for confirmation or requires `--force`.
+
+A missing file passed to `mysql -i` is reported as a warning ("No such file: ...") and the
+command stops without changing anything.
+
+### 6.6 Interruptions and Cleanup
+
+- **Commands that hold something open** (`share`, `tunnel`) take Ctrl-C and SIGTERM from before
+  anything is opened (`internal/cli/interrupt.go`): at the question nothing is closed, while
+  opening the relay is closed once the opening returns, and while holding it is closed and the
+  command finishes on its own. A container left on the daemon is the failure this prevents.
+- **Project commands**: the interruption belongs to the script. `hm` waits for it to finish
+  rather than dying first and leaving it behind.
+- **The dashboard** restores the main screen, the cursor and the terminal on the way out,
+  including on Ctrl-C and SIGTERM, and redraws on SIGWINCH.
+- **Passthrough commands** (`exec`, `bash`, `grunt watch`, ...) are attached to the terminal; the
+  interruption reaches the process in the container.
+
+### 6.7 Logging
+
+The tool **keeps no logs of its own**. What happened is on the terminal, the containers' logs are
+Docker's, and `hm logs [service...] [-f] [-n N] [--since T] [-t]` reads them through the Compose
+library. Redirect the output when a record is needed: `hm start > start.log 2>&1`.
+
+### 6.8 Practices
+
+- **Return a refusal, do not print.** Below `internal/cli`, an expected failure is a
+  `core.Refusal` with an actionable hint; the CLI, HTTP and MCP each render it their own way.
+- **Validate early.** Arguments, project, Docker and services are checked before anything is
+  changed.
+- **Never wait for nobody.** Every question has a non-interactive answer or fails with exit `2`.
+- **Keep stdout clean.** Only the answer goes to stdout; a JSON reader never has to parse around a
+  question, a spinner or an error.
+- **Keep the contract.** Exit codes, error types and envelope fields are pinned by tests (Go tests
+  through `Run` with the fake engine, and `tests/integration/cli_contract_test.sh`); changing one
+  is a breaking change.

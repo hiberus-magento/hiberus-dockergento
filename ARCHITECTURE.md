@@ -21,9 +21,9 @@
 ### [2. CLI Architecture](architecture/02-cli-architecture.md)
 **Command Router design pattern and execution flow**
 
-- Command Router pattern implementation
+- Command Router pattern implementation (`cmd/hm`, `internal/cli/run.go`)
 - Execution flow from user input to command processing
-- Core components: Entry point, directory structure, property loading
+- Core components: the Go binary, its hexagonal layers, project commands, property loading
 - Command validation and routing mechanisms
 - Help system and metadata management
 
@@ -34,7 +34,7 @@
 ### [3. Docker Orchestration](architecture/03-docker-orchestration.md)
 **How the CLI interacts with Docker daemon and Docker Compose**
 
-- Interaction with Docker and Docker Compose
+- Interaction with Docker and Docker Compose (Compose as a library, the Docker API)
 - Docker Compose file generation from templates
 - OS-specific overlays (macOS vs Linux strategies)
 - State validation (daemon, configuration, services)
@@ -76,12 +76,12 @@
 ### [6. I/O and Error Handling](architecture/06-io-and-error-handling.md)
 **Standards for output and OS exception handling**
 
-- Fail-fast philosophy with `set -euo pipefail`
-- Structured output system with semantic functions
-- User input handling (interactive and stdin)
-- Validation patterns (Docker, services, arguments, files)
-- Output redirection and suppression
-- Exit codes and best practices
+- Fail-fast through typed refusals (`core.Refusal`)
+- Exit codes and the JSON envelope (`dockergento/contract`)
+- Text or JSON, stdout and stderr, colour and progress
+- Questions, lists and non-interactive mode
+- Validation order (arguments, project, Docker, services, safety)
+- Interruptions, logging and best practices
 
 **When to read**: Understanding error handling strategies and I/O patterns used throughout the codebase.
 
@@ -101,7 +101,8 @@
 ### By Component
 
 - **`cmd/hm` and `internal/cli/run.go`** (the Go binary and its router): Section 2
-- **`dockergento/app`, `dockergento/core`, ports and adapters**: Sections 2, 4
+- **`dockergento/app`, `dockergento/core`, ports and adapters**: Sections 2, 3, 4
+- **`dockergento/contract`, `internal/cli/output.go`** (envelope, exit codes, output): Section 6
 - **`internal/cli/project_command.go`** (a project's own commands under `config/hm/commands`): Section 2.3.1
 - **`data/properties.json`**: Section 5.2.1
 - **`docker-compose` templates**: Section 3.3
@@ -122,3 +123,5 @@
 - [CLAUDE.md](CLAUDE.md) - Guide for Claude Code when working with this repository
 - [README.md](README.md) - User-facing documentation and installation guide
 - [docs/](docs/) - Individual command documentation
+- [.specify/memory/constitution.md](.specify/memory/constitution.md) - The principles every change follows
+- [MIGRATION.md](MIGRATION.md) - History of the move from Bash to Go (in Spanish)

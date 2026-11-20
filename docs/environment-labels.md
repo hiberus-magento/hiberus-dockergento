@@ -45,8 +45,8 @@ docker ps --filter "label=hm.project=myproject" --filter "label=com.docker.compo
 ```
 
 The binary wraps all of this: `hm list` reads the inventory through `app.Inventory`
-(`dockergento/app/environments.go`). The shell helpers that did it before (`console/helpers/docker.sh`)
-are gone with the shell tree.
+(`dockergento/app/environments.go`), and every container lookup goes through the Docker API
+(`dockergento/adapters/dockerd`).
 
 ## Existing projects
 

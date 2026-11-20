@@ -1,317 +1,191 @@
 ## 4. Command Translation Layer
 
-> **Where this lives now.** The translations below are what each command does; the shell
-> snippets are from the Bash implementation (`console/commands/*.sh`), which is gone, and are kept
-> as the reference the Go handlers were ported from. Each command is now a `case` in
-> `internal/cli/run.go`, its handler in `internal/cli/<command>.go` and its use case in
-> `dockergento/app`.
+Each command is a `case` in `internal/cli/run.go`, a handler in `internal/cli/<command>.go` and,
+when it does more than run one thing in a container, a use case in `dockergento/app`. This section
+describes what each kind of command turns into.
 
 ### 4.1 Translation Principle
 
-Each `hm` command is a **wrapper** that translates a high-level operation into one or more low-level Docker/Docker Compose commands. The translation includes:
+Each `hm` command translates a Magento-level operation into one or more operations on the
+project's containers:
 
-1. Target container selection
-2. Appropriate Docker command construction
-3. Environment variable and path injection
-4. Context-specific option handling
+1. Resolve the project (`projectOr`, or `codeProjectOr` for commands that work on the code: from a
+   worktree with no environment of its own, those say whose containers they reach)
+2. Select the target service
+3. Build the command to run there, with the right user and terminal
+4. Run it through the engine — `Engine.Exec`, which uses Compose as a library
+   (`composelib.Orchestrator.Exec`) — and return its exit code
+
+No `docker` or `docker compose` process is started for this: `composelib` and `dockerd` talk to
+the Docker API. The one exception is `hm docker-compose`, a passthrough to the Compose CLI
+(`adapters/composecli`).
 
 ### 4.2 Translation Patterns by Category
 
-#### 4.2.1 Direct Execution Commands
+#### 4.2.1 Commands that run one thing in the PHP container
 
-**Pattern**: `hm <command>` → `$DOCKER_COMPOSE exec <container> <command>`
+**Pattern**: `hm <command> [args]` → exec in `phpfpm` (the `inside` helper in
+`internal/cli/php.go`), attached to the terminal, a TTY only when stdin and stdout are terminals.
 
-| User Command | Container | Real Translation |
-|----------------|-----------|-----------------|
-| `hm magento cache:clean` | phpfpm | `$DOCKER_COMPOSE exec phpfpm php ./bin/magento cache:clean` |
-| `hm composer install` | phpfpm | `$DOCKER_COMPOSE exec phpfpm composer install` |
-| `hm npm install` | phpfpm | `$DOCKER_COMPOSE exec phpfpm npm install` |
-| `hm n98-magerun sys:info` | phpfpm | `docker-compose exec phpfpm bash -c "n98-magerun sys:info"` |
+| User command | Service | What runs there |
+|---|---|---|
+| `hm magento cache:clean` | phpfpm | `php ./bin/magento cache:clean` |
+| `hm composer install` | phpfpm | `composer install` (on macOS see 4.5.2) |
+| `hm npm install` | phpfpm | `npm install` |
+| `hm n98-magerun sys:info` | phpfpm | `bash -c "n98-magerun sys:info"` |
+| `hm test-unit [path]` | phpfpm | `<BIN_DIR>/phpunit --config ./dev/tests/unit/phpunit.xml.dist [path]` |
+| `hm test-integration [path]` | phpfpm | `cd ./dev/tests/integration && .../phpunit --config phpunit.xml [path]` |
 
-**Typical implementation**:
-```bash
-# console/commands/magento.sh
-"$COMMANDS_DIR"/exec.sh php ./bin/magento "$@"
+The arguments are passed through untouched, so `hm magento setup:upgrade --keep-generated` reaches
+`bin/magento` as typed, and the tool's global flags after the command name belong to the program
+(`hm composer show --format=json`).
 
-# console/commands/composer.sh
-"$COMMANDS_DIR"/exec.sh composer "$@"
+#### 4.2.2 Commands with a chosen container
 
-# console/commands/npm.sh
-"$COMMANDS_DIR"/exec.sh npm "$@"
+`hm exec` and `hm bash` default to `phpfpm`; `-r` runs as root.
+
+| Command | Target service | Why |
+|---|---|---|
+| `hm bash`, `hm exec` | **phpfpm** (or the one named) | PHP, Composer and the Magento CLI live there |
+| `hm mysql`, `hm mysqldump` | **db** | The MariaDB server and its client |
+| `hm magento`, `hm composer`, `hm npm`, `hm grunt` | **phpfpm** | They need PHP, Node and the Magento filesystem |
+
+```
+hm bash -r            → exec in phpfpm as root: bash
+hm exec -r chown ...  → exec in phpfpm as root: chown ...
 ```
 
-#### 4.2.2 Commands with Specific Container
+#### 4.2.3 Database commands
 
-**Base**: `hm exec` is the fundamental translator
+| User command | What happens |
+|---|---|
+| `hm mysql` | An interactive client in `db` (`Engine.Console`) |
+| `hm mysql -q "SELECT ..."` | One statement, its output to stdout (`Engine.Query`) |
+| `hm mysql -i dump.sql` | Import a file, then point the store at this machine (`Engine.Import`); `-d` removes `DEFINER`s first, `-a` anonymises afterwards |
+| `hm mysql < dump.sql` | Import from stdin, streamed into the client (`Engine.Feed`) |
+| `hm mysqldump file.sql` | Dump through this process into the file, so the dumper's own messages never land inside the dump (`Engine.Dump`) |
 
-```bash
-# console/commands/exec.sh
-docker_compose_exec="$DOCKER_COMPOSE exec"
+The client and dumper are `mariadb`/`mariadb-dump` when the image has them, `mysql`/`mysqldump`
+otherwise, with the credentials of the db container's environment (`MYSQL_USER`,
+`MYSQL_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_ROOT_PASSWORD`).
 
-# Process options
-if [[ "$1" == "-r" ]]; then
-    exec_options="$exec_options -u root"
-    shift
-fi
+#### 4.2.4 Commands made of several steps
 
-# Execute in phpfpm by default
-$docker_compose_exec phpfpm "$@"
+**`hm grunt Vendor/theme es_ES`** (`internal/cli/grunt.go`): each step is one `bash -c` in
+`phpfpm`, and the first that fails stops the rest:
+
+```
+1. Copy package.json.sample, grunt-config.json.sample and Gruntfile.js.sample into place
+2. npm install && npm update
+3. Write the theme into dev/tools/grunt/configs/local-themes.js
+4. grunt exec:magento && grunt watch:magento   (holds the terminal until interrupted)
 ```
 
-**Command to Container Mapping**:
+**`hm transfer-db`** (`internal/cli/transfer_db.go`): asks for the SSH and database coordinates
+(Magento Cloud defaults offered), then:
 
-| Command | Target Container | Justification |
-|---------|-------------------|---------------|
-| `hm bash`, `hm exec` | **phpfpm** | Contains PHP, Composer, Magento CLI tools |
-| `hm mysql`, `hm mysqldump` | **db** | Direct access to MariaDB server |
-| `hm magento`, `hm composer`, `hm npm` | **phpfpm** | Require PHP interpreter and Magento filesystem |
-| `hm grunt` | **phpfpm** | Node.js installed in PHP image for asset compilation |
-
-#### 4.2.3 Database Commands
-
-**MySQL Shell** (`hm mysql`):
-
-```bash
-# Interactive input
-hm mysql
-  ↓
-$DOCKER_COMPOSE exec db bash -c "mysql -u\"root\" -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\""
-
-# Import from file
-hm mysql -i dump.sql
-  ↓
-docker exec -i $mysql_container bash -c "mysql ..." < dump.sql
-
-# Import from stdin
-cat dump.sql | hm mysql
-  ↓
-docker exec -i $mysql_container bash -c "mysql ..."
-
-# Execute query
-hm mysql -q "SELECT * FROM core_config_data"
-  ↓
-docker exec -e QUERY="..." $mysql_container bash -c 'mysql ... -e "$QUERY"'
+```
+1. In db: dump the remote database (mariadb-dump/mysqldump through the SSH connection),
+   remove DEFINERs, gzip into /tmp/db.sql.gz
+2. Optionally keep this environment's core_config_data, admin_user and tfa_user_config
+3. In db: import /tmp/db.sql.gz, then restore what was kept
+4. Optionally anonymise, then ask before each of app:config:import, indexer:reindex and
+   cache:flush in phpfpm
 ```
 
-**MySQL Dump** (`hm mysqldump`):
+**`hm transfer-media`** runs `rsync` over SSH on the host, copying a remote store's `pub/media`
+into `./pub`, keeping what is already here and leaving the caches behind.
 
-```bash
-hm mysqldump backup.sql
-  ↓
-docker-compose exec db bash -c 'mysqldump --skip-triggers -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' > backup.sql
-```
+### 4.3 What a Command Can Read
 
-**Used environment variables**:
-- `$MYSQL_ROOT_PASSWORD`: Root password (defined in docker-compose: "password")
-- `$MYSQL_DATABASE`: Database name (defined in docker-compose: "magento")
+#### 4.3.1 Container environment
 
-#### 4.2.4 Complex Commands with Multiple Translations
+Values defined in the Compose files are read inside the container, never interpolated by the
+host:
 
-**Example: `hm grunt`**
+- **db**: `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`
+- **phpfpm**: `COMPOSER_VERSION`, `PHP_IDE_CONFIG`
+- **rabbitmq**: `RABBITMQ_DEFAULT_USER`, `RABBITMQ_DEFAULT_PASS`
 
-A single invocation generates multiple Docker commands:
+When the host needs them (the database credentials for `masquerade`, for example), it reads them
+from the db container rather than assuming them.
 
-```bash
-hm grunt Vendor/theme es_ES
-  ↓
-# 1. Copy configuration files
-docker-compose exec phpfpm bash -c "cp package.json.sample package.json"
-docker-compose exec phpfpm bash -c "cp grunt-config.json.sample grunt-config.json"
-docker-compose exec phpfpm bash -c "cp Gruntfile.js.sample Gruntfile.js"
+#### 4.3.2 Project properties
 
-# 2. Install dependencies
-docker-compose exec phpfpm bash -c "npm install && npm update"
-
-# 3. Configure theme
-docker-compose exec phpfpm bash -c "echo 'module.exports = {...}' > dev/tools/grunt/configs/local-themes.js"
-
-# 4. Compile
-docker-compose exec phpfpm bash -c "grunt exec:magento && grunt watch:magento"
-```
-
-#### 4.2.5 Remote Transfer Commands
-
-**Example: `hm transfer-db`**
-
-Orchestrates SSH tunneling, remote mysqldump, and local mysql:
-
-```bash
-hm transfer-db --ssh-host=cloud.server --sql-host=database.internal
-  ↓
-# 1. Remote dump through SSH tunnel inside db container
-docker-compose exec db bash -c "mysqldump -h'$sql_host' -u'$sql_user' ... | gzip > /tmp/db.sql.gz"
-
-# 2. Local import from temporary file
-docker-compose exec db bash -c "zcat /tmp/db.sql.gz | mysql -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE"
-
-# 3. Reindex Magento
-docker-compose exec phpfpm bin/magento indexer:reindex
-
-# 4. Clean cache
-docker-compose exec phpfpm bin/magento cache:flush
-```
-
-### 4.3 Variable Injection Strategies
-
-#### 4.3.1 Host Environment Variables → Container
-
-```bash
-# Option 1: -e flag
-docker exec -e QUERY="SELECT * FROM admin_user" $container bash -c 'mysql -e "$QUERY"'
-
-# Option 2: Variables defined in docker-compose.yml
-services:
-  phpfpm:
-    environment:
-      PHP_IDE_CONFIG: serverName=localhost
-      COMPOSER_VERSION: <composer_version>
-```
-
-#### 4.3.2 Container Environment Variables
-
-Access to variables defined in `docker-compose.yml`:
-
-```bash
-# Use \$ syntax to evaluate inside container
-docker-compose exec db bash -c "mysql -u\$MYSQL_USER -p\$MYSQL_PASSWORD \$MYSQL_DATABASE"
-```
-
-Available variables in containers:
-- **db**: `$MYSQL_ROOT_PASSWORD`, `$MYSQL_DATABASE`, `$MYSQL_USER`, `$MYSQL_PASSWORD`
-- **phpfpm**: `$COMPOSER_VERSION`, `$PHP_IDE_CONFIG`
-- **rabbitmq**: `$RABBITMQ_DEFAULT_USER`, `$RABBITMQ_DEFAULT_PASS`
-
-#### 4.3.3 Dynamic Paths
-
-```bash
-# Using $WORKDIR_PHP (default: /var/www/html)
-"$COMMANDS_DIR"/exec.sh php $WORKDIR_PHP/bin/magento cache:clean
-
-# Using $BIN_DIR (default: ./vendor/bin)
-"$COMMANDS_DIR"/exec.sh $BIN_DIR/phpunit --config ./dev/tests/unit/phpunit.xml.dist
-```
+Paths inside the container come from the project's properties (section 5): `WORKDIR_PHP`
+(default `/var/www/html`) and `BIN_DIR` (default `./vendor/bin`).
 
 ### 4.4 Option and Argument Handling
 
-#### 4.4.1 Long to Short Option Translation
+#### 4.4.1 Declared options
 
-**Function**: `map_arguments.sh`
+`data/command_descriptions.json` declares each command's options with their short and long forms
+(`{"short": "p", "long": "project-name"}`). Each handler parses its own arguments and accepts the
+forms declared there; an option it does not know is a usage error (exit 2). The same declaration
+feeds `hm <command> --help` and the shell completion, so they cannot drift from what is accepted.
 
-```bash
-# data/command_descriptions.json defines the mapping
-{
-  "setup": {
-    "opts": [
-      {"name": {"short": "p", "long": "project-name"}},
-      {"name": {"short": "d", "long": "domain"}},
-      {"name": {"short": "i", "long": "install"}}
-    ]
-  }
-}
+#### 4.4.2 Global flags
 
-# User executes:
-hm setup --project-name=myproject --install
-
-# Translates to:
-hm setup -p myproject -i
-```
-
-#### 4.4.2 Argument Propagation
-
-Using `"$@"` to propagate all arguments to the target command:
-
-```bash
-# User executes:
-hm magento setup:upgrade --keep-generated
-
-# In console/commands/magento.sh:
-"$COMMANDS_DIR"/exec.sh php ./bin/magento "$@"
-  ↓
-# Propagates setup:upgrade --keep-generated intact to container
-```
-
-#### 4.4.3 User Control Options
-
-**Execution as Root**:
-
-```bash
-# User executes:
-hm bash -r
-
-# Translates to:
-$DOCKER_COMPOSE exec -u root phpfpm bash
-
-# User executes:
-hm exec -r chown -R app:app /var/www/html
-
-# Translates to:
-$DOCKER_COMPOSE exec -u root phpfpm chown -R app:app /var/www/html
-```
+`globals` (`internal/cli/globals.go`) takes `--json`, `--no-json`, `--yes`, `--force` and
+`--no-color` out before routing. After the command name they are taken out too, except for the
+commands that hand their arguments to another program (`exec`, `bash`, `magento`, `composer`,
+`npm`, `n98-magerun`, `grunt`, `test-*`, `cloud`, `cloud-login`, `masquerade`, `mysql`,
+`mysqldump`, `docker-compose`, `copy-to-container`, `copy-from-container`, `logs`), where they
+belong to that program.
 
 ### 4.5 Special Translation Cases
 
-#### 4.5.1 Commands that Don't Use Docker
+#### 4.5.1 Commands that do not need containers
 
-Some commands operate directly on the host:
+| Command | What it does | Why |
+|---|---|---|
+| `hm setup` | Renders `docker-compose.yml` and the overlays, writes properties | The files must exist before any container |
+| `hm create-project` | Creates the Magento project and its configuration | Initialisation before containers |
+| `hm update`, `hm switch` | Move the git checkout of the tool and get its binary | Updates the tool itself |
+| `hm compatibility` | Reads `data/requirements.json` | Local metadata |
+| `hm transfer-media` | `rsync` from the remote host | More efficient than through a container |
+| `hm list`, `hm tui` | Read every environment from container labels | Machine-wide, not a project |
 
-| Command | Operation | Reason |
-|---------|----------|-------|
-| `hm setup` | Generates docker-compose.yml | Needs to create files before containers |
-| `hm create-project` | Clones repository and generates configs | Initialization prior to containers |
-| `hm update` | `git pull` in `~/hm/` | Updates the CLI tool itself |
-| `hm compatibility` | Reads `data/requirements.json` | Queries local metadata |
-| `hm ssl` | Generates certificates with mkcert on host | Requires access to host keychain |
-| `hm transfer-media` | Direct host-to-host rsync | More efficient than through container |
+#### 4.5.2 Commands with conditional logic
 
-#### 4.5.2 Commands with Conditional Logic
+**`hm composer` on macOS** (`composerMirroringVendor` in `internal/cli/php.go`): for `install`,
+`update`, `require` and `remove`, where the code lives in a volume:
 
-**`hm composer` on macOS**:
-
-```bash
-if [[ "$1" == "install" || "$1" == "update" || "$1" == "require" || "$1" == "remove" ]]; then
-    # Special Mac flow: copy vendor to container, execute, sync back
-    "$COMMANDS_DIR"/restart.sh "phpfpm"
-    copy_vendor_to_container
-    "$COMMANDS_DIR"/exec.sh composer "$@"
-    sync_all_from_container_to_host
-else
-    # Other composer commands: execute directly
-    "$COMMANDS_DIR"/exec.sh composer "$@"
-fi
+```
+1. Restart phpfpm
+2. Copy the host's vendor into the container
+3. Run Composer inside
+4. Copy the whole workdir back out over the host's
 ```
 
-#### 4.5.3 Command Composition
+A failing step stops the rest with its own code. From a git worktree with no environment of its
+own it is refused (exit 6), because it would rewrite the main checkout's dependencies; on Linux
+and for every other subcommand it is a plain exec.
 
-Commands that internally call other `hm` commands:
+#### 4.5.3 Commands composed of other operations
 
-```bash
-# hm restart = hm stop + hm start
-"$COMMANDS_DIR"/stop.sh "$@"
-"$COMMANDS_DIR"/start.sh "$@"
+- `hm restart` stops and starts the services named.
+- `hm purge` is one `rm -rf` in phpfpm over what Magento can generate again: `var/cache`,
+  `generated`, `pub/static`, `var/view_preprocessed`, `var/page_cache`, `var/generation` and
+  `dev/tests/integration/tmp` (never `var/log`).
+- `hm install` runs `setup:install` with the project's configuration, then applies the local
+  settings (section 5.6).
+- `hm start` brings the services up and, on Linux, runs the post-start steps (`hm post-start`
+  runs them on their own).
 
-# hm purge
-hm magento cache:clean
-rm -rf generated/ pub/static/* var/cache/* var/page_cache/* var/view_preprocessed/*
+### 4.6 Reference Table
 
-# hm install (inside magento_installation.sh)
-hm composer install
-hm magento setup:install
-hm magento setup:upgrade
-hm magento deploy:mode:set developer
-```
-
-### 4.6 Reference Table: Complete Command Mapping
-
-| User Command | Container | Resulting Docker Command | Complexity |
-|----------------|-----------|---------------------------|-------------|
-| `hm bash` | phpfpm | `$DOCKER_COMPOSE exec phpfpm bash` | Simple |
-| `hm magento <cmd>` | phpfpm | `$DOCKER_COMPOSE exec phpfpm php ./bin/magento <cmd>` | Simple |
-| `hm composer <cmd>` | phpfpm | `$DOCKER_COMPOSE exec phpfpm composer <cmd>` | Conditional (Mac) |
-| `hm mysql` | db | `$DOCKER_COMPOSE exec db mysql -uroot -ppassword magento` | Simple |
-| `hm mysql -i dump.sql` | db | `docker exec -i <db_container> mysql ... < dump.sql` | Medium |
-| `hm grunt <theme> <locale>` | phpfpm | 4 sequential docker-compose exec commands | High |
-| `hm transfer-db` | db | Multiple exec for SSH tunnel, dump, import | High |
-| `hm setup` | - | Host operations + docker-compose generation | High |
-| `hm start` | - | `$DOCKER_COMPOSE up -d` + post-start tasks | Medium |
-| `hm exec <cmd>` | phpfpm | `$DOCKER_COMPOSE exec phpfpm <cmd>` | Simple |
-| `hm exec -r <cmd>` | phpfpm | `$DOCKER_COMPOSE exec -u root phpfpm <cmd>` | Simple |
+| User command | Service | What it becomes | Complexity |
+|---|---|---|---|
+| `hm bash` | phpfpm | exec `bash` | Simple |
+| `hm magento <cmd>` | phpfpm | exec `php ./bin/magento <cmd>` | Simple |
+| `hm composer <cmd>` | phpfpm | exec `composer <cmd>` | Conditional (macOS) |
+| `hm mysql` | db | interactive client | Simple |
+| `hm mysql -i dump.sql` | db | import, then local settings | Medium |
+| `hm grunt <theme> <locale>` | phpfpm | four sequential steps | High |
+| `hm transfer-db` | db | remote dump over SSH, import, restore | High |
+| `hm setup` | - | host files and Compose rendering | High |
+| `hm start` | - | Compose `up` through the library, then post-start | Medium |
+| `hm exec <cmd>` | phpfpm | exec `<cmd>` | Simple |
+| `hm exec -r <cmd>` | phpfpm | exec `<cmd>` as root | Simple |
+| `hm docker-compose <args>` | - | the Compose CLI with the project's files (`composecli`) | Simple |

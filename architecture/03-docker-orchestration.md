@@ -2,7 +2,17 @@
 
 ### 3.1 Interaction with Docker and Docker Compose
 
-The tool **does not directly manage the Docker daemon**, but acts as an **abstraction layer over Docker Compose**. All interactions with containers are performed through system `docker-compose` and `docker` commands.
+The tool is an **abstraction layer over Docker Compose and the Docker daemon**, and since 2.0 it talks to both as libraries, not through their command lines:
+
+| Adapter | What it does | How |
+|---|---|---|
+| `adapters/composelib` | Project lifecycle: `up`, `up --build`, `stop`, `down`, `logs`, `exec`, the services of a project | Compose as a Go library (`github.com/docker/compose/v2`), with the project's compose files |
+| `adapters/dockerd` | The daemon: reachability, containers and their labels, exec and copy, one-off containers (masquerade, relays), volumes, networks | The Docker API (`github.com/docker/docker`) |
+| `adapters/composecfg` | Loading and validating the Compose configuration | `compose-go` |
+| `adapters/composecli` | `hm docker-compose <args>` only: a passthrough to the Compose CLI with the project's files | `os/exec` — the one documented subprocess of Compose |
+| `adapters/traefik` | What the global proxy (`hm proxy`) is actually routing | Traefik's own API |
+
+`adapters/toolinfo` also runs `docker compose version` to report the Compose version in `hm version` and `hm doctor`.
 
 ### 3.2 Central Variable: `DOCKER_COMPOSE`
 
@@ -10,9 +20,9 @@ The core of orchestration is the list of compose files for the platform. The Go 
 
 ```bash
 # What a project-defined command is handed
-DOCKER_COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.dev.mac.yml"
+DOCKER_COMPOSE="docker compose -f docker-compose.yml -f docker-compose.dev.mac.yml"
 # or
-DOCKER_COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.dev.linux.yml"
+DOCKER_COMPOSE="docker compose -f docker-compose.yml -f docker-compose.dev.linux.yml"
 ```
 
 **Usage** (in a project-defined command):
@@ -152,71 +162,35 @@ None → service_not_running, exit 5
 
 #### 3.6.1 Command Execution in Containers
 
-**Basic pattern**:
-```bash
-$DOCKER_COMPOSE exec [options] <service> <command>
+`Engine.Exec(dir, service, command, options)` → `composelib.Orchestrator.Exec`, which runs the
+command in the service's container through the Docker API and returns the command's own exit
+code. `core.ExecOptions` carries the user (`-r` is root), whether stdin is attached and whether a
+TTY is allocated — only when stdin and stdout are terminals, which is what keeps a command that
+works by hand from failing in CI.
+
 ```
-
-**Examples:**
-```bash
-# Execute as app user (default)
-$DOCKER_COMPOSE exec phpfpm php bin/magento cache:clean
-
-# Execute as root
-$DOCKER_COMPOSE exec -u root phpfpm chown -R app:app /var/www/html
-
-# Execute without TTY (automated scripts)
-$DOCKER_COMPOSE exec -T phpfpm composer install
+hm magento cache:clean   → Exec(phpfpm, [php ./bin/magento cache:clean], user default)
+hm exec -r chown ...     → Exec(phpfpm, [chown ...], user root)
 ```
 
 #### 3.6.2 Lifecycle Management
 
-**Service startup** (`hm start`):
-```bash
-$DOCKER_COMPOSE up -d [service]
-  ↓
-If Linux: 
-  - sleep 5
-  - fix_linux_permissions.sh
-  - set_etc_hosts.sh
-```
+| Command | Use case | Through |
+|---|---|---|
+| `hm start [service]` | `Engine.Start` | `Orchestrator.Up`, then on Linux the post-start steps (`dockergento/app/after_start.go`): the host's ids for PHP's user and group, and the self-routing hosts entries |
+| `hm stop [service]` | `Engine.Stop` | `Orchestrator.Stop` |
+| `hm restart [service]` | `Engine.Restart` | stop, then up |
+| `hm rebuild [service]` | `Engine.Rebuild` | `Orchestrator.UpBuilding` (build only the services that have a build section) |
+| `hm down [-v]` | `Engine.Down` | `Orchestrator.Down`; with `-v` it asks first whether to save a snapshot ([db](../docs/db.md)) |
 
-**Service stop** (`hm stop`):
-```bash
-$DOCKER_COMPOSE stop [service]
-```
+`hm start -s` stops every other running container first (`StopEverything`), so the ports are
+free.
 
-**Restart** (`hm restart`):
-```bash
-hm stop [service]
-hm start [service]
-```
+#### 3.6.3 No Automatic Service Startup
 
-**Rebuild** (`hm rebuild`):
-```bash
-$DOCKER_COMPOSE up --build -d [service]
-```
-
-**Destruction** (`hm down`):
-```bash
-$DOCKER_COMPOSE down [options]
-# Example: hm down -v (removes volumes)
-```
-
-#### 3.6.3 Automatic Service Startup
-
-**Function**: `start_service_if_not_running.sh`
-
-```bash
-# Try to execute command in service
-$DOCKER_COMPOSE exec -T "$service" sh -c "echo 'check $service service is running'" &>/dev/null
-  ↓
-Exit code 1 (not running) → hm start
-  ↓
-Exit code 0 (running) → Continue
-```
-
-Used by commands that assume services are running (e.g., `setup`, `install`)
+A command that needs a service which is not running does not start it: `resolveContainer`
+(`dockergento/app/container.go`) refuses with `service_not_running` (exit 5) and the hint
+`hm start <service>`.
 
 ### 3.7 Volume and Data Management
 
@@ -238,15 +212,15 @@ volumes:
 **Problem**: Vendor directory contains thousands of files, slow synchronization
 
 **Solution**: Composer operations run inside the container and then sync to host
+(`composerMirroringVendor` in `internal/cli/php.go`; copies through the Docker API,
+`adapters/dockerd/copy.go`):
 
-```bash
-# Flow in hm composer install (Mac)
-1. hm restart phpfpm
-2. copy-to-container vendor  # Copy existing vendor to container
-3. $DOCKER_COMPOSE exec phpfpm composer install  # Execute inside
-4. Stop phpfpm
-5. docker cp <container_id>:/var/www/html/. <host_path>  # Copy everything back
-6. hm start phpfpm
+```
+# Flow in hm composer install|update|require|remove (Mac)
+1. Restart phpfpm
+2. Copy the host's vendor into the container
+3. Run Composer inside
+4. Copy the whole workdir back out over the host's
 ```
 
 ### 3.8 Project Isolation
