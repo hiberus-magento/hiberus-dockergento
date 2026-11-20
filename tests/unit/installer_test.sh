@@ -600,6 +600,34 @@ assert_contains "$OUT" "GITHUB_TOKEN"
 assert_contains "$OUT" "--version X.Y.Z"
 assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
 
+# ------------------------------------------------------------------ re-running finds the same hm
+
+new_case rerun-custom-dir
+publish 2.0.0
+api_releases 2.0.0
+run_install --dir "$CASE/opt/bin"
+publish 2.1.0
+api_releases 2.1.0 2.0.0
+run_install
+
+test_case "running the installer again upgrades the hm it installed, wherever --dir put it"
+assert_equals "0" "$STATUS"
+assert_equals "hm 2.1.0" "$("$CASE/opt/bin/hm" --version | head -n 1)"
+assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
+assert_contains "$OUT" "upgraded hm 2.0.0 to 2.1.0"
+
+# ------------------------------------------------------------------ a branch
+
+new_case branch
+run_install --version main
+
+test_case "a branch is refused with how to build it from source"
+assert_equals "2" "$STATUS"
+assert_contains "$OUT" "'main' is not a release version"
+assert_contains "$OUT" "git clone -b main"
+assert_contains "$OUT" "go build -o hm ./cmd/hm"
+assert_equals "" "$(cat "$FAKE_CURL_LOG")"
+
 test_case "no case ever called jq"
 assert_equals "" "$(cat "$LAB/jq.log" 2>/dev/null)"
 

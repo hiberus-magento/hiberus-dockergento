@@ -534,6 +534,9 @@ choose_target() {
 
     if [ -n "$INSTALL_DIR" ]; then
         dir="$INSTALL_DIR"
+    elif [ -n "$(receipt_field path)" ] && is_hm2 "$(receipt_field path)"; then
+        # Where this installer put hm last time, --dir included: running it again upgrades that one
+        dir="$(dirname "$(receipt_field path)")"
     else
         # An hm already in the system directory — a 1.x link or an earlier hm 2 — is replaced at the
         # same path, so there is only ever one hm
@@ -572,7 +575,8 @@ install_hm() {
 
     if [ -n "$VERSION" ]; then
         version="${VERSION#v}"
-        is_version "$version" || die "'$VERSION' is not a release version (X.Y.Z or X.Y.Z-rc.N)." 2
+        is_version "$version" || die "'$VERSION' is not a release version (X.Y.Z or X.Y.Z-rc.N): this installer installs releases, and a branch has no binary. Nothing was installed.
+To run a branch, build it from source (Go needed): git clone -b $VERSION https://github.com/$REPOSITORY.git && cd hiberus-dockergento && go build -o hm ./cmd/hm" 2
         [ "$(major_of "$version")" -ge 2 ] || refuse_shell_version "$version"
     fi
 

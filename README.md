@@ -112,8 +112,9 @@ building from source, is [docs/installation.md](docs/installation.md).
 
 ### Update
 
-Run `hm update`, or run the installer again: it upgrades to the latest release or says it is
-already up to date.
+Run `hm update`, which replaces the running binary with the latest release, or run the installer
+again: it upgrades the `hm` it installed last time, wherever that is (`--dir` included), or says it
+is already up to date.
 
 ### Uninstall
 

@@ -58,12 +58,14 @@ curl -fsSL .../install.sh | HM_VERSION=2.0.0 bash          # the variable goes o
 In this order:
 
 1. `--dir` / `HM_INSTALL_DIR`, when given.
-2. `/usr/local/bin/hm`, when it is already an `hm`: the 1.x link or an earlier hm 2. The new binary
+2. Where the installer put hm last time (`~/.hm/install-receipt`), when it is still that binary:
+   running the installer again upgrades the same `hm`, even one installed with `--dir`.
+3. `/usr/local/bin/hm`, when it is already an `hm`: the 1.x link or an earlier hm 2. The new binary
    goes **at that same path**, so there is only ever one `hm`. If the directory is not yours, only
    that write goes through `sudo`.
-3. `~/.local/bin/hm`, when an earlier hm 2 is there.
-4. `/usr/local/bin`, when it is writable and has no `hm`.
-5. `~/.local/bin`, created if needed. You get a warning if it is not on your PATH.
+4. `~/.local/bin/hm`, when an earlier hm 2 is there.
+5. `/usr/local/bin`, when it is writable and has no `hm`.
+6. `~/.local/bin`, created if needed. You get a warning if it is not on your PATH.
 
 A file called `hm` that is not hm is never overwritten: the installer stops and asks you to remove
 it or to choose another directory.
