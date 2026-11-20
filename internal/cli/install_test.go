@@ -204,13 +204,16 @@ func TestInstallRemovesEnvAndPutsConfigBack(t *testing.T) {
 	}
 }
 
-// TestInstallAfterAFailedOneKeepsTheProjectsConfig: a failed install leaves the project's
-// config.php set aside and Magento's in its place. Setting that one aside over the backup would
-// lose the project's for good; the backup is kept and is what comes back.
-func TestInstallAfterAFailedOneKeepsTheProjectsConfig(t *testing.T) {
+// TestInstallWithABackupLeftAloneUsesIt: an install that was interrupted can leave the project's
+// config.php set aside and none in its place. That backup is the project's config and is what
+// comes back, once.
+func TestInstallWithABackupLeftAloneUsesIt(t *testing.T) {
 	installLab(t)
 	writeFile(t, "app/etc/_config.php", "<?php // the project's")
-	writeFile(t, "app/etc/config.php", "<?php // what the failed install left")
+
+	if err := os.Remove(filepath.Join(here(), "app/etc/config.php")); err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
 
 	if code, _, stderr := runInstall(t, false); code != exitOK {
 		t.Fatalf("install = %d, stderr %q", code, stderr)
@@ -220,10 +223,46 @@ func TestInstallAfterAFailedOneKeepsTheProjectsConfig(t *testing.T) {
 	if string(config) != "<?php // the project's" {
 		t.Errorf("config.php = %q, want the project's own back", config)
 	}
+
+	if _, err := os.Stat(filepath.Join(here(), "app/etc/_config.php")); !os.IsNotExist(err) {
+		t.Errorf("the backup is still there: %v", err)
+	}
+}
+
+// TestInstallRefusesABackupBesideAConfig: a backup left by an install that did not finish, beside
+// a config.php that may be newer than it, cannot be told apart from a stale one. Neither is
+// overwritten: install refuses before it changes anything and says how to choose.
+func TestInstallRefusesABackupBesideAConfig(t *testing.T) {
+	fake := installLab(t)
+	writeFile(t, "app/etc/_config.php", "<?php // an old backup")
+	writeFile(t, "app/etc/config.php", "<?php // somebody's newer one")
+	writeFile(t, "app/etc/env.php", "<?php // env")
+
+	code, _, stderr := runInstall(t, false)
+	if code != exitError {
+		t.Fatalf("install = %d, want 1", code)
+	}
+
+	if !strings.Contains(stderr, "app/etc/_config.php was left by an install that did not finish") {
+		t.Errorf("stderr = %q", stderr)
+	}
+
+	for name, want := range map[string]string{
+		"app/etc/_config.php": "<?php // an old backup", "app/etc/config.php": "<?php // somebody's newer one",
+		"app/etc/env.php": "<?php // env",
+	} {
+		if got, _ := os.ReadFile(filepath.Join(here(), name)); string(got) != want {
+			t.Errorf("%s = %q, want %q", name, got, want)
+		}
+	}
+
+	if got := len(commandsRun(fake)); got != 0 {
+		t.Errorf("%d commands ran, want none", got)
+	}
 }
 
 // TestInstallStopsWhenSetupInstallFails: set -e, with setup:install's own status. Nothing after
-// it runs, and config.php stays set aside, as the shell left it.
+// it runs, and the project's config.php is put back (where the shell left it set aside).
 func TestInstallStopsWhenSetupInstallFails(t *testing.T) {
 	fake := installLab(t)
 	fake.byCommand = func(command []string) (outcome, bool) {
@@ -247,8 +286,14 @@ func TestInstallStopsWhenSetupInstallFails(t *testing.T) {
 		t.Errorf("stdout = %q, want nothing", stdout)
 	}
 
-	if _, err := os.Stat(filepath.Join(here(), "app/etc/_config.php")); err != nil {
-		t.Errorf("config.php backup: %v", err)
+	// The project's config.php is put back even so, exactly once: no backup is left behind for a
+	// later install to mistake for the project's
+	if config, _ := os.ReadFile(filepath.Join(here(), "app/etc/config.php")); string(config) != "<?php return ['modules' => []];" {
+		t.Errorf("config.php = %q, want the project's own back", config)
+	}
+
+	if _, err := os.Stat(filepath.Join(here(), "app/etc/_config.php")); !os.IsNotExist(err) {
+		t.Errorf("the backup is still there: %v", err)
 	}
 
 	if _, err := os.Stat(filepath.Join(here(), "app/etc/env.php")); !os.IsNotExist(err) {

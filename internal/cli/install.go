@@ -132,29 +132,6 @@ func install(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return installer.fail(err)
 	}
 
-	etc := filepath.Join(project.Root, project.MagentoDir, "app", "etc")
-	config, backup := filepath.Join(etc, "config.php"), filepath.Join(etc, "_config.php")
-
-	// An env.php from another install would be read instead of written; config.php is set aside
-	// so the install enables every module, and put back over Magento's afterwards
-	os.RemoveAll(filepath.Join(etc, "env.php")) //nolint:errcheck
-
-	//
-	// A backup already there is the project's own, left by an install that failed — and the
-	// config.php beside it is what that install wrote. It is kept and that one dropped, where
-	// the shell's mv put Magento's over the project's for good.
-	//
-	switch {
-	case exists(backup):
-		if err := os.RemoveAll(config); err != nil {
-			return installer.fail(err)
-		}
-	case exists(config):
-		if err := os.Rename(config, backup); err != nil {
-			return installer.fail(err)
-		}
-	}
-
 	//
 	// A generated password is used and never written down: data/config.json is shared by every
 	// project and stores what is answered, so a password written there becomes the next
@@ -176,23 +153,58 @@ func install(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		user = "admin"
 	}
 
+	etc := filepath.Join(project.Root, project.MagentoDir, "app", "etc")
+	config, backup := filepath.Join(etc, "config.php"), filepath.Join(etc, "_config.php")
+
+	//
+	// config.php is set aside as _config.php so the install enables every module, and put back
+	// over Magento's afterwards — exactly once, whether the install succeeds or fails, so no
+	// backup is left for a later install to mistake for the project's:
+	//
+	//   neither there        nothing to set aside or put back
+	//   config.php only      set aside, put back at the end
+	//   _config.php only     an interrupted install's: it is the project's, put back at the end
+	//   both there           refused before anything changes: the backup may be older than
+	//                        config.php, and which one is the project's is somebody's decision
+	//
+	// The shell's mv put Magento's config.php over a backup a failed install had left.
+	//
+	if exists(backup) && exists(config) {
+		return failure(stderr, jsonOutput, "install", exitError, "config_backup_conflict",
+			"app/etc/_config.php was left by an install that did not finish, beside an app/etc/config.php that may be newer",
+			"Keep the one you want (move _config.php over config.php, or delete _config.php) and run install again")
+	}
+
+	// An env.php from another install would be read instead of written
+	os.RemoveAll(filepath.Join(etc, "env.php")) //nolint:errcheck
+
+	if exists(config) {
+		if err := os.Rename(config, backup); err != nil {
+			return installer.fail(err)
+		}
+	}
+
+	status := exitOK
+
 	setupInstall := append([]string{"php", "./bin/magento", "setup:install"},
 		core.InstallArguments(cacheHost, version, equivalent, domain)...)
 	setupInstall = append(setupInstall, core.InstallSettingArguments(settings, password)...)
 
 	for _, command := range [][]string{setupInstall, {"php", "./bin/magento", "config:set",
 		"--scope=default", "--scope-code=0", "system/full_page_cache/caching_application", "2"}} {
-		if status := inside(project, command, "", stdout, stderr, jsonOutput, "install"); status != exitOK {
-			return status
+		if status = inside(project, command, "", stdout, stderr, jsonOutput, "install"); status != exitOK {
+			break
 		}
 	}
 
 	if exists(backup) {
-		os.Remove(config) //nolint:errcheck
-
-		if err := os.Rename(backup, config); err != nil {
+		if err := os.Rename(backup, config); err != nil && status == exitOK {
 			return installer.fail(err)
 		}
+	}
+
+	if status != exitOK {
+		return status
 	}
 
 	installer.bootstrapAdmin(domain, user, password)
