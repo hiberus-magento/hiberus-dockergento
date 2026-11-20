@@ -392,6 +392,11 @@ func (e *Engine) InstallCertificate(dir, domain string) error {
 // Built directly rather than through operator(): that factory is shared by every other
 // operation, and ComposeCommand() shells out to find Compose — paid here, on the one command that
 // needs it, and not on every start or stop.
+//
+// The environment is the creation one, labels that cost something included: a passthrough is
+// as likely as start to create containers (`up`, `run`, `create`), and what it creates has to
+// carry the same labels, and so the same configuration hash, as what the library creates —
+// which is what bin/run did by counting docker-compose among the commands that create them.
 func (e *Engine) Compose(dir string, args []string) (int, error) {
 	project, err := e.Resolve(dir)
 	if err != nil {
@@ -404,7 +409,7 @@ func (e *Engine) Compose(dir string, args []string) (int, error) {
 		ComposeRunner: composecli.Runner{Command: toolinfo.Reader{}.ComposeCommand()},
 	}
 
-	return operator.Compose(project, files, e.Environment(project), args)
+	return operator.Compose(project, files, e.CreationEnvironment(project), args)
 }
 
 // Logs writes what the services are saying to the engine's output, until it is interrupted or
