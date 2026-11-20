@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -97,7 +98,7 @@ func installed(t *testing.T, source *fakeReleases) (*Engine, string) {
 		t.Fatal(err)
 	}
 
-	engine := New(Options{Root: t.TempDir()})
+	engine := New(Options{Root: t.TempDir(), Assets: fstest.MapFS{}})
 	engine.install = &installer{
 		source:     source,
 		executable: func() (string, error) { return target, nil },

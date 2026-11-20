@@ -2,6 +2,7 @@ package dockergento
 
 import (
 	"testing"
+	"testing/fstest"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -11,7 +12,7 @@ import (
 func TestVerifyWithoutDockerSaysSoFirst(t *testing.T) {
 	t.Setenv("DOCKER_HOST", "unix:///nonexistent")
 
-	_, err := New(Options{}).Verify(t.TempDir(), core.VerifyOptions{})
+	_, err := New(Options{Assets: fstest.MapFS{}}).Verify(t.TempDir(), core.VerifyOptions{})
 
 	if refusal := refusalOf(t, err); refusal.Kind != "docker_unavailable" || refusal.Code != 3 ||
 		refusal.Message != "Docker is not running" || refusal.Hint != "Start Docker and try again" {
