@@ -56,6 +56,7 @@ type Operator struct {
 	Snapshots *Snapshots
 
 	// Proxy is the one router on the machine, started for a project that is routed through it.
+	// Nil refuses (proxy_unavailable) when a project needs it started.
 	Proxy ProxyStarter
 
 	//
@@ -197,6 +198,17 @@ func (o Operator) ensureProxy() error {
 			Code:    6,
 			Message: fmt.Sprintf("'%s' is using port 80 or 443, which the proxy this project needs listens on", holder),
 			Hint:    "Stop that environment first, or set USE_PROXY to false here",
+		}
+	}
+
+	// Nothing stands behind a missing proxy any more (the shell fallback went with bin/run), so an
+	// Operator built without one refuses rather than panicking
+	if o.Proxy == nil {
+		return core.Refusal{
+			Kind:    "proxy_unavailable",
+			Code:    1,
+			Message: "This project is routed through the global proxy, and there is no way to start it from here",
+			Hint:    o.Binary + " proxy up",
 		}
 	}
 
