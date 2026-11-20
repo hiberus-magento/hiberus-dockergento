@@ -6,18 +6,17 @@ The tool **does not directly manage the Docker daemon**, but acts as an **abstra
 
 ### 3.2 Central Variable: `DOCKER_COMPOSE`
 
-The core of orchestration is the `DOCKER_COMPOSE` variable, built dynamically:
+The core of orchestration is the list of compose files for the platform. The Go binary builds it in `Engine.ComposeFiles` (`dockergento/dockergento.go`) and runs Compose through its adapters; `bin/run`, which now only serves help, `--version` and project-defined commands, still exports the same list as the `DOCKER_COMPOSE` variable for those project commands:
 
 ```bash
-# Configuration in bin/run
+# What bin/run exports for a project-defined command
 DOCKER_COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.dev.mac.yml"
 # or
 DOCKER_COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.dev.linux.yml"
 ```
 
-**Usage:**
+**Usage** (in a project-defined command):
 ```bash
-# All commands use this variable
 $DOCKER_COMPOSE up -d
 $DOCKER_COMPOSE exec phpfpm php bin/magento cache:clean
 $DOCKER_COMPOSE ps -q phpfpm
@@ -46,15 +45,16 @@ services:
     image: hiberusmagento/varnish:<varnish_version>
 ```
 
-**Generation process** (`console/tasks/write_from_docker-compose_templates.sh`):
+**Generation process** (`core.RenderCompose` in `dockergento/core/setup.go`, called by `app.Setup` during `hm setup`):
 
 ```bash
-1. Read REQUIREMENTS (JSON with service versions)
-2. Build substitution regex:
-   s/<php_version>/8.2-buster/g
-   s/<mariadb_version>/10.6/g
-   s/<search_version>/2.5-opensearch/g
-3. Apply sed on template → docker-compose.yml
+1. Read the requirements for the Magento version (data/requirements.json)
+2. Replace each <service_version> marker with the service's image tag:
+   <php_version>     → 8.2-buster
+   <mariadb_version> → 10.6
+   <search_version>  → 2.5-opensearch
+   and <mail_service>/<mail_version> with the chosen mail catcher (mailhog or mailpit)
+3. Write the result → docker-compose.yml
 4. Copy OS-specific overlays:
    - docker-compose.dev.mac.template.yml → docker-compose.dev.mac.yml
    - docker-compose.dev.linux.template.yml → docker-compose.dev.linux.yml

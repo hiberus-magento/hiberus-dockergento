@@ -121,6 +121,8 @@ project/
 
 #### 5.3.1 Initialization Flow
 
+The Go binary reads the same two files itself, with the project's values over the defaults (`Engine.Properties` in `dockergento/dockergento.go`, through the `fsprops` adapter). `bin/run`, which now only serves help, `--version` and project-defined commands, loads them into environment variables for those:
+
 ```bash
 # bin/run → init_dirs() → import_dependencies()
 1. source "$TASKS_DIR"/load_properties.sh
@@ -202,8 +204,8 @@ DOCKER_COMPOSE="docker-compose -f $DOCKER_COMPOSE_FILE -f $DOCKER_COMPOSE_FILE_M
 | `WORKDIR_PHP` | properties.json | Working directory in container | "/var/www/html" |
 | `USER_PHP` | properties.json | User in PHP container | "app" |
 | `REQUIREMENTS` | version_manager.sh | JSON with service versions | '{"php":"8.2-buster",...}' |
-| `MAGENTO_VERSION` | input_info.sh | Selected Magento version | "2.4.6" |
-| `MAGENTO_EDITION` | input_info.sh | Magento edition | "community" or "enterprise" |
+| `MAGENTO_VERSION` | the binary (`hm setup`, `hm create-project`) | Selected Magento version | "2.4.6" |
+| `MAGENTO_EDITION` | the binary (`hm create-project`) | Magento edition | "community" or "enterprise" |
 | `XDEBUG_HOST` | retired — see 5.8.1 | Host IP for xDebug, resolved in Go | empty on macOS; `docker0`'s inet address on Linux |
 | `USE_DEFAULT_SETTINGS` | Command arguments | Use default settings | true/false |
 
@@ -231,21 +233,9 @@ print_code()    # Brown
 
 #### 5.5.1 Saving Project Properties
 
-**Function**: `save_properties()` in `console/helpers/properties.sh`
+**Function**: `Setup.Save` in `dockergento/app/setup.go`
 
-```bash
-# During hm setup
-save_properties
-  ↓
-1. Create config/docker/ if it doesn't exist
-2. Create config/docker/properties.json if it doesn't exist
-3. Save key variables:
-   jq -n \
-     --arg MAGENTO_DIR "$MAGENTO_DIR" \
-     --arg COMPOSE_PROJECT_NAME "$COMPOSE_PROJECT_NAME" \
-     --arg DOMAIN "$DOMAIN" \
-   '$ARGS.named' > config/docker/properties.json
-```
+During `hm setup` the binary merges the decided values into `config/docker/properties.json` (creating it when missing) and keeps every other key there. `COMPOSE_PROJECT_NAME` is recorded only when it is not the name the directory would produce anyway, or when the project already had one.
 
 **Persisted variables**:
 - `MAGENTO_DIR`: Path to Magento directory
@@ -254,30 +244,20 @@ save_properties
 
 #### 5.5.2 Domain Detection from Database
 
-**Function**: `set_current_domain()` in `console/tasks/set_magento_configs.sh`
+**Function**: `Importer.rememberDomain` in `dockergento/app/import.go`
 
-```bash
-# If DOMAIN is not defined, try to extract from database
-exist_magento_db=$(query "SHOW TABLES LIKE 'core_config_data';")
-
-if [[ -n $exist_magento_db && -z ${DOMAIN+x} ]]; then
-    url=$(query "SELECT value FROM core_config_data WHERE path='web/secure/base_url';")
-    DOMAIN=$(awk -F/ '{print $3}' <<< $url)  # Extract domain from URL
-fi
-```
+When the project has no `DOMAIN`, the host of `web/secure/base_url` in `core_config_data` is written to `config/docker/properties.json`, keeping the keys already there.
 
 **Usage**: When importing a database, the tool can automatically detect the configured domain.
 
 #### 5.5.3 Docker Compose File Generation
 
 ```bash
-# console/tasks/write_from_docker-compose_templates.sh
-1. Read $REQUIREMENTS (JSON with versions)
-2. Build substitution regex for each service
-3. Apply sed over template:
-   sed 's/<php_version>/8.2-buster/g; s/<mariadb_version>/10.6/g; ...' \
-       docker-compose/docker-compose.template.yml > docker-compose.yml
-4. Copy OS-specific overlays
+# core.RenderCompose (dockergento/core/setup.go), called by app.Setup
+1. Read the requirements for the Magento version
+2. Replace each <service_version> marker in docker-compose/docker-compose.template.yml
+   with the service's image tag, and the mail catcher markers with the chosen one
+3. Write docker-compose.yml, and the OS-specific overlays
 ```
 
 **Persisted state**: docker-compose.yml files in the project
@@ -286,7 +266,7 @@ fi
 
 #### 5.6.1 Applying Configurations
 
-**Function**: `set_settings_for_develop()` in `console/tasks/set_magento_configs.sh`
+**Where**: `dockergento/app/configure.go` (applied after a database import or an installation)
 
 ```bash
 # Executed after DB import or installation

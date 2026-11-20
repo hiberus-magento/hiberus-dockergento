@@ -2,39 +2,53 @@
 
 ### 2.1 Design Pattern: Command Router
 
-The tool implements a **Command Router** pattern with a strangler-fig migration in progress: the `cmd/hm` Go binary is the entry point, `internal/cli/run.go`'s switch routes commands already ported to Go, and everything not yet ported falls through untouched to the `bin/run` Bash bridge described below — `MIGRATION.md` tracks which commands are on which side. The execution flow below is `bin/run`'s: it follows a modular layered architecture that separates the responsibilities of initialization, validation, routing, and execution for commands that reach it.
+The tool implements a **Command Router** pattern. The `cmd/hm` Go binary is the entry point and answers every command: `internal/cli/run.go`'s switch routes each one to its handler. What the switch does not know falls through, arguments untouched, to the `bin/run` Bash bridge, which now only serves help (`hm`, `hm --help`, `hm <cmd> --help`), `--version`, project-defined commands in `config/hm/commands/*.sh`, and the `command_moved_to_binary` refusal for a known command that reaches it directly. `MIGRATION.md` has the history of the migration.
 
 ### 2.2 Execution Flow
 
 ```
 User executes: hm <command> [options] [arguments]
           ↓
-   bin/run (Entry Point)
+   cmd/hm → internal/cli.Run
           ↓
-   1. Directory Initialization
+   1. Global flags taken out (--json, --no-json, --yes, ...)
           ↓
-   2. Dependency Loading
+   2. The switch in run.go picks the handler (internal/cli/<command>.go)
           ↓
-   3. Properties Loading (JSON → Environment Variables)
+   3. The handler parses its own options (an undeclared one is a usage error, exit 2)
           ↓
-   4. Global Options Processing (--help, --version)
+   4. The engine (dockergento.Engine, behind the `commands` interface in internal/cli/engine.go)
+      runs the use case in dockergento/app
           ↓
-   5. Command Validation
+   5. The use case talks to Docker, Compose, the filesystem... through dockergento/ports,
+      implemented by dockergento/adapters/*
           ↓
-   6. Docker Variables Configuration
+   6. The handler renders the answer: text, or the JSON envelope
+```
+
+Anything not in the switch:
+
+```
+   internal/cli.Run → bin/run
           ↓
-   7. Docker and docker-compose Validation
-          ↓
-   8. Command Script Execution
-          ↓
-   console/commands/<command>.sh
+   help / --version / config/hm/commands/<command>.sh / command_moved_to_binary refusal
 ```
 
 ### 2.3 Main Components
 
+#### 2.3.0 The Go binary
+
+- `cmd/hm`: `main`, built with `go build -o bin/hm ./cmd/hm`
+- `internal/cli`: the driving adapter — argument parsing, output, one file per command
+- `dockergento/app`: use cases, written against ports
+- `dockergento/core`: pure rules and types (compose rendering, properties, refusals)
+- `dockergento/ports` and `dockergento/adapters/*`: the interfaces and their implementations, wired in `dockergento/dockergento.go`
+
+Adding a command: a `case` in `run.go`, its handler and test in `internal/cli`, the use case in `dockergento/app`, and its entry in `data/command_descriptions.json`, which the help and the shell completion read.
+
 #### 2.3.1 Entry Point (`bin/run`)
 
-The main script that acts as a dispatcher:
+The Bash bridge. It keeps the structure it had as the dispatcher, but no command script ships in `console/commands/` any more: `check_command_dir` finds only project-defined commands, and refuses a known command with `command_moved_to_binary`.
 
 ```bash
 # Structure of bin/run
@@ -51,7 +65,7 @@ The main script that acts as a dispatcher:
 - `COMMAND_BIN_NAME="hm"`
 - `COMMAND_TOOLNAME="Hiberus Dockergento"`
 - `COMMAND_BIN_DIR`: Path to the CLI root directory
-- `COMMANDS_DIR`: Path to `console/commands/`
+- `COMMANDS_DIR`: Path to `console/commands/` (no longer shipped; replaced by `CUSTOM_COMMANDS_DIR` for a project command)
 - `CUSTOM_COMMANDS_DIR`: Path to project custom commands (if they exist)
 - `TASKS_DIR`: Path to `console/tasks/`
 - `HELPERS_DIR`: Path to `console/helpers/`
@@ -60,27 +74,13 @@ The main script that acts as a dispatcher:
 
 #### 2.3.2 Functional Directory Structure
 
-**`console/commands/`**: Individual command scripts
-- Each command is an independent `.sh` file
-- Example: `magento.sh`, `composer.sh`, `mysql.sh`
-- Supports custom commands in project's `config/hm/commands/`
+What is left under `console/` is what `bin/run` loads:
 
-**`console/tasks/`**: Reusable tasks shared between commands
-- `load_properties.sh`: Loads and merges JSON properties
-- `version_manager.sh`: Manages service version selection
-- `magento_installation.sh`: Orchestrates Magento installation
-- `set_machine_specific_properties.sh`: Detects OS (Mac/Linux)
+**`console/tasks/`**: `load_properties.sh` (loads and merges JSON properties), `set_machine_specific_properties.sh` (detects Mac/Linux), `set_environment_labels.sh`, `worktree_env.sh`, ...
 
-**`console/helpers/`**: Auxiliary functions
-- `docker.sh`: Docker state validations
-- `properties.sh`: Project properties management
-- `map_arguments.sh`: Translates long arguments to short ones
-- `print_help.sh`: Help system
+**`console/helpers/`**: `docker.sh`, `global_options.sh`, `process_hm_options.sh`, `print_help.sh` (help system), `version.sh`, `project_name.sh`, ...
 
-**`console/components/`**: Reusable UI components
-- `print_message.sh`: Colored printing functions (print_info, print_error, print_warning)
-- `input_info.sh`: Interactive input functions (custom_question, custom_select, confirm)
-- `masquerade.sh`: Integration with anonymization tool
+**`console/components/`**: `print_message.sh` (colored printing: print_info, print_error, print_warning), `print_json.sh`
 
 #### 2.3.3 Properties Loading System
 
@@ -111,11 +111,12 @@ Properties are loaded through a **cascade merge** system:
 
 #### 2.3.4 Validation and Routing
 
-**Command validation** (`check_command_dir`):
+**Command validation** (`check_command_dir`, in `bin/run`):
 ```bash
-1. Search in console/commands/<command>.sh
-2. If not found, search in config/hm/commands/<command>.sh (custom commands)
-3. If neither exists, show error and suggest 'hm --help'
+1. Search in config/hm/commands/<command>.sh (project-defined commands)
+2. If it is a command declared in data/command_descriptions.json, refuse with
+   command_moved_to_binary: the binary answers it
+3. Otherwise, show error and suggest 'hm --help'
 ```
 
 **Docker validation** (`validate_command`):
@@ -140,7 +141,6 @@ Command metadata is stored in `data/command_descriptions.json`:
 **Usage:**
 - `hm --help`: Lists all available commands
 - `hm <command> --help`: Shows command-specific help
-- Supports conversion of long arguments to short ones (`--import` → `-i`)
 
 ### 2.4 Special Router Features
 

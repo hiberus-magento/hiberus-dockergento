@@ -8,7 +8,7 @@ Hiberus Dockergento is a CLI tool (`hm`) for creating and managing Docker-based 
 
 **Core Concept**: This project is a command router that translates simplified Magento 2-specific commands into Docker commands that interact with various dockerized services. For example, `hm magento cache:clean` is translated into the appropriate `docker-compose exec` command to run Magento CLI inside the PHP container.
 
-**Implementation Language**: The `cmd/hm` Go binary is the entry point; `internal/cli/run.go`'s switch routes commands already ported to Go, and everything not yet ported falls through untouched to the `bin/run` Bash bridge — `MIGRATION.md` tracks which commands are on which side.
+**Implementation Language**: The `cmd/hm` Go binary is the entry point and answers every command; `internal/cli/run.go`'s switch routes them. What is left in Bash is `bin/run`, which only serves help (`hm`, `hm --help`, `hm <cmd> --help`), `--version`, project-defined commands (`config/hm/commands/*.sh`) and the `command_moved_to_binary` refusal — `MIGRATION.md` has the history.
 
 ## Architecture Documentation
 
@@ -47,28 +47,30 @@ Hiberus Dockergento is a CLI tool (`hm`) for creating and managing Docker-based 
 
 ### Key Components
 
-- **Entry point**: `bin/run` - Main executable, command router
-- **Commands**: `console/commands/*.sh` - Individual command implementations
-- **Tasks**: `console/tasks/*.sh` - Reusable functions shared across commands
-- **Helpers**: `console/helpers/*.sh` - Utility functions (docker validation, properties)
-- **Components**: `console/components/*.sh` - UI functions (print, input)
-- **Data**: `data/*.json` - Configuration (requirements, properties, descriptions)
+- **Entry point**: `cmd/hm` - the Go binary (`go build -o bin/hm ./cmd/hm`)
+- **Router**: `internal/cli/run.go` - one `case` per command; the rest of `internal/cli` parses arguments and renders output (text or JSON envelope)
+- **Engine seam**: `internal/cli/engine.go` - the `commands` interface the handlers call, built by `newEngine`; tests swap in a fake
+- **Use cases**: `dockergento/app` - what each command does, written against ports
+- **Domain rules**: `dockergento/core` - pure functions and types (compose rendering, properties, refusals)
+- **Ports and adapters**: `dockergento/ports` (interfaces) and `dockergento/adapters/*` (Docker, Compose, filesystem, git, registry...), wired in `dockergento/dockergento.go`
+- **Shell bridge**: `bin/run` + `console/` - help, `--version`, project-defined commands and the refusal for moved commands
+- **Data**: `data/*.json` - Configuration (requirements, properties, command descriptions)
 - **Templates**: `docker-compose/*.yml` - Docker Compose templates
 
 ### Command Flow (Simplified)
 
 ```
 hm <command> [args]
-  → bin/run (routes command)
-  → Load properties (data/ + config/docker/)
-  → Validate Docker
-  → Execute console/commands/<command>.sh
-  → Translate to docker-compose exec or docker commands
+  → cmd/hm → internal/cli.Run (global flags, then the switch in run.go)
+  → handler in internal/cli (parses its options)
+  → engine (dockergento.Engine) → use case in dockergento/app
+  → ports → adapters: docker compose exec / docker / filesystem
+  → anything the switch does not know falls through to bin/run (help, project commands)
 ```
 
 ### Key Files for Common Tasks
 
-- **Add command**: Create `console/commands/mycommand.sh` + entry in `data/command_descriptions.json`
+- **Add command**: a `case` in `internal/cli/run.go` + its handler in `internal/cli/<command>.go` (with `_test.go` against the fake engine), the use case in `dockergento/app`, a method on the `commands` interface when it needs the engine, and an entry in `data/command_descriptions.json` (help and shell completion read it)
 - **Modify service versions**: Edit `data/requirements.json`
 - **Change default properties**: Edit `data/properties.json`
 - **Modify Docker config**: Edit `docker-compose/docker-compose.template.yml`

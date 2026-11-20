@@ -100,10 +100,10 @@
 
 ### By Component
 
-- **`bin/run`**: Section 2.3.1
-- **`console/commands/`**: Sections 2.3.2, 4
-- **`console/tasks/`**: Sections 2.3.2, 5
-- **`console/helpers/`**: Sections 2.3.2, 6
+- **`cmd/hm` and `internal/cli/run.go`** (the Go binary and its router): Section 2
+- **`dockergento/app`, `dockergento/core`, ports and adapters**: Sections 2, 4
+- **`bin/run`** (help, `--version`, project-defined commands, refusal for moved commands): Section 2.3.1
+- **`console/tasks/`, `console/helpers/`** (what `bin/run` still loads): Sections 2.3.2, 5, 6
 - **`data/properties.json`**: Section 5.2.1
 - **`docker-compose` templates**: Section 3.3
 

@@ -102,7 +102,7 @@ directory:
 ```json
 {
   "mcpServers": {
-    "hm": { "command": "/path/to/hm/bin/run", "args": ["mcp"], "cwd": "/path/to/project" }
+    "hm": { "command": "/path/to/hm/bin/hm", "args": ["mcp"], "cwd": "/path/to/project" }
   }
 }
 ```
@@ -110,7 +110,7 @@ directory:
 It prints and writes nothing: a client's configuration has other servers in it, and editing
 somebody's file to save them a copy and paste is not a good trade.
 
-With Claude Code the same thing is done with `claude mcp add hm -- /path/to/hm/bin/run mcp`.
+With Claude Code the same thing is done with `claude mcp add hm -- /path/to/hm/bin/hm mcp`.
 
 ## If it does not answer
 
