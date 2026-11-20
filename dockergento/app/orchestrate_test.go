@@ -258,13 +258,24 @@ func TestNamingAServiceDoesNotDragInTheWholeCheck(t *testing.T) {
 func TestAFailedSnapshotLeavesTheEnvironmentRunning(t *testing.T) {
 	// A stopped environment and no copy, after asking for one, is the worst of the three
 	// possible outcomes
+	//
+	// The copy is really attempted and really fails: the dumper dies half way. With no Snapshots
+	// at all the refusal would be the same and prove nothing about a failed copy.
+	//
 	orchestration := &orchestrator{}
 	operator := operatorWith(nil, orchestration)
+	dumper := &runner{answer: "partial", complaint: "died", status: 2}
+	snapshots, project := copias(t, dumper)
+	operator.Snapshots = &snapshots
 
-	refusal := refusalOf(t, operator.Stop(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, true))
+	refusal := refusalOf(t, operator.Stop(project, core.ComposeFiles{}, nil, true))
 
 	if refusal.Kind != "snapshot_failed" {
 		t.Fatalf("refusal kind = %q, want the one for a copy that failed", refusal.Kind)
+	}
+
+	if len(dumper.command) == 0 {
+		t.Fatalf("the dumper never ran, want the copy attempted before refusing")
 	}
 
 	if len(orchestration.stopCalls) != 0 {
@@ -821,5 +832,22 @@ func TestWithNothingRunningNobodyIsAsked(t *testing.T) {
 
 	if len(announced) != 1 || !strings.Contains(announced[0], "No containers running") {
 		t.Fatalf("announced = %v, want only the line saying nothing is up", announced)
+	}
+}
+
+// TestAnOperatorWithoutAProxyRefusesInsteadOfPanicking: the shell fallback that once stood behind
+// a missing proxy is gone, so an Operator built without one says so rather than panicking.
+func TestAnOperatorWithoutAProxyRefusesInsteadOfPanicking(t *testing.T) {
+	orchestration := &orchestrator{}
+	operator := operatorWith(nil, orchestration)
+	operator.Proxy = nil
+
+	refusal := refusalOf(t, operator.Start(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, false, true, false))
+	if refusal.Kind != "proxy_unavailable" {
+		t.Fatalf("refusal kind = %q, want proxy_unavailable", refusal.Kind)
+	}
+
+	if len(orchestration.upCalls) != 0 {
+		t.Fatalf("the environment was brought up without the proxy it needs")
 	}
 }
