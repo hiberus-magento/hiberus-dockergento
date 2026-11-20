@@ -1,52 +1,68 @@
 #!/usr/bin/env bash
 
-complete -W "ai-init \ 
-ai-pull \ 
-ai-reset \ 
-bash \ 
-cloud-login \ 
-cloud \ 
-compatibility \ 
-composer \ 
-config-env \ 
-copy-from-container \ 
-copy-to-container \ 
-create-project \ 
-debug-off \ 
-debug-on \ 
-describe \ 
-docker-compose \ 
-docker-stop-all \ 
-doctor \ 
-down \ 
-exec \ 
-grunt \ 
-install \ 
-launch \ 
-list \ 
-logs \ 
-magento \ 
-masquerade \ 
-mysql \ 
-mysqldump \ 
-n98-magerun \ 
-npm \ 
-purge \ 
-rebuild \ 
-restart \ 
-set-host \ 
-setup \ 
-ssl \ 
-start \ 
-stop \ 
-switch \ 
-test-integration \ 
-test-unit \ 
-transfer-db \ 
-transfer-media \ 
-tui \ 
-update \ 
-varnish-off \ 
-varnish-on \ 
-version \ 
+complete -W "ai-context
+ai-doctor
+ai-init
+ai-pull
+ai-reset
+bash
+clean
+cloud
+cloud-login
+compatibility
+composer
+config-env
+copy-from-container
+copy-to-container
+create-project
+db
+dbeaver
+debug-off
+debug-on
+describe
+docker-compose
+docker-stop-all
+doctor
+down
+exec
+grunt
+install
+launch
+list
+logs
+magento
+masquerade
+mcp
+mysql
+mysqldump
+n98-magerun
+npm
+permissions
+post-start
+proxy
+purge
+rebuild
+restart
+sequelace
+set-host
+setup
+share
+ssl
+start
+stop
+switch
+tableplus
+test-integration
+test-unit
+transfer-db
+transfer-media
+tui
+tunnel
+update
+varnish-off
+varnish-on
+verify
+version
+web
+worktree
 " hm

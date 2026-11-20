@@ -26,20 +26,17 @@ else
     sourceFile="$HOME/.bashrc"
 fi
 
-# Show copy
-source "$dir/console/tasks/copyright.sh"
 source "$dir/console/helpers/array_manager.sh"
 
-# Compose string with all commands
+# The command names come from the same declaration the help reads, data/command_descriptions.json;
+# its keys starting with "_" are metadata, not commands. There used to be one script per command
+# to list, and once they were gone the glob matched nothing and the completion offered a lone "*"
 commands=""
-for script in "$dir/console/commands/"*.sh; do
-    command_base_name=$(basename "$script")
-    command_name=${command_base_name%.sh}
-
+while IFS= read -r command_name; do
     if $mac_machine || ! in_array "$command_name" "$exclude_commands"; then
-        commands="${commands}${command_name} \\ \n"
+        commands="${commands}${command_name}\n"
     fi
-done
+done < <(jq -r 'keys[] | select(startswith("_") | not)' "$dir/data/command_descriptions.json")
 
 # Write autocomplete file
 echo -e "#!/usr/bin/env bash\n\ncomplete -W \"$commands\" hm" > "$dir"/console/hm-completion.bash
