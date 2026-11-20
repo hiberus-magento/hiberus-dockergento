@@ -443,3 +443,30 @@ func TestABinaryThatCannotBeRunIsSaid(t *testing.T) {
 		t.Errorf("output = %q, want it to say the binary could not be run", output)
 	}
 }
+
+// TestACommandThatFailsSilentlyIsSaid: a command of this binary that exits with a failure and
+// prints nothing would read as success — "(done)" for a config:set that failed. Its exit status is
+// the answer instead.
+func TestACommandThatFailsSilentlyIsSaid(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "hm")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 3\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, combined := range []bool{true, false} {
+		output := string(mcpCapture(path, []string{"magento", "cache:flush"}, combined))
+
+		if !strings.Contains(output, "exited with status 3") {
+			t.Errorf("combined %v: output = %q, want the failing status said", combined, output)
+		}
+	}
+
+	// A failure that says something is left to say it
+	if err := os.WriteFile(path, []byte("#!/bin/sh\necho broken\nexit 3\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if output := string(mcpCapture(path, nil, true)); output != "broken\n" {
+		t.Errorf("output = %q, want what the command printed, untouched", output)
+	}
+}

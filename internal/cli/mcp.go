@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -40,10 +41,17 @@ var mcpKnownVersions = []string{"2025-06-18", "2025-03-26", "2024-11-05"}
 // printed: standard output alone, or together with standard error when combined. It is what a
 // test replaces, so that no real command runs. A binary that cannot be started says so in the
 // output: left empty, every tool would read as having worked — "(done)" for a change never made.
+// A command that fails and prints nothing would read the same way, so its exit status is said
+// (the shell's command substitution dropped it: a deliberate difference).
 var mcpCapture = func(executable string, args []string, combined bool) []byte {
-	output, err := selfrun.Runner{Executable: executable}.Capture(args, combined)
-	if err != nil {
+	output, status, err := selfrun.Runner{Executable: executable}.CaptureStatus(args, combined)
+
+	switch {
+	case err != nil:
 		output = append(output, []byte(executable+" could not be run: "+err.Error())...)
+	case status != 0 && strings.TrimSpace(string(output)) == "":
+		output = []byte(fmt.Sprintf("%s %s exited with status %d and printed nothing",
+			binaryName(), strings.Join(args, " "), status))
 	}
 
 	return output

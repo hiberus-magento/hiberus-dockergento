@@ -57,9 +57,16 @@ func (r Runner) Run(args []string) (int, error) {
 // This is the MCP server's door, where each tool is a command of this same binary whose answer
 // becomes a protocol message, and nothing may reach the terminal or read the conversation.
 func (r Runner) Capture(args []string, combined bool) ([]byte, error) {
+	output, _, err := r.CaptureStatus(args, combined)
+
+	return output, err
+}
+
+// CaptureStatus is Capture with the exit code it ended with.
+func (r Runner) CaptureStatus(args []string, combined bool) ([]byte, int, error) {
 	executable, err := r.resolve()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	var output bytes.Buffer
@@ -73,11 +80,13 @@ func (r Runner) Capture(args []string, combined bool) ([]byte, error) {
 	if err := command.Run(); err != nil {
 		var exit *exec.ExitError
 		if !errors.As(err, &exit) {
-			return output.Bytes(), err
+			return output.Bytes(), 0, err
 		}
+
+		return output.Bytes(), exit.ExitCode(), nil
 	}
 
-	return output.Bytes(), nil
+	return output.Bytes(), 0, nil
 }
 
 // resolve answers what runs, in a fail-safe order:
