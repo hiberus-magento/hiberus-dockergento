@@ -45,6 +45,33 @@ func (g installationGit) verifies(reference string) bool {
 	return err == nil
 }
 
+// repository is where the tool is published, and where a 1.x is cloned from to have it elsewhere.
+const repository = "https://github.com/hiberus-magento/hiberus-dockergento.git"
+
+// revisionOf is the revision Switch checks out for reference: a tag or a local branch as it is,
+// anything else origin's branch of that name.
+func (g installationGit) revisionOf(reference string) string {
+	switch {
+	case g.verifies("refs/tags/" + reference):
+		return "refs/tags/" + reference
+	case g.verifies("refs/heads/" + reference):
+		return "refs/heads/" + reference
+	case g.verifies("refs/remotes/origin/" + reference):
+		return "refs/remotes/origin/" + reference
+	default:
+		return reference
+	}
+}
+
+// isGoVersion is whether revision's tree has the Go program. Read from the tree and not from a
+// version number, because a branch has none: 2.0 is the first version with cmd/hm, and 1.x, the
+// shell tool, has none.
+func (g installationGit) isGoVersion(revision string) bool {
+	_, err := g.run("cat-file", "-e", revision+":cmd/hm/main.go")
+
+	return err == nil
+}
+
 // requireCheckout is the installer's own layout, and what makes switching a git operation at all.
 func (g installationGit) requireCheckout() error {
 	if _, err := g.run("rev-parse", "--git-dir"); err != nil {
@@ -162,6 +189,19 @@ func (e *Engine) Switch(reference string) (core.Switched, error) {
 			Code:    2,
 			Message: fmt.Sprintf("There is no version or branch called '%s'", reference),
 			Hint:    e.options.Binary + " switch --list",
+		}
+	}
+
+	// Before the checkout moves: a target without the Go program is the shell tool, which has no
+	// binary to obtain and no bin/hm to run, so it would leave an installation that does not start
+	if !git.isGoVersion(git.revisionOf(reference)) {
+		return core.Switched{}, core.Refusal{
+			Kind: "version_before_go",
+			Code: 2,
+			Message: fmt.Sprintf("'%s' is a version of the shell tool (1.x), which %s switch cannot move to: "+
+				"the installation was not changed", reference, e.options.Binary),
+			Hint: "Install it separately, in a directory of its own: git clone -b " + reference +
+				" " + repository + " ~/hm-1.x, then run ~/hm-1.x/bin/run",
 		}
 	}
 

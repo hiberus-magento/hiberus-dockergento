@@ -27,7 +27,8 @@ func git(t *testing.T, dir string, args ...string) {
 	}
 }
 
-// installation is an origin with one commit and a clone of it that is the "installation".
+// installation is an origin with one commit, a Go version (it has cmd/hm), and a clone of it that
+// is the "installation".
 func installation(t *testing.T) (origin, installed string) {
 	t.Helper()
 
@@ -40,6 +41,14 @@ func installation(t *testing.T) (origin, installed string) {
 	installed = filepath.Join(lab, "installed")
 
 	if err := os.MkdirAll(origin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// What makes a checkout a version of the Go tool, which is all hm switch moves between
+	if err := os.MkdirAll(filepath.Join(origin, "cmd", "hm"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(origin, "cmd", "hm", "main.go"), []byte("package main\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

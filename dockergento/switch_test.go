@@ -185,6 +185,60 @@ func TestAnUnknownReferenceIsRefusedAndNothingMoves(t *testing.T) {
 	}
 }
 
+// shellVersion adds to origin a version of the shell tool: a commit without cmd/hm, tagged 1.5.1,
+// on a branch of its own called shell.
+func shellVersion(t *testing.T, origin string) {
+	t.Helper()
+
+	git(t, origin, "checkout", "-q", "-b", "shell")
+	git(t, origin, "rm", "-rq", "cmd")
+	git(t, origin, "commit", "-qm", "the shell tool")
+	git(t, origin, "tag", "1.5.1")
+	git(t, origin, "checkout", "-q", "main")
+}
+
+// TestAVersionOfTheShellToolIsRefusedAndNothingMoves: 1.x has no cmd/hm, so there is no binary
+// for it and switching to it would leave a checkout the command cannot run. Said before the
+// checkout moves, with how to have a 1.x elsewhere.
+func TestAVersionOfTheShellToolIsRefusedAndNothingMoves(t *testing.T) {
+	origin, installed := versioned(t)
+	shellVersion(t, origin)
+
+	for _, reference := range []string{"1.5.1", "shell"} {
+		_, err := New(Options{Root: installed, Binary: "hm"}).Switch(reference)
+
+		refusal := refusalOf(t, err)
+		if refusal.Kind != "version_before_go" || refusal.Code != 2 ||
+			refusal.Message != "'"+reference+"' is a version of the shell tool (1.x), which hm switch cannot move to: the installation was not changed" ||
+			refusal.Hint != "Install it separately, in a directory of its own: git clone -b "+reference+
+				" https://github.com/hiberus-magento/hiberus-dockergento.git ~/hm-1.x, then run ~/hm-1.x/bin/run" {
+			t.Fatalf("refusal for %s = %+v", reference, refusal)
+		}
+
+		if head := output(t, installed, "rev-parse", "--abbrev-ref", "HEAD"); head != "main" {
+			t.Fatalf("HEAD = %q after %s, want it where it was", head, reference)
+		}
+
+		if _, err := os.Stat(filepath.Join(installed, "completion-generated")); err == nil {
+			t.Fatalf("the completion was regenerated after a refused switch to %s", reference)
+		}
+	}
+}
+
+// TestAVersionOfTheGoToolIsSwitchedTo: a tag whose tree has cmd/hm is one hm switch moves to.
+func TestAVersionOfTheGoToolIsSwitchedTo(t *testing.T) {
+	origin, installed := versioned(t)
+	shellVersion(t, origin)
+
+	if _, err := New(Options{Root: installed}).Switch("2.0.0-rc.1"); err != nil {
+		t.Fatalf("Switch to a Go version = %v", err)
+	}
+
+	if now := output(t, installed, "describe", "--tags"); now != "2.0.0-rc.1" {
+		t.Fatalf("installation at %q, want 2.0.0-rc.1", now)
+	}
+}
+
 func TestSwitchingOutsideACheckoutIsRefused(t *testing.T) {
 	_, err := New(Options{Root: t.TempDir()}).Switch("1.2.0")
 

@@ -140,10 +140,18 @@ assert_json_field "$STDOUT" '.data.current' "$branch"
 
 # ------------------------------------------------------------------ switching
 
+# A version of the Go tool to switch to, made here: a tag on the commit under test, which has cmd/hm.
+# Only in the clone — tags fetched with --tags are not pruned, so the switch's own fetch keeps it
+GO_TAG="99.0.0-rc.1"
+git -C "$CLONE" tag "$GO_TAG" "$branch"
+
+# A version of the shell tool, which has no cmd/hm: what every tag before 2.0 is
+SHELL_TAG="1.4.5"
+
 test_case "switching to a version detaches at that tag"
 reset_clone
-run_go switch 1.4.5
-assert_equals "1.4.5" "$(git -C "$CLONE" describe --tags 2>/dev/null)"
+run_go switch "$GO_TAG"
+assert_equals "$GO_TAG" "$(git -C "$CLONE" describe --tags 2>/dev/null)"
 
 test_case "and its binary is the one HM_BINARY_SOURCE names, so the switch succeeds offline"
 assert_equals "0" "$STATUS"
@@ -167,10 +175,37 @@ assert_equals "6" "$STATUS"
 test_case "and it changed nothing"
 assert_equals "$pinned_head" "$(git -C "$CLONE" rev-parse HEAD)"
 
-test_case "switching back to the stable branch works"
+test_case "a version of the shell tool is refused"
 reset_clone
-run_go switch --stable
-assert_equals "main" "$(reference)"
+before_head=$(git -C "$CLONE" rev-parse HEAD)
+run_go switch "$SHELL_TAG" --json
+assert_json_field "$STDERR" '.error.type' "version_before_go"
+
+test_case "with the exit code of a reference it cannot switch to"
+assert_equals "2" "$STATUS"
+
+test_case "and the checkout was not changed"
+assert_equals "$branch" "$(reference)"
+assert_equals "$before_head" "$(git -C "$CLONE" rev-parse HEAD)"
+
+test_case "the refusal says how to install a 1.x separately"
+run_go switch "$SHELL_TAG" --no-json
+assert_contains "$STDERR$STDOUT" "git clone -b $SHELL_TAG"
+
+# main is the shell tool until 2.0 is released on it, and --stable follows the same rule as any
+# reference: switched to when its tree has cmd/hm, refused when it does not
+if git -C "$CLONE" cat-file -e origin/main:cmd/hm/main.go 2>/dev/null; then
+    test_case "switching back to the stable branch works"
+    reset_clone
+    run_go switch --stable
+    assert_equals "main" "$(reference)"
+else
+    test_case "switching to a stable branch that is still the shell tool is refused"
+    reset_clone
+    run_go switch --stable --json
+    assert_json_field "$STDERR" '.error.type' "version_before_go"
+    assert_equals "$branch" "$(reference)"
+fi
 
 test_case "switching to a branch by name works"
 reset_clone
@@ -193,7 +228,7 @@ assert_equals "$branch" "$(reference)"
 test_case "uncommitted changes stop the switch"
 reset_clone
 echo "# local change" >> "$CLONE/README.md"
-run_go switch 1.4.5 --json
+run_go switch "$GO_TAG" --json
 assert_json_field "$STDERR" '.error.type' "dirty_installation"
 
 test_case "and again the installation did not move"
@@ -202,7 +237,7 @@ assert_equals "$branch" "$(reference)"
 test_case "untracked files do not stop it"
 reset_clone
 printf 'notes\n' > "$CLONE/my-own-notes.txt"
-run_go switch 1.4.5
-assert_equals "1.4.5" "$(git -C "$CLONE" describe --tags 2>/dev/null)"
+run_go switch "$GO_TAG"
+assert_equals "$GO_TAG" "$(git -C "$CLONE" describe --tags 2>/dev/null)"
 
 echo "RESULT $HM_TESTS_RUN $HM_TESTS_FAILED"
