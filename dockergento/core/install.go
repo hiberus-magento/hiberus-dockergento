@@ -16,7 +16,7 @@ import (
 
 // InstallOptions is what `install` was asked for.
 type InstallOptions struct {
-	// UseDefault skips the questions about the store and its admin: what data/config.json holds
+	// UseDefault skips the questions about the store and its admin: what ~/.hm/config.json holds
 	// is what is used.
 	UseDefault bool
 }
@@ -106,7 +106,7 @@ func LastSupportedVersion(equivalents map[string]string) string {
 	return keys[len(keys)-1]
 }
 
-// InstallArguments are the options of `setup:install` that do not come from data/config.json, in
+// InstallArguments are the options of `setup:install` that do not come from ~/.hm/config.json, in
 // install.sh's order: the services, the search engine the release needs and the base URL.
 func InstallArguments(cacheHost, version, equivalent, domain string) []string {
 	arguments := []string{
@@ -154,19 +154,19 @@ func InstallArguments(cacheHost, version, equivalent, domain string) []string {
 }
 
 // InstallQuestions are the settings install asks about, in its order. The password is not one of
-// them: it is generated unless data/config.json sets one.
+// them: it is generated unless ~/.hm/config.json sets one.
 var InstallQuestions = []string{
 	"language", "currency", "timezone", "admin-firstname", "admin-lastname", "admin-email", "admin-user",
 }
 
-// Setting is one entry of data/config.json, kept in the file's order because that order is the
+// Setting is one entry of ~/.hm/config.json, kept in the file's order because that order is the
 // order of the options setup:install is given.
 type Setting struct {
 	Key   string
 	Value json.RawMessage
 }
 
-// DefaultInstallSettings is what data/config.json holds when install has to create it.
+// DefaultInstallSettings is what ~/.hm/config.json holds when install has to create it.
 func DefaultInstallSettings() []Setting {
 	settings := []Setting{}
 
@@ -186,7 +186,7 @@ func DefaultInstallSettings() []Setting {
 	return settings
 }
 
-// ReadInstallSettings reads data/config.json keeping the order of its keys.
+// ReadInstallSettings reads ~/.hm/config.json keeping the order of its keys.
 func ReadInstallSettings(contents string) ([]Setting, error) {
 	decoder := json.NewDecoder(strings.NewReader(contents))
 
@@ -196,7 +196,7 @@ func ReadInstallSettings(contents string) ([]Setting, error) {
 	}
 
 	if delimiter, ok := opening.(json.Delim); !ok || delimiter != '{' {
-		return nil, fmt.Errorf("data/config.json is not a JSON object")
+		return nil, fmt.Errorf("~/.hm/config.json is not a JSON object")
 	}
 
 	settings := []Setting{}

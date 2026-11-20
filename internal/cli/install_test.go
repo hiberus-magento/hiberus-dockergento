@@ -29,7 +29,7 @@ var (
 	twoFactorStatus = []string{"php", "./bin/magento", "module:status", "Magento_TwoFactorAuth"}
 )
 
-// The settings data/config.json is created with, as options of setup:install.
+// The settings ~/.hm/config.json is created with, as options of setup:install.
 func defaultSettingArguments(password string) []string {
 	return []string{"--language=es_ES", "--currency=EUR", "--timezone=Europe/Madrid",
 		"--admin-firstname=hiberus", "--admin-lastname=hiberus", "--admin-email=noreply@hiberus.com",
@@ -125,7 +125,7 @@ func summary(user, password string) string {
 }
 
 // TestInstallRunsSetupInstallWithEverythingItDecided: with nobody to ask, the version comes from
-// composer.lock, the domain from the project, the settings from a data/config.json created with
+// composer.lock, the domain from the project, the settings from a ~/.hm/config.json created with
 // the defaults, and a generated password. The exact commands, in order.
 func TestInstallRunsSetupInstallWithEverythingItDecided(t *testing.T) {
 	fake := installLab(t)
@@ -549,7 +549,7 @@ func TestInstallCannotGuessASettingWithNoValue(t *testing.T) {
 		"Pass the value as an option, or run without --yes")
 }
 
-// TestInstallRespectsAConfiguredPassword: a password data/config.json sets is somebody's decision,
+// TestInstallRespectsAConfiguredPassword: a password ~/.hm/config.json sets is somebody's decision,
 // used in its place and not generated.
 func TestInstallRespectsAConfiguredPassword(t *testing.T) {
 	fake := installLab(t)
@@ -819,7 +819,7 @@ func TestInstallRefusals(t *testing.T) {
 		}
 	})
 
-	t.Run("with data/config.json unreadable", func(t *testing.T) {
+	t.Run("with ~/.hm/config.json unreadable", func(t *testing.T) {
 		fake := installLab(t)
 		fake.outcomes = make([]outcome, 10)
 		for at := range fake.outcomes {

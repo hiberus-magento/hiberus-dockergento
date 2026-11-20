@@ -133,7 +133,7 @@ func install(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	//
-	// A generated password is used and never written down: data/config.json is shared by every
+	// A generated password is used and never written down: ~/.hm/config.json is shared by every
 	// project and stores what is answered, so a password written there becomes the next
 	// project's default. One that *is* set there is respected — that is somebody's decision.
 	//
@@ -375,7 +375,7 @@ func (i installer) domain() (string, error) {
 	return strings.ToLower(domain), nil
 }
 
-// settings is data/config.json, after asking about each of its questions unless the defaults were
+// settings is ~/.hm/config.json, after asking about each of its questions unless the defaults were
 // asked for. Every answer is written back as it is given, as get_argument_command did.
 func (i installer) settings(useDefault bool) ([]core.Setting, error) {
 	settings, err := i.engine.InstallSettings()
