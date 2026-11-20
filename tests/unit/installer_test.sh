@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# installer.sh never links hm to bin/run, and moves a link it made earlier to bin/run onto bin/hm.
+# installer.sh installs 2.0 or later only — the latest release by default, a version of the shell
+# tool refused — never links hm to bin/run, and moves a link it made earlier to bin/run onto bin/hm.
 #
 # bin/run, the launcher hm used to be, is gone, so a link to it is an installation that does
 # nothing. Each case runs the installer against a HOME and a link folder of its own, with fake curl,
@@ -120,6 +121,89 @@ assert_equals "hm run" "$(ls "$HOME/hm/bin" | sort | tr '\n' ' ' | sed 's/ $//')
 
 test_case "the completion is still generated"
 assert_equals "yes" "$([ -f "$HOME/completion-generated" ] && echo yes || echo no)"
+
+# ------------------------------------------------------------------ choosing the version
+
+# An origin with the shell tool's versions (no cmd/hm) and the Go tool's (cmd/hm), the newest by
+# number a pre-release
+ORIGIN="$LAB/origin"
+mkdir -p "$ORIGIN"
+git -C "$ORIGIN" init -q -b main
+origin_commit() {
+    git -C "$ORIGIN" add -A
+    git -C "$ORIGIN" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "$1"
+    git -C "$ORIGIN" tag "$1"
+}
+printf '#!/usr/bin/env bash\ntouch "$HOME/completion-generated"\n' > "$ORIGIN/generate_completion.sh"
+chmod +x "$ORIGIN/generate_completion.sh"
+origin_commit 1.5.1
+mkdir -p "$ORIGIN/cmd/hm" && printf 'package main\n' > "$ORIGIN/cmd/hm/main.go"
+origin_commit 2.0.0-rc.1
+origin_commit 2.0.0
+origin_commit 2.1.0-rc.1
+git -C "$ORIGIN" rm -rq cmd
+origin_commit 1.6.0
+export HM_REPOSITORY="$ORIGIN"
+
+# fresh_case <name>: like new_case, but with no ~/hm: the installer clones it
+fresh_case() {
+    new_case "$1"
+    rm -rf "$HOME/hm"
+}
+
+fresh_case latest
+publish
+install
+
+test_case "a fresh install checks out the latest release of 2.0 or later"
+assert_equals "0" "$STATUS"
+assert_equals "2.0.0" "$(git -C "$HOME/hm" describe --tags --exact-match HEAD 2>/dev/null)"
+
+test_case "and downloads that release's binary, not a 1.x's"
+assert_contains "$(cat "$FAKE_CURL_LOG")" "/releases/download/2.0.0/hm_linux_amd64"
+assert_equals "$HOME/hm/bin/hm" "$(link_of)"
+
+fresh_case shell-version
+publish
+HM_VERSION=1.5.1 install
+
+test_case "a version of the shell tool is refused"
+assert_equals "2" "$STATUS"
+assert_contains "$STDERR" "'1.5.1' is a version of the shell tool (1.x)"
+
+test_case "with how to install it separately"
+assert_contains "$STDERR" "git clone -b 1.5.1 $ORIGIN ~/hm-1.x"
+
+test_case "and nothing was installed"
+assert_equals "no" "$([ -e "$HOME/hm" ] && echo yes || echo no)"
+assert_equals "(no link)" "$(link_of)"
+assert_equals "" "$(cat "$FAKE_CURL_LOG")"
+
+fresh_case go-version
+publish
+HM_VERSION=2.0.0-rc.1 install
+
+test_case "a version of 2.0 or later asked for is the one installed"
+assert_equals "0" "$STATUS"
+assert_equals "2.0.0-rc.1" "$(git -C "$HOME/hm" describe --tags --exact-match HEAD 2>/dev/null)"
+
+fresh_case unknown-version
+HM_VERSION=9.9.9 install
+
+test_case "a version that does not exist is refused, and nothing was installed"
+assert_equals "2" "$STATUS"
+assert_contains "$STDERR" "There is no version or branch called '9.9.9'"
+assert_equals "no" "$([ -e "$HOME/hm" ] && echo yes || echo no)"
+
+new_case existing-shell-version
+git -C "$HOME/hm" tag 1.5.1
+HM_VERSION=1.5.1 install
+
+test_case "a version of the shell tool is refused over an existing installation too"
+assert_equals "2" "$STATUS"
+assert_equals "(no link)" "$(link_of)"
+
+unset HM_REPOSITORY
 
 # ------------------------------------------------------------------ an old link, built instead
 

@@ -67,13 +67,109 @@ check_dependencies() {
     fi
 }
 
+# Where the tool is cloned from; overridable so choosing a version can be exercised offline
+HM_REPOSITORY="${HM_REPOSITORY:-https://github.com/hiberus-magento/hiberus-dockergento.git}"
+
+# The version to install, a tag or a branch, as the first argument (curl ... | bash -s -- 2.0.0) or
+# in HM_VERSION. Empty is the latest release.
+HM_VERSION="${1:-${HM_VERSION:-}}"
+
+# is_go_version <checkout> <revision>: whether that revision's tree has the Go program. Read from
+# the tree and not from a version number, because a branch has none: 2.0 is the first version with
+# cmd/hm, and 1.x, the shell tool, has none.
+is_go_version() {
+    git -C "$1" cat-file -e "$2:cmd/hm/main.go" 2>/dev/null
+}
+
+# revision_of <checkout> <reference>: the tag or origin's branch of that name, or nothing.
+revision_of() {
+    if git -C "$1" rev-parse --verify --quiet "refs/tags/$2" >/dev/null; then
+        echo "refs/tags/$2"
+    elif git -C "$1" rev-parse --verify --quiet "refs/remotes/origin/$2" >/dev/null; then
+        echo "refs/remotes/origin/$2"
+    fi
+
+    return 0
+}
+
+refuse_shell_version() {
+    echo -e "${red}'$1' is a version of the shell tool (1.x); this installer installs 2.0 and later only. Nothing was installed.${colorReset}" >&2
+    echo -e "${red}Install it separately, in a directory of its own: git clone -b $1 $HM_REPOSITORY ~/hm-1.x, then run ~/hm-1.x/bin/run${colorReset}" >&2
+    exit 2
+}
+
+# latest_release <checkout>: the newest final version with the Go program, or, while there is none,
+# the newest pre-release with it. Never a 1.x: those have no cmd/hm.
+latest_release() {
+    local pass tag
+
+    for pass in final pre-release; do
+        while IFS= read -r tag; do
+            [[ "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || continue
+            if [ "$pass" == "final" ] && [[ "$tag" == *-* ]]; then continue; fi
+            if [ "$pass" == "pre-release" ] && [[ "$tag" != *-* ]]; then continue; fi
+
+            if is_go_version "$1" "refs/tags/$tag"; then
+                echo "$tag"
+                return 0
+            fi
+        done < <(git -C "$1" tag --list --sort=-version:refname)
+    done
+
+    return 1
+}
+
 #
-# Clone project if not extis
+# The checkout at ~/hm, at the version asked for or at the latest release.
+#
+# A version of the shell tool is refused before anything is installed: the clone made for looking
+# at it is removed again. An existing ~/hm is kept as it is, at whatever it has checked out: hm
+# switch is what moves an installation.
 #
 clone_project() {
-    if [ ! -e ~/hm ]; then
-        git clone https://github.com/hiberus-magento/hiberus-dockergento.git ~/hm
+    local home="$HOME/hm" revision tag
+
+    if [ -e "$home" ]; then
+        if [ -n "$HM_VERSION" ]; then
+            revision="$(revision_of "$home" "$HM_VERSION")"
+            if [ -n "$revision" ] && ! is_go_version "$home" "$revision"; then
+                refuse_shell_version "$HM_VERSION"
+            fi
+            echo -e "${orange}$home already exists and was left as it is; move it with: hm switch $HM_VERSION${colorReset}"
+        fi
+        return
     fi
+
+    git clone --quiet --no-checkout "$HM_REPOSITORY" "$home"
+
+    if [ -n "$HM_VERSION" ]; then
+        revision="$(revision_of "$home" "$HM_VERSION")"
+
+        if [ -z "$revision" ]; then
+            rm -rf "$home"
+            echo -e "${red}There is no version or branch called '$HM_VERSION'. Nothing was installed.${colorReset}" >&2
+            exit 2
+        fi
+
+        if ! is_go_version "$home" "$revision"; then
+            rm -rf "$home"
+            refuse_shell_version "$HM_VERSION"
+        fi
+
+        case "$revision" in
+            refs/tags/*) git -C "$home" checkout --quiet "$HM_VERSION" ;;
+            *)           git -C "$home" checkout --quiet -B "$HM_VERSION" --track "origin/$HM_VERSION" ;;
+        esac
+        return
+    fi
+
+    if ! tag="$(latest_release "$home")"; then
+        rm -rf "$home"
+        echo -e "${red}$HM_REPOSITORY has no release of 2.0 or later. Nothing was installed.${colorReset}" >&2
+        exit 1
+    fi
+
+    git -C "$home" checkout --quiet "$tag"
 }
 
 # Where releases publish their assets: hm_<os>_<arch> and checksums.txt
@@ -255,8 +351,9 @@ create_link_to_command() {
     fi
 }
 
-check_dependencies
+# The version first: one that is refused is refused before anything is installed
 clone_project
+check_dependencies
 create_link_to_command
 # Execute generate_completion.sh for autocomplete commands
 "$HOME"/hm/generate_completion.sh
