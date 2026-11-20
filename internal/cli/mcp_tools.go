@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 //
@@ -221,12 +222,7 @@ func cacheTypes(arguments jqValue) []string {
 	})
 }
 
-var (
-	sqlBlockComment = regexp.MustCompile(`/\*[^*]*\*/`)
-	sqlDashComment  = regexp.MustCompile(`--[[:space:]].*$`)
-	sqlHashComment  = regexp.MustCompile(`#.*$`)
-	configPath      = regexp.MustCompile(`^[a-z0-9_]+(/[a-z0-9_]+)+$`)
-)
+var configPath = regexp.MustCompile(`^[a-z0-9_]+(/[a-z0-9_]+)+$`)
 
 const shellSpace = " \t\n\v\f\r"
 
@@ -238,19 +234,20 @@ const shellSpace = " \t\n\v\f\r"
 func mcpQueryRefusal(sql string) string {
 	//
 	// Comments first: everything after them is invisible to the checks below and visible to the
-	// database, which is the whole trick. One line at a time, as sed read them.
+	// database, which is the whole trick. Read as the server reads them — a '#' or '-- ' inside a
+	// quoted string is text, not a comment — and a comment the server executes is refused
+	// outright. The shell's sed took them line by line without seeing strings: a deliberate
+	// difference, because that let a quoted '#' hide the rest of the statement.
 	//
-	lines := strings.Split(sql, "\n")
-	for i, line := range lines {
-		line = sqlBlockComment.ReplaceAllString(line, " ")
-		line = sqlDashComment.ReplaceAllString(line, "")
-		lines[i] = sqlHashComment.ReplaceAllString(line, "")
+	code, executable := sqlWithoutComments(sql)
+	if executable {
+		return "Refused: a /*! comment is run by the database, so what is in it cannot be checked"
 	}
 
-	stripped := strings.ReplaceAll(strings.Join(lines, " "), "\t", " ")
+	// Any run of space is one space, so the words below are found however they are spaced
+	stripped := strings.Join(strings.Fields(code), " ")
 
-	// Leading and trailing space, and a single trailing semicolon, are ordinary
-	stripped = strings.Trim(stripped, shellSpace)
+	// A single trailing semicolon is ordinary
 	stripped = strings.TrimRight(strings.TrimSuffix(stripped, ";"), shellSpace)
 
 	if stripped == "" {
@@ -263,8 +260,19 @@ func mcpQueryRefusal(sql string) string {
 
 	upper := strings.ToUpper(stripped)
 
+	// Also asked of the statement as typed with everything but letters, digits and _ taken out,
+	// so no way of reading its comments and strings — a server with NO_BACKSLASH_ESCAPES reads
+	// them differently — can hide these words. A column called intooutfile is refused with them.
+	compact := strings.Map(func(r rune) rune {
+		if r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToUpper(r)
+		}
+
+		return -1
+	}, sql)
+
 	for _, file := range []string{"INTO OUTFILE", "INTO DUMPFILE", "LOAD_FILE"} {
-		if strings.Contains(upper, file) {
+		if strings.Contains(upper, file) || strings.Contains(compact, strings.ReplaceAll(file, " ", "")) {
 			return "Refused: that writes or reads a file as the database user"
 		}
 	}
@@ -283,21 +291,72 @@ func mcpQueryRefusal(sql string) string {
 	return "Only SELECT, SHOW, DESCRIBE and EXPLAIN can be run here"
 }
 
-// mcpIsConfigPath says whether this looks like a Magento configuration path.
-//
-// Not a boundary against a hostile model, and not pretending to be one: it is what stops a
-// plausible mistake from being passed on as a command argument. Asked of each line, as grep did.
-func mcpIsConfigPath(path string) bool {
-	if path == "" || strings.HasSuffix(path, "/") || strings.HasPrefix(path, "/") ||
-		!strings.Contains(path, "/") {
-		return false
-	}
+// sqlWithoutComments is the statement with each comment replaced by a space (a block comment
+// with a * in it kept whole) and its quoted strings left as they are, and whether it holds a comment the server executes (/*! or /*M!).
+// Inside '...' and "..." a backslash escapes the next character, as MySQL reads them by default;
+// a doubled quote needs nothing, being a string closed and opened again.
+func sqlWithoutComments(sql string) (string, bool) {
+	var out strings.Builder
 
-	for _, line := range strings.Split(path, "\n") {
-		if configPath.MatchString(line) {
-			return true
+	text := []rune(sql)
+
+	for at := 0; at < len(text); at++ {
+		char := text[at]
+		next := rune(0)
+
+		if at+1 < len(text) {
+			next = text[at+1]
+		}
+
+		switch {
+		case char == '\'' || char == '"' || char == '`':
+			end := at + 1
+			for ; end < len(text) && text[end] != char; end++ {
+				if text[end] == '\\' && char != '`' {
+					end++
+				}
+			}
+
+			end = min(end, len(text)-1)
+			out.WriteString(string(text[at : end+1]))
+			at = end
+		case char == '/' && next == '*':
+			if rest := string(text[at+2:]); strings.HasPrefix(rest, "!") || strings.HasPrefix(rest, "M!") {
+				return "", true
+			}
+
+			end := at + 2
+			for ; end+1 < len(text) && !(text[end] == '*' && text[end+1] == '/'); end++ {
+			}
+
+			// One with a * inside stays, as the shell's /\*[^*]*\*/ left it, for the checks to
+			// see and refuse: never less strict than the shell
+			if body := text[at+2 : min(end, len(text))]; strings.ContainsRune(string(body), '*') {
+				out.WriteString(string(text[at:min(end+2, len(text))]))
+			} else {
+				out.WriteRune(' ')
+			}
+
+			at = end + 1
+		case char == '#', char == '-' && next == '-' && at+2 < len(text) && unicode.IsSpace(text[at+2]):
+			for at < len(text) && text[at] != '\n' {
+				at++
+			}
+
+			out.WriteRune(' ')
+		default:
+			out.WriteRune(char)
 		}
 	}
 
-	return false
+	return out.String(), false
+}
+
+// mcpIsConfigPath says whether this looks like a Magento configuration path.
+//
+// Not a boundary against a hostile model, and not pretending to be one: it is what stops a
+// plausible mistake from being passed on as a command argument. Asked of the whole value: the
+// shell's grep asked each line, so one good line let any other through with it.
+func mcpIsConfigPath(path string) bool {
+	return configPath.MatchString(path)
 }

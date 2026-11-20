@@ -51,6 +51,41 @@ func TestOnlyAStatementThatReadsIsAccepted(t *testing.T) {
 	}
 }
 
+// TestAFileOperationIsRefusedHoweverItIsSpelt: the shell's rules looked for the words with one
+// space between them and took '#' or '-- ' inside a quoted string for a comment, so spacing, a
+// comment between the words, a string holding a comment marker, or a comment the server executes
+// got a file written or read on the host. Holes the shell had too: closed here on purpose.
+func TestAFileOperationIsRefusedHoweverItIsSpelt(t *testing.T) {
+	for _, sql := range []string{
+		"SELECT 1 INTO  OUTFILE '/tmp/x'",
+		"SELECT 1 INTO\tOUTFILE '/tmp/x'",
+		"SELECT 1 INTO \n OUTFILE '/tmp/x'",
+		"SELECT 1 INTO /**/ OUTFILE '/tmp/x'",
+		"SELECT 1 INTO -- \nDUMPFILE '/tmp/x'",
+		"SELECT '#', 1 INTO OUTFILE '/tmp/x'",
+		"SELECT '-- ', 1 INTO OUTFILE '/tmp/x'",
+		"SELECT \"#\" INTO OUTFILE '/tmp/x'",
+		"SELECT 1 /*!INTO OUTFILE '/tmp/x'*/",
+		"SELECT 1 /*!50000 INTO OUTFILE '/tmp/x'*/",
+		"SELECT 1 /*M!100000 INTO OUTFILE '/tmp/x'*/",
+		"SELECT '#'; DROP TABLE sales_order",
+		// Read with NO_BACKSLASH_ESCAPES the first string ends at its backslash and the '#' is text
+		"SELECT 'x\\' , '#' INTO OUTFILE '/tmp/x'",
+		"SELECT 1 FROM dual WHERE 'a' = '\\'#'; DROP TABLE sales_order",
+	} {
+		if mcpQueryRefusal(sql) == "" {
+			t.Errorf("%q accepted, want it refused", sql)
+		}
+	}
+
+	// What a quoted comment marker does not hide is still a plain read
+	for _, sql := range []string{"SELECT '#' AS hash", "SELECT 1 -- a comment", "SELECT /*+ hint */ 1"} {
+		if refusal := mcpQueryRefusal(sql); refusal != "" {
+			t.Errorf("%q refused (%s), want it accepted", sql, refusal)
+		}
+	}
+}
+
 func TestTheRefusalSaysWhy(t *testing.T) {
 	if refusal := mcpQueryRefusal("DROP TABLE x"); !strings.Contains(refusal, "SELECT") {
 		t.Errorf("refusal of a write = %q, want it to name what is allowed", refusal)
@@ -69,7 +104,9 @@ func TestAConfigurationPathLooksLikeOne(t *testing.T) {
 	}
 
 	for _, path := range []string{"", "web", "/web/secure", "web/secure/", "web secure use",
-		"web/secure;rm -rf /", "WEB/SECURE/X", "web/secure/$(id)"} {
+		"web/secure;rm -rf /", "WEB/SECURE/X", "web/secure/$(id)",
+		// grep asked each line, so one good line let the rest through: not here
+		"web/secure/x\n$(id)", "$(id)\nweb/secure/x"} {
 		if mcpIsConfigPath(path) {
 			t.Errorf("%q taken as a configuration path, want it refused", path)
 		}
