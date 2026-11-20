@@ -58,6 +58,8 @@ checksum:
 changelog:
   disable: true
 
+# Tags have no "v" (2.0.0), which goreleaser reads as semver all the same; "auto" marks one with a
+# pre-release part (2.0.0-rc.1) as a pre-release, so GitHub's "latest" stays the last final release.
 release:
   draft: false
   prerelease: auto

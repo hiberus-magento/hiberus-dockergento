@@ -1,8 +1,16 @@
 name: release
 
+#
+# Tags carry no "v": 2.0.0, 2.0.0-rc.1. Binaries exist only from 2.0, the first version that is a Go
+# program (cmd/hm); 1.x is the shell tool and has nothing to build. The filters are globs, where "."
+# is literal and "*" is anything but "/": the first takes 2.x to 9.x, pre-releases included, the
+# second 10.x to 99.x, and neither takes 1.5.1 or 1.6.0-rc.2 (a 1 followed by "." matches neither).
+#
 on:
   push:
-    tags: ["v*"]
+    tags:
+      - "[2-9].*"
+      - "[1-9][0-9].*"
 
 permissions:
   contents: write
@@ -22,11 +30,25 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Belt and braces behind the filters: a tagged tree without the Go program has no binaries to
+      # publish, so the job ends here, successfully, and publishes nothing
+      - name: The tagged tree is a Go version
+        id: guard
+        run: |
+          if [ -d cmd/hm ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${GITHUB_REF_NAME} has no cmd/hm: a version of the shell tool, nothing is published"
+          fi
+
       - uses: actions/setup-go@v5
+        if: steps.guard.outputs.go == 'true'
         with:
           go-version: "1.25"
 
       - name: Both platforms build before anything is published
+        if: steps.guard.outputs.go == 'true'
         run: |
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build ./...
           CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build ./...
@@ -34,6 +56,7 @@ jobs:
           CGO_ENABLED=0 GOOS=linux  GOARCH=amd64 go build ./...
 
       - uses: goreleaser/goreleaser-action@v6
+        if: steps.guard.outputs.go == 'true'
         with:
           args: release --clean
         env:
