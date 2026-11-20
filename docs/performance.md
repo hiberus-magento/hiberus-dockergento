@@ -49,11 +49,13 @@ identical to the sequential one.
 
 | Path | Budget |
 |---|---|
-| `hm --help` | 800 ms, and at most 5 `jq` processes spawned |
+| `hm --help` | 800 ms, and no `jq` process spawned |
 | `hm --version` | 900 ms, and no call to Docker |
 | `hm doctor --json` | 2 500 ms |
 
-It skips itself when Docker is not available, because the timings would not be comparable.
+The process counts are asserted on every machine. The timings are skipped when Docker is not
+available, because they would not be comparable. The shell tool's help was allowed 5 `jq`; the
+binary parses its own JSON and spawns none, so any `jq` at all is a regression.
 The dashboard's frame time is covered by the Go tests in `internal/cli/tui_test.go`.
 
 The budgets are loose on purpose. The same `docker compose config -q` measured 72 ms warm
