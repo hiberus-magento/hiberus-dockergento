@@ -35,7 +35,6 @@ import (
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/fsprops"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/gitvcs"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/hmstate"
-	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/legacy"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/machine"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/magentofiles"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/adapters/osfs"
