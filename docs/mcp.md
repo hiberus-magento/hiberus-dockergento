@@ -48,6 +48,17 @@ statement hides), and then it must begin with `SELECT`, `SHOW`, `DESCRIBE` or `E
 only one statement, and mention neither `INTO OUTFILE`, `INTO DUMPFILE` nor `LOAD_FILE` — those
 read and write files on the host as the database user.
 
+A backslash inside a quoted string is refused too. Whether it escapes the quote after it depends
+on the server's SQL mode (`NO_BACKSLASH_ESCAPES`, and `ANSI_QUOTES` for `"..."`), which the check
+cannot see; read the other way, a comment or a second statement can sit where the check sees text.
+So no reading is trusted, and the refusal says how to write the query without one:
+
+| Instead of | Write |
+|---|---|
+| `'it\'s'` | `'it''s'` (double the quote) |
+| a literal backslash, `'a\\b'` | `CONCAT('a', CHAR(92), 'b')` |
+| `LIKE '%\_%'` | `LIKE '%!_%' ESCAPE '!'` |
+
 It errs towards refusing. A model that cannot run its query gets a sentence explaining why; a
 model that can run `SELECT ... INTO OUTFILE` gets a file.
 

@@ -250,7 +250,10 @@ func mcpQueryRefusal(sql string) string {
 	// all — a deliberate difference).
 	//
 	if ambiguous {
-		return "Refused: a backslash in a quoted string is read differently depending on the server's SQL mode, so the statement cannot be checked"
+		return "Refused: a backslash in a quoted string is read differently depending on the server's SQL mode " +
+			"(NO_BACKSLASH_ESCAPES), so the statement cannot be checked. Write it without backslashes: " +
+			"double a quote inside a string ('it''s'), use CHAR(92) for a literal backslash, " +
+			"and give LIKE another escape character (LIKE '%!_%' ESCAPE '!')"
 	}
 
 	if executable {

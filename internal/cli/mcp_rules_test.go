@@ -149,3 +149,26 @@ func TestTheWriteToolsAreOnlyOfferedWithWrite(t *testing.T) {
 		}
 	}
 }
+
+// TestTheBackslashRefusalSaysHowToRephrase: a model told only "refused" retries the same query;
+// told the ways around it, it can write one the filter can read.
+func TestTheBackslashRefusalSaysHowToRephrase(t *testing.T) {
+	refusal := mcpQueryRefusal("SELECT 1 FROM dual WHERE a LIKE '%\\_%'")
+
+	for _, want := range []string{"SQL mode", "''", "CHAR(92)", "ESCAPE '!'"} {
+		if !strings.Contains(refusal, want) {
+			t.Errorf("refusal = %q, want it to mention %q", refusal, want)
+		}
+	}
+
+	// And what it suggests is accepted
+	for _, sql := range []string{
+		"SELECT 'it''s' FROM dual",
+		"SELECT CONCAT('a', CHAR(92), 'b') FROM dual",
+		"SELECT 1 FROM dual WHERE a LIKE '%!_%' ESCAPE '!'",
+	} {
+		if refusal := mcpQueryRefusal(sql); refusal != "" {
+			t.Errorf("%q: refusal = %q, want the suggested form accepted", sql, refusal)
+		}
+	}
+}
