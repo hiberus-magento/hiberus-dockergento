@@ -83,38 +83,55 @@ you are validating. See [switch](docs/switch.md).
 
 <br>
 
-## Install Hiberus CLI
-Hiberus CLI requires the next dependencies.
-- [Homebrew](https://docs.brew.sh/Installation) (only Mac)
-- [git](https://git-scm.com/downloads)
-- [jq](https://stedolan.github.io/jq/download/)
-- [oh-my-zsh](https://ohmyz.sh/) (recommended for Mac)
+## Installation
 
-After installing these dependencies, launch the next command
+hm is one binary. Install it with:
 
 ```bash
-curl https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/installer.sh | bash
+curl -fsSL https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/install.sh | bash
 ```
 
-That installs the latest release of 2.0 or later. To install a particular one, a tag or a branch,
-pass it: `curl ... | bash -s -- 2.0.0` (or `HM_VERSION=2.0.0`). A 1.x is the shell tool, which
-this installer refuses before installing anything; install it separately, in a directory of its
-own: `git clone -b <tag> https://github.com/hiberus-magento/hiberus-dockergento.git ~/hm-1.x`,
-then run `~/hm-1.x/bin/run`. `hm switch` refuses a 1.x the same way.
+The installer downloads the latest release of 2.0 or later for your system (macOS or Linux, amd64
+or arm64), checks it against the release's `checksums.txt`, and installs it:
 
-The installation is a git checkout at `~/hm` plus one file that is not in git, the `hm` binary
-(`~/hm/bin/hm`), which `/usr/local/bin/hm` links to. The installer gets that binary from the
-GitHub release of the tag the checkout is at (`hm_<os>_<arch>`, checked against the release's
-`checksums.txt`), or builds it with Go when the download is not possible. With neither, it stops
-with an error and leaves any existing installation as it was: install [Go](https://go.dev/dl/)
-and run it again, or build it yourself with `cd ~/hm && go build -o bin/hm ./cmd/hm`.
+- at `/usr/local/bin/hm` when that directory is writable, otherwise at `~/.local/bin/hm`;
+- at the same path as an existing 1.x `hm` link, which it replaces, so there is only one `hm`;
+- or where you say: `--dir <directory>` (or `HM_INSTALL_DIR`).
 
-A link from an older installation to `bin/run`, the shell entry point hm used to be (it no longer
-exists), is moved to `bin/hm` when the installer runs. The shell completion is still written to
-`~/hm/console/hm-completion.bash`, the path existing shell profiles already source.
+It also writes the shell completion to `~/.hm/completion/` and adds one line to your profile
+(`~/.zshrc`, or `~/.bashrc` / `~/.bash_profile` on macOS for bash) that loads it.
 
-`hm update` and `hm switch` get the binary again, the same way, every time they move the checkout.
-See [update](docs/update.md).
+Options go after `bash -s --`:
+
+```bash
+curl -fsSL .../install.sh | bash -s -- --version 2.0.0   # a particular release (HM_VERSION)
+curl -fsSL .../install.sh | bash -s -- --pre             # allow a pre-release (HM_PRE=1)
+```
+
+The installer needs only curl (or wget). The full guide, including a manual install and
+building from source, is [docs/installation.md](docs/installation.md).
+
+### Update
+
+Run `hm update`, or run the installer again: it upgrades to the latest release or says it is
+already up to date.
+
+### Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/install.sh | bash -s -- --uninstall
+```
+
+It removes the binary it installed, the completion and its profile line. hm's own state in `~/.hm`
+is kept; delete it with `rm -rf ~/.hm` if you want.
+
+### Upgrading from 1.x
+
+Run the installer above. It replaces the `/usr/local/bin/hm` link (sudo is asked for only if that
+directory is not yours) and the 1.x completion line in your profile. The old `~/hm` clone is left
+where it is: the installer tells you it is no longer used, whether it has local changes, and the
+command to delete it. A 1.x version cannot be installed with this installer; see
+[docs/installation.md](docs/installation.md#upgrading-from-1x).
 
 <br>
 
