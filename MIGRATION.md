@@ -992,6 +992,11 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         sustituye, la configuración de la 1.x se valida igual en el shell y en Go y se copia con
         permisos 0600, y `~/.hm/config.json` se escribe siempre 0600 (`c10ed93`).
 
+        Revisado de `6ab7584` a `5cc860c` (`review-d804181fe426e2d6`) y su arreglo
+        (`review-d8e6218ba38723b3`), aprobados y reconocidos: un `~/.hm/config.json` que sea un
+        enlace —los dotfiles en otro sitio—, aunque su destino aún no exista, se escribe a través
+        del enlace en vez de sustituirlo (`39afb80` y el commit que lo sigue).
+
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
 
