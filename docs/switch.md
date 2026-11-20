@@ -9,6 +9,17 @@ hm switch --stable        # back to the stable branch
 hm switch release/1.6.0   # follow a release branch
 ```
 
+## The compiled command follows
+
+`bin/hm` is not in git, so a checkout alone would leave the binary of the version you came from.
+After switching, `hm switch` gets the binary for where you are now: the release's
+`hm_<os>_<arch>`, checked against its `checksums.txt`, when you switched to a release tag; a
+`go build` otherwise, or when that download fails. A branch is only ever built.
+
+When neither works, the switch stays done, the previous binary is kept, and the command fails
+with `binary_not_refreshed` (exit code 1) and the command to build it, as described in
+[update](update.md).
+
 ## What `--list` shows
 
 Versions most recent first, with the installed one marked and pre-releases labelled, followed

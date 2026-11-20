@@ -5,7 +5,8 @@ import (
 	"io"
 )
 
-// update pulls this tool's installation and regenerates the shell completion.
+// update pulls this tool's installation, refreshes its compiled command and regenerates the shell
+// completion.
 //
 // It takes no options: the shell implementation ignored whatever it was given, and an option that
 // silently does nothing is one somebody believes did something.

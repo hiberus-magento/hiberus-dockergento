@@ -72,6 +72,18 @@ After installing these dependencies, launch the next command
 curl https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/installer.sh | bash
 ```
 
+The installation is a git checkout at `~/hm` plus one file that is not in git, the `hm` binary
+(`~/hm/bin/hm`), which `/usr/local/bin/hm` links to. The installer gets that binary from the
+GitHub release of the tag the checkout is at (`hm_<os>_<arch>`, checked against the release's
+`checksums.txt`), or builds it with Go when the download is not possible. With neither, it stops
+with an error and leaves any existing installation as it was: install [Go](https://go.dev/dl/)
+and run it again, or build it yourself with `cd ~/hm && go build -o bin/hm ./cmd/hm`.
+
+A link from an older installation to `bin/run` is moved to `bin/hm` when the installer runs.
+
+`hm update` and `hm switch` get the binary again, the same way, every time they move the checkout.
+See [update](docs/update.md).
+
 <br>
 
 ## Create environment

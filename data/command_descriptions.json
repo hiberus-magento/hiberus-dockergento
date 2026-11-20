@@ -742,7 +742,7 @@
         "safety": "caution"
     },
     "switch": {
-        "description": "Switch the installation to another version or branch",
+        "description": "Switch the installation, and its compiled command, to another version or branch",
         "usage": "switch [<version|branch>|--stable|--list]",
         "group": "versions",
         "opts": [
@@ -815,7 +815,7 @@
         "safety": "caution"
     },
     "update": {
-        "description": "Update hiberus docker tool",
+        "description": "Update the installation and its compiled command",
         "group": "versions",
         "safety": "dangerous"
     },
