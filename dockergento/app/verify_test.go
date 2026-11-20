@@ -319,3 +319,23 @@ func TestWithoutABaseEverythingIsCheckedAndThatIsSaid(t *testing.T) {
 		t.Fatalf("ran %v", container.ran)
 	}
 }
+
+// TestChangedFileNamesReachTheContainerShellAsOneWordEach: a name with a space or a shell
+// metacharacter is one file, not two words or a second command. Plain names stay as they were.
+func TestChangedFileNamesReachTheContainerShellAsOneWordEach(t *testing.T) {
+	container := &scripted{installed: map[string]bool{"phpstan": true}}
+	repository := &branch{bases: map[string]bool{"main": true},
+		changed: []string{"app/code/My File.php", "app/code/a;touch x.php", "app/code/it's.php", "app/code/B.php"}}
+	labels := []string{}
+
+	verifier(container, repository, &labels).Verify(verified, core.VerifyOptions{Changed: true}) //nolint:errcheck
+
+	files := `'app/code/My File.php' 'app/code/a;touch x.php' 'app/code/it'\''s.php' app/code/B.php`
+	want := []string{
+		`for f in ` + files + `; do [ -f "$f" ] && php -l "$f"; done | grep -v '^No syntax errors' || true`,
+		phpstanCommand + files,
+	}
+	if !reflect.DeepEqual(container.ran, want) {
+		t.Fatalf("ran %v, want %v", container.ran, want)
+	}
+}

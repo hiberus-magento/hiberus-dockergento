@@ -15,7 +15,7 @@ import (
 // remembering four tools with four syntaxes does not happen. The tools are not the same in any two
 // projects, so this looks at what is there and runs that: syntax always, since it needs nothing
 // installed, and the rest when their binaries are in vendor/bin. Ported from verify.sh, its
-// commands byte for byte.
+// commands byte for byte, except that a changed file name bash would not read literally is quoted.
 type Verifier struct {
 	Engine  ports.ContainerEngine
 	Runner  ports.ContainerRunner
@@ -81,7 +81,7 @@ func (v Verifier) Verify(project core.Project, options core.VerifyOptions) (core
 	// empty --changed included, as in the shell
 	target := "app/code"
 	if verification.Scope == "changed" && len(files) > 0 {
-		target = strings.Join(files, " ")
+		target = shellWords(files)
 	}
 
 	tools := []struct{ name, binary, command, reason string }{
@@ -160,7 +160,7 @@ func (v Verifier) syntax(run func(string) (string, int, error), changed bool, fi
 			return core.Check{Name: "syntax", Status: core.CheckSkipped, Output: "no PHP files changed"}, nil
 		}
 
-		command = "for f in " + strings.Join(files, " ") +
+		command = "for f in " + shellWords(files) +
 			`; do [ -f "$f" ] && php -l "$f"; done | grep -v '^No syntax errors' || true`
 	}
 
@@ -208,6 +208,37 @@ func (v Verifier) announce(label string) func(bool, string) {
 	}
 
 	return v.Progress(label)
+}
+
+// shellWords joins file names for a bash command line, each one a single word: a name made only
+// of characters bash reads literally goes as it is — what the shell port wrote — and any other is
+// single-quoted, so a space or a metacharacter in a file name cannot split it or run something.
+func shellWords(names []string) string {
+	words := make([]string, len(names))
+
+	for i, name := range names {
+		words[i] = shellWord(name)
+	}
+
+	return strings.Join(words, " ")
+}
+
+func shellWord(name string) string {
+	plain := name != ""
+
+	for _, r := range name {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("/._-+,:@%=", r)) {
+			plain = false
+
+			break
+		}
+	}
+
+	if plain {
+		return name
+	}
+
+	return "'" + strings.ReplaceAll(name, "'", `'\''`) + "'"
 }
 
 // countLines is the shell's `sed '/^$/d' | grep -c .`: the lines with anything on them.
