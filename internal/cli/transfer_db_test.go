@@ -527,3 +527,18 @@ func assertFailure(t *testing.T, document []byte, kind, message, hint string) {
 		t.Fatalf("failure = %+v, want %s / %s / %s", failed.Error, kind, message, hint)
 	}
 }
+
+// TestAQuoteInAConnectionValueStaysInsideItsWord: host, user and password go single-quoted into a
+// shell command, so a ' in one of them is escaped rather than ending the quoting — a password
+// with a quote would otherwise break the dump, or run what follows it.
+func TestAQuoteInAConnectionValueStaysInsideItsWord(t *testing.T) {
+	_, ran := dbLab(t)
+
+	transferDB([]string{"--ssh-user=abc", "--sql-host=db'h", "--sql-user=o'neil",
+		"--sql-password=it's; rm -rf ~", "--anonymise=false"}, io.Discard, io.Discard, false)
+
+	want := `-h'db'\''h' -u'o'\''neil' -P 3306 -p'it'\''s; rm -rf ~' main `
+	if len(*ran) != 1 || !strings.Contains((*ran)[0].Args[1], want) {
+		t.Fatalf("ssh ran %v, want it to contain %s", *ran, want)
+	}
+}

@@ -182,7 +182,7 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	passwordFlag := ""
 	if sqlPassword != "" {
-		passwordFlag = "-p'" + sqlPassword + "'"
+		passwordFlag = "-p'" + insideQuotes(sqlPassword) + "'"
 	}
 
 	exclude := yes(question("Do you want to exclude 'core_config_data' table? [Y/n]:", ""))
@@ -197,9 +197,10 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	say("Creating database dump from origin server...\n")
 
-	// What the shell ran, byte for byte, the spacing of its line continuations included
+	// What the shell ran, byte for byte, the spacing of its line continuations included — except
+	// that a ' in a single-quoted value is escaped, where the shell let it end the quoting
 	dump := fmt.Sprintf(`dump=$(command -v mariadb-dump || command -v mysqldump); "$dump" --single-transaction --quick --no-tablespaces --skip-comments -h'%s' -u'%s' -P %s %s %s`,
-		sqlHost, sqlUser, sqlPort, passwordFlag, sqlDB)
+		insideQuotes(sqlHost), insideQuotes(sqlUser), sqlPort, passwordFlag, sqlDB)
 	definers := `sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/'`
 
 	// inside runs one step in a container, and stops with its status as set -e did
@@ -296,4 +297,10 @@ func anonymiseOrWarn(engine commands, dir string, stderr io.Writer) {
 	if err := engine.Anonymise(dir); err != nil {
 		fmt.Fprint(stderr, warning("The database was not anonymised: "+err.Error()+"\n"))
 	}
+}
+
+// insideQuotes is a value ready to go between single quotes in a shell command: each quote is
+// replaced by one that closes the quoting, an escaped literal quote, and one that opens it again.
+func insideQuotes(value string) string {
+	return strings.ReplaceAll(value, "'", `'\''`)
 }
