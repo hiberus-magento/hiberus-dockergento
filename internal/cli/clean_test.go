@@ -257,3 +257,56 @@ func TestCleanInteractivelyCollectsOnlyOnYes(t *testing.T) {
 		})
 	}
 }
+
+// A pipe on stdout makes the output JSON, and that must not make the question go away:
+// `printf 'n\n' | hm clean --force >/dev/null` deletes nothing. Only an explicit yes, or --yes,
+// deletes, and the document says whether anything was.
+func TestCleanJSONInteractivelyCollectsOnlyOnYes(t *testing.T) {
+	for _, this := range []struct {
+		answer  string
+		want    []string
+		removed bool
+	}{
+		{"n\n", []string{"Survey"}, false},
+		{"", []string{"Survey"}, false},
+		{"y\n", []string{"Survey", "Collect"}, true},
+	} {
+		t.Run(strings.TrimSpace(this.answer), func(t *testing.T) {
+			t.Setenv("HM_FORCE", "")
+
+			fake := answering(t)
+			fake.outcomes = []outcome{{collection: somethingToCollect()}}
+			t.Setenv("HM_NON_INTERACTIVE", "")
+
+			var stdout, stderr bytes.Buffer
+
+			code := -1
+
+			askingWith(t, this.answer, func() {
+				code = clean([]string{"--force"}, &stdout, &stderr, true)
+			})
+
+			if code != exitOK {
+				t.Fatalf("clean --force --json = %d, want exitOK; stderr = %q", code, stderr.String())
+			}
+
+			if diff := cmp.Diff(this.want, methods(fake.calls)); diff != "" {
+				t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+			}
+
+			var envelope struct {
+				Data struct {
+					Removed bool `json:"removed"`
+				} `json:"data"`
+			}
+
+			if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+				t.Fatalf("json.Unmarshal(%q) = %v, want one document and nothing else", stdout.String(), err)
+			}
+
+			if envelope.Data.Removed != this.removed {
+				t.Fatalf("document = %s, want removed: %v", stdout.String(), this.removed)
+			}
+		})
+	}
+}

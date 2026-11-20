@@ -34,33 +34,42 @@ func clean(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	collection.Removed = remove
 
+	//
+	// Deleting needs an explicit yes, or --yes. Asking is not tied to the output format: JSON is
+	// also what a pipe on stdout gets, and `printf 'n\n' | hm clean --force >/dev/null` saying no
+	// must still mean no. Under JSON the question and its warning go to the error stream, so the
+	// document stays the only thing on stdout, and it is printed after the answer so that it says
+	// whether anything was removed.
+	//
+	interactive := os.Getenv("HM_NON_INTERACTIVE") == ""
+
 	if jsonOutput {
+		if remove && collection.Anything() && interactive && !confirmed(collection, stderr) {
+			collection.Removed = false
+		}
+
 		if code := document(stdout, stderr, "clean", collection); code != exitOK {
 			return code
 		}
 
-		if !remove {
+		if !collection.Removed || !collection.Anything() {
 			return exitOK
 		}
 	} else {
 		cleanAsText(collection, stdout)
-	}
 
-	if !collection.Anything() {
-		return exitOK
-	}
-
-	if !remove {
-		if !jsonOutput {
-			fmt.Fprint(stdout, "  Nothing was deleted. To collect them:\n")
-			fmt.Fprint(stdout, warning("  "+binaryName()+" clean --force\n\n"))
+		if !collection.Anything() {
+			return exitOK
 		}
 
-		return exitOK
-	}
+		if !remove {
+			fmt.Fprint(stdout, "  Nothing was deleted. To collect them:\n")
+			fmt.Fprint(stdout, warning("  "+binaryName()+" clean --force\n\n"))
 
-	if !jsonOutput && os.Getenv("HM_NON_INTERACTIVE") == "" {
-		if !confirmed(collection, stdout) {
+			return exitOK
+		}
+
+		if interactive && !confirmed(collection, stdout) {
 			fmt.Fprint(stdout, good("Nothing was deleted.\n"))
 
 			return exitOK
@@ -78,6 +87,7 @@ func clean(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	return exitOK
 }
 
+// confirmed shows what is about to be deleted on out and asks; anything but a yes is a no.
 func confirmed(collection core.Collection, stdout io.Writer) bool {
 	fmt.Fprintf(stdout, "\n")
 	fmt.Fprint(stdout, warning(fmt.Sprintf(
