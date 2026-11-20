@@ -60,7 +60,7 @@ A project adds commands of its own as executable scripts at `config/hm/commands/
 4. Runs the script with the remaining arguments, and returns its exit code
 ```
 
-The environment is the one the shell entry point exported, so scripts written against it keep working — except that `HELPERS_DIR`, `TASKS_DIR` and `COMPONENTS_DIR` are no longer set: the shell tree they pointed at is gone.
+The environment is the one the shell entry point exported, so scripts written against it keep working — except that `HELPERS_DIR`, `TASKS_DIR` and `COMPONENTS_DIR` are no longer set: the shell tree they pointed at is gone. That is a deliberate incompatible change of 2.0 — project scripts must be self-contained. A script with no `#!` line is run with `bash`, which is what executing it from the shell entry point amounted to.
 
 #### 2.3.2 What is left of `console/`
 

@@ -161,7 +161,7 @@ DOCKER_COMPOSE="docker compose -f docker-compose.yml -f docker-compose.dev.mac.y
 | `DOMAIN` | properties.json | Local domain | "myproject.local" |
 | `COMPOSE_PROJECT_NAME` | properties.json, or derived from the directory | Docker project name | "myproject" |
 | `MACHINE` | the binary (`Platform()`) | Operating system | "mac" or "linux" |
-| `DOCKER_COMPOSE` | the binary, for a project command | Full docker-compose command | "docker-compose -f docker-compose.yml -f docker-compose.dev.mac.yml" |
+| `DOCKER_COMPOSE` | the binary, for a project command | Full Docker Compose command: `docker compose`, or `docker-compose` when only the standalone v1 is installed | "docker compose -f docker-compose.yml -f docker-compose.dev.mac.yml" |
 | `WORKDIR_PHP` | properties.json | Working directory in container | "/var/www/html" |
 | `USER_PHP` | properties.json | User in PHP container | "app" |
 | `REQUIREMENTS` | `data/requirements.json`, read by the binary | JSON with service versions | '{"php":"8.2-buster",...}' |

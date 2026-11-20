@@ -293,7 +293,8 @@ hm deploy
 ```
 
 - The tool's own commands always win: a script named like one of them is never run.
-- The script must be executable; it is run directly, so its shebang decides the interpreter. It
+- The script must be executable; it is run directly, so its shebang decides the interpreter. A
+  script with no `#!` line is run with `bash`, as the old shell entry point did. It
   gets the arguments that follow the name — without the tool's own flags (`--json`, `--yes`,
   `--no-color`...) — the terminal, and its exit code becomes `hm`'s.
 - Before it runs, `hm` checks that Docker answers and that the project's Compose files are valid.
@@ -302,9 +303,11 @@ hm deploy
 - Its environment carries the project's properties (`COMPOSE_PROJECT_NAME`, `DOMAIN`,
   `MAGENTO_DIR`, ...), `HM_ROOT`, `DOCKER_COMPOSE` (the `docker compose -f ...` command for this
   project), `MACHINE`, `HM_OUTPUT_FORMAT`, the exit codes as `HM_EXIT_*` and the colour
-  variables. Scripts written against the old shell entry point that sourced files from its
-  `console/` directory (`$HELPERS_DIR`, `$TASKS_DIR`, `$COMPONENTS_DIR`) have to stop doing so:
-  that directory is gone.
+  variables.
+- **Incompatible change in 2.0, on purpose:** scripts no longer receive `HELPERS_DIR`,
+  `TASKS_DIR` or `COMPONENTS_DIR`, because the `console/` directory they pointed at is gone. A
+  script must be self-contained: one that sourced `"$HELPERS_DIR"/...` or called
+  `"$TASKS_DIR"/...` has to carry what it used, or call `hm` commands instead.
 - `hm --help` lists the project's commands; an optional `config/hm/commands/command_descriptions.json`
   describes them in the same format as the tool's own `data/command_descriptions.json`, and
   `hm <name> --help` prints that description.
