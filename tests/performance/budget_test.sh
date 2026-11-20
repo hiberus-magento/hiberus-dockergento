@@ -12,7 +12,8 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/measure.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
+# The binary answers the help and the version now, so that is what the budgets measure
+HM="$COMMAND_BIN_DIR/bin/hm"
 
 if [ -n "${HM_SKIP_PERF:-}" ]; then
     echo "  - skipped: HM_SKIP_PERF is set"

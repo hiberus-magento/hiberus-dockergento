@@ -75,7 +75,7 @@ test_case "and it is a usage error, not the entry point refusing a retired comma
 assert_json_field "$(cat "$LAB/err")" '.error.type' "invalid_argument"
 
 test_case "the flag still answers as it did"
-( cd "$LAB" && "$HM" --version --json >"$LAB/out" 2>&1 )
+( cd "$LAB" && "$GO_BINARY" --version --json >"$LAB/out" 2>&1 )
 assert_equals "false" "$(jq 'has("docker")' < "$LAB/out" | head -1)"
 
 # ---------------------------------------------------------------- a project to work against

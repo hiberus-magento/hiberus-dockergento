@@ -5,23 +5,10 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/assert.sh"
 
-HM="$COMMAND_BIN_DIR/bin/run"
+# The binary answers the help now; bin/run's own help is no longer what anybody is shown
+HM="$COMMAND_BIN_DIR/bin/hm"
 LAB=$(cd "$(mktemp -d)" && pwd -P)
-
-# A command with no declared group, removed on the way out
-UNGROUPED="$COMMAND_BIN_DIR/console/commands/selftestungrouped.sh"
-
-# The directory is gone once every command is the binary's, so it is made for the test and
-# removed again when the test made it
-UNGROUPED_DIR=$(dirname "$UNGROUPED")
-[ -d "$UNGROUPED_DIR" ] && MADE_DIR=false || MADE_DIR=true
-
-cleanup() {
-    rm -f "$UNGROUPED"
-    $MADE_DIR && rmdir "$UNGROUPED_DIR" 2>/dev/null
-    rm -rf "$LAB"
-}
-trap cleanup EXIT
+trap 'rm -rf "$LAB"' EXIT
 
 help_output() {
     ( cd "$LAB" && env "$@" "$HM" --help 2>/dev/null )
@@ -97,19 +84,10 @@ assert_contains "$OUTPUT" "--no-color"
 test_case "the footer points at the per-command help"
 assert_contains "$OUTPUT" "--help"
 
-# ------------------------------------------------------------------ ungrouped
-
-test_case "a command with no declared group still appears"
-mkdir -p "$UNGROUPED_DIR"
-printf '#!/usr/bin/env bash\nexit 0\n' > "$UNGROUPED"
-chmod +x "$UNGROUPED"
-OUTPUT=$(help_output)
-assert_contains "$OUTPUT" "selftestungrouped"
-
-test_case "and it appears under the catch-all group"
-after_other=$(printf '%s' "$OUTPUT" | sed -n '/^Other$/,$p')
-assert_contains "$after_other" "selftestungrouped"
-rm -f "$UNGROUPED"
+# A command with no declared group is listed under the catch-all group: that rule is held by
+# TestACommandWithNoGroupIsListedUnderOther in internal/cli/help_test.go, on a tool of its own.
+# The case that used to live here dropped a script into console/commands, which the binary does
+# not list — nothing would run it.
 
 # ------------------------------------------------------------------ the logo
 
