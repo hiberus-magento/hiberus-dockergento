@@ -209,3 +209,49 @@ func TestAFailureReadingTheMainPropertiesIsReported(t *testing.T) {
 		t.Fatal("a read that failed = nil, want the error carried out")
 	}
 }
+
+// A project whose properties do not name it is known by its directory, the name Docker Compose
+// gives it anyway. The shell entry point derived it; without it the binary believed the name was
+// the empty string while Compose had already named the containers.
+func TestAProjectWithNoConfiguredNameIsKnownByItsDirectory(t *testing.T) {
+	resolver := Resolver{
+		Properties: properties{"/code/Sin Nombre": {"MAGENTO_DIR": "."}},
+		VCS:        vcs{},
+		Registry:   registry{},
+	}
+
+	project, err := resolver.Resolve("/code/Sin Nombre")
+	if err != nil {
+		t.Fatalf("Resolve = %v, want no error", err)
+	}
+
+	if project.Name != "sinnombre" {
+		t.Errorf("Name = %q, want %q", project.Name, "sinnombre")
+	}
+}
+
+// A configured name always wins: deriving over it would attach the project's volumes to a name
+// nobody asks for.
+func TestAConfiguredNameIsNeverDerived(t *testing.T) {
+	resolver := Resolver{
+		Properties: properties{"/code/Sin Nombre": {"COMPOSE_PROJECT_NAME": "tienda"}},
+		VCS:        vcs{},
+		Registry:   registry{},
+	}
+
+	project, _ := resolver.Resolve("/code/Sin Nombre")
+	if project.Name != "tienda" {
+		t.Errorf("Name = %q, want %q", project.Name, "tienda")
+	}
+}
+
+// A directory that is not a project stays nameless: that empty name is how the commands tell they
+// are outside one.
+func TestADirectoryThatIsNotAProjectHasNoName(t *testing.T) {
+	resolver := Resolver{Properties: properties{}, VCS: vcs{}, Registry: registry{}}
+
+	project, _ := resolver.Resolve("/code/anywhere")
+	if project.Name != "" {
+		t.Errorf("Name = %q, want none", project.Name)
+	}
+}

@@ -112,8 +112,16 @@ func projectFrom(root string, properties map[string]string) core.Project {
 		magentoDir = "."
 	}
 
+	// A configured name always wins and nothing adjusts it. Only a project that names nothing is
+	// known by its directory — the name Docker Compose gives it anyway. A directory with no
+	// properties at all is not a project, and its empty name is how the commands tell.
+	name := properties["COMPOSE_PROJECT_NAME"]
+	if name == "" && len(properties) > 0 {
+		name = core.DeriveProjectName(root)
+	}
+
 	return core.Project{
-		Name:       properties["COMPOSE_PROJECT_NAME"],
+		Name:       name,
 		Root:       root,
 		Domain:     properties["DOMAIN"],
 		MagentoDir: magentoDir,
