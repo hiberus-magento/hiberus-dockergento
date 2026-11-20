@@ -917,6 +917,26 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         comandos los responde el binario. Apartados: 46 de 897 aserciones fallaban antes y
         después, diff vacío.
 
+        Revisado de `92499cf` a `e08fcaf`, en tramos por el presupuesto de las lentes. Aprobados y
+        reconocidos: `review-8b79d6ea63d9d405` (retirada de `db`), `review-329afd96c72e84ae` (ayuda
+        sin `console/commands` y retirada de los `ai-*`), `review-52e88efb71549744` (arreglos de la
+        revisión anterior), `review-5b1c6b6b01efee8b`, `review-be49d22d549be953` y
+        `review-75f3d3e99114ab54` (`ai-init`, `ai-pull`, `ai-reset`), `review-898c8ce7c1a1e25c`
+        (arreglos de seguridad), `review-fc681144931a49f1`, `review-916be93167b26ecb` y
+        `review-67d0b09ef7f57b1a` (autocompletado, limpieza de `console/` y suites),
+        `review-39c78c750e2b6985` (`--version` y comandos de proyecto), `review-ba760cbbbaaa4d25`
+        (instalador, `update` y `switch`), `review-f88737b4295588cd` (nombre del proyecto desde el
+        directorio), `review-72dacf8bc10976fe` (suites) y `review-5700fb9157ff4f3f` (documentación).
+        El borrado de `bin/run` (`review-e2fcddf89794a3a4`) escaló un hallazgo,
+        `R3-custom-command-helpers-gone`: los scripts de proyecto ya no reciben `HELPERS_DIR`,
+        `TASKS_DIR` ni `COMPONENTS_DIR`; se decidió documentarlo como cambio incompatible de la 2.0,
+        sin capa de compatibilidad. El port de la ayuda (`15333c5`) no cabía en las lentes por sus
+        goldens: lo revisó un revisor independiente sólo sobre el código, que encontró que los
+        comandos de proyecto se buscaban con un glob sobre la ruta y que las descripciones se
+        interpretaban como formato de `printf`; ahora se lee el directorio literal y se imprimen tal
+        cual. Los avisos con recorrido se arreglaron en `899e64d`…`61305eb` —scripts sin shebang,
+        `update` sin Go, restauración de `config.php`, estado de anonimización, suites debilitadas—.
+
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
 
