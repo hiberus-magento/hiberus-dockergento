@@ -143,9 +143,30 @@ published=$(docker ps --format '{{.Ports}}' --filter "name=proxyone" --filter "n
     grep -c '\->' || true)
 assert_equals "0" "$published"
 
+served_names() {
+    echo | openssl s_client -connect 127.0.0.1:443 -servername proxyone.local 2>/dev/null |
+        openssl x509 -noout -ext subjectAltName 2>/dev/null
+}
+
+# The certificates above are written after the proxy started, and Traefik only learns of them
+# through its file watcher. Some VM mounts never deliver those events from the host (colima's
+# virtiofs, checked: the files are in the container and Traefik never reloads), so there it keeps
+# serving its own default until it restarts. That is the mount, not the configuration: restart
+# it, say so, and still check the certificate itself.
+names=$(served_names)
+if [[ "$names" == *"traefik.default"* ]]; then
+    echo "  - note: this Docker's mount does not deliver file changes to Traefik's watcher;" \
+        "restarting the proxy to check the certificate"
+    docker restart hm-proxy >/dev/null 2>&1
+    waited=0
+    until [[ "$(served_names)" == *"proxyone.local"* ]] || [ "$waited" -gt 30 ]; do
+        sleep 2
+        waited=$((waited + 2))
+    done
+    names=$(served_names)
+fi
+
 test_case "the certificate served covers the wildcard, so subdomains work"
-names=$(echo | openssl s_client -connect 127.0.0.1:443 -servername proxyone.local 2>/dev/null |
-    openssl x509 -noout -ext subjectAltName 2>/dev/null)
 assert_contains "$names" "*.proxyone.local"
 
 test_case "the proxy reports what it routes"
