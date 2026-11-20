@@ -49,7 +49,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	jsonOutput := wanted(format, stdout)
 
 	if rest[0] == "--version" || rest[0] == "-v" {
-		return legacyShell(args, stdout, stderr)
+		return versionFlag(stdout, stderr, jsonOutput)
 	}
 
 	switch rest[0] {
