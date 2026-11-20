@@ -320,6 +320,10 @@ hm reindex
   `MAGENTO_DIR`, ...), `HM_ROOT`, `DOCKER_COMPOSE`, `MACHINE`, `HM_OUTPUT_FORMAT`
   (`text` or `json`), `HM_NON_INTERACTIVE`, the exit codes as `HM_EXIT_*` (`HM_EXIT_USAGE`,
   `HM_EXIT_SERVICE`, ...) and the colour variables.
+- `DATA_DIR` is the tool's `data/` directory on disk, as in 1.x, so `"$DATA_DIR"/requirements.json`
+  keeps working: `$HM_ASSETS_DIR/data` when that is set, otherwise the files compiled into the
+  binary extracted once to `~/.hm/cache/data-<digest>` (a new build gets a new directory). Treat
+  it as read-only. It is empty only when that directory cannot be written.
 - **Incompatible change in 2.0, on purpose:** scripts no longer receive `HELPERS_DIR`,
   `TASKS_DIR` or `COMPONENTS_DIR`, because the shell tree they pointed at is gone. A script must
   be self-contained, like the one above: one that sourced `"$HELPERS_DIR"/...` or called
@@ -466,7 +470,7 @@ HM_ASSETS_DIR=~/src/hiberus-dockergento hm compatibility
 When it is set, every one of those files is read from that directory (laid out like the root of
 the repository) instead of from the binary, with no fallback to the embedded copy: a file missing
 there is an error. Project scripts under `config/hm/commands` get `DATA_DIR` set to
-`$HM_ASSETS_DIR/data` then, and empty otherwise.
+`$HM_ASSETS_DIR/data` then (see [Project commands](#project-commands) for the case without it).
 
 The store and admin settings `hm install` passes to `setup:install` live in `~/.hm/config.json`,
 outside the installation, shared by every project. A 1.x installation kept them in

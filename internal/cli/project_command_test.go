@@ -3,12 +3,14 @@ package cli
 import (
 	"bytes"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	hm "github.com/hiberus-magento/hiberus-dockergento"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
@@ -124,6 +126,8 @@ func projectFixture(t *testing.T) (*fakeEngine, *spawner, string) {
 
 	fake := answering(t)
 	pinHelp(t, helpTool, "mac")
+	// The script's data is extracted under ~/.hm/cache: a HOME of the test's own
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("NO_COLOR", "1")
 	t.Setenv("HM_NON_INTERACTIVE", "")
 	t.Setenv("HM_FORCE", "")
@@ -441,5 +445,47 @@ exit 5
 	want := "args=uno dos tres\nzero=bare.sh\nshell=bash\nproject=tienda\n"
 	if code != 5 || stdout != want || stderr != "to stderr\n" {
 		t.Fatalf("= %d %q %q, want 5 %q %q", code, stdout, stderr, want, "to stderr\n")
+	}
+}
+
+// Without HM_ASSETS_DIR the data is inside the binary, and a script reading $DATA_DIR/<file> as it
+// did in 1.x would read /<file>. It gets a copy extracted under ~/.hm/cache instead, the same files
+// as the binary's.
+func TestAScriptGetsTheToolsDataOnDiskWithoutAnAssetsDirectory(t *testing.T) {
+	_, _, project := projectFixture(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("HM_ASSETS_DIR", "")
+	t.Setenv("SHOW", "DATA_DIR")
+
+	stdout, _, _ := runProject(t, project, "hello")
+
+	dir := strings.TrimSuffix(strings.TrimPrefix(stdout, "args=\nDATA_DIR="), "\n")
+	if !strings.HasPrefix(dir, filepath.Join(home, ".hm", "cache", "data-")) {
+		t.Fatalf("DATA_DIR = %q (output %q), want a directory under ~/.hm/cache", dir, stdout)
+	}
+
+	want, _ := fs.ReadFile(hm.Embedded(), "data/properties.json")
+	got, err := os.ReadFile(filepath.Join(dir, "properties.json"))
+	if err != nil || string(got) != string(want) {
+		t.Fatalf("properties.json = %q, %v; want the binary's own", got, err)
+	}
+
+	again, _, _ := runProject(t, project, "hello")
+	if again != stdout {
+		t.Fatalf("a second run got %q, want the same directory", again)
+	}
+}
+
+func TestAScriptGetsTheAssetsDirectoryDataWhenThereIsOne(t *testing.T) {
+	_, _, project := projectFixture(t)
+	assets := t.TempDir()
+	t.Setenv("HM_ASSETS_DIR", assets)
+	t.Setenv("SHOW", "DATA_DIR")
+
+	stdout, _, _ := runProject(t, project, "hello")
+
+	if stdout != "args=\nDATA_DIR="+filepath.Join(assets, "data")+"\n" {
+		t.Fatalf("got %q", stdout)
 	}
 }

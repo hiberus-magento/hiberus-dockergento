@@ -2,10 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -133,13 +136,7 @@ func (r *projectRun) prepare(resolved hmRoot) int {
 	r.set("COMMAND_BIN_NAME", binaryName())
 	r.set("COMMAND_TOOLNAME", "Hiberus Dockergento")
 	r.set("COMMAND_BIN_DIR", r.tool)
-	// The data is inside the binary, so there is a directory to name only when HM_ASSETS_DIR
-	// points at one
-	if dir := hm.AssetsDir(); dir != "" {
-		r.set("DATA_DIR", filepath.Join(dir, "data"))
-	} else {
-		r.set("DATA_DIR", "")
-	}
+	r.set("DATA_DIR", scriptDataDir())
 	r.set("HM_ROOT", resolved.Root)
 	r.set("HM_IS_WORKTREE", strconv.FormatBool(resolved.IsWorktree))
 	r.set("HM_WORKTREE", resolved.Worktree)
@@ -567,4 +564,90 @@ func orDefault(value, fallback string) string {
 	}
 
 	return value
+}
+
+// scriptDataDir is the tool's data/ on disk for a project script, which reads $DATA_DIR/<file> as
+// it did in 1.x: HM_ASSETS_DIR's data/ when it is set, and otherwise the copy compiled into the
+// binary extracted once to ~/.hm/cache/data-<digest of the files>, so a new build gets a directory
+// of its own and an old one is never served stale. Empty only when that cannot be written.
+func scriptDataDir() string {
+	if dir := hm.AssetsDir(); dir != "" {
+		return filepath.Join(dir, "data")
+	}
+
+	dir, err := extractData(hm.Embedded())
+	if err != nil {
+		return ""
+	}
+
+	return dir
+}
+
+func extractData(assets fs.FS) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	entries, err := fs.ReadDir(assets, "data")
+	if err != nil {
+		return "", err
+	}
+
+	files := map[string][]byte{}
+	digest := sha256.New()
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		contents, err := fs.ReadFile(assets, "data/"+entry.Name())
+		if err != nil {
+			return "", err
+		}
+
+		files[entry.Name()] = contents
+		fmt.Fprintf(digest, "%s\x00%d\x00", entry.Name(), len(contents))
+		digest.Write(contents)
+	}
+
+	cache := filepath.Join(home, ".hm", "cache")
+	target := filepath.Join(cache, "data-"+hex.EncodeToString(digest.Sum(nil))[:16])
+
+	if info, err := os.Stat(target); err == nil && info.IsDir() {
+		return target, nil
+	}
+
+	if err := os.MkdirAll(cache, 0o755); err != nil {
+		return "", err
+	}
+
+	// Written beside it and renamed into place, so a script never sees half the files
+	temporary, err := os.MkdirTemp(cache, ".data-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(temporary) //nolint:errcheck // gone after the rename; best effort otherwise
+
+	for name, contents := range files {
+		if err := os.WriteFile(filepath.Join(temporary, name), contents, 0o644); err != nil { //nolint:gosec
+			return "", err
+		}
+	}
+
+	if err := os.Chmod(temporary, 0o755); err != nil { //nolint:gosec
+		return "", err
+	}
+
+	if err := os.Rename(temporary, target); err != nil {
+		// Another run got there first: its copy is the same files
+		if info, statErr := os.Stat(target); statErr == nil && info.IsDir() {
+			return target, nil
+		}
+
+		return "", err
+	}
+
+	return target, nil
 }
