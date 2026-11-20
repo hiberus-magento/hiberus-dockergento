@@ -279,3 +279,30 @@ func TestAIPullRefusesAnUnknownOption(t *testing.T) {
 		t.Errorf("stdout (-want +got):\n%s", cmp.Diff(aiPullUsage, stdout))
 	}
 }
+
+// A repository's name becomes a directory under the download area: a name that is a path is
+// refused before anything is downloaded or written.
+func TestAIPullRefusesARepositoryNameThatIsAPath(t *testing.T) {
+	for _, name := range []string{"../escaped", "a/b", "/abs", "..", ".", "", `a\b`} {
+		t.Run(name, func(t *testing.T) {
+			f := aiTooling(t)
+			f.configure(t, `{"resources": ["skills"], "platforms": ["claude"], "types": [],
+				"custom_repositories": [{"name": "`+strings.ReplaceAll(name, `\`, `\\`)+`", "url": "https://github.com/acme/hostile", "branch": "main"}]}`)
+
+			_, stderr, code := f.run(t, "", "--no-json", "ai-pull")
+			if code != exitOK {
+				t.Fatalf("ai-pull = %d\n%s", code, stderr)
+			}
+
+			for _, downloaded := range f.downloaded {
+				if strings.Contains(downloaded, "hostile") {
+					t.Errorf("downloaded %s", downloaded)
+				}
+			}
+
+			if want := "Invalid repository name: " + name + ", skipping...\n"; !strings.Contains(stderr, want) {
+				t.Errorf("stderr has no %q:\n%s", want, stderr)
+			}
+		})
+	}
+}

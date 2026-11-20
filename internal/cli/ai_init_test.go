@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -295,5 +296,27 @@ func TestAIInitRefusesAConfigurationThatIsNotJSON(t *testing.T) {
 
 	if got := f.read(t, core.AIPropertiesFile); got != "{bad" {
 		t.Errorf("the configuration was rewritten: %q", got)
+	}
+}
+
+func TestAIInitRefusesARepositoryNameThatIsAPath(t *testing.T) {
+	f := aiTooling(t)
+	plantFile(t, filepath.Join(f.tool, "data", "ai-repositories.json"), `{"repositories": [
+		{"name": "../../escaped", "url": "https://github.com/acme/hostile", "branch": "main"}
+	]}`, 0o644)
+
+	stdout, stderr, code := f.run(t, "", "--no-json", "ai-init", "--platforms=claude", "--resources=skills")
+	if code != exitOK {
+		t.Fatalf("ai-init = %d\n%s", code, stderr)
+	}
+
+	for _, downloaded := range f.downloaded {
+		if strings.Contains(downloaded, "hostile") {
+			t.Errorf("downloaded %s", downloaded)
+		}
+	}
+
+	if want := "Invalid repository name: ../../escaped, skipping..."; !strings.Contains(stdout, want) {
+		t.Errorf("stdout has no %q:\n%s", want, stdout)
 	}
 }

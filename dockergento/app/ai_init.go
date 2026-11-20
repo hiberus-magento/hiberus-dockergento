@@ -135,6 +135,13 @@ func (a *AITools) initAll(repositories []any, platforms, types, resources string
 
 		a.Console.Say(AIInfo, "Processing repository: "+repository.Name+"\n", AIDecorated)
 
+		// Deliberately unlike the script, which joined whatever name it was given
+		if !core.ValidAIRepositoryName(repository.Name) {
+			a.Console.Say(AIWarning, "Invalid repository name: "+repository.Name+", skipping...", AIDecorated)
+
+			continue
+		}
+
 		dir := temp + "/" + repository.Name
 		if !a.download(repository.URL, repository.Branch, dir) {
 			a.Console.Say(AIWarning, "Failed to download "+repository.Name+", skipping...", AIDecorated)

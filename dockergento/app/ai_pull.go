@@ -152,6 +152,15 @@ func (a *AITools) pullAll(repositories []any, platforms, types, resources string
 				a.version = a.Version()
 			}
 		} else {
+			// Deliberately unlike the script, which joined whatever name it was given
+			if !core.ValidAIRepositoryName(repository.Name) {
+				a.Console.Say(AIWarning, "Invalid repository name: "+repository.Name+", skipping...", AILine)
+
+				failed++
+
+				continue
+			}
+
 			dir = temp + "/" + repository.Name
 			if !a.download(repository.URL, repository.Branch, dir) {
 				a.Console.Say(AIWarning, "Failed to download "+repository.Name+", skipping...", AILine)

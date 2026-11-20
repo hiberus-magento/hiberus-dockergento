@@ -404,6 +404,12 @@ func ReadAIRepository(value any, urlFallback string) AIRepository {
 	}
 }
 
+// ValidAIRepositoryName is whether a repository's name can be the name of the directory it is
+// downloaded into: one plain name, never a path that leads somewhere else.
+func ValidAIRepositoryName(name string) bool {
+	return name != "" && name != "." && name != ".." && !strings.ContainsAny(name, "/\\\x00")
+}
+
 // AIRegistrationEntryFor is what add_registration_entry records for one resource.
 func AIRegistrationEntryFor(checksum string, now time.Time, origin, url, branch, version string) *AIObject {
 	entry := NewAIObject()
