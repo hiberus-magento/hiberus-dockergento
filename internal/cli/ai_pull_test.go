@@ -198,12 +198,20 @@ func TestAIPullRefusesAnInvalidConfiguration(t *testing.T) {
 		"not JSON":          "{bad",
 		"no resources":      `{"platforms": ["claude"]}`,
 		"nothing to put in": `{"platforms": [], "resources": ["skills"], "types": []}`,
+		"null":              "null",
+		"a list":            `["claude"]`,
+		"a string":          `"claude"`,
+		"empty":             "\n",
 	}
 
 	wants := map[string]string{
 		"not JSON":          "Failed to load configuration",
 		"no resources":      "Invalid configuration in ai-properties.json",
 		"nothing to put in": "Configuration incomplete: platforms and resources are required",
+		"null":              "Invalid configuration in ai-properties.json",
+		"a list":            "Invalid configuration in ai-properties.json",
+		"a string":          "Invalid configuration in ai-properties.json",
+		"empty":             "Invalid configuration in ai-properties.json",
 	}
 
 	for name, contents := range cases {
@@ -302,6 +310,34 @@ func TestAIPullRefusesARepositoryNameThatIsAPath(t *testing.T) {
 
 			if want := "Invalid repository name: " + name + ", skipping...\n"; !strings.Contains(stderr, want) {
 				t.Errorf("stderr has no %q:\n%s", want, stderr)
+			}
+		})
+	}
+}
+
+// An empty registration, or one missing a kind, holds nothing: it does not stop what is installed
+// from being registered.
+func TestAIPullRegistersIntoAnEmptyOrPartialRegistration(t *testing.T) {
+	for _, registration := range []string{"", "\n", `{"skills": {}}`, `{"agents": {}}`} {
+		t.Run(registration, func(t *testing.T) {
+			f := aiTooling(t)
+			f.configure(t, pulledConfiguration)
+			plantFile(t, f.path(core.AIRegistrationFile), registration, 0o600)
+
+			_, stderr, code := f.run(t, "", "--no-json", "ai-pull")
+			if code != exitOK {
+				t.Fatalf("ai-pull = %d\n%s", code, stderr)
+			}
+
+			if strings.Contains(stderr, "Failed to register") {
+				t.Errorf("stderr:\n%s", stderr)
+			}
+
+			got := f.read(t, core.AIRegistrationFile)
+			for _, path := range []string{`".claude/skills/hyva-checkout"`, `".claude/agents/reviewer.md"`} {
+				if !strings.Contains(got, path) {
+					t.Errorf("registration has no %s:\n%s", path, got)
+				}
 			}
 		})
 	}

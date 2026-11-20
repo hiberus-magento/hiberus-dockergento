@@ -274,13 +274,17 @@ func (a *AITools) register(kind, path string) bool {
 		return false
 	}
 
-	value, _ := registration.Get(kind)
-
-	entries, isObject := value.(*core.AIObject)
-	if value == nil {
-		entries, isObject = core.NewAIObject(), true
-		registration.Set(kind, entries)
+	// An empty registration, or one missing a kind, holds nothing yet: it is started, not refused
+	// for ever (deliberately unlike the script, where it blocked every registration until the file
+	// was deleted by hand)
+	for _, missing := range []string{"skills", "agents"} {
+		if found, _ := registration.Get(missing); found == nil {
+			registration.Set(missing, core.NewAIObject())
+		}
 	}
+
+	value, _ := registration.Get(kind)
+	entries, isObject := value.(*core.AIObject)
 
 	if !isObject {
 		return false
