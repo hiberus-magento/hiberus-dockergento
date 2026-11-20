@@ -4,10 +4,26 @@ Move the installation to another version or branch, and back.
 
 ```bash
 hm switch --list          # what is available
-hm switch 1.5.0-rc.3      # try a release candidate
+hm switch 2.0.0-rc.1      # try a release candidate
 hm switch --stable        # back to the stable branch
-hm switch release/1.6.0   # follow a release branch
+hm switch release/2.0.0   # follow a release branch
 ```
+
+## Only between versions of 2.0 and later
+
+From 2.0 hm is a Go program, `cmd/hm`; 1.x is the shell tool, which has no binary to obtain and
+no `bin/hm` to run. So `hm switch` refuses a tag or branch whose tree has no `cmd/hm` — read from
+the tree, since a branch has no version number — before the checkout moves:
+
+```console
+$ hm switch 1.5.1
+'1.5.1' is a version of the shell tool (1.x), which hm switch cannot move to: the installation was not changed
+  → Install it separately, in a directory of its own: git clone -b 1.5.1 https://github.com/hiberus-magento/hiberus-dockergento.git ~/hm-1.x, then run ~/hm-1.x/bin/run
+```
+
+The refusal is `version_before_go`, exit code 2, the same as a reference that does not exist.
+`--stable` follows the same rule: while `main` is still 1.x, it is refused too. `--list` still
+lists the 1.x tags.
 
 ## The compiled command follows
 
@@ -70,18 +86,14 @@ hm 1.5.0-rc.3-7-gabc1234
 whether the checkout is `dirty`. Quote that version when reporting a problem: "1.5.0-rc.3"
 and "1.5.0-rc.3-7-gabc1234" are not the same thing.
 
-## One limitation worth knowing
+## If anything goes wrong
 
-`hm switch` can only take you **away** from a version that has it. Versions before 1.5.0 do
-not include the command, so once you switch to one of those, coming back is plain git:
+The installation is a git checkout, nothing more, so plain git is always the escape hatch:
 
 ```bash
 cd "$(dirname "$(dirname "$(readlink "$(command -v hm)")")")"
-git checkout main
+git checkout <a 2.x tag or branch>
 ```
-
-Same escape hatch if anything ever goes wrong: the installation is a git checkout, nothing
-more.
 
 ## Branches and tags
 

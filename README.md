@@ -43,7 +43,7 @@ The installation is a git checkout, so moving between versions is a command:
 ```bash
 hm --version              # exactly what you are running, including commits ahead of the tag
 hm switch --list          # what is available
-hm switch 1.5.0-rc.3      # try a release candidate
+hm switch 2.0.0-rc.1      # try a release candidate
 hm switch --stable        # back to stable
 ```
 
@@ -71,6 +71,12 @@ After installing these dependencies, launch the next command
 ```bash
 curl https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/installer.sh | bash
 ```
+
+That installs the latest release of 2.0 or later. To install a particular one, a tag or a branch,
+pass it: `curl ... | bash -s -- 2.0.0` (or `HM_VERSION=2.0.0`). A 1.x is the shell tool, which
+this installer refuses before installing anything; install it separately, in a directory of its
+own: `git clone -b <tag> https://github.com/hiberus-magento/hiberus-dockergento.git ~/hm-1.x`,
+then run `~/hm-1.x/bin/run`. `hm switch` refuses a 1.x the same way.
 
 The installation is a git checkout at `~/hm` plus one file that is not in git, the `hm` binary
 (`~/hm/bin/hm`), which `/usr/local/bin/hm` links to. The installer gets that binary from the
