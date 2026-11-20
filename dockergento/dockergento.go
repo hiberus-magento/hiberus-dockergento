@@ -127,8 +127,9 @@ type Engine struct {
 	install *installer
 }
 
-// New builds an engine. The zero Options are the right ones for a program installed in its
-// checkout, beside data/ and docker-compose/, which is what `hm` is.
+// New builds an engine. The zero Options are the right ones for `hm`: the tool's files are the
+// copy compiled into the binary, and only a source build without a stamped Version looks at the
+// checkout above its executable, to ask git which version it is.
 func New(options Options) *Engine {
 	if options.Root == "" {
 		options.Root = installedRoot()
