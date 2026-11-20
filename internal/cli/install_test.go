@@ -921,3 +921,50 @@ func TestInstallIsAnsweredByTheBinary(t *testing.T) {
 
 	assertError(t, stderr.String(), "invalid_argument", "The command is not correct", "hm install [-u|--use-default]")
 }
+
+// TestAFailedInstallWhoseConfigCannotBePutBackSaysSo: setup:install failed and the project's
+// config.php could not be put back either — it is still app/etc/_config.php, and that is said
+// rather than left for somebody to discover.
+func TestAFailedInstallWhoseConfigCannotBePutBackSaysSo(t *testing.T) {
+	fake := installLab(t)
+	fake.byCommand = func(command []string) (outcome, bool) {
+		if len(command) > 2 && command[2] == "setup:install" {
+			// A non-empty directory where config.php goes: the rename back cannot replace it
+			writeFile(t, "app/etc/config.php/blocker", "x")
+
+			return outcome{status: 7}, true
+		}
+
+		return outcome{}, false
+	}
+
+	code, _, stderr := runInstall(t, false)
+	if code != 7 {
+		t.Fatalf("install = %d, want setup:install's 7", code)
+	}
+
+	if !strings.Contains(stderr, "_config.php") || !strings.Contains(stderr, "could not be put back") {
+		t.Errorf("stderr = %q, want it to say config.php could not be put back and where it is", stderr)
+	}
+
+	if _, err := os.Stat(filepath.Join(here(), "app/etc/_config.php")); err != nil {
+		t.Errorf("the project's config.php is gone: %v", err)
+	}
+}
+
+// TestASuccessfulInstallWhoseConfigCannotBePutBackFails: the same, after setup:install worked.
+func TestASuccessfulInstallWhoseConfigCannotBePutBackFails(t *testing.T) {
+	fake := installLab(t)
+	fake.byCommand = func(command []string) (outcome, bool) {
+		if len(command) > 2 && command[2] == "setup:install" {
+			writeFile(t, "app/etc/config.php/blocker", "x")
+		}
+
+		return outcome{}, false
+	}
+
+	code, _, stderr := runInstall(t, false)
+	if code == exitOK || !strings.Contains(stderr, "could not be put back") {
+		t.Fatalf("install = %d, stderr %q, want a failure saying config.php could not be put back", code, stderr)
+	}
+}

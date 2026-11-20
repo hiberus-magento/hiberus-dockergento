@@ -198,8 +198,17 @@ func install(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	if exists(backup) {
-		if err := os.Rename(backup, config); err != nil && status == exitOK {
-			return installer.fail(err)
+		if err := os.Rename(backup, config); err != nil {
+			// Whatever the install did, the project's config.php is still set aside, and a later
+			// install would refuse over it: said, with the install's own status when it failed
+			code := status
+			if code == exitOK {
+				code = exitError
+			}
+
+			return failure(stderr, jsonOutput, "install", code, "config_restore_failed",
+				"The project's app/etc/config.php could not be put back and is still app/etc/_config.php: "+err.Error(),
+				"Move app/etc/_config.php over app/etc/config.php by hand")
 		}
 	}
 
