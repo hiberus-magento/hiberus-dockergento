@@ -9,7 +9,13 @@ package hm
 import (
 	"embed"
 	"io/fs"
+	"os"
 )
+
+// AssetsDirVariable names the development override: a directory laid out like the root of this
+// repository (data/, docker-compose/, skills/) read instead of the embedded copy, so that a
+// contributor sees an edit to a data file without rebuilding.
+const AssetsDirVariable = "HM_ASSETS_DIR"
 
 // The data files are listed one by one rather than as data/*.json: data/config.json is a
 // contributor's own install settings, ignored by git, and a glob would compile it into the binary.
@@ -31,6 +37,17 @@ var embedded embed.FS
 // Embedded is the copy compiled into the binary.
 func Embedded() fs.FS { return embedded }
 
-// Assets is what the tool reads: the embedded copy. Nothing is ever looked for next to the
-// executable.
-func Assets() fs.FS { return embedded }
+// Assets is what the tool reads: the directory HM_ASSETS_DIR names when it is set, and the
+// embedded copy otherwise. Nothing is ever looked for next to the executable.
+func Assets() fs.FS {
+	if dir := os.Getenv(AssetsDirVariable); dir != "" {
+		return os.DirFS(dir)
+	}
+
+	return embedded
+}
+
+// AssetsDir is the directory HM_ASSETS_DIR names, or empty when the embedded copy is in use: the
+// one answer for a caller that needs a path on disk, such as a project script told where the
+// data is.
+func AssetsDir() string { return os.Getenv(AssetsDirVariable) }

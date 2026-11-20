@@ -74,3 +74,42 @@ func TestTheEmbeddedCopyLeavesOutTheInstallSettings(t *testing.T) {
 		t.Error("data/config.json is embedded")
 	}
 }
+
+func TestWithoutTheOverrideTheEmbeddedCopyIsRead(t *testing.T) {
+	t.Setenv(AssetsDirVariable, "")
+
+	if Assets() != Embedded() {
+		t.Error("Assets() is not the embedded copy")
+	}
+
+	if AssetsDir() != "" {
+		t.Errorf("AssetsDir() = %q, want empty", AssetsDir())
+	}
+}
+
+func TestTheOverrideIsReadInsteadOfTheEmbeddedCopy(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "data"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "data", "requirements.json"), []byte(`{"edited": {}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv(AssetsDirVariable, dir)
+
+	contents, err := fs.ReadFile(Assets(), "data/requirements.json")
+	if err != nil || string(contents) != `{"edited": {}}` {
+		t.Errorf("read %q, %v; want the override's file", contents, err)
+	}
+
+	// What the directory does not have is not there: no falling back to the embedded copy
+	if _, err := fs.Stat(Assets(), "data/properties.json"); err == nil {
+		t.Error("a file missing from the override was found anyway")
+	}
+
+	if AssetsDir() != dir {
+		t.Errorf("AssetsDir() = %q, want %q", AssetsDir(), dir)
+	}
+}

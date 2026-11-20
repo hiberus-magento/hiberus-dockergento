@@ -1,8 +1,12 @@
 package dockergento
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
+
+	hm "github.com/hiberus-magento/hiberus-dockergento"
 )
 
 // Every reader of the tool's own files goes through Options.Assets: an engine handed a MapFS
@@ -47,5 +51,33 @@ func TestThePropertyDefaultsComeFromTheInjectedAssets(t *testing.T) {
 
 	if values["WORKDIR_PHP"] != "/from/assets" || values["COMPOSE_PROJECT_NAME"] != "tienda" {
 		t.Errorf("properties = %v, want the project's over the assets' defaults", values)
+	}
+}
+
+// Nothing set is the copy compiled into the binary, whatever is or is not beside the executable.
+func TestWithNoAssetsTheEngineReadsTheEmbeddedCopy(t *testing.T) {
+	t.Setenv(hm.AssetsDirVariable, "")
+
+	if _, err := New(Options{Root: t.TempDir()}).Compatibility(); err != nil {
+		t.Errorf("Compatibility from the embedded copy = %v", err)
+	}
+}
+
+// HM_ASSETS_DIR is a contributor's checkout read in place of the embedded copy.
+func TestTheAssetsDirectoryOverridesTheEmbeddedCopy(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "data"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "data", "equivalent_versions.json"), []byte(`{"9.9.9": "2.4.7"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv(hm.AssetsDirVariable, dir)
+
+	table, err := New(Options{}).Equivalents()
+	if err != nil || len(table) != 1 || table["9.9.9"] != "2.4.7" {
+		t.Errorf("Equivalents = %v, %v; want the override's table", table, err)
 	}
 }

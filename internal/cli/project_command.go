@@ -15,6 +15,7 @@ import (
 	"strings"
 	"syscall"
 
+	hm "github.com/hiberus-magento/hiberus-dockergento"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -132,8 +133,13 @@ func (r *projectRun) prepare(resolved hmRoot) int {
 	r.set("COMMAND_BIN_NAME", binaryName())
 	r.set("COMMAND_TOOLNAME", "Hiberus Dockergento")
 	r.set("COMMAND_BIN_DIR", r.tool)
-	// The data is inside the binary: there is no directory to name
-	r.set("DATA_DIR", "")
+	// The data is inside the binary, so there is a directory to name only when HM_ASSETS_DIR
+	// points at one
+	if dir := hm.AssetsDir(); dir != "" {
+		r.set("DATA_DIR", filepath.Join(dir, "data"))
+	} else {
+		r.set("DATA_DIR", "")
+	}
 	r.set("HM_ROOT", resolved.Root)
 	r.set("HM_IS_WORKTREE", strconv.FormatBool(resolved.IsWorktree))
 	r.set("HM_WORKTREE", resolved.Worktree)
