@@ -39,6 +39,28 @@ func (a *AITools) Init(options AIInitOptions, interactive bool) int {
 			resources = "skills,agents"
 		}
 
+		// The usage offers "both": skills and agents, not a resource of that name, which no
+		// platform has a directory for (the script saved it as given and installed nothing)
+		var expanded []string
+
+		seen := map[string]bool{}
+
+		for _, resource := range strings.Split(resources, ",") {
+			names := []string{resource}
+			if resource == "both" {
+				names = []string{"skills", "agents"}
+			}
+
+			for _, name := range names {
+				if !seen[name] {
+					seen[name] = true
+					expanded = append(expanded, name)
+				}
+			}
+		}
+
+		resources = strings.Join(expanded, ",")
+
 		config = core.AIConfiguration(resources, options.Platforms, options.Types, custom, a.now())
 	}
 

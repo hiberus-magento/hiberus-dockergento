@@ -320,3 +320,21 @@ func TestAIInitRefusesARepositoryNameThatIsAPath(t *testing.T) {
 		t.Errorf("stdout has no %q:\n%s", want, stdout)
 	}
 }
+
+// The usage offers --resources=both: it is skills and agents, not a resource called "both" that
+// no platform has a directory for.
+func TestAIInitResourcesBothIsSkillsAndAgents(t *testing.T) {
+	f := aiTooling(t)
+
+	if _, stderr, code := f.run(t, "", "--no-json", "ai-init", "--platforms=claude", "--resources=skills,both"); code != exitOK {
+		t.Fatalf("ai-init = %d\n%s", code, stderr)
+	}
+
+	if got := f.read(t, core.AIPropertiesFile); !strings.Contains(got, "\"resources\": [\n    \"skills\",\n    \"agents\"\n  ]") {
+		t.Errorf("configuration = %s", got)
+	}
+
+	if !f.exists(".claude/skills/hyva-checkout") || !f.exists(".claude/agents/reviewer.md") {
+		t.Error("skills and agents were not both installed")
+	}
+}
