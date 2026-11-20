@@ -2144,10 +2144,9 @@ func (e *Engine) SaveInstallSettings(settings []core.Setting) error {
 		return err
 	}
 
-	// A link — dotfiles kept somewhere else — is written through, so it stays a link
-	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		path = resolved
-	}
+	// A link — dotfiles kept somewhere else — is written through, so it stays a link, including
+	// one whose target does not exist yet
+	path = throughLinks(path)
 
 	// 0600, written aside and renamed over the old file: the settings can hold the store's admin
 	// password, and an older version left the file readable by everyone
@@ -2172,6 +2171,31 @@ func (e *Engine) SaveInstallSettings(settings []core.Setting) error {
 	}
 
 	return os.Rename(temporary.Name(), path)
+}
+
+// throughLinks is the file a path names once its links are followed: the resolved path when the
+// target exists, the target a dangling link points at otherwise (relative to the link's own
+// directory), and the path itself when it is not a link. A bounded number of hops, so a loop of
+// links ends as the last path reached rather than never.
+func throughLinks(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+
+	for hops := 0; hops < 16; hops++ {
+		target, err := os.Readlink(path)
+		if err != nil {
+			return path
+		}
+
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(path), target)
+		}
+
+		path = target
+	}
+
+	return path
 }
 
 // copyLegacyInstallSettings copies, once, the settings a 1.x installation kept in

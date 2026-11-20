@@ -287,3 +287,31 @@ func TestInstallSettingsWriteThroughALink(t *testing.T) {
 		t.Errorf("the link's target holds %q, %v; want the saved settings", written, err)
 	}
 }
+
+// A link whose target does not exist yet — dotfiles cloned, the file not created — is written
+// through too: the target is created and the link kept.
+func TestInstallSettingsCreateADanglingLinksTarget(t *testing.T) {
+	dir := t.TempDir()
+	link := filepath.Join(dir, "config.json")
+
+	if err := os.MkdirAll(filepath.Join(dir, "dotfiles"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("dotfiles", "hm-config.json"), link); err != nil {
+		t.Fatal(err)
+	}
+
+	engine := New(Options{InstallSettingsFile: link, Assets: fstest.MapFS{}})
+	if err := engine.SaveInstallSettings([]core.Setting{{Key: "currency", Value: []byte(`"EUR"`)}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("config.json is no longer a link: %v", err)
+	}
+
+	written, err := os.ReadFile(filepath.Join(dir, "dotfiles", "hm-config.json"))
+	if err != nil || !strings.Contains(string(written), "EUR") {
+		t.Errorf("the target holds %q, %v; want the saved settings", written, err)
+	}
+}
