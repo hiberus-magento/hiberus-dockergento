@@ -1010,16 +1010,17 @@ whose early-exiting consumer can send its producer a broken pipe.
 
 ### Requirement: A command proved in Go has no shell twin
 
-Once a command is proved in Go through the engine-interaction test seam (the sixty-one retired in
+Once a command is proved in Go through the engine-interaction test seam (the sixty-two retired in
 this change: `copy-to-container`, `copy-from-container`, `varnish-on`, `varnish-off`, `purge`,
 `npm`, `n98-magerun`, `test-unit`, `test-integration`, `mysqldump`, `version`, `set-host`,
 `list`, `describe`, `logs`, `debug-on`, `debug-off`, `bash`, `magento`, `docker-compose`,
 `restart`, `docker-stop-all`, `masquerade`, `web`, `worktree`, `stop`, `start`, `down`, `mysql`,
 `setup`, `doctor`, `clean`, `create-project`, `composer`, `exec`, `cloud`, `cloud-login`, `dbeaver`,
 `sequelace`, `tableplus`, `config-env`, `post-start`, `rebuild`, `grunt`, `update`, `ssl`, `transfer-media`,
-`launch`, `permissions`, `ai-context`, `proxy`, `share`, `tunnel`, `compatibility`, `transfer-db`, `switch`, `verify`, `mcp`, `tui`, `install`, `ai-doctor`), the shell tree SHALL NOT carry an implementation for it, and the shell entry point SHALL answer a request for that command by naming the binary as where it lives,
+`launch`, `permissions`, `ai-context`, `proxy`, `share`, `tunnel`, `compatibility`, `transfer-db`, `switch`, `verify`, `mcp`, `tui`, `install`, `ai-doctor`, `db`), the shell tree SHALL NOT carry an implementation for it, and the shell entry point SHALL answer a request for that command by naming the binary as where it lives,
 rather than failing as though the command did not exist.
-(Previously: named sixty commands. This adds `ai-doctor` — ported to Go with a digest proven against the shell, its shell file (168 lines) removed.
+(Previously: named sixty-one commands. This adds `db` — its usage and unknown-subcommand refusal ported to Go, so the whole command is routed, its shell file (709 lines) removed.
+Before that it added `ai-doctor` — ported to Go with a digest proven against the shell, its shell file (168 lines) removed.
 Before that it added `install` — ported to Go over the existing settings and exec pieces, its shell file (248 lines) removed.
 Before that it added `tui` — ported to Go with testable render functions, its shell file (261 lines) removed.
 Before that it added `mcp` — ported to Go byte for byte against goldens of the shell server, its shell file (327 lines) removed.
@@ -1100,7 +1101,7 @@ retirement mechanism of its own.)
 - **AND** the router still answers for it, so the absence is a retirement and not a lost command
 
 Pinned by "and what the binary owns outright has no file to drift from" in
-`tests/unit/command_safety_test.sh`, which walks the sixty-one by name (Previously: sixty) and
+`tests/unit/command_safety_test.sh`, which walks the sixty-two by name (Previously: sixty-one) and
 fails in both directions: a resurrected `.sh` and a lost route are each a failure.
 
 #### Scenario: The RETIRED list gains its name only once the file is gone

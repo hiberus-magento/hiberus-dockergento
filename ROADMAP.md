@@ -4,8 +4,8 @@ Punto de entrada para una sesión nueva sin contexto. Dice **dónde estamos, qu�
 reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 `openspec/changes/archive/`; este fichero no lo repite.
 
-> Estado medido el **2026-11-20** sobre `release/2.0.0` (HEAD `af96553` más la retirada de
-> `mcp`, `tui`, `install` y `ai-doctor`; `cd0afc8` es lo último subido a origin).
+> Estado medido el **2026-11-20** sobre `release/2.0.0` (HEAD `92499cf` más la retirada de
+> `db`; `cd0afc8` es lo último subido a origin).
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
@@ -14,8 +14,8 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 |---|---|---|
 | Comandos respondidos por el binario | **50 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
 | Comandos aún en shell | **15** | `rg -c "\| shell \|" MIGRATION.md` |
-| Ficheros en `console/commands/` | **4** | `fd -e sh . console/commands \| wc -l` |
-| Gemelos de shell retirados | **61** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
+| Ficheros en `console/commands/` | **3** | `fd -e sh . console/commands \| wc -l` |
+| Gemelos de shell retirados | **62** | `rg -A3 '^RETIRED=' tests/unit/command_safety_test.sh` |
 | Portados que **aún conservan** su `.sh` | **0** | pista A vacía |
 | Tests Go / aserciones de shell | 602 / 586 | `DOCKER_HOST=unix:///nonexistent go test -json ./...` (pruebas y subpruebas que pasan) · `./tests/run.sh unit` |
 

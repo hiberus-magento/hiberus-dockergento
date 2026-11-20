@@ -860,6 +860,15 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         sólo los scripts que quedan (`bff441f`). `mcp.sh` (327 líneas), `tui.sh` (261),
         `install.sh` (248) y `ai-doctor.sh` (168) están borrados; quedan 4. Apartados: 46 fallos
         antes y después, diff vacío.
+  - [x] `db` terminado y retirado (`b398205`, escrito por un subagente en su propio worktree e
+        integrado aquí). Sus nueve subcomandos ya eran del binario; lo único que le quedaba a
+        `db.sh` era el texto de uso y la negativa de un subcomando desconocido, y ahora los da el
+        binario, idénticos byte a byte al script ejecutado directamente. El binario enruta todo
+        `db`, y la excepción de comando a medias de `migration_status_test.sh` desaparece. Tres
+        suites que necesitan Docker le preguntan al binario (`92499cf`); `validation_cache_test.sh`
+        sigue usando `bin/run db list` para probar la validación del propio `bin/run`, y queda para
+        la pista C. `db.sh` (709 líneas) está borrado; quedan 3. Apartados: 46 de 895 aserciones
+        fallaban antes y después, diff vacío.
 
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
