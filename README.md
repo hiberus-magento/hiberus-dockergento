@@ -28,10 +28,9 @@ temporary public address (`hm share`) and read-only tools for AI agents over MCP
 - [Docker](https://docs.docker.com/get-docker/) with the Compose v2 plugin, and the daemon running.
   `hm` embeds Compose as a library; the plugin is used by `hm docker-compose` and by project
   commands.
-- [git](https://git-scm.com/downloads): the installation is a git checkout.
-- To install: [jq](https://jqlang.github.io/jq/download/), which the installer and the shell
-  completion generator use (the `hm` binary does not), and [Go](https://go.dev/dl/) only when no
-  prebuilt binary can be downloaded for your platform.
+- To install: `curl` (or `wget`) and a SHA-256 tool (`shasum` or `sha256sum`), which every macOS
+  and Linux has. `hm` is a single self-contained binary: no git checkout, `jq` or Go is needed,
+  except to build it from source as a contributor.
 - Optional, for the commands that use them: [mkcert](https://github.com/FiloSottile/mkcert)
   (`hm ssl` tries to install it when it is missing: Homebrew on macOS, the release binary on Linux), [fzf](https://github.com/junegunn/fzf) (picking
   from a list), `rsync` and `ssh` (`hm transfer-media`, `hm transfer-db`).
