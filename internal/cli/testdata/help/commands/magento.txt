@@ -1,0 +1,6 @@
+Usage: hm magento <magento-subcommand>
+Example: hm magento cache:clean
+Description: Execute Magento console commands
+Arguments:
+   <magento-subcommand>Execute Magento subcommand.
+

@@ -1,0 +1,8 @@
+Usage: hm deploy [-t|--target] <module1>...<moduleN>
+Example: hm deploy --target=staging
+Description: Deploy this project somewhere
+Options:
+   [-t|--target]    Where to deploy
+Arguments:
+   <module>        Modules to deploy
+

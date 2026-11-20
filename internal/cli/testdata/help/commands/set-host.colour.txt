@@ -1,0 +1,9 @@
+[0;32mUsage: [0m[0;33mhm set-host [<domain>] [--remove] [--no-database]
+[0m[0;32mExample: [0m[0;33mhm set-host my-project.local
+[0m[0;32mDescription:[0m Set host name in /etc/hosts and core_config_data
+[0;32mOptions:
+[0m   [0;33m[-|--remove]    [0m Remove the entry this tool added for the domain, and nothing else
+   [0;33m[-|--no-database][0m Only touch /etc/hosts, not core_config_data
+[0;32mArguments:
+[0m   [0;33m<domain>        [0mDomain is desired to set
+

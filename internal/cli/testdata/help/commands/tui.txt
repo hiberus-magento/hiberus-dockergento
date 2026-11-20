@@ -1,0 +1,3 @@
+Usage: hm tui
+Description: Open the dashboard: every environment on this machine, on one screen
+

@@ -1,0 +1,15 @@
+Usage: hm setup [--domain=<domain>] [--clean-install | --db-dump=<file>] [options]
+Example: hm setup -u -i -p=magento --domain=magento.local
+Description: Dockerize magento project
+Options:
+   [-d|--domain]    Domain of local host
+   [-D|--dump]      Dump for importing
+   [-f|--force]     Override docker-compose configurations
+   [-i|--install]   Chose magento installation option
+   [-p|--project-name] Project name. Domain is compose with <project_name>.local
+   [-r|--root-directory] Project relative path
+   [-u|--use-default] Use default settings of user for language, currency, ...
+   [-|--clean-install] Install Magento rather than importing a dump (as --install)
+   [-|--db-dump=<file>] Import this dump rather than installing (as --dump)
+   [-|--mail=<service>] Mail catcher for this project: mailhog or mailpit
+

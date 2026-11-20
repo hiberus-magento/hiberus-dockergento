@@ -1,0 +1,7 @@
+[0;32mUsage: [0m[0;33mhm grunt <Vendor/theme> <locale_LOCALE>
+[0m[0;32mExample: [0m[0;33mhm grunt Hiberus/luma es_ES
+[0m[0;32mDescription:[0m Prepare grunt configuration and compile theme styles using grunt
+[0;32mArguments:
+[0m   [0;33m<Vendor/theme>  [0mTheme vendor reference
+   [0;33m<locale_LOCALE> [0mLocale code
+

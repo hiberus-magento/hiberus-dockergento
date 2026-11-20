@@ -1,0 +1,9 @@
+Usage: hm mysql [-d|--definers] [-i|--import] [-q|--query] 
+Example: hm mysql < local-path/my-dump.sql
+	 hm mysql -d -i=my-dump.sql
+Description: Execute mysql command into container
+Options:
+   [-d|--definers]  Process database before import (with -i option), removing all DEFINER root
+   [-i|--import]    Import SQL dump and config minimal settings for local environment
+   [-q|--query]     Execute query
+

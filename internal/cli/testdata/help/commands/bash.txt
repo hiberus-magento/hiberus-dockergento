@@ -1,0 +1,5 @@
+Usage: hm bash [-r|--root] 
+Description: Connect into container using bash [Default container: php]
+Options:
+   [-r|--root]      Use bash as root user
+

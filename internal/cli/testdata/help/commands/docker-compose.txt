@@ -1,0 +1,5 @@
+Usage: hm docker-compose <[docker-opts]>
+Description: Execute docker compose using configuration for your machine
+Arguments:
+   <[docker-opts]> docker compose commands (exec, up, down, ...)
+

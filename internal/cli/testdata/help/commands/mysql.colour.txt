@@ -1,0 +1,9 @@
+[0;32mUsage: [0m[0;33mhm mysql [-d|--definers] [-i|--import] [-q|--query] 
+[0m[0;32mExample: [0m[0;33mhm mysql < local-path/my-dump.sql
+	 hm mysql -d -i=my-dump.sql
+[0m[0;32mDescription:[0m Execute mysql command into container
+[0;32mOptions:
+[0m   [0;33m[-d|--definers] [0m Process database before import (with -i option), removing all DEFINER root
+   [0;33m[-i|--import]   [0m Import SQL dump and config minimal settings for local environment
+   [0;33m[-q|--query]    [0m Execute query
+

@@ -1,0 +1,101 @@
+Usage: hm <command> [options]
+
+Environment
+  clean                 Collect what environments that no longer exist left behind
+  describe              Show everything that defines the current project
+  doctor                Diagnose the machine and the current project
+  down                  Stop and remove containers, networks, images, and volumes (-v)
+  launch                Open the project in the browser
+  list                  List every Dockergento environment on this machine
+  logs                  Show the logs of the project, or of the services named
+  post-start            Apply what the platform needs after an environment comes up
+  proxy                 The global proxy, so several projects can be up at once
+  rebuild               Rebuild docker services with current configuration
+  restart               Restart docker services
+  setup                 Dockerize magento project
+  share                 Give this project a temporary public address
+  start                 Start docker services
+  stop                  Stop docker services
+  tui                   Open the dashboard: every environment on this machine, on one screen
+  tunnel                Open a temporary way in to a service that is not routed by name
+  worktree              An environment per branch, with its own address and data
+
+Magento
+  composer              Execute composer inside php container
+  grunt                 Prepare grunt configuration and compile theme styles using grunt
+  install               Execute setup:install Magento command with custom config
+  magento               Execute Magento console commands
+  n98-magerun           Execute n98-magerun tool
+  npm                   Execute npm commands into node container
+  purge                 Remove all magento generated code (caches, generated, static, view_preprocessed)
+  test-integration      Execute your magento integration tests
+  test-unit             Execute your magento unit test
+
+Database
+  db                    Named copies of this project's database
+  dbeaver               Open DBeaver on this project's database
+  masquerade            Execute masquerade tool. 'hm masquerade --help' to view more info. 
+  mysql                 Execute mysql command into container
+  mysqldump             Execute mysqldump command into container
+  sequelace             Open Sequel Ace on this project's database
+  tableplus             Open TablePlus on this project's database
+  transfer-db           Transfer database form external source to this project
+
+Files
+  copy-from-container   (Mac only) Copy and overwrite container content into host
+  copy-to-container     (Mac only) Copy and overwrite host content into container
+  transfer-media        Transfer multimedia recurses form external source to this project
+
+Tools
+  bash                  Connect into container using bash [Default container: php]
+  cloud-login           Magento Cloud Login
+  cloud                 Magento Cloud Cli
+  compatibility         Check Magento version compatibility
+  config-env            Launch config set of project for local environment
+  create-project        Create new magento project inside current directory
+  debug-off             Disable xDebug
+  debug-on              Enable xDebug
+  docker-compose        Execute docker compose using configuration for your machine
+  docker-stop-all       Stop all running containers
+  exec                  Execute a command in a running container [Default container: php]
+  set-host              Set host name in /etc/hosts and core_config_data
+  ssl                   Install SSL certificates for docker environment
+  varnish-off           Turn off varnish service
+  varnish-on            Turn on varnish service
+  verify                Run whatever code checks this project has installed
+  web                   Bring up the web interface and print the link to open it
+
+Versions
+  switch                Switch the installation to another version or branch
+  update                Update hiberus docker tool
+  version               Show the version of the tool, Docker and Compose
+
+AI tools
+  ai-context            Write the project context an agent reads before it starts
+  ai-doctor             Show what AI tooling this project has and whether it is up to date
+  ai-init               Initialize AI tools configuration (skills/agents) via interactive wizard
+  ai-pull               Download/update AI tools (skills/agents) from configured repositories
+  ai-reset              Remove downloaded AI tools while preserving custom skills/agents
+  mcp                   Read-only tools for agents, over the Model Context Protocol
+  permissions           Print the permission configuration an agent should be given
+
+Custom commands
+  deploy                Deploy this project somewhere
+  hello                 
+
+Examples
+  hm start                      Bring the environment up
+  hm magento cache:clean        Run a Magento command
+  hm mysql -i dump.sql          Import a database dump
+  hm describe                   Show what this project is
+  hm doctor                     Diagnose the machine and the project
+
+Global options
+  --json                Force machine readable JSON output
+  --no-json             Force human readable text output
+  --yes                 Never ask questions: use defaults or fail with an actionable error
+  --force               Run a command refused from a git worktree (one invocation only)
+  --no-color            Never colour the output (see also NO_COLOR)
+
+Run hm <command> --help for details on a single command.
+

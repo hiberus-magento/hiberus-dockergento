@@ -1,0 +1,6 @@
+Usage: hm ssl <domain>
+Example: hm ssl domain.local
+Description: Install SSL certificates for docker environment
+Arguments:
+   <domain>        Create certificate for specific domain.
+

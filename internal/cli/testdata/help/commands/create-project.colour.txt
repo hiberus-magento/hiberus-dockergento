@@ -1,0 +1,15 @@
+[0;32mUsage: [0m[0;33mhm create-project [-e|--edition] [-p|--project-name] [-r|--root-directory] [-u|--use-default] [-v|--version] 
+[0m[0;32mExample: [0m[0;33mhm create-project -u -e=community -p="my-project" -r="."  -v=2.4.5-p1
+[0m[0;32mDescription:[0m Create new magento project inside current directory
+[0;32mOptions:
+[0m   [0;33m[-e|--edition]  [0m Magento edition (community | enterprise) 
+   [0;33m[-p|--project-name][0m Project name. Domain is compose with <project_name>.local
+   [0;33m[-r|--root-directory][0m Project relative path
+   [0;33m[-u|--use-default][0m Use default settings: 
+			- edition = community 
+			- version = <last-version> 
+			- project-name = <basename> 
+			- root-directory = '.' 
+			- basic-settings = <default-local-settings>)
+   [0;33m[-v|--version]  [0m Magento version (you can see all available version with hm compatibility command)
+

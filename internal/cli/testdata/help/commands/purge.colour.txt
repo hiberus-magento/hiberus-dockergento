@@ -1,0 +1,2 @@
+[0;32mDescription:[0m Remove all magento generated code (caches, generated, static, view_preprocessed)
+

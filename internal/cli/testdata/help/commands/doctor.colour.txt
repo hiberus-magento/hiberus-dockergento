@@ -1,0 +1,5 @@
+[0;32mUsage: [0m[0;33mhm doctor [options]
+[0m[0;32mDescription:[0m Diagnose the machine and the current project
+[0;32mOptions:
+[0m   [0;33m[-|--only=<check>][0m Run a single check by id
+

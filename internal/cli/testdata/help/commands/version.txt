@@ -1,0 +1,3 @@
+Usage: hm version
+Description: Show the version of the tool, Docker and Compose
+

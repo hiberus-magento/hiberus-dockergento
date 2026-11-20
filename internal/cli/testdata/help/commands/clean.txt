@@ -1,0 +1,5 @@
+Usage: hm clean [--force]
+Description: Collect what environments that no longer exist left behind
+Options:
+   [-|--force]      Actually delete; without it nothing is removed
+

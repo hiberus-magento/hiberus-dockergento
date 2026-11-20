@@ -1,0 +1,15 @@
+[0;32mUsage: [0m[0;33mhm setup [--domain=<domain>] [--clean-install | --db-dump=<file>] [options]
+[0m[0;32mExample: [0m[0;33mhm setup -u -i -p=magento --domain=magento.local
+[0m[0;32mDescription:[0m Dockerize magento project
+[0;32mOptions:
+[0m   [0;33m[-d|--domain]   [0m Domain of local host
+   [0;33m[-D|--dump]     [0m Dump for importing
+   [0;33m[-f|--force]    [0m Override docker-compose configurations
+   [0;33m[-i|--install]  [0m Chose magento installation option
+   [0;33m[-p|--project-name][0m Project name. Domain is compose with <project_name>.local
+   [0;33m[-r|--root-directory][0m Project relative path
+   [0;33m[-u|--use-default][0m Use default settings of user for language, currency, ...
+   [0;33m[-|--clean-install][0m Install Magento rather than importing a dump (as --install)
+   [0;33m[-|--db-dump=<file>][0m Import this dump rather than installing (as --dump)
+   [0;33m[-|--mail=<service>][0m Mail catcher for this project: mailhog or mailpit
+

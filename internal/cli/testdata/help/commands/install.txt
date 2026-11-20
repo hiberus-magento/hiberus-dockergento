@@ -1,0 +1,5 @@
+Usage: hm install [-u|--use-default] 
+Description: Execute setup:install Magento command with custom config
+Options:
+   [-u|--use-default] Use default settings like currency, admin-user, password-user, etc.
+

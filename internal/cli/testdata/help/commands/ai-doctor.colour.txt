@@ -1,0 +1,3 @@
+[0;32mUsage: [0m[0;33mhm ai-doctor
+[0m[0;32mDescription:[0m Show what AI tooling this project has and whether it is up to date
+

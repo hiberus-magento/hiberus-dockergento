@@ -1,0 +1,7 @@
+Usage: hm ai-reset [-|--confirm] 
+Example: hm ai-reset
+	 hm ai-reset --confirm
+Description: Remove downloaded AI tools while preserving custom skills/agents
+Options:
+   [-|--confirm]    Skip confirmation prompt (for automation)
+

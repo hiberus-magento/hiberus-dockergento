@@ -1,0 +1,6 @@
+[0;32mUsage: [0m[0;33mhm mysqldump <path>
+[0m[0;32mExample: [0m[0;33mhm mysqldump local-path/my-dump.sql
+[0m[0;32mDescription:[0m Execute mysqldump command into container
+[0;32mArguments:
+[0m   [0;33m<path>          [0mSql file path when you want save dump
+

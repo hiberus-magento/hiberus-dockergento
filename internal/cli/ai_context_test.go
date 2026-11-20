@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -125,13 +126,14 @@ func TestTheRouterAnswersForAIContext(t *testing.T) {
 		t.Fatalf("ai-context fell through to the shell implementation: %v", fake.calls)
 	}
 
-	// answering(t) points the legacy runner at a directory with no bin/run, so reaching it fails
-	// with 3 — where the handler would have refused the option with 2
+	// The help, never the handler: the handler would have refused the option with 2
+	pinHelp(t, helpTool, "mac")
+
 	for _, help := range []string{"--help", "-h"} {
-		var stderr bytes.Buffer
-		if code := Run([]string{"ai-context", help}, io.Discard, &stderr); code != 3 {
-			t.Errorf("ai-context %s = %d (%s), want it handed to the shell implementation's help",
-				help, code, stderr.String())
+		var stdout, stderr bytes.Buffer
+		if code := Run([]string{"ai-context", help}, &stdout, &stderr); code != 0 ||
+			!strings.Contains(stdout.String(), "Description:") {
+			t.Errorf("ai-context %s = %d (%s), want the command's help", help, code, stderr.String())
 		}
 	}
 }

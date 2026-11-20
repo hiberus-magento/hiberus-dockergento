@@ -1,0 +1,6 @@
+Usage: hm copy-to-container <path1>...<pathN>
+Example: hm copy-to-container vendor
+Description: (Mac only) Copy and overwrite host content into container
+Arguments:
+   <path>          Folder to copy
+

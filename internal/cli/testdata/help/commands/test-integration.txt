@@ -1,0 +1,2 @@
+Description: Execute your magento integration tests
+

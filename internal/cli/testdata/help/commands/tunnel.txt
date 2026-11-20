@@ -1,0 +1,8 @@
+Usage: hm tunnel <service> [port]
+Description: Open a temporary way in to a service that is not routed by name
+Options:
+   [-|--close]      Close tunnels left open by this project
+Arguments:
+   <<service>>     db, rabbitmq, ...
+   <[port]>        Port inside the container, when the image exposes several
+

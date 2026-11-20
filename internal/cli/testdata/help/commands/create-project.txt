@@ -1,0 +1,15 @@
+Usage: hm create-project [-e|--edition] [-p|--project-name] [-r|--root-directory] [-u|--use-default] [-v|--version] 
+Example: hm create-project -u -e=community -p="my-project" -r="."  -v=2.4.5-p1
+Description: Create new magento project inside current directory
+Options:
+   [-e|--edition]   Magento edition (community | enterprise) 
+   [-p|--project-name] Project name. Domain is compose with <project_name>.local
+   [-r|--root-directory] Project relative path
+   [-u|--use-default] Use default settings: 
+			- edition = community 
+			- version = <last-version> 
+			- project-name = <basename> 
+			- root-directory = '.' 
+			- basic-settings = <default-local-settings>)
+   [-v|--version]   Magento version (you can see all available version with hm compatibility command)
+

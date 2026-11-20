@@ -1,0 +1,7 @@
+[0;32mUsage: [0m[0;33mhm ai-reset [-|--confirm] 
+[0m[0;32mExample: [0m[0;33mhm ai-reset
+	 hm ai-reset --confirm
+[0m[0;32mDescription:[0m Remove downloaded AI tools while preserving custom skills/agents
+[0;32mOptions:
+[0m   [0;33m[-|--confirm]   [0m Skip confirmation prompt (for automation)
+

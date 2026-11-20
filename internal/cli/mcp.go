@@ -108,7 +108,9 @@ func mcp(args []string, in io.Reader, stdout, stderr io.Writer, jsonOutput bool)
 
 // toolRoot is the installation this binary belongs to, the directory bin/ is in: what the shell
 // called COMMAND_BIN_DIR, worked out the same way, with every symlink resolved.
-func toolRoot() string {
+//
+// A variable so that a test can point it at a tool of its own.
+var toolRoot = func() string {
 	executable, err := os.Executable()
 	if err != nil {
 		return ""

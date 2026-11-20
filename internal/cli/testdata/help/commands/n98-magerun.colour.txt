@@ -1,0 +1,3 @@
+[0;32mUsage: [0m[0;33mhm n98-magerun [options]
+[0m[0;32mDescription:[0m Execute n98-magerun tool
+

@@ -1,0 +1,8 @@
+[0;32mUsage: [0m[0;33mhm start [-s|--switch] <service-name>
+[0m[0;32mExample: [0m[0;33mhm start phpfpm
+[0m[0;32mDescription:[0m Start docker services
+[0;32mOptions:
+[0m   [0;33m[-s|--switch]   [0m Stop all docker container before execute start
+[0;32mArguments:
+[0m   [0;33m<service-name>  [0mStart specific container of the service-name.
+

@@ -1,0 +1,8 @@
+Usage: hm launch [options]
+Description: Open the project in the browser
+Options:
+   [-|--admin]      Open the admin panel
+   [-|--mail]       Open the mail catcher (--mailhog and --mailpit also work)
+   [-|--rabbitmq]   Open the message queue
+   [-|--search]     Open the search engine
+

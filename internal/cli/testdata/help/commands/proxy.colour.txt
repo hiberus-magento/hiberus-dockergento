@@ -1,0 +1,5 @@
+[0;32mUsage: [0m[0;33mhm proxy <up|down|status>
+[0m[0;32mDescription:[0m The global proxy, so several projects can be up at once
+[0;32mArguments:
+[0m   [0;33m<<subcommand>>  [0mup, down or status
+

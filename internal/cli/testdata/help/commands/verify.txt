@@ -1,0 +1,6 @@
+Usage: hm verify [--changed] [--all]
+Description: Run whatever code checks this project has installed
+Options:
+   [-|--changed]    Only the files that differ from the base branch
+   [-|--all]        Also the slow ones: unit tests and DI compilation
+

@@ -1,0 +1,5 @@
+Example: hm masquerade
+
+	 >>> To add proyect config files create the following folder: config/docker/masquerade/magento2 and include de yaml files (.yaml) inside the newly created folder (magento2).
+Description: Execute masquerade tool. 'hm masquerade --help' to view more info. 
+

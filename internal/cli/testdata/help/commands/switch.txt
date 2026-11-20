@@ -1,0 +1,6 @@
+Usage: hm switch [<version|branch>|--stable|--list]
+Description: Switch the installation to another version or branch
+Options:
+   [-|--list]       Show the available versions and branches
+   [-|--stable]     Switch back to the stable branch
+

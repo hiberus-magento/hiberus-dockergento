@@ -1,0 +1,10 @@
+[0;32mUsage: [0m[0;33mhm db <snapshot|list|restore|remove|clear|freeze|templates|clone|drop> [options]
+[0m[0;32mDescription:[0m Named copies of this project's database
+[0;32mOptions:
+[0m   [0;33m[-|--name=<name>][0m Name for the snapshot or template (default: the date, or 'base')
+   [0;33m[-|--force]     [0m Overwrite what already exists, or skip the confirmation
+   [0;33m[-|--all]       [0m With clear: every project's snapshots, not just this one's
+[0;32mArguments:
+[0m   [0;33m<<subcommand>>  [0msnapshot, list, restore, remove or clear for dumps; freeze, templates, clone or drop for data directory templates
+   [0;33m<<name>>        [0mThe snapshot, or the template as [<project>/]<name>
+

@@ -1,0 +1,2 @@
+[0;32mDescription:[0m Rebuild docker services with current configuration
+

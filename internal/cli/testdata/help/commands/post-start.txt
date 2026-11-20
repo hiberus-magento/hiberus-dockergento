@@ -1,0 +1,4 @@
+Usage: hm post-start
+Example: hm post-start
+Description: Apply what the platform needs after an environment comes up
+

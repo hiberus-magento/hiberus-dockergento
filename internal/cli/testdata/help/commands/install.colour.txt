@@ -1,0 +1,5 @@
+[0;32mUsage: [0m[0;33mhm install [-u|--use-default] 
+[0m[0;32mDescription:[0m Execute setup:install Magento command with custom config
+[0;32mOptions:
+[0m   [0;33m[-u|--use-default][0m Use default settings like currency, admin-user, password-user, etc.
+

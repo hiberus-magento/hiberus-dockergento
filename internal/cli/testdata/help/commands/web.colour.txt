@@ -1,0 +1,7 @@
+[0;32mUsage: [0m[0;33mhm web [up|down|status] [--port 8420]
+[0m[0;32mExample: [0m[0;33mhm web
+[0m[0;32mDescription:[0m Bring up the web interface and print the link to open it
+[0;32mOptions:
+[0m   [0;33m[-p|--port]     [0m The port it listens on, always on localhost only
+   [0;33m[-f|--foreground][0m Run it in this terminal instead of in the background
+

@@ -1,0 +1,6 @@
+Usage: hm sequelace [--print] [--port=<port>]
+Description: Open Sequel Ace on this project's database
+Options:
+   [-|--print]      Print the connection string instead of opening anything
+   [-|--port=<port>] Use this port, for a database reached through a tunnel
+

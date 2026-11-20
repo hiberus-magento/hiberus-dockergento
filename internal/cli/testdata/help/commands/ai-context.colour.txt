@@ -1,0 +1,3 @@
+[0;32mUsage: [0m[0;33mhm ai-context
+[0m[0;32mDescription:[0m Write the project context an agent reads before it starts
+

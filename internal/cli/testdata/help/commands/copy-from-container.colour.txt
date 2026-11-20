@@ -1,0 +1,6 @@
+[0;32mUsage: [0m[0;33mhm copy-from-container <path>
+[0m[0;32mExample: [0m[0;33mhm copy-from-container generated
+[0m[0;32mDescription:[0m (Mac only) Copy and overwrite container content into host
+[0;32mArguments:
+[0m   [0;33m<path>          [0mDo not ask confirmation to remove host destination
+

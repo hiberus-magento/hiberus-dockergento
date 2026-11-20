@@ -1,0 +1,5 @@
+[0;32mUsage: [0m[0;33mhm docker-compose <[docker-opts]>
+[0m[0;32mDescription:[0m Execute docker compose using configuration for your machine
+[0;32mArguments:
+[0m   [0;33m<[docker-opts]> [0mdocker compose commands (exec, up, down, ...)
+

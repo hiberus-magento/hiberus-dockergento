@@ -1,0 +1,6 @@
+Usage: hm mcp [--config] [--write]
+Description: Read-only tools for agents, over the Model Context Protocol
+Options:
+   [-|--config]     Print the entry to add to an MCP client's configuration
+   [-|--write]      Also offer the four bounded write tools (cache, reindex, config)
+

@@ -1,0 +1,5 @@
+[0;32mExample: [0m[0;33mhm masquerade
+
+	 >>> To add proyect config files create the following folder: config/docker/masquerade/magento2 and include de yaml files (.yaml) inside the newly created folder (magento2).
+[0m[0;32mDescription:[0m Execute masquerade tool. 'hm masquerade --help' to view more info. 
+

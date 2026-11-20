@@ -1,0 +1,6 @@
+[0;32mUsage: [0m[0;33mhm mcp [--config] [--write]
+[0m[0;32mDescription:[0m Read-only tools for agents, over the Model Context Protocol
+[0;32mOptions:
+[0m   [0;33m[-|--config]    [0m Print the entry to add to an MCP client's configuration
+   [0;33m[-|--write]     [0m Also offer the four bounded write tools (cache, reindex, config)
+

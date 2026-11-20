@@ -1,0 +1,5 @@
+Usage: hm doctor [options]
+Description: Diagnose the machine and the current project
+Options:
+   [-|--only=<check>] Run a single check by id
+

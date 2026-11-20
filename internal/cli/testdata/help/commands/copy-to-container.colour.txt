@@ -1,0 +1,6 @@
+[0;32mUsage: [0m[0;33mhm copy-to-container <path1>...<pathN>
+[0m[0;32mExample: [0m[0;33mhm copy-to-container vendor
+[0m[0;32mDescription:[0m (Mac only) Copy and overwrite host content into container
+[0;32mArguments:
+[0m   [0;33m<path>          [0mFolder to copy
+

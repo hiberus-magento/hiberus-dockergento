@@ -1,0 +1,7 @@
+Usage: hm ai-pull [-|--force] 
+Example: hm ai-pull
+	 hm ai-pull --force
+Description: Download/update AI tools (skills/agents) from configured repositories
+Options:
+   [-|--force]      Force re-download and overwrite existing skills/agents
+

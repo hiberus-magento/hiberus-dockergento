@@ -1,0 +1,6 @@
+[0;32mUsage: [0m[0;33mhm dbeaver [--print] [--port=<port>]
+[0m[0;32mDescription:[0m Open DBeaver on this project's database
+[0;32mOptions:
+[0m   [0;33m[-|--print]     [0m Print the connection string instead of opening anything
+   [0;33m[-|--port=<port>][0m Use this port, for a database reached through a tunnel
+

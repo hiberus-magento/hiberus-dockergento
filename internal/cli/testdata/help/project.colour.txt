@@ -1,0 +1,101 @@
+[1mUsage: [0m[0mhm <command> [options]
+
+[1mEnvironment
+[0m  [0;32mclean                 [0mCollect what environments that no longer exist left behind
+  [0;32mdescribe              [0mShow everything that defines the current project
+  [0;32mdoctor                [0mDiagnose the machine and the current project
+  [0;32mdown                  [0mStop and remove containers, networks, images, and volumes (-v)
+  [0;32mlaunch                [0mOpen the project in the browser
+  [0;32mlist                  [0mList every Dockergento environment on this machine
+  [0;32mlogs                  [0mShow the logs of the project, or of the services named
+  [0;32mpost-start            [0mApply what the platform needs after an environment comes up
+  [0;32mproxy                 [0mThe global proxy, so several projects can be up at once
+  [0;32mrebuild               [0mRebuild docker services with current configuration
+  [0;32mrestart               [0mRestart docker services
+  [0;32msetup                 [0mDockerize magento project
+  [0;32mshare                 [0mGive this project a temporary public address
+  [0;32mstart                 [0mStart docker services
+  [0;32mstop                  [0mStop docker services
+  [0;32mtui                   [0mOpen the dashboard: every environment on this machine, on one screen
+  [0;32mtunnel                [0mOpen a temporary way in to a service that is not routed by name
+  [0;32mworktree              [0mAn environment per branch, with its own address and data
+
+[1mMagento
+[0m  [0;32mcomposer              [0mExecute composer inside php container
+  [0;32mgrunt                 [0mPrepare grunt configuration and compile theme styles using grunt
+  [0;32minstall               [0mExecute setup:install Magento command with custom config
+  [0;32mmagento               [0mExecute Magento console commands
+  [0;32mn98-magerun           [0mExecute n98-magerun tool
+  [0;32mnpm                   [0mExecute npm commands into node container
+  [0;32mpurge                 [0mRemove all magento generated code (caches, generated, static, view_preprocessed)
+  [0;32mtest-integration      [0mExecute your magento integration tests
+  [0;32mtest-unit             [0mExecute your magento unit test
+
+[1mDatabase
+[0m  [0;32mdb                    [0mNamed copies of this project's database
+  [0;32mdbeaver               [0mOpen DBeaver on this project's database
+  [0;32mmasquerade            [0mExecute masquerade tool. 'hm masquerade --help' to view more info. 
+  [0;32mmysql                 [0mExecute mysql command into container
+  [0;32mmysqldump             [0mExecute mysqldump command into container
+  [0;32msequelace             [0mOpen Sequel Ace on this project's database
+  [0;32mtableplus             [0mOpen TablePlus on this project's database
+  [0;32mtransfer-db           [0mTransfer database form external source to this project
+
+[1mFiles
+[0m  [0;32mcopy-from-container   [0m(Mac only) Copy and overwrite container content into host
+  [0;32mcopy-to-container     [0m(Mac only) Copy and overwrite host content into container
+  [0;32mtransfer-media        [0mTransfer multimedia recurses form external source to this project
+
+[1mTools
+[0m  [0;32mbash                  [0mConnect into container using bash [Default container: php]
+  [0;32mcloud-login           [0mMagento Cloud Login
+  [0;32mcloud                 [0mMagento Cloud Cli
+  [0;32mcompatibility         [0mCheck Magento version compatibility
+  [0;32mconfig-env            [0mLaunch config set of project for local environment
+  [0;32mcreate-project        [0mCreate new magento project inside current directory
+  [0;32mdebug-off             [0mDisable xDebug
+  [0;32mdebug-on              [0mEnable xDebug
+  [0;32mdocker-compose        [0mExecute docker compose using configuration for your machine
+  [0;32mdocker-stop-all       [0mStop all running containers
+  [0;32mexec                  [0mExecute a command in a running container [Default container: php]
+  [0;32mset-host              [0mSet host name in /etc/hosts and core_config_data
+  [0;32mssl                   [0mInstall SSL certificates for docker environment
+  [0;32mvarnish-off           [0mTurn off varnish service
+  [0;32mvarnish-on            [0mTurn on varnish service
+  [0;32mverify                [0mRun whatever code checks this project has installed
+  [0;32mweb                   [0mBring up the web interface and print the link to open it
+
+[1mVersions
+[0m  [0;32mswitch                [0mSwitch the installation to another version or branch
+  [0;32mupdate                [0mUpdate hiberus docker tool
+  [0;32mversion               [0mShow the version of the tool, Docker and Compose
+
+[1mAI tools
+[0m  [0;32mai-context            [0mWrite the project context an agent reads before it starts
+  [0;32mai-doctor             [0mShow what AI tooling this project has and whether it is up to date
+  [0;32mai-init               [0mInitialize AI tools configuration (skills/agents) via interactive wizard
+  [0;32mai-pull               [0mDownload/update AI tools (skills/agents) from configured repositories
+  [0;32mai-reset              [0mRemove downloaded AI tools while preserving custom skills/agents
+  [0;32mmcp                   [0mRead-only tools for agents, over the Model Context Protocol
+  [0;32mpermissions           [0mPrint the permission configuration an agent should be given
+
+[1mCustom commands
+[0m  [0;35mdeploy                [0mDeploy this project somewhere
+  [0;35mhello                 [0m
+
+[1mExamples
+[0m  [0;32mhm start                      [0mBring the environment up
+  [0;32mhm magento cache:clean        [0mRun a Magento command
+  [0;32mhm mysql -i dump.sql          [0mImport a database dump
+  [0;32mhm describe                   [0mShow what this project is
+  [0;32mhm doctor                     [0mDiagnose the machine and the project
+
+[1mGlobal options
+[0m  [0;33m--json                [0mForce machine readable JSON output
+  [0;33m--no-json             [0mForce human readable text output
+  [0;33m--yes                 [0mNever ask questions: use defaults or fail with an actionable error
+  [0;33m--force               [0mRun a command refused from a git worktree (one invocation only)
+  [0;33m--no-color            [0mNever colour the output (see also NO_COLOR)
+
+[0mRun [0;33mhm <command> --help[0m[0m for details on a single command.
+

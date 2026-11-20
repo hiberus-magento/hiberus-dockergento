@@ -1,0 +1,6 @@
+[0;32mUsage: [0m[0;33mhm exec [-r|--root] 
+[0m[0;32mExample: [0m[0;33mhm exec ls -lah
+[0m[0;32mDescription:[0m Execute a command in a running container [Default container: php]
+[0;32mOptions:
+[0m   [0;33m[-r|--root]     [0m Run command as root user
+

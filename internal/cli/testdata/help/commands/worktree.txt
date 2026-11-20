@@ -1,0 +1,12 @@
+Usage: hm worktree <add|list|remove> [options]
+Description: An environment per branch, with its own address and data
+Options:
+   [-|--profile=<profile>] lite, agent or full (default: agent)
+   [-|--path=<dir>] Where to put the worktree (default: next to the project)
+   [-|--no-start]   Create it without starting the containers
+   [-|--no-anonymise] With add and the agent profile: do not anonymise the cloned database
+   [-|--force]      With remove: even with uncommitted changes
+Arguments:
+   <<subcommand>>  add, list or remove
+   <<branch|name>> The branch to give an environment, or the environment to remove
+

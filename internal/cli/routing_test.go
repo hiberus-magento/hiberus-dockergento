@@ -48,10 +48,10 @@ func TestTheRouterAnswersForTheDockerTools(t *testing.T) {
 }
 
 //
-// `hm <command> --help` is the command's help for every command, ported or not: bin/run answers
-// it from data/command_descriptions.json before any command runs, and a handler that took it as
-// an argument answered "unknown subcommand" or "not a project" instead. Every case of run.go's
-// switch is read from the source, so a command ported later is held to it without being listed.
+// `hm <command> --help` is the command's help for every command, before any handler runs: a
+// handler that took it as an argument answered "unknown subcommand" or "not a project" instead.
+// Every case of run.go's switch is read from the source, so a command ported later is held to it
+// without being listed. The page itself is the one bin/run printed, from the goldens.
 //
 
 func TestHelpAfterAnyRoutedCommandIsTheShellsHelp(t *testing.T) {
@@ -59,16 +59,20 @@ func TestHelpAfterAnyRoutedCommandIsTheShellsHelp(t *testing.T) {
 		for _, flag := range []string{"--help", "-h"} {
 			t.Run(command+" "+flag, func(t *testing.T) {
 				fake := answering(t)
+				pinHelp(t, helpTool, "mac")
+				t.Setenv("NO_COLOR", "1")
 
-				var stderr strings.Builder
+				var stdout, stderr strings.Builder
 
-				code := Run([]string{command, flag}, io.Discard, &stderr)
+				code := Run([]string{command, flag}, &stdout, &stderr)
 
-				// The fallback finds no bin/run in the directory answering(t) pins, which is
-				// how it shows: 3, a plain message and the fake asked nothing
-				if code != 3 || len(fake.calls) != 0 || strings.Contains(stderr.String(), `"schema_version"`) {
-					t.Fatalf("%s %s answered %d with %q and %d engine calls, want it handed to "+
-						"bin/run for the command's help", command, flag, code, stderr.String(), len(fake.calls))
+				if code != 0 || len(fake.calls) != 0 || stderr.String() != "" {
+					t.Fatalf("%s %s answered %d with %q and %d engine calls, want its help and no "+
+						"handler run", command, flag, code, stderr.String(), len(fake.calls))
+				}
+
+				if want := golden(t, "commands/"+command+".txt"); stdout.String() != want {
+					t.Fatalf("%s %s = %q, want bin/run's %q", command, flag, stdout.String(), want)
 				}
 			})
 		}

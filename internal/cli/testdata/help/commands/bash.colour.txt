@@ -1,0 +1,5 @@
+[0;32mUsage: [0m[0;33mhm bash [-r|--root] 
+[0m[0;32mDescription:[0m Connect into container using bash [Default container: php]
+[0;32mOptions:
+[0m   [0;33m[-r|--root]     [0m Use bash as root user
+

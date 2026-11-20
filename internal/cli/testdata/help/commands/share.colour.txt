@@ -1,0 +1,5 @@
+[0;32mUsage: [0m[0;33mhm share [--stop]
+[0m[0;32mDescription:[0m Give this project a temporary public address
+[0;32mOptions:
+[0m   [0;33m[-|--stop]      [0m Close a tunnel left open
+

@@ -1,0 +1,6 @@
+[0;32mUsage: [0m[0;33mhm ssl <domain>
+[0m[0;32mExample: [0m[0;33mhm ssl domain.local
+[0m[0;32mDescription:[0m Install SSL certificates for docker environment
+[0;32mArguments:
+[0m   [0;33m<domain>        [0mCreate certificate for specific domain.
+

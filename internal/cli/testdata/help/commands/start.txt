@@ -1,0 +1,8 @@
+Usage: hm start [-s|--switch] <service-name>
+Example: hm start phpfpm
+Description: Start docker services
+Options:
+   [-s|--switch]    Stop all docker container before execute start
+Arguments:
+   <service-name>  Start specific container of the service-name.
+

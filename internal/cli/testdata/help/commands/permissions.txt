@@ -1,0 +1,5 @@
+Usage: hm permissions [--strict]
+Description: Print the permission configuration an agent should be given
+Options:
+   [-|--strict]     Allow only commands with no side effects
+

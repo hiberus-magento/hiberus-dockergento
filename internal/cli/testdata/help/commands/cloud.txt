@@ -1,0 +1,3 @@
+Usage: hm cloud [options]
+Description: Magento Cloud Cli
+

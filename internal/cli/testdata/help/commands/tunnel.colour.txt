@@ -1,0 +1,8 @@
+[0;32mUsage: [0m[0;33mhm tunnel <service> [port]
+[0m[0;32mDescription:[0m Open a temporary way in to a service that is not routed by name
+[0;32mOptions:
+[0m   [0;33m[-|--close]     [0m Close tunnels left open by this project
+[0;32mArguments:
+[0m   [0;33m<<service>>     [0mdb, rabbitmq, ...
+   [0;33m<[port]>        [0mPort inside the container, when the image exposes several
+

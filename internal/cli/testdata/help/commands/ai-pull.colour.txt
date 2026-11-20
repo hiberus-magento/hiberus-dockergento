@@ -1,0 +1,7 @@
+[0;32mUsage: [0m[0;33mhm ai-pull [-|--force] 
+[0m[0;32mExample: [0m[0;33mhm ai-pull
+	 hm ai-pull --force
+[0m[0;32mDescription:[0m Download/update AI tools (skills/agents) from configured repositories
+[0;32mOptions:
+[0m   [0;33m[-|--force]     [0m Force re-download and overwrite existing skills/agents
+

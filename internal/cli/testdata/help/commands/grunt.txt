@@ -1,0 +1,7 @@
+Usage: hm grunt <Vendor/theme> <locale_LOCALE>
+Example: hm grunt Hiberus/luma es_ES
+Description: Prepare grunt configuration and compile theme styles using grunt
+Arguments:
+   <Vendor/theme>  Theme vendor reference
+   <locale_LOCALE> Locale code
+

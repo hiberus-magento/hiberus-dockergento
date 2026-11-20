@@ -1,0 +1,8 @@
+[0;32mUsage: [0m[0;33mhm launch [options]
+[0m[0;32mDescription:[0m Open the project in the browser
+[0;32mOptions:
+[0m   [0;33m[-|--admin]     [0m Open the admin panel
+   [0;33m[-|--mail]      [0m Open the mail catcher (--mailhog and --mailpit also work)
+   [0;33m[-|--rabbitmq]  [0m Open the message queue
+   [0;33m[-|--search]    [0m Open the search engine
+

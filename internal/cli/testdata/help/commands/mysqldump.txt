@@ -1,0 +1,6 @@
+Usage: hm mysqldump <path>
+Example: hm mysqldump local-path/my-dump.sql
+Description: Execute mysqldump command into container
+Arguments:
+   <path>          Sql file path when you want save dump
+

@@ -1,0 +1,22 @@
+{
+    "deploy": {
+        "description": "Deploy this project somewhere",
+        "example": "deploy --target=staging",
+        "opts": [
+            {
+                "name": {
+                    "short": "t",
+                    "long": "target"
+                },
+                "description": "Where to deploy"
+            }
+        ],
+        "args": [
+            {
+                "name": "module",
+                "description": "Modules to deploy",
+                "multiple": true
+            }
+        ]
+    }
+}

@@ -1,0 +1,2 @@
+Description: Stop all running containers
+

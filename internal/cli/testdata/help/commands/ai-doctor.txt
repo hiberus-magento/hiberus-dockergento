@@ -1,0 +1,3 @@
+Usage: hm ai-doctor
+Description: Show what AI tooling this project has and whether it is up to date
+

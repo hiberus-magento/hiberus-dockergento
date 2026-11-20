@@ -1,0 +1,8 @@
+Usage: hm logs [service...] [options]
+Description: Show the logs of the project, or of the services named
+Options:
+   [-f|--follow]    Follow the log output
+   [-n|--tail=<n>]  Show only the last n lines
+   [-|--since=<time>] Show logs since a timestamp or relative time
+   [-t|--timestamps] Show timestamps
+

@@ -1,0 +1,4 @@
+[0;32mUsage: [0m[0;33mhm post-start
+[0m[0;32mExample: [0m[0;33mhm post-start
+[0m[0;32mDescription:[0m Apply what the platform needs after an environment comes up
+

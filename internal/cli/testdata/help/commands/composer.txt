@@ -1,0 +1,5 @@
+Usage: hm composer <composer-subcommands>
+Description: Execute composer inside php container
+Arguments:
+   <composer-subcommands>composer commands (install, update, ...)
+

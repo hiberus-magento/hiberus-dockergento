@@ -1,0 +1,8 @@
+[0;32mUsage: [0m[0;33mhm deploy [-t|--target] <module1>...<moduleN>
+[0m[0;32mExample: [0m[0;33mhm deploy --target=staging
+[0m[0;32mDescription:[0m Deploy this project somewhere
+[0;32mOptions:
+[0m   [0;33m[-t|--target]   [0m Where to deploy
+[0;32mArguments:
+[0m   [0;33m<module>        [0mModules to deploy
+

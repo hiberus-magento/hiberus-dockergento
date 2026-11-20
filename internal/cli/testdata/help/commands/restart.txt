@@ -1,0 +1,6 @@
+Usage: hm restart <service-name>
+Example: hm restart phpfpm
+Description: Restart docker services
+Arguments:
+   <service-name>  Restart specific container of the service-name.
+

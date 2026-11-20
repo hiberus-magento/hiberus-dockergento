@@ -1,0 +1,12 @@
+[0;32mUsage: [0m[0;33mhm worktree <add|list|remove> [options]
+[0m[0;32mDescription:[0m An environment per branch, with its own address and data
+[0;32mOptions:
+[0m   [0;33m[-|--profile=<profile>][0m lite, agent or full (default: agent)
+   [0;33m[-|--path=<dir>][0m Where to put the worktree (default: next to the project)
+   [0;33m[-|--no-start]  [0m Create it without starting the containers
+   [0;33m[-|--no-anonymise][0m With add and the agent profile: do not anonymise the cloned database
+   [0;33m[-|--force]     [0m With remove: even with uncommitted changes
+[0;32mArguments:
+[0m   [0;33m<<subcommand>>  [0madd, list or remove
+   [0;33m<<branch|name>> [0mThe branch to give an environment, or the environment to remove
+

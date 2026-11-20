@@ -1,0 +1,9 @@
+Usage: hm set-host [<domain>] [--remove] [--no-database]
+Example: hm set-host my-project.local
+Description: Set host name in /etc/hosts and core_config_data
+Options:
+   [-|--remove]     Remove the entry this tool added for the domain, and nothing else
+   [-|--no-database] Only touch /etc/hosts, not core_config_data
+Arguments:
+   <domain>        Domain is desired to set
+

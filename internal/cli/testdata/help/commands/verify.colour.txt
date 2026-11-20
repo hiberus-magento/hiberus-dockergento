@@ -1,0 +1,6 @@
+[0;32mUsage: [0m[0;33mhm verify [--changed] [--all]
+[0m[0;32mDescription:[0m Run whatever code checks this project has installed
+[0;32mOptions:
+[0m   [0;33m[-|--changed]   [0m Only the files that differ from the base branch
+   [0;33m[-|--all]       [0m Also the slow ones: unit tests and DI compilation
+

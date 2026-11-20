@@ -1,0 +1,3 @@
+[0;32mUsage: [0m[0;33mhm tui
+[0m[0;32mDescription:[0m Open the dashboard: every environment on this machine, on one screen
+

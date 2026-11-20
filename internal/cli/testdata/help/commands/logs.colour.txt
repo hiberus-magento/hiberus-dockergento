@@ -1,0 +1,8 @@
+[0;32mUsage: [0m[0;33mhm logs [service...] [options]
+[0m[0;32mDescription:[0m Show the logs of the project, or of the services named
+[0;32mOptions:
+[0m   [0;33m[-f|--follow]   [0m Follow the log output
+   [0;33m[-n|--tail=<n>] [0m Show only the last n lines
+   [0;33m[-|--since=<time>][0m Show logs since a timestamp or relative time
+   [0;33m[-t|--timestamps][0m Show timestamps
+

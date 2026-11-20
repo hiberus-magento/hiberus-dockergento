@@ -1,0 +1,5 @@
+Usage: hm share [--stop]
+Description: Give this project a temporary public address
+Options:
+   [-|--stop]       Close a tunnel left open
+

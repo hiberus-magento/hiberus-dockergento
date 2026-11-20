@@ -1,0 +1,5 @@
+Usage: hm describe [options]
+Description: Show everything that defines the current project
+Options:
+   [-|--with-secrets] Include database credentials in the output
+

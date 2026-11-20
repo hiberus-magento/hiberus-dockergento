@@ -1,0 +1,5 @@
+[0;32mUsage: [0m[0;33mhm permissions [--strict]
+[0m[0;32mDescription:[0m Print the permission configuration an agent should be given
+[0;32mOptions:
+[0m   [0;33m[-|--strict]    [0m Allow only commands with no side effects
+

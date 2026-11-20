@@ -1,0 +1,7 @@
+Usage: hm web [up|down|status] [--port 8420]
+Example: hm web
+Description: Bring up the web interface and print the link to open it
+Options:
+   [-p|--port]      The port it listens on, always on localhost only
+   [-f|--foreground] Run it in this terminal instead of in the background
+

@@ -1,0 +1,6 @@
+[0;32mUsage: [0m[0;33mhm magento <magento-subcommand>
+[0m[0;32mExample: [0m[0;33mhm magento cache:clean
+[0m[0;32mDescription:[0m Execute Magento console commands
+[0;32mArguments:
+[0m   [0;33m<magento-subcommand>[0mExecute Magento subcommand.
+

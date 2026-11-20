@@ -1,0 +1,6 @@
+Usage: hm exec [-r|--root] 
+Example: hm exec ls -lah
+Description: Execute a command in a running container [Default container: php]
+Options:
+   [-r|--root]      Run command as root user
+
