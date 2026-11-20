@@ -94,4 +94,11 @@ Delete them? [y/N]:
 Sizes are only computed on this path: working them out takes around 25 seconds on a machine with a
 hundred volumes, which is too long for a command you run just to look.
 
-`hm --yes clean --force` skips the question, for scripts.
+`hm --yes clean --force` skips the question, for scripts (so does `HM_NON_INTERACTIVE=1`).
+
+**The question is asked whatever the output format.** With `--json`, or when stdout is not a
+terminal (which makes the output JSON), the warning and the question go to stderr, stdout carries
+only the document, and it is printed after the answer: `removed` says whether anything was
+deleted. So `printf 'n\n' | hm clean --force >/dev/null` deletes nothing, and a script that ran
+`hm clean --force --json` unattended now has to add `--yes`. Before 2.0, JSON output never asked,
+which made `--force` behave as `--force --yes` whenever stdout was a pipe.
