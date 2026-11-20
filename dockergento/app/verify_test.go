@@ -381,3 +381,15 @@ func TestAStepThatCannotRunClosesItsProgress(t *testing.T) {
 		})
 	}
 }
+
+// TestAToolThatCannotBeProbedIsAnErrorNotMissing: test -x answering "no" is a tool not installed;
+// the container not answering at all is checks that could not run, and saying "not installed"
+// would send somebody to composer for nothing.
+func TestAToolThatCannotBeProbedIsAnErrorNotMissing(t *testing.T) {
+	container := &scripted{installed: map[string]bool{"phpcs": true}, broken: "phpcs"}
+
+	verification, err := verifier(container, &branch{}, &[]string{}).Verify(verified, core.VerifyOptions{})
+	if err == nil {
+		t.Fatalf("verify = %+v, want the probe's error", verification)
+	}
+}

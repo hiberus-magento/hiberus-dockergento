@@ -184,8 +184,13 @@ func (v Verifier) syntax(run func(string) (string, int, error), changed bool, fi
 // withBinary runs a tool when the project has it, and skips it with the reason when not.
 func (v Verifier) withBinary(run func(string) (string, int, error), container, name, binary, command, reason string) (core.Check, error) {
 	status, err := v.Runner.Capture(container, []string{"test", "-x", "vendor/bin/" + binary}, io.Discard, io.Discard)
-	if err != nil || status != 0 {
-		return core.Check{Name: name, Status: core.CheckSkipped, Output: reason}, nil //nolint:nilerr
+	if err != nil {
+		// The container did not answer: the checks could not be run, which is not a tool missing
+		return core.Check{}, err
+	}
+
+	if status != 0 {
+		return core.Check{Name: name, Status: core.CheckSkipped, Output: reason}, nil
 	}
 
 	done := v.announce("Running " + binary + "...")
