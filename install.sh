@@ -373,6 +373,15 @@ resolve_link() {
     printf '%s' "$path"
 }
 
+# same_owner_single_link <file>: whether a file put in its place by this user would be the same to
+# everyone else: it has one link, and this user owns it (or is root, whose cp -p keeps the owner)
+same_owner_single_link() {
+    local links owner me
+    read -r _ links owner _ < <(LC_ALL=C ls -ln "$1" 2>/dev/null) || return 1
+    me="$(id -u)" || return 1
+    [ "$links" == "1" ] && { [ "$owner" == "$me" ] || [ "$me" == "0" ]; }
+}
+
 # profile_by_hand <profile> <reason> <mark> [line]: what the user has to do, since it was not done
 profile_by_hand() {
     warn "Could not edit $1 safely ($2); it was left exactly as it was."
@@ -388,7 +397,9 @@ profile_by_hand() {
 # line appended when given. Never truncates it: the new content is written to a temporary file in
 # the same directory with the same permissions, checked, and renamed over the file in one step. A
 # profile that is a link (managed dotfiles) is edited through the link, at the file it points to,
-# and stays a link. The first edit keeps a copy of the original in <profile>.hm-backup. Whatever
+# and stays a link. A file owned by another user or with other hard links is not edited, since
+# the rename would change its owner or split it from its links. The first edit keeps a copy of the
+# original in <profile>.hm-backup. Whatever
 # fails, the profile is as it was, the line to change by hand is printed, and it returns 1.
 edit_profile() {
     local profile="$1" mark="$2" line="${3:-}" real dir temporary kept expected status
@@ -406,6 +417,12 @@ edit_profile() {
     fi
     if [ ! -r "$real" ] || [ ! -w "$real" ]; then
         profile_by_hand "$profile" "$real is not writable" "$mark" "$line"
+        return 1
+    fi
+    # The rename puts a new file in its place: owned by whoever runs this, and no longer the file
+    # its other hard links name. Either would change the profile behind the user's back.
+    if ! same_owner_single_link "$real"; then
+        profile_by_hand "$profile" "$real belongs to another user or has other hard links" "$mark" "$line"
         return 1
     fi
 

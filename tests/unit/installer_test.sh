@@ -550,6 +550,54 @@ assert_equals "" "$(cd "$HOME" && ls -A | grep '\.hm-' | grep -v '^\.zshrc\.hm-b
 assert_contains "$OUT" "it was left exactly as it was"
 assert_contains "$OUT" "$LINE"
 
+new_case profile-no-final-newline
+publish 2.0.0
+api_releases 2.0.0
+printf '# my profile\nexport FOO=1' >"$HOME/.zshrc"
+run_install
+
+test_case "a profile without a final newline gets the line on a line of its own, nothing else changed"
+assert_equals "0" "$STATUS"
+printf '# my profile\nexport FOO=1\n%s\n' "$LINE" >"$CASE/expected"
+assert_equals "same" "$(cmp -s "$CASE/expected" "$HOME/.zshrc" && echo same || echo different)"
+
+new_case profile-hard-link
+publish 2.0.0
+api_releases 2.0.0
+weird_profile "$CASE/zshrc-shared"
+cp "$CASE/zshrc-shared" "$CASE/original"
+rm -f "$HOME/.zshrc"
+ln "$CASE/zshrc-shared" "$HOME/.zshrc"
+run_install
+
+test_case "a profile with another hard link is not replaced, which would split the two; it says what to add"
+assert_equals "0" "$STATUS"
+assert_equals "same" "$(cmp -s "$CASE/original" "$HOME/.zshrc" && echo same || echo different)"
+assert_equals "2" "$(ls -ln "$HOME/.zshrc" | awk '{ print $2 }')"
+assert_contains "$OUT" "it was left exactly as it was"
+assert_contains "$OUT" "$LINE"
+assert_equals "" "$(cd "$HOME" && ls -A | grep '\.hm-')"
+
+new_case profile-other-owner
+publish 2.0.0
+api_releases 2.0.0
+weird_profile "$HOME/.zshrc"
+cp "$HOME/.zshrc" "$CASE/original"
+mkdir -p "$CASE/other-user"
+# id: another user running the installer, for whom this writable profile belongs to someone else
+printf '#!/bin/sh\n[ "$1" = "-u" ] && { echo 4242; exit 0; }\nexec /usr/bin/id "$@"\n' >"$CASE/other-user/id"
+chmod +x "$CASE/other-user/id"
+(PATH="$CASE/other-user:$TOOLS:$BASE_PATH" bash "$INSTALL_SH" >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+OUT=$(cat "$CASE/out" "$CASE/err")
+
+test_case "a profile owned by another user is not replaced by one owned by this user; it says what to add"
+assert_equals "0" "$STATUS"
+assert_equals "same" "$(cmp -s "$CASE/original" "$HOME/.zshrc" && echo same || echo different)"
+assert_contains "$OUT" "it was left exactly as it was"
+assert_contains "$OUT" "$LINE"
+assert_equals "" "$(cd "$HOME" && ls -A | grep '\.hm-')"
+
 # ------------------------------------------------------------------ the token is never on argv
 
 new_case token-argv
