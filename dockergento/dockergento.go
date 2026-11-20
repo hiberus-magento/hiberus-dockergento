@@ -980,7 +980,7 @@ func (e *Engine) ProxyDown() (bool, error) { return e.proxy().Down() }
 // ProxyStatus is whether it is running and what it is routing.
 func (e *Engine) ProxyStatus() (core.ProxyState, error) { return e.proxy().Status() }
 
-// Certify tells the proxy which certificate serves a domain.
+// Certify signs a wildcard certificate for a domain and tells the proxy to serve it.
 func (e *Engine) Certify(domain string) error { return e.proxy().Certify(domain) }
 
 func (e *Engine) proxy() app.Proxy {
@@ -989,6 +989,7 @@ func (e *Engine) proxy() app.Proxy {
 		Networks:     dockerd.Networks{},
 		Orchestrator: e.orchestratorWith(nil),
 		Tooling:      toolinfo.Reader{Root: e.options.Root},
+		Programs:     machine.Programs{Quiet: true},
 		Routes:       traefik.API{}.Routes,
 		Dir:          e.proxyDir(),
 		Announce:     e.options.Announce,

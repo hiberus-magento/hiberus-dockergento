@@ -1,9 +1,13 @@
 package app
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"time"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
@@ -19,6 +23,9 @@ type Proxy struct {
 	Networks     ports.NetworkStore
 	Orchestrator ports.Orchestrator
 	Tooling      ports.Tooling
+
+	// Programs signs the certificates it serves, with mkcert on this machine.
+	Programs ports.HostPrograms
 
 	// Routes asks the proxy what it is routing, which is a question only the proxy can answer.
 	Routes func() ([]core.Route, error)
@@ -202,17 +209,140 @@ func (p Proxy) write() error {
 	return os.Rename(temporary.Name(), target)
 }
 
-// Certify writes the dynamic configuration that serves a domain's certificate.
+// Certify leaves the proxy what it needs to serve domain over HTTPS: a certificate for the domain
+// and its wildcard, signed by mkcert, and the dynamic configuration that names it.
 //
-// The certificate itself is somebody else's job — it needs a tool that can sign one — and this is
-// the half that tells the proxy where to find it.
+// Wildcard because the auxiliary interfaces live on subdomains, and a certificate for the domain
+// alone does not cover them. This is the shell's hm_proxy_write_certificate, called where it was:
+// when setup writes a project's routing.
+//
+// Without mkcert nothing is written, as in the shell, and a one-line note says why: a dynamic file
+// naming files that do not exist only makes the proxy log errors and serve its own certificate.
+// mkcert is not installed from here; `ssl` is what installs it.
+//
+// A pair already there that still serves both names for a while is kept: signing it again would
+// change nothing but the bytes, and every change is a restart of the proxy every project shares.
+//
+// A running proxy is restarted when something changed. Traefik watches the dynamic directory, but
+// some VM mounts (colima's virtiofs) never deliver the host's file events, and there it would keep
+// serving its default certificate until somebody restarted it.
 func (p Proxy) Certify(domain string) error {
-	if err := os.MkdirAll(filepath.Join(p.Dir, "dynamic"), 0o755); err != nil {
+	if p.Programs == nil {
+		return nil
+	}
+
+	if _, err := p.Programs.LookPath("mkcert"); err != nil {
+		p.say(fmt.Sprintf("mkcert is not installed, so the proxy serves its own certificate for %s: "+
+			"install it and run setup again\n", domain))
+
+		return nil
+	}
+
+	signed, err := p.sign(domain)
+	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(filepath.Join(p.Dir, "dynamic", domain+".yml"),
-		[]byte(core.ProxyCertificate(p.Binary, domain)), 0o644) //nolint:gosec
+	named, err := writeIfChanged(filepath.Join(p.Dir, "dynamic", domain+".yml"),
+		core.ProxyCertificate(p.Binary, domain))
+	if err != nil {
+		return err
+	}
+
+	if !signed && !named {
+		return nil
+	}
+
+	running, _, err := p.state()
+	if err != nil || !running {
+		return err
+	}
+
+	p.say(fmt.Sprintf("Restarting the proxy so it serves the certificate for %s...\n", domain))
+
+	if err := p.Orchestrator.Stop(p.project(), p.files(), nil); err != nil {
+		return err
+	}
+
+	return p.Orchestrator.Up(p.project(), p.files(), nil)
+}
+
+// certificateMargin is how long before it expires a certificate is signed again.
+const certificateMargin = 30 * 24 * time.Hour
+
+// sign puts a mkcert pair for domain and its wildcard in certs/, unless the one there still
+// serves both, and says whether it did.
+//
+// mkcert writes into a directory of its own first and the pair is moved in afterwards, so a
+// failure halfway never leaves the proxy a certificate without its key.
+func (p Proxy) sign(domain string) (bool, error) {
+	certs := filepath.Join(p.Dir, "certs")
+	certificate := filepath.Join(certs, domain+".pem")
+	key := filepath.Join(certs, domain+"-key.pem")
+
+	if serves(certificate, key, time.Now().Add(certificateMargin), domain, "*."+domain) {
+		return false, nil
+	}
+
+	if err := os.MkdirAll(certs, 0o755); err != nil {
+		return false, err
+	}
+
+	work, err := os.MkdirTemp(p.Dir, ".certify-")
+	if err != nil {
+		return false, err
+	}
+	defer os.RemoveAll(work) //nolint:errcheck
+
+	signedCertificate := filepath.Join(work, filepath.Base(certificate))
+	signedKey := filepath.Join(work, filepath.Base(key))
+
+	if err := p.Programs.Run(work, "mkcert", "-cert-file", signedCertificate, "-key-file", signedKey,
+		domain, "*."+domain); err != nil {
+		return false, fmt.Errorf("mkcert could not sign a certificate for %s: %w", domain, err)
+	}
+
+	if err := os.Rename(signedKey, key); err != nil {
+		return false, err
+	}
+
+	return true, os.Rename(signedCertificate, certificate)
+}
+
+// serves is whether the pair at certificate and key belong together, name every one of names
+// and are still valid at until.
+func serves(certificate, key string, until time.Time, names ...string) bool {
+	pair, err := tls.LoadX509KeyPair(certificate, key)
+	if err != nil || len(pair.Certificate) == 0 {
+		return false
+	}
+
+	leaf, err := x509.ParseCertificate(pair.Certificate[0])
+	if err != nil || until.After(leaf.NotAfter) {
+		return false
+	}
+
+	for _, name := range names {
+		if !slices.Contains(leaf.DNSNames, name) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// writeIfChanged writes contents to path, creating its directory, unless it already holds them,
+// and says whether it wrote.
+func writeIfChanged(path, contents string) (bool, error) {
+	if current, err := os.ReadFile(path); err == nil && string(current) == contents {
+		return false, nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return false, err
+	}
+
+	return true, os.WriteFile(path, []byte(contents), 0o644) //nolint:gosec
 }
 
 // project and files are the proxy seen as what it is: an ordinary compose project of its own.
