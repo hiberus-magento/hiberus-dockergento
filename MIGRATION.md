@@ -983,6 +983,15 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         `docker-compose` no ponía las etiquetas `hm.*`, el certificado comodín del proxy no se
         firmaba desde el port; arreglados, y dos pruebas desfasadas corregidas.
 
+        Revisado de `45badbb` a `6ab7584` en dos tramos: `review-3fe09632f7ae1f3e` (actualización e
+        instalador) aprobado y reconocido; `review-cc662e29f802f5ab` escaló
+        `R3-certify-json-false-success`: sin `mkcert`, `hm proxy certify` respondía éxito por un
+        certificado que nadie había firmado. Ahora se niega con `mkcert_missing` y `setup` sólo
+        lo anota (`c7bd2dd`). Los avisos del instalador se arreglaron después: `wget` sin `curl`
+        perdía el tag de la redirección, un perfil de otro usuario o con enlaces duros ya no se
+        sustituye, la configuración de la 1.x se valida igual en el shell y en Go y se copia con
+        permisos 0600, y `~/.hm/config.json` se escribe siempre 0600 (`c10ed93`).
+
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
 
