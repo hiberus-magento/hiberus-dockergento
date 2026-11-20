@@ -42,7 +42,7 @@ check_go "setup does not block"        setup
 check_go "compatibility does not block" compatibility
 check_go "ai-init does not block"   ai-init
 check_go "ai-pull does not block"   ai-pull
-check "ai-reset does not block"     ai-reset
+check_go "ai-reset does not block"  ai-reset
 
 # Commands that validate the project first: they must fail fast, never hang
 check_go "bash does not block"         bash

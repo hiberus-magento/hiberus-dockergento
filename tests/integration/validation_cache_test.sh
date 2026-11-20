@@ -57,13 +57,11 @@ echo "this: is: not: valid: yaml:" >> docker-compose.yml
 run db list --json
 assert_equals "4" "$STATUS"
 
-# One that bin/run still runs itself: switch, mcp and ai-doctor, which were used here, are the
-# binary's now. ai-reset with an option it does not know reaches the command and is refused there,
-# with 2 — not with the 4 a configuration refusal would give. When the last of them is ported,
-# bin/run validates nothing and this suite goes with it
-test_case "a command that does not need the project still reaches the command"
-run ai-reset --not-an-option
-assert_equals "2" "$STATUS"
+# There used to be a step here proving that a command bin/run does not validate still reaches the
+# command while the configuration is broken. ai-reset was the last of those bin/run ran itself
+# (switch, mcp and ai-doctor before it): it is the binary's now, and every command left in the shell
+# — what `db` does not route — is validated by bin/run, so there is nothing left for that step to
+# exercise.
 
 test_case "and the broken configuration keeps being detected"
 run db list --json

@@ -135,6 +135,34 @@ Examples:
 
 `
 
+const aiResetUsage = `Usage: hm ai-reset [OPTIONS]
+
+Remove downloaded AI tools while preserving custom skills/agents.
+
+Options:
+  --confirm    Skip confirmation prompt (for automation)
+
+Prerequisites:
+  - ai-registration.json must exist (created by 'hm ai-init' or 'hm ai-pull')
+
+Behavior:
+  - Reads tracked files from config/docker/ai-registration.json
+  - Removes ONLY files that were downloaded by hm ai-init/ai-pull
+  - Preserves custom skills/agents that you created manually
+  - Clears ai-registration.json after successful deletion
+  - Does NOT modify ai-properties.json (configuration is preserved)
+
+Safety:
+  - Whitelist-based approach: only registered files can be deleted
+  - Shows list of files to be deleted and asks for confirmation
+  - Refuses to operate if registration file is corrupted
+
+Examples:
+  hm ai-reset
+  hm ai-reset --confirm
+
+`
+
 // aiInit configures the project's AI tooling and installs it for the first time.
 //
 // An option it does not know is refused the way the script refused it: the complaint with
@@ -191,4 +219,23 @@ func aiPull(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	return newEngine(stdout, stderr, jsonOutput).AIPull(here(), force, console)
+}
+
+// aiReset removes what the tool installed and nothing else.
+func aiReset(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	console := aiConsole{stdout, stderr, jsonOutput, "ai-reset"}
+	confirm := false
+
+	for _, argument := range args {
+		if argument != "--confirm" {
+			console.Say(app.AIError, "Unknown option: "+argument, app.AIDecorated)
+			console.Stdout(aiResetUsage)
+
+			return exitUsage
+		}
+
+		confirm = true
+	}
+
+	return newEngine(stdout, stderr, jsonOutput).AIReset(here(), confirm, interactive(), console)
 }

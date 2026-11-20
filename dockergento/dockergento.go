@@ -1976,6 +1976,11 @@ func (e *Engine) AIPull(dir string, force bool, console app.AIConsole) int {
 	return e.aiTools(dir, console).Pull(force)
 }
 
+// AIReset is ai-reset in dir: what the tool installed, removed.
+func (e *Engine) AIReset(dir string, confirm, interactive bool, console app.AIConsole) int {
+	return e.aiTools(dir, console).Reset(confirm, interactive)
+}
+
 // aiTools is the three AI commands against dir, with what the scripts read from the environment:
 // HM_AI_REPOSITORIES for the list ai-pull installs from, and HM_VERSION, or the tool's own tag,
 // for the version its bundled skills are recorded with. Downloads go through curl, tar and git,
