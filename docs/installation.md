@@ -142,8 +142,10 @@ go build -o bin/hm ./cmd/hm
 
 Run it as `./bin/hm` or put `bin/hm` on your PATH.
 
-If `/usr/local/bin/hm` is a link to the `bin/hm` of your clone, the installer replaces that link with
+If the installed `hm` (`/usr/local/bin/hm` by default) is a link to the `bin/hm` of your clone, the installer replaces that link with
 the release binary and leaves the clone alone: it is not a 1.x installation, so nothing is copied
 from it and it is not offered for deletion. The installer prints the `ln -sf` that brings your build
-back. A clone counts as 1.x only while it still has `bin/run` or `console/`. Releases are built by GoReleaser from `.goreleaser.yaml`; the
-tests for the installer are `tests/unit/installer_test.sh`.
+back. A clone counts as 1.x only while it still has `bin/run` or `console/`.
+
+Releases are built by GoReleaser from `.goreleaser.yaml`; the tests for the installer are
+`tests/unit/installer_test.sh`.

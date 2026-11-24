@@ -997,6 +997,15 @@ Las convenciones son las de la comunidad de Go, no unas nuestras:
         enlace —los dotfiles en otro sitio—, aunque su destino aún no exista, se escribe a través
         del enlace en vez de sustituirlo (`39afb80` y el commit que lo sigue).
 
+        Tras publicar `2.0.0-rc.1`, el instalador tomaba el clon 2.x de un contribuidor por una
+        1.x: copiaba su `data/config.json`, contaba su trabajo en curso como cambios locales y
+        ofrecía `rm -rf` del clon. Un clon es 1.x sólo si tiene `bin/run` o `console/`; el de un
+        contribuidor se sustituye como cualquier enlace y se imprime el `ln -sf` que trae su
+        build. La salida gana cabecera, pasos con ✓ y caja final en una terminal (`NO_COLOR`,
+        `CLICOLOR_FORCE`). Revisado (`review-efb80172b4d7ca42`), aprobado y reconocido (`70fa883`);
+        sus avisos —el `ln -sf` citado para rutas con espacios, la desinstalación de ese clon y
+        el estado de los casos sin color, probados— se arreglaron en el commit que lo sigue.
+
 Antes de la fase 5 hay una puerta: las cuatro medidas de la Fase 1 (§7 del documento de
 arquitectura). Las fases 2, 3 y 4 no dependen de ellas.
 

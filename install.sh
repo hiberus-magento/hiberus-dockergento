@@ -357,8 +357,8 @@ is_legacy() {
     [[ "$(readlink "$1")" == */bin/run ]] || [ -e "$2/bin/run" ] || [ -d "$2/console" ]
 }
 
-# checkout_of <link>: the git checkout a link of the clone-based installer points into (1.x, or a
-# 2.0 pre-release installed from git): <checkout>/bin/run or <checkout>/bin/hm. Nothing otherwise.
+# checkout_of <link>: the git checkout a link points into, <checkout>/bin/run or <checkout>/bin/hm:
+# a 1.x installation or a contributor's build (is_legacy tells them apart). Nothing otherwise.
 checkout_of() {
     local link="$1" target checkout
     [ -L "$link" ] || return 0
@@ -788,10 +788,11 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
     else
         download "$version"
         if [ -n "$FANCY" ]; then
-            local asset
-            asset="$(platform_asset)"
-            asset="${asset#hm_}"
-            step "Downloaded hm $version for ${asset/_//}, checksum verified"
+            # platform_asset is hm_<os>_<arch>: shown as <os>/<arch>
+            local platform
+            platform="$(platform_asset)"
+            platform="${platform#hm_}"
+            step "Downloaded hm $version for ${platform/_//}, checksum verified"
         fi
 
         if [ ! -d "$dir" ]; then
@@ -800,7 +801,9 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
 
         case "$REPLACING" in
             legacy) CHANGES+=("replaced the link $TARGET -> $(readlink "$TARGET") of the git-clone installation with the binary") ;;
-            source) CHANGES+=("replaced the link $TARGET -> $(readlink "$TARGET"), a build of the source checkout $SOURCE_CHECKOUT, with the binary (to run your build again: ln -sf $(readlink "$TARGET") $TARGET)") ;;
+            source)
+                # Quoted, so that the command still works pasted when the path has spaces
+                CHANGES+=("replaced the link $TARGET -> $(readlink "$TARGET"), a build of the source checkout $SOURCE_CHECKOUT, with the binary (to run your build again: ln -sf $(printf '%q' "$(readlink "$TARGET")") $(printf '%q' "$TARGET"))") ;;
             hm2) CHANGES+=("upgraded hm $current to $version") ;;
         esac
 
@@ -838,7 +841,7 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
 # ------------------------------------------------------------------------------------- uninstalling
 
 uninstall_hm() {
-    local candidate path="" profile removed=false
+    local candidate path="" profile checkout removed=false
 
     for candidate in "$(receipt_field path)" "${INSTALL_DIR:+$INSTALL_DIR/hm}" "$SYSTEM_BIN/hm" "$HOME/.local/bin/hm"; do
         [ -n "$candidate" ] || continue
@@ -854,8 +857,9 @@ uninstall_hm() {
         removed=true
     else
         say "No hm 2 binary installed by this installer was found; no binary was removed."
-        if [ -L "$SYSTEM_BIN/hm" ] && [ -n "$(checkout_of "$SYSTEM_BIN/hm")" ]; then
-            if is_legacy "$SYSTEM_BIN/hm" "$(checkout_of "$SYSTEM_BIN/hm")"; then
+        checkout="$(checkout_of "$SYSTEM_BIN/hm")"
+        if [ -n "$checkout" ]; then
+            if is_legacy "$SYSTEM_BIN/hm" "$checkout"; then
                 say "$SYSTEM_BIN/hm is a 1.x link and was left as it is."
             else
                 say "$SYSTEM_BIN/hm is a link to a build of a source checkout and was left as it is."

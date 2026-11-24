@@ -868,13 +868,54 @@ new_case styled-no-color
 publish 2.0.0
 api_releases 2.0.0
 (PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 NO_COLOR=1 bash "$INSTALL_SH" >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
 OUT=$(cat "$CASE/out" "$CASE/err")
 
 test_case "NO_COLOR wins: the plain text, with no escape, tick or box"
+assert_equals "0" "$STATUS"
 assert_contains "$OUT" "hm 2.0.0 installed at $HM_SYSTEM_BIN/hm"
 assert_not_contains "$OUT" $'\033['
 assert_not_contains "$OUT" "✓"
 assert_not_contains "$OUT" "╭"
+
+new_case styled-forced-off
+publish 2.0.0
+api_releases 2.0.0
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=0 bash "$INSTALL_SH" >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+OUT=$(cat "$CASE/out" "$CASE/err")
+
+test_case "CLICOLOR_FORCE=0 forces nothing: plain text without a terminal"
+assert_equals "0" "$STATUS"
+assert_not_contains "$OUT" "✓"
+
+new_case uninstall-source-checkout
+mkdir -p "$HOME/hm/bin"
+printf '#!/bin/sh\necho "hm 2.1.0-dev"\n' >"$HOME/hm/bin/hm"
+chmod +x "$HOME/hm/bin/hm"
+git -C "$HOME/hm" init -q
+ln -s "$HOME/hm/bin/hm" "$HM_SYSTEM_BIN/hm"
+run_install --uninstall
+
+test_case "--uninstall leaves the link to a contributor's build, and does not call it 1.x"
+assert_equals "0" "$STATUS"
+assert_equals "yes" "$([ -L "$HM_SYSTEM_BIN/hm" ] && echo yes || echo no)"
+assert_contains "$OUT" "$HM_SYSTEM_BIN/hm is a link to a build of a source checkout and was left as it is."
+assert_not_contains "$OUT" "1.x"
+
+new_case source-checkout-spaces
+publish 2.0.0
+api_releases 2.0.0
+mkdir -p "$HOME/my code/hm/bin"
+printf '#!/bin/sh\necho "hm 2.1.0-dev"\n' >"$HOME/my code/hm/bin/hm"
+chmod +x "$HOME/my code/hm/bin/hm"
+git -C "$HOME/my code/hm" init -q
+ln -s "$HOME/my code/hm/bin/hm" "$HM_SYSTEM_BIN/hm"
+run_install
+
+test_case "the command that brings a build back still works pasted when its path has spaces"
+assert_equals "0" "$STATUS"
+assert_contains "$OUT" "ln -sf $(printf '%q' "$HOME/my code/hm/bin/hm") $(printf '%q' "$HM_SYSTEM_BIN/hm")"
 
 test_case "no case ever called jq"
 assert_equals "" "$(cat "$LAB/jq.log" 2>/dev/null)"
