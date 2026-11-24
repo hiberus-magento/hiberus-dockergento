@@ -35,14 +35,58 @@ RECEIPT="$STATE_DIR/install-receipt"
 # Marks the one profile line this installer owns, to replace or remove it and never add a second
 PROFILE_MARK="# hm shell completion"
 
-if [ -t 1 ]; then
-    bold=$'\033[1m' green=$'\033[0;32m' orange=$'\033[0;33m' red=$'\033[0;31m' reset=$'\033[0m'
+# Colours, ticks and a closing box in a terminal, or when CLICOLOR_FORCE asks for them; plain text
+# otherwise, and always under NO_COLOR (https://no-color.org)
+if [ -z "${NO_COLOR:-}" ] && { [ -t 1 ] || { [ -n "${CLICOLOR_FORCE:-}" ] && [ "${CLICOLOR_FORCE}" != "0" ]; }; }; then
+    FANCY=1
+    bold=$'\033[1m' dim=$'\033[2m' green=$'\033[0;32m' cyan=$'\033[0;36m' orange=$'\033[0;33m' red=$'\033[0;31m' reset=$'\033[0m'
 else
-    bold="" green="" orange="" red="" reset=""
+    FANCY=""
+    bold="" dim="" green="" cyan="" orange="" red="" reset=""
 fi
 
 say() { printf '%s\n' "$*"; }
-warn() { printf '%s%s%s\n' "$orange" "$*" "$reset" >&2; }
+
+# step <text>: one thing done — a green tick in a terminal, a dash otherwise
+step() {
+    local text="$*" first
+    if [ -n "$FANCY" ]; then
+        # Capitalised, by tr: bash 3.2, macOS's, has no ${text^}
+        first="$(printf '%s' "${text:0:1}" | tr '[:lower:]' '[:upper:]')"
+        printf '  %s✓%s %s%s\n' "$green" "$reset" "$first" "${text:1}"
+    else
+        printf '  - %s\n' "$text"
+    fi
+}
+
+# header: the installer's name, in a terminal only
+header() {
+    [ -n "$FANCY" ] || return 0
+    printf '\n  %s%shiberus%s %sDockergento%s %s· installer%s\n\n' "$bold" "$cyan" "$reset" "$bold" "$reset" "$dim" "$reset"
+}
+
+# box <first line> [lines...]: the lines in a rounded box, the first in bold, in a terminal only
+box() {
+    [ -n "$FANCY" ] || return 0
+    local line width=0 length
+    for line in "$@"; do
+        length="$(printf '%s' "$line" | wc -m | tr -d ' ')"
+        [ "$length" -gt "$width" ] && width="$length"
+    done
+    local rule
+    rule="$(printf '%*s' "$((width + 4))" '' | sed 's/ /─/g')"
+    printf '\n  %s╭%s╮%s\n' "$green" "$rule" "$reset"
+    local first=true style
+    for line in "$@"; do
+        length="$(printf '%s' "$line" | wc -m | tr -d ' ')"
+        style=""
+        $first && style="$bold"
+        first=false
+        printf '  %s│%s  %s%s%s%*s  %s│%s\n' "$green" "$reset" "$style" "$line" "$reset" "$((width - length))" '' "$green" "$reset"
+    done
+    printf '  %s╰%s╯%s\n' "$green" "$rule" "$reset"
+}
+warn() { printf '%s%s%s%s\n' "${FANCY:+  ! }" "$orange" "$*" "$reset" >&2; }
 die() {
     printf '%s%s%s\n' "$red" "$1" "$reset" >&2
     exit "${2:-1}"
@@ -306,6 +350,13 @@ is_hm2() {
     [ -n "$version" ] && [ "$(major_of "$version")" -ge 2 ] && "$path" --version 2>/dev/null | head -n 1 | grep -q 'hm'
 }
 
+# is_legacy <link> <checkout>: whether the checkout a link points into is a 1.x installation: the
+# link names bin/run, 1.x's entry point, or the checkout still has bin/run or console/. A 2.x
+# source checkout — a contributor's clone, linked to the bin/hm built in it — is not one.
+is_legacy() {
+    [[ "$(readlink "$1")" == */bin/run ]] || [ -e "$2/bin/run" ] || [ -d "$2/console" ]
+}
+
 # checkout_of <link>: the git checkout a link of the clone-based installer points into (1.x, or a
 # 2.0 pre-release installed from git): <checkout>/bin/run or <checkout>/bin/hm. Nothing otherwise.
 checkout_of() {
@@ -333,7 +384,7 @@ as_needed() {
         "$@"
     elif command -v sudo >/dev/null 2>&1; then
         if [ -z "${SUDO_ANNOUNCED:-}" ]; then
-            say "Writing to $dir needs root; sudo may ask for your password."
+            say "${FANCY:+  ${dim}›${reset} }Writing to $dir needs root; sudo may ask for your password."
             SUDO_ANNOUNCED=1
         fi
         sudo "$@"
@@ -660,11 +711,12 @@ on_path() {
     case ":$PATH:" in *":$1:"*) return 0 ;; *) return 1 ;; esac
 }
 
-# Where the binary goes, and what is there now: sets TARGET, LEGACY_CHECKOUT and REPLACING
+# Where the binary goes, and what is there now: sets TARGET, LEGACY_CHECKOUT, SOURCE_CHECKOUT
+# and REPLACING
 choose_target() {
     local dir checkout
 
-    TARGET="" LEGACY_CHECKOUT="" REPLACING=""
+    TARGET="" LEGACY_CHECKOUT="" SOURCE_CHECKOUT="" REPLACING=""
 
     if [ -n "$INSTALL_DIR" ]; then
         dir="$INSTALL_DIR"
@@ -687,10 +739,15 @@ choose_target() {
     fi
 
     TARGET="$dir/hm"
-    LEGACY_CHECKOUT="$(checkout_of "$TARGET")"
+    checkout="$(checkout_of "$TARGET")"
 
-    if [ -n "$LEGACY_CHECKOUT" ]; then
+    if [ -n "$checkout" ] && is_legacy "$TARGET" "$checkout"; then
+        LEGACY_CHECKOUT="$checkout"
         REPLACING="legacy"
+    elif [ -n "$checkout" ]; then
+        # A contributor's own build: replaced like any link, and the checkout is theirs, not 1.x
+        SOURCE_CHECKOUT="$checkout"
+        REPLACING="source"
     elif is_hm2 "$TARGET"; then
         REPLACING="hm2"
     elif [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
@@ -706,6 +763,7 @@ choose_target() {
 install_hm() {
     local version current="" dir
     CHANGES=()
+    header
 
     if [ -n "$VERSION" ]; then
         version="${VERSION#v}"
@@ -729,6 +787,12 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
         version="$current"
     else
         download "$version"
+        if [ -n "$FANCY" ]; then
+            local asset
+            asset="$(platform_asset)"
+            asset="${asset#hm_}"
+            step "Downloaded hm $version for ${asset/_//}, checksum verified"
+        fi
 
         if [ ! -d "$dir" ]; then
             if [[ "$dir" == "$HOME"/* ]]; then mkdir -p "$dir"; else as_needed "$(dirname "$dir")" mkdir -p "$dir"; fi
@@ -736,12 +800,13 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
 
         case "$REPLACING" in
             legacy) CHANGES+=("replaced the link $TARGET -> $(readlink "$TARGET") of the git-clone installation with the binary") ;;
+            source) CHANGES+=("replaced the link $TARGET -> $(readlink "$TARGET"), a build of the source checkout $SOURCE_CHECKOUT, with the binary (to run your build again: ln -sf $(readlink "$TARGET") $TARGET)") ;;
             hm2) CHANGES+=("upgraded hm $current to $version") ;;
         esac
 
         place "$WORK/hm" "$TARGET"
         write_receipt "$TARGET" "$version"
-        say "${green}${bold}hm $version installed at $TARGET${reset}"
+        if [ -n "$FANCY" ]; then step "Installed at $TARGET"; else say "${green}${bold}hm $version installed at $TARGET${reset}"; fi
     fi
 
     drop_legacy_completion
@@ -749,7 +814,7 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
     migrate_settings "$LEGACY_CHECKOUT"
 
     local change
-    for change in ${CHANGES[@]+"${CHANGES[@]}"}; do say "  - $change"; done
+    for change in ${CHANGES[@]+"${CHANGES[@]}"}; do step "$change"; done
 
     if ! on_path "$dir"; then
         warn "$dir is not in your PATH. Add it to your shell profile: export PATH=\"$dir:\$PATH\""
@@ -759,8 +824,15 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
 
     legacy_notice "$LEGACY_CHECKOUT"
 
-    say ""
-    say "Open a new terminal (or source your profile) for the completion, then: hm --help"
+    if [ -n "$FANCY" ]; then
+        box "hm $version is ready" "$TARGET"
+        say ""
+        say "  Next: open a new terminal (or source your profile), then run ${bold}${cyan}hm --help${reset}"
+        say ""
+    else
+        say ""
+        say "Open a new terminal (or source your profile) for the completion, then: hm --help"
+    fi
 }
 
 # ------------------------------------------------------------------------------------- uninstalling
@@ -783,7 +855,11 @@ uninstall_hm() {
     else
         say "No hm 2 binary installed by this installer was found; no binary was removed."
         if [ -L "$SYSTEM_BIN/hm" ] && [ -n "$(checkout_of "$SYSTEM_BIN/hm")" ]; then
-            say "$SYSTEM_BIN/hm is a 1.x link and was left as it is."
+            if is_legacy "$SYSTEM_BIN/hm" "$(checkout_of "$SYSTEM_BIN/hm")"; then
+                say "$SYSTEM_BIN/hm is a 1.x link and was left as it is."
+            else
+                say "$SYSTEM_BIN/hm is a link to a build of a source checkout and was left as it is."
+            fi
         fi
     fi
 

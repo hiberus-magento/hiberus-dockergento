@@ -796,6 +796,86 @@ test_case "a config.json that is a link is not followed out of the 1.x installat
 assert_equals "0" "$STATUS"
 assert_equals "no" "$(exists "$HOME/.hm/config.json")"
 
+# ------------------------------------------------------------------ a contributor's checkout
+new_case source-checkout
+publish 2.0.0
+api_releases 2.0.0
+mkdir -p "$HOME/hm/bin" "$HOME/hm/data"
+printf '#!/bin/sh\necho "hm 2.1.0-dev"\n' >"$HOME/hm/bin/hm"
+chmod +x "$HOME/hm/bin/hm"
+printf '{"from": "the checkout"}\n' >"$HOME/hm/data/config.json"
+git -C "$HOME/hm" init -q
+echo "work in progress" >"$HOME/hm/notes.txt"
+ln -s "$HOME/hm/bin/hm" "$HM_SYSTEM_BIN/hm"
+run_install
+
+test_case "a link to a build of a 2.x source checkout is replaced by the binary"
+assert_equals "0" "$STATUS"
+assert_equals "hm 2.0.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
+assert_contains "$OUT" "replaced the link $HM_SYSTEM_BIN/hm -> $HOME/hm/bin/hm, a build of the source checkout $HOME/hm, with the binary"
+assert_contains "$OUT" "to run your build again: ln -sf $HOME/hm/bin/hm $HM_SYSTEM_BIN/hm"
+
+test_case "and the checkout is neither called 1.x nor offered for deletion, nor its settings copied"
+assert_not_contains "$OUT" "1.x"
+assert_not_contains "$OUT" "rm -rf"
+assert_not_contains "$OUT" "local changes"
+assert_equals "no" "$(exists "$HOME/.hm/config.json")"
+assert_equals "work in progress" "$(cat "$HOME/hm/notes.txt")"
+
+new_case source-checkout-legacy
+publish 2.0.0
+api_releases 2.0.0
+mkdir -p "$HOME/hm/bin" "$HOME/hm/console"
+printf '#!/bin/sh\necho "hm 1.6.0"\n' >"$HOME/hm/bin/hm"
+printf '#!/bin/sh\n' >"$HOME/hm/bin/run"
+chmod +x "$HOME/hm/bin/hm" "$HOME/hm/bin/run"
+git -C "$HOME/hm" init -q
+ln -s "$HOME/hm/bin/hm" "$HM_SYSTEM_BIN/hm"
+run_install
+
+test_case "a link to bin/hm of a checkout that still has bin/run is a 1.x installation"
+assert_equals "0" "$STATUS"
+assert_contains "$OUT" "of the git-clone installation with the binary"
+assert_contains "$OUT" "The 1.x installation at $HOME/hm is no longer used"
+
+# ------------------------------------------------------------------ how it looks
+new_case styled
+publish 2.0.0
+api_releases 2.0.0
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 bash "$INSTALL_SH" >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+OUT=$(cat "$CASE/out" "$CASE/err")
+
+PLAIN=$(printf '%s' "$OUT" | sed $'s/\033\\[[0-9;]*m//g')
+
+test_case "with colours forced, a header, a tick per step and a closing box"
+assert_equals "0" "$STATUS"
+assert_contains "$OUT" $'\033['
+assert_contains "$PLAIN" "hiberus Dockergento · installer"
+assert_contains "$PLAIN" "✓ Downloaded hm 2.0.0 for linux/amd64, checksum verified"
+assert_contains "$PLAIN" "✓ Installed at $HM_SYSTEM_BIN/hm"
+assert_contains "$PLAIN" "✓ Shell completion: $HOME/.hm/completion/hm.zsh"
+assert_contains "$PLAIN" "  ! $HM_SYSTEM_BIN is not in your PATH"
+assert_contains "$PLAIN" "│  hm 2.0.0 is ready"
+assert_contains "$PLAIN" "Next: open a new terminal"
+assert_not_contains "$PLAIN" "  - "
+
+test_case "and every line of the box is as wide as its border"
+widths=$(printf '%s\n' "$PLAIN" | grep -E '^  [╭│╰]' | while IFS= read -r line; do printf '%s' "$line" | sed 's/╭/x/g; s/╮/x/g; s/╰/x/g; s/╯/x/g; s/│/x/g; s/─/x/g' | wc -c | tr -d ' '; done | sort -u)
+assert_equals "1" "$(printf '%s\n' "$widths" | wc -l | tr -d ' ')"
+
+new_case styled-no-color
+publish 2.0.0
+api_releases 2.0.0
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 NO_COLOR=1 bash "$INSTALL_SH" >"$CASE/out" 2>"$CASE/err" </dev/null)
+OUT=$(cat "$CASE/out" "$CASE/err")
+
+test_case "NO_COLOR wins: the plain text, with no escape, tick or box"
+assert_contains "$OUT" "hm 2.0.0 installed at $HM_SYSTEM_BIN/hm"
+assert_not_contains "$OUT" $'\033['
+assert_not_contains "$OUT" "✓"
+assert_not_contains "$OUT" "╭"
+
 test_case "no case ever called jq"
 assert_equals "" "$(cat "$LAB/jq.log" 2>/dev/null)"
 

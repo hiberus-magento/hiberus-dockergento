@@ -44,6 +44,8 @@ Options go after `bash -s --`. Each one has an environment variable that does th
 | `--pre` | `HM_PRE=1` | The latest may be a pre-release. |
 | `--dir D` | `HM_INSTALL_DIR=D` | Install the binary in `D`. |
 | `--uninstall` | | Remove what the installer installed. |
+| | `NO_COLOR=1` | Plain text, with no colours, ticks or box, even in a terminal. |
+| | `CLICOLOR_FORCE=1` | Colours, ticks and box even when the output is not a terminal (unless `NO_COLOR` is set). |
 | | `GITHUB_TOKEN` | Sent to the GitHub API only, to avoid its rate limit. It is handed to curl (or wget) in a file only you can read, removed afterwards, never on the command line where `ps` would show it. |
 
 ```bash
@@ -138,5 +140,10 @@ go build -o bin/hm ./cmd/hm
 ./bin/hm --version
 ```
 
-Run it as `./bin/hm` or put `bin/hm` on your PATH. Releases are built by GoReleaser from `.goreleaser.yaml`; the
+Run it as `./bin/hm` or put `bin/hm` on your PATH.
+
+If `/usr/local/bin/hm` is a link to the `bin/hm` of your clone, the installer replaces that link with
+the release binary and leaves the clone alone: it is not a 1.x installation, so nothing is copied
+from it and it is not offered for deletion. The installer prints the `ln -sf` that brings your build
+back. A clone counts as 1.x only while it still has `bin/run` or `console/`. Releases are built by GoReleaser from `.goreleaser.yaml`; the
 tests for the installer are `tests/unit/installer_test.sh`.
