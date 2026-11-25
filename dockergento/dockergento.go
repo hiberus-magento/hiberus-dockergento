@@ -1785,7 +1785,7 @@ func (e *Engine) orchestratorWith(environment map[string]string) composelib.Orch
 }
 
 func (e *Engine) properties() fsprops.Reader {
-	return fsprops.Reader{Assets: e.options.Assets, Defaults: "data/properties.json"}
+	return fsprops.Reader{Assets: e.options.Assets, Defaults: "data/properties.json", Notices: e.errors()}
 }
 
 // Assets is the files the tool ships with, as this engine reads them.

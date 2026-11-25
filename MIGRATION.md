@@ -10,8 +10,8 @@ arquitectura hexagonal se sostiene: `dockergento/core` no importa nada de la her
 misma fachada.
 
 Las incompatibilidades deliberadas de 2.0: los comandos del proyecto ya no reciben `HELPERS_DIR`,
-`TASKS_DIR` ni `COMPONENTS_DIR`; el antiguo `config/docker/properties` ya no se convierte en cada
-invocación; `hm switch` y el instalador rechazan las versiones anteriores a 2.0.
+`TASKS_DIR` ni `COMPONENTS_DIR`; el antiguo `config/docker/properties` se convierte una sola vez, y
+sólo si falta `properties.json`, guardándolo como `properties.bak` en vez de borrarlo; `hm switch` y el instalador rechazan las versiones anteriores a 2.0.
 
 Lo que queda está en `ROADMAP.md`: etiquetar la release (`2.0.0-rc.N` y `2.0.0`, sin `v`; CI
 publica los binarios), fusionar `release/2.0.0` en `main` y los defectos de la pista C. Los
@@ -62,9 +62,10 @@ Con los 65 comandos, la ayuda, `--version` y los comandos del proyecto respondid
 - El commit siguiente a ese — la documentación (README, CLAUDE.md, `architecture/`, este fichero,
   `ROADMAP.md` y los specs de `openspec/specs/`) describe el estado final.
 
-Lo que el shell hacía y el binario no: convertir el antiguo `config/docker/properties` en
-`properties.json` en cada invocación (`load_properties.sh`, `refactor_old_version`). Está en la
-pista C de `ROADMAP.md`. El resto de este documento es historia y se conserva como tal.
+La conversión del antiguo `config/docker/properties` (`load_properties.sh`, `refactor_old_version`)
+la hace el lector de propiedades (`dockergento/adapters/fsprops`): una vez, sólo cuando no hay
+`properties.json`, avisando por stderr y dejando el fichero viejo como `properties.bak` (o el primer
+`properties.bak.N` libre). El resto de este documento es historia y se conserva como tal.
 
 ## Cómo continuar si esta sesión se corta
 

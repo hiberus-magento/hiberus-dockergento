@@ -44,7 +44,6 @@ en `.specify/memory/constitution.md` (2.0.0).
 
 | Defecto | Dónde | Por qué importa |
 |---|---|---|
-| El binario no convierte el antiguo `config/docker/properties` en `properties.json` | Lo hacía `console/tasks/load_properties.sh` (`refactor_old_version`) en cada invocación, ya borrado | Un proyecto que sólo tenga el formato antiguo se ve como «no es un proyecto». Decidir si se porta o se documenta la conversión a mano |
 | `hm _registry` ya cumplió su condición de desaparecer (nada en shell lee el registro) | `internal/cli/run.go`, `MIGRATION.md` | Sólo lo usa `go_passthrough_test.sh`; quitarlo exige mover esas aserciones |
 | Tercera copia de la resolución servicio→contenedor, con mensaje distinto | `dockergento/app/transfer.go` (`container`) | Converger cambia un mensaje al usuario: es decisión, no refactor |
 | `architecture/` puede describir comportamiento que el código no tiene | `architecture/*.md` | Ningún test vigila la documentación; §5.8.1 estuvo mal tres ciclos. Reescrita para 2.0 el 2026-11-20 (sin fragmentos del shell), pero sigue sin nada que la compruebe |
