@@ -319,9 +319,12 @@ func (o Operator) StopEverything(project core.Project, interactive bool) (core.M
 		return core.MachineStop{}, err
 	}
 
-	// Tolerated the way the shell implementation tolerated it: `docker ps -q 2>/dev/null`
-	// answered nothing when the daemon could not be reached, and so does this.
-	containers, _ := o.Engine.Containers()
+	// Not tolerated, unlike the shell's `docker ps -q 2>/dev/null`: a daemon that cannot be
+	// reached answered "No containers running" and exit 0, a connection failure read as success.
+	containers, err := o.Engine.Containers()
+	if err != nil {
+		return core.MachineStop{}, err
+	}
 
 	ids := make([]string, 0, len(containers))
 	others := 0

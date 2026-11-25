@@ -199,16 +199,18 @@ assert_equals "2" "$GO_STATUS"
 # Machine-wide. Non-interactive, the binary stops every running container without asking, so this
 # never lets it reach a daemon: DOCKER_HOST points at a socket that does not exist, whatever the
 # machine running the suite has up. What is provable that way is that the binary answers the
-# command, and answers it with nothing to stop.
+# command, and answers an unreachable daemon as the docker failure it is — not as "No containers
+# running" with exit 0, which read a connection failure as success.
 #
 # This used to ask `bin/run docker-stop-all`, whose shell twin only exec'd the binary, and to do it
 # with the daemon reachable. The twin is retired; the question on the caller's terminal is pinned in
 # Go (`internal/cli/docker_stop_all_test.go`, `Interactive`).
 
-test_case "the binary answers docker-stop-all, and with no daemon it has nothing to stop"
-answer=$( cd "$DIR" && DOCKER_HOST=unix:///nonexistent HM_NON_INTERACTIVE=1 "$GO_BINARY" docker-stop-all 2>&1 )
-assert_equals "0" "$?"
-assert_contains "$answer" "No containers running"
+test_case "the binary answers docker-stop-all, and with no daemon it reports the docker failure"
+answer=$( cd "$DIR" && DOCKER_HOST=unix:///nonexistent HM_NON_INTERACTIVE=1 "$GO_BINARY" --no-json docker-stop-all 2>&1 )
+assert_equals "3" "$?"
+assert_contains "$answer" "Cannot connect to the Docker daemon"
+assert_not_contains "$answer" "No containers running"
 
 # ---------------------------------------------------------------- ported: docker-compose
 #

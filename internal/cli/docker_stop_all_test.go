@@ -123,3 +123,56 @@ func TestDockerStopAllAnswersADocumentWhenNobodyIsWatching(t *testing.T) {
 		t.Fatalf("docker-stop-all --json data (-want +got):\n%s", diff)
 	}
 }
+
+// An unreachable daemon is a docker failure, in both formats: never "No containers running" with
+// exit 0, which read a connection failure as success.
+func TestDockerStopAllReportsAnUnreachableDaemon(t *testing.T) {
+	const reason = "Cannot connect to the Docker daemon at unix:///nonexistent"
+
+	for _, jsonOutput := range []bool{false, true} {
+		t.Run(map[bool]string{false: "text", true: "json"}[jsonOutput], func(t *testing.T) {
+			fake := answering(t)
+			fake.outcomes = []outcome{{}, {err: errors.New(reason)}}
+
+			stdout, stderr := &strings.Builder{}, &strings.Builder{}
+
+			code := dockerStopAll(nil, stdout, stderr, jsonOutput)
+
+			if code != exitDocker {
+				t.Fatalf("docker-stop-all with no daemon = %d, want exitDocker", code)
+			}
+
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want nothing", stdout.String())
+			}
+
+			if strings.Contains(stderr.String(), "No containers running") {
+				t.Fatalf("stderr = %q, want no claim that nothing was running", stderr.String())
+			}
+
+			if !jsonOutput {
+				if !strings.Contains(stderr.String(), reason) {
+					t.Fatalf("stderr = %q, want the daemon's reason", stderr.String())
+				}
+
+				return
+			}
+
+			var envelope struct {
+				OK    bool `json:"ok"`
+				Error struct {
+					Type    string `json:"type"`
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+
+			if err := json.Unmarshal([]byte(stderr.String()), &envelope); err != nil {
+				t.Fatalf("json.Unmarshal(%q) = %v, want one JSON error envelope", stderr.String(), err)
+			}
+
+			if envelope.OK || envelope.Error.Type != "docker_failed" || envelope.Error.Message != reason {
+				t.Fatalf("envelope = %+v, want ok=false, docker_failed and the daemon's reason", envelope)
+			}
+		})
+	}
+}

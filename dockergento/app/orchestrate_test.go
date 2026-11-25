@@ -835,6 +835,35 @@ func TestWithNothingRunningNobodyIsAsked(t *testing.T) {
 	}
 }
 
+// A daemon that cannot be reached is not a machine with nothing running: the failure comes back as
+// the error, nobody is asked, nothing is stopped and nothing claims there was nothing to stop.
+func TestAnUnreachableDaemonIsAnErrorNotNothingRunning(t *testing.T) {
+	unreachable := errors.New("Cannot connect to the Docker daemon at unix:///nonexistent")
+	fakeEngine := &engine{err: unreachable}
+	asked := &asker{answer: "y"}
+	announced := []string{}
+
+	operator := Operator{
+		Engine:   fakeEngine,
+		Ask:      asked.Ask,
+		Announce: func(message string) { announced = append(announced, message) },
+	}
+
+	result, err := operator.StopEverything(core.Project{Name: "shop"}, true)
+	if !errors.Is(err, unreachable) {
+		t.Fatalf("StopEverything = %v, want the daemon's error", err)
+	}
+
+	if result != (core.MachineStop{}) {
+		t.Fatalf("result = %+v, want nothing found and nothing stopped", result)
+	}
+
+	if fakeEngine.stopped != nil || len(asked.questions) != 0 || len(announced) != 0 {
+		t.Fatalf("stopped = %v, asked = %v, announced = %v; want none of them",
+			fakeEngine.stopped, asked.questions, announced)
+	}
+}
+
 // TestAnOperatorWithoutAProxyRefusesInsteadOfPanicking: the shell fallback that once stood behind
 // a missing proxy is gone, so an Operator built without one says so rather than panicking.
 func TestAnOperatorWithoutAProxyRefusesInsteadOfPanicking(t *testing.T) {
