@@ -25,16 +25,12 @@ func runningContainer(engine ports.ContainerEngine, project core.Project, servic
 		return core.Container{}, err
 	}
 
+	// Every match is looked at: an orphaned stopped container listed before the live one is not
+	// a reason to refuse while the live one is right there
 	for _, candidate := range containers {
-		if candidate.Key() != project.Name || candidate.ComposeService != service {
-			continue
+		if candidate.Key() == project.Name && candidate.ComposeService == service && candidate.Running {
+			return candidate, nil
 		}
-
-		if !candidate.Running {
-			break
-		}
-
-		return candidate, nil
 	}
 
 	return core.Container{}, core.Refusal{
