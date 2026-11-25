@@ -200,11 +200,13 @@ func TestCopyingIntoAStoppedContainerIsStillRefused(t *testing.T) {
 	transfer.Engine = &engine{containers: []core.Container{
 		{ID: "php1", Project: "tienda", ComposeService: "phpfpm", Running: false},
 	}}
+	transfer.Binary = "hm"
 
 	err := transfer.Into(project, []string{"vendor"}, "app:app")
 
 	var refused core.Refusal
-	if !errors.As(err, &refused) || refused.Kind != "service_not_running" || refused.Code != 5 {
+	if !errors.As(err, &refused) || refused.Kind != "service_not_running" || refused.Code != 5 ||
+		refused.Message != "Service 'phpfpm' is not running" || refused.Hint != "hm start phpfpm" {
 		t.Fatalf("Into a stopped container = %#v, want the service_not_running refusal", err)
 	}
 
@@ -490,7 +492,8 @@ func TestCopyingOutPrefersTheRunningContainer(t *testing.T) {
 	}
 }
 
-// With no php container at all, the refusal says it is not there rather than that it is stopped.
+// With no php container at all, the refusal says it is not there rather than that it is stopped:
+// the shared resolution's answer, which names the service like every other.
 func TestCopyingOutOfNoContainerSaysItIsNotThere(t *testing.T) {
 	transfer, project := transferencia(t, &runner{}, &runner{})
 	transfer.Engine = &engine{}
@@ -500,7 +503,7 @@ func TestCopyingOutOfNoContainerSaysItIsNotThere(t *testing.T) {
 
 	var refused core.Refusal
 	if !errors.As(err, &refused) || refused.Code != 5 ||
-		refused.Message != "This project has no php container" || refused.Hint != "hm start" {
+		refused.Message != "This project has no phpfpm container" || refused.Hint != "hm start phpfpm" {
 		t.Fatalf("From with no container = %#v, want the refusal saying there is none", err)
 	}
 }

@@ -41,3 +41,66 @@ func TestOnlyStoppedContainersAreStillRefused(t *testing.T) {
 	}
 }
 
+// Where stopped is enough — reading a container's filesystem — a running one is still preferred,
+// a stopped one is taken when it is all there is, and none at all says so.
+func TestAContainerThatMayBeStopped(t *testing.T) {
+	tests := []struct {
+		name        string
+		containers  []core.Container
+		wantID      string
+		wantRunning bool
+		wantMessage string
+	}{
+		{
+			name: "a running one wins over a stopped one listed first",
+			containers: []core.Container{
+				{ID: "old", Project: "tienda", ComposeService: "phpfpm"},
+				{ID: "live", Project: "tienda", ComposeService: "phpfpm", Running: true},
+			},
+			wantID: "live", wantRunning: true,
+		},
+		{
+			name:       "a stopped one when it is all there is",
+			containers: []core.Container{{ID: "old", Project: "tienda", ComposeService: "phpfpm"}},
+			wantID:     "old",
+		},
+		{
+			name:        "none at all",
+			containers:  []core.Container{{ID: "db1", Project: "tienda", ComposeService: "db", Running: true}},
+			wantMessage: "This project has no phpfpm container",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			found, err := anyContainer(&engine{containers: tt.containers}, core.Project{Name: "tienda"}, "phpfpm", "hm")
+
+			if tt.wantMessage != "" {
+				var refused core.Refusal
+				if !errors.As(err, &refused) || refused.Kind != "service_not_running" || refused.Code != 5 ||
+					refused.Message != tt.wantMessage || refused.Hint != "hm start phpfpm" {
+					t.Fatalf("anyContainer = %#v, want the refusal saying there is none", err)
+				}
+
+				return
+			}
+
+			if err != nil || found.ID != tt.wantID || found.Running != tt.wantRunning {
+				t.Fatalf("anyContainer = %+v, %v; want %s (running %v)", found, err, tt.wantID, tt.wantRunning)
+			}
+		})
+	}
+}
+
+// The engine's own error is passed on, not turned into a refusal.
+func TestAnEngineErrorIsPassedOn(t *testing.T) {
+	broken := errors.New("cannot connect to the docker daemon")
+
+	if _, err := resolveContainer(&engine{err: broken}, core.Project{Name: "tienda"}, "db", "hm"); !errors.Is(err, broken) {
+		t.Fatalf("resolveContainer = %v, want the engine's error", err)
+	}
+
+	if _, err := anyContainer(&engine{err: broken}, core.Project{Name: "tienda"}, "db", "hm"); !errors.Is(err, broken) {
+		t.Fatalf("anyContainer = %v, want the engine's error", err)
+	}
+}

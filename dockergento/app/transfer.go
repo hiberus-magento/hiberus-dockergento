@@ -118,10 +118,12 @@ func (t Transfer) From(project core.Project, paths []string) error {
 	// Stopped is enough: copying out is a read of the container's filesystem, which the daemon
 	// serves either way, and Composer's macOS dance stops phpfpm on purpose before this copy so
 	// that nothing writes to the tree while it is read
-	container, running, err := t.phpFound(project, false)
+	found, err := anyContainer(t.Engine, project, phpService, t.Binary)
 	if err != nil {
 		return err
 	}
+
+	container, running := found.ID, found.Running
 
 	for _, one := range paths {
 		one = strings.TrimSuffix(one, "/")
@@ -303,63 +305,10 @@ func (t Transfer) boundAt(container, target string) string {
 	return ""
 }
 
-// container is this project's php container, refusing when it is not running.
+// container is this project's php container, refusing when it is not running: copying in ends
+// with a chown run inside it.
 func (t Transfer) container(project core.Project) (string, error) {
-	return t.phpContainer(project, true)
-}
-
-// phpContainer is this project's php container; when running is asked for, one that exists but
-// is stopped is refused as well.
-func (t Transfer) phpContainer(project core.Project, running bool) (string, error) {
-	id, _, err := t.phpFound(project, running)
-
-	return id, err
-}
-
-// phpFound is phpContainer, also saying whether the container it found is running.
-func (t Transfer) phpFound(project core.Project, running bool) (string, bool, error) {
-	containers, err := t.Engine.Containers()
-	if err != nil {
-		return "", false, err
-	}
-
-	// A running one wins; a stopped one is taken only when stopped is enough and there is no
-	// running one, which keeps an orphaned stopped phpfpm from being read instead of the live one
-	stopped := ""
-
-	for _, candidate := range containers {
-		if candidate.Key() != project.Name || candidate.ComposeService != phpService {
-			continue
-		}
-
-		if candidate.Running {
-			return candidate.ID, true, nil
-		}
-
-		if stopped == "" {
-			stopped = candidate.ID
-		}
-	}
-
-	if stopped != "" && !running {
-		return stopped, false, nil
-	}
-
-	if stopped == "" && !running {
-		return "", false, core.Refusal{
-			Kind:    "service_not_running",
-			Code:    5,
-			Message: "This project has no php container",
-			Hint:    t.Binary + " start",
-		}
-	}
-
-	return "", false, core.Refusal{
-		Kind:    "service_not_running",
-		Code:    5,
-		Message: "The php container of this project is not running",
-		Hint:    t.Binary + " start",
-	}
+	return resolveContainer(t.Engine, project, phpService, t.Binary)
 }
 
 func (t Transfer) workdir() string {

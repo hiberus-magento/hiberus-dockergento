@@ -44,7 +44,6 @@ en `.specify/memory/constitution.md` (2.0.0).
 
 | Defecto | Dónde | Por qué importa |
 |---|---|---|
-| Tercera copia de la resolución servicio→contenedor, con mensaje distinto | `dockergento/app/transfer.go` (`container`) | Converger cambia un mensaje al usuario: es decisión, no refactor |
 | `architecture/` puede describir comportamiento que el código no tiene | `architecture/*.md` | Ningún test vigila la documentación; §5.8.1 estuvo mal tres ciclos. Reescrita para 2.0 el 2026-11-20 (sin fragmentos del shell), pero sigue sin nada que la compruebe |
 | `go_database_test.sh` con la base de datos parada sólo mira el código y `ok: false` | `tests/integration/go_database_test.sh` | La comparación con el shell cubría también el tipo de error; afirmarlo exige ver la negativa con daemon |
 | `hm stop -t 5` toma `-t` y `5` por servicios | `internal/cli/orchestrate.go` (`stop`) | `stop.sh` pasaba las opciones a `docker compose stop`; el port no. `restart` las niega con 2: decidir entre pasarlas o negarlas |
@@ -58,7 +57,7 @@ argumento desconocido; `toolinfo` no casa nada con un nombre vacío; `setup -u` 
 `install`; las suites usan su propio HOME y caché. El contador de métodos de `engine.go` nunca
 existió. Commits de `814d2ca` a `7929f29`.
 
-Cerrados el 2026-11-25 (T8): el antiguo `config/docker/properties` se convierte una vez en `properties.json` y queda como `properties.bak`; `hm _registry` retirado; `setup --force` regenera los compose como `-f`; `clean` lista los volúmenes de un entorno de rama muerto bajo ese entorno.
+Cerrados el 2026-11-25 (T8): el antiguo `config/docker/properties` se convierte una vez en `properties.json` y queda como `properties.bak`; `hm _registry` retirado; `setup --force` regenera los compose como `-f`; `clean` lista los volúmenes de un entorno de rama muerto bajo ese entorno; `transfer.go` usa la resolución servicio→contenedor compartida (que ya no niega un contenedor vivo listado tras uno parado).
 
 Ya no aplican (retiradas el 2026-11-25): `docker-stop-all` no interactivo (corregido en `a4927e6`),
 `update` sin Go (`update` descarga releases), la restauración de `config.php` de `install` (ya da
