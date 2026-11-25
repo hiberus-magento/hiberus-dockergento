@@ -67,7 +67,9 @@ the sentence was read. In a script, `hm --yes db restore <name>` skips the quest
 
 `hm db restore <name> --dry-run` says which database would be replaced and by which copy (its size
 and when it was taken), asks nothing and restores nothing. It refuses a copy that is not there
-exactly as the restore would, and reads the database's name from the running `db` container. With
+exactly as the restore would, and reads the database's name from the running `db` container; when
+that container gives no name, the preview is refused (`no_database_name`) instead of listing an
+empty one. With
 `--json` the database is `would_remove.databases` and the copy is `snapshot`, in the envelope every
 `--dry-run` shares (see [JSON output](json.md#previews-with---dry-run)).
 
