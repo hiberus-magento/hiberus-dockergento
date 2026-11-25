@@ -7,7 +7,7 @@
                 "name": {
                     "long": "platforms"
                 },
-                "description": "Comma-separated list of AI platforms (claude, cursor, codex, copilot, gemini, opencode)"
+                "description": "Comma-separated list of AI platforms (claude, cursor, codex, copilot, gemini, opencode, generic)"
             },
             {
                 "name": {

@@ -63,6 +63,24 @@ func (d AIDoctor) Report() (core.AIDoctorReport, error) {
 		}
 	}
 
+	// What an earlier version installed where a platform no longer looks, whether or not the
+	// project still asks for that platform: it is the tool's, and nothing reads it
+	for _, kind := range []string{"skills", "agents"} {
+		for _, legacy := range catalog.LegacyDirectories(kind) {
+			for _, tracked := range registration.Tracked(kind) {
+				if filepath.Dir(tracked) != filepath.Clean(legacy.Directory) || !exists(d.fromDir(tracked)) {
+					continue
+				}
+
+				recorded, _ := registration.Entry(kind, d.fromDir(tracked), tracked)
+				report.Resources = append(report.Resources, core.AIResource{
+					Platform: legacy.Platform, Kind: kind, Name: filepath.Base(tracked), State: core.AIStateLegacy,
+					Origin: recorded.Origin, Version: recorded.Version, Installed: recorded.Installed,
+				})
+			}
+		}
+	}
+
 	for _, tracked := range registration.Tracked("skills") {
 		if exists(d.fromDir(tracked)) {
 			continue

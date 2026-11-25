@@ -3,7 +3,7 @@
 	 hm ai-init --platforms=claude,cursor --types=hyva,magento --resources=skills,agents
 [0m[0;32mDescription:[0m Initialize AI tools configuration (skills/agents) via interactive wizard
 [0;32mOptions:
-[0m   [0;33m[-|--platforms] [0m Comma-separated list of AI platforms (claude, cursor, codex, copilot, gemini, opencode)
+[0m   [0;33m[-|--platforms] [0m Comma-separated list of AI platforms (claude, cursor, codex, copilot, gemini, opencode, generic)
    [0;33m[-|--types]     [0m Comma-separated list of skill types (hyva, acs, magento, php)
    [0;33m[-|--resources] [0m Resource types to download (skills, agents, or both)
    [0;33m[-|--repository][0m Custom repository URL to include

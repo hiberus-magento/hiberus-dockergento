@@ -13,10 +13,11 @@
       "agents_dir": ".cursor/agents"
     },
     "codex": {
-      "name": "GitHub Codex",
-      "description": "GitHub Codex",
-      "skills_dir": ".codex/skills",
-      "agents_dir": ".codex/agents"
+      "name": "OpenAI Codex",
+      "description": "OpenAI Codex (CLI, IDE, app)",
+      "skills_dir": ".agents/skills",
+      "agents_dir": ".codex/agents",
+      "legacy_skills_dirs": [".codex/skills"]
     },
     "copilot": {
       "name": "GitHub Copilot",
@@ -35,6 +36,11 @@
       "description": "OpenCode AI",
       "skills_dir": ".opencode/skills",
       "agents_dir": ".opencode/agents"
+    },
+    "generic": {
+      "name": "Any agent reading .agents/skills",
+      "description": "Any agent that reads .agents/skills (Codex, OpenCode and others)",
+      "skills_dir": ".agents/skills"
     }
   }
 }

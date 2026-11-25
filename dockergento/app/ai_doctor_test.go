@@ -171,6 +171,38 @@ func TestTheRegistrationIsReadFromWhereTheCommandRuns(t *testing.T) {
 	}
 }
 
+// TestTheDoctorReportsWhatAPlatformNoLongerReads: a skill an earlier version installed in a
+// directory the platform no longer reads is legacy, whether or not the project still asks for that
+// platform; what somebody else put there is not the tool's, and not reported.
+func TestTheDoctorReportsWhatAPlatformNoLongerReads(t *testing.T) {
+	project, tool := t.TempDir(), t.TempDir()
+
+	plant(t, filepath.Join(tool, "data", "ai-platforms.json"), `{"platforms": {
+		"claude": {"skills_dir": ".claude/skills"},
+		"codex": {"name": "OpenAI Codex", "skills_dir": ".agents/skills", "legacy_skills_dirs": [".codex/skills"]}
+	}}`)
+	plant(t, filepath.Join(project, core.AIPropertiesFile), `{"platforms": ["claude"]}`)
+	plant(t, filepath.Join(project, ".codex", "skills", "environment", "SKILL.md"), "environment\n")
+	plant(t, filepath.Join(project, ".codex", "skills", "mine", "SKILL.md"), "mine\n")
+	plant(t, filepath.Join(project, core.AIRegistrationFile), `{"skills": {
+		".codex/skills/environment": {"checksum": "x", "origin": "dockergento", "version": "1.5.0",
+			"installed": "2026-01-02 03:04:05"}
+	}}`)
+
+	report, err := AIDoctor{Root: project, Dir: project, Tool: os.DirFS(tool)}.Report()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := core.AIDoctorReport{Configured: true, Resources: []core.AIResource{
+		resource("codex", "skills", "environment", "legacy", "dockergento", "1.5.0", "2026-01-02"),
+	}}
+
+	if diff := cmp.Diff(want, report); diff != "" {
+		t.Errorf("report (-want +got):\n%s", diff)
+	}
+}
+
 // resource is one row of the report, in the order the script printed its columns.
 func resource(platform, kind, name, state, origin, version, installed string) core.AIResource {
 	return core.AIResource{

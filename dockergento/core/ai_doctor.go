@@ -39,6 +39,8 @@ const (
 	AIStateOutdated = "outdated"
 	// AIStateMissing is tracked, and no longer there.
 	AIStateMissing = "missing"
+	// AIStateLegacy was installed where its platform no longer reads it.
+	AIStateLegacy = "legacy"
 )
 
 // AIResource is one installed skill or agent, as ai-doctor reports it. A field with nothing to say
@@ -219,6 +221,41 @@ func (c AIPlatformCatalog) Directories(kind string) []string {
 	}
 
 	return directories
+}
+
+// AILegacyDirectory is a directory a platform kept a kind in under an earlier version of the
+// tool, and no longer reads: what was installed there is still the tool's, to report and remove.
+type AILegacyDirectory struct {
+	Platform  string
+	Name      string
+	Directory string
+}
+
+// LegacyDirectories is every legacy directory of a kind (`legacy_<kind>_dirs`), by platform.
+func (c AIPlatformCatalog) LegacyDirectories(kind string) []AILegacyDirectory {
+	var legacy []AILegacyDirectory
+
+	for platform, fields := range c.platforms {
+		directories, _ := fields["legacy_"+kind+"_dirs"].([]any)
+
+		for _, value := range directories {
+			if directory, ok := value.(string); ok && directory != "" {
+				legacy = append(legacy, AILegacyDirectory{
+					Platform: platform, Name: jqText(fields["name"], platform), Directory: directory,
+				})
+			}
+		}
+	}
+
+	sort.Slice(legacy, func(i, j int) bool {
+		if legacy[i].Platform != legacy[j].Platform {
+			return legacy[i].Platform < legacy[j].Platform
+		}
+
+		return legacy[i].Directory < legacy[j].Directory
+	})
+
+	return legacy
 }
 
 // present is what jq's `//` keeps: anything but null and false.

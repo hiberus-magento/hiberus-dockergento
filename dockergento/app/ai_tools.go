@@ -328,6 +328,73 @@ func (a *AITools) catalog() core.AIPlatformCatalog {
 	return core.ReadAIPlatformCatalog(contents)
 }
 
+// legacy is what the registration says the tool installed in a directory a platform no longer
+// reads, and that is still there, by directory in the catalog's order.
+func (a *AITools) legacy() ([]core.AILegacyDirectory, map[string][]string) {
+	registration, ok := a.registration()
+	if !ok {
+		return nil, nil
+	}
+
+	catalog := a.catalog()
+
+	var directories []core.AILegacyDirectory
+
+	found := map[string][]string{}
+
+	for _, kind := range []string{"skills", "agents"} {
+		value, _ := registration.Get(kind)
+		entries, _ := value.(*core.AIObject)
+
+		keys := entries.Keys()
+		sort.Strings(keys)
+
+		for _, directory := range catalog.LegacyDirectories(kind) {
+			for _, path := range keys {
+				if filepath.Dir(path) != filepath.Clean(directory.Directory) {
+					continue
+				}
+
+				if _, err := os.Lstat(a.path(path)); err != nil {
+					continue
+				}
+
+				if _, seen := found[directory.Directory]; !seen {
+					directories = append(directories, directory)
+				}
+
+				found[directory.Directory] = append(found[directory.Directory], path)
+			}
+		}
+	}
+
+	return directories, found
+}
+
+// reportLegacy says what an earlier version of the tool left where a platform no longer looks, and
+// the command that cleans it. Nothing is removed here: what is reported may be somebody's to keep.
+func (a *AITools) reportLegacy(how int) {
+	directories, found := a.legacy()
+
+	end := ""
+	if how != AILine {
+		end = "\n"
+	}
+
+	for _, directory := range directories {
+		paths := found[directory.Directory]
+
+		a.Console.Say(AIWarning, fmt.Sprintf("%s no longer reads %s: %d item(s) an earlier %s installed there are not seen by it",
+			directory.Name, directory.Directory, len(paths), a.Binary)+end, how)
+
+		for _, path := range paths {
+			a.Console.Say(AIWarning, "  "+path+end, how)
+		}
+
+		a.Console.Say(AIWarning, fmt.Sprintf("  Clean them up with: %s ai-reset && %s ai-pull", a.Binary, a.Binary)+end, how)
+	}
+}
+
 // repositories is resolve_repositories: the default ones and the configuration's own after them.
 // file is a list on disk; empty is the tool's own data/ai-repositories.json.
 func (a *AITools) repositories(file string, config any) ([]any, bool) {

@@ -207,7 +207,7 @@ func mustGet(object *core.AIObject, key string) any {
 }
 
 // removable is whether a registered path is one ai-reset may remove: an entry directly inside the
-// project's own directory for that kind on some platform of the catalog, reached without leaving
+// project's own directory for that kind on some platform of the catalog, or a legacy one, reached without leaving
 // the project through a link on the way there. The entry itself may be a link: that is removed,
 // not what it points at.
 func (a *AITools) removable(kind, path string) bool {
@@ -222,7 +222,15 @@ func (a *AITools) removable(kind, path string) bool {
 
 	known := false
 
-	for _, candidate := range a.catalog().Directories(kind) {
+	catalog := a.catalog()
+
+	// What an earlier version put where a platform no longer looks is still the tool's to remove
+	candidates := catalog.Directories(kind)
+	for _, legacy := range catalog.LegacyDirectories(kind) {
+		candidates = append(candidates, legacy.Directory)
+	}
+
+	for _, candidate := range candidates {
 		if filepath.Clean(candidate) == directory {
 			known = true
 

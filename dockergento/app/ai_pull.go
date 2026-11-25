@@ -85,6 +85,8 @@ func (a *AITools) Pull(force bool) int {
 		a.Console.Say(AIWarning, "Some operations failed, but continuing...", AILine)
 	}
 
+	a.reportLegacy(AILine)
+
 	a.Console.Stderr("\n")
 	a.say(AIInfo, "AI tools update complete!")
 	a.Console.Stderr("\n")

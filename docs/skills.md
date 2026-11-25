@@ -62,6 +62,38 @@ They are installed regardless of the skill types configured, because they descri
 used rather than a technology somebody chose. Everything else is unchanged: the same platforms,
 the same registration file, and a skill you wrote yourself is never overwritten without `--force`.
 
+## Where each platform reads them
+
+| Platform | `--platforms=` | Skills go to |
+|---|---|---|
+| Claude Code | `claude` | `.claude/skills` |
+| Cursor | `cursor` | `.cursor/skills` |
+| OpenAI Codex | `codex` | `.agents/skills` |
+| GitHub Copilot | `copilot` | `.github/skills` |
+| Google Gemini | `gemini` | `.gemini/skills` |
+| OpenCode | `opencode` | `.opencode/skills` |
+| Any agent that reads `.agents/skills` | `generic` | `.agents/skills` |
+
+Codex reads `.agents/skills` in every directory from where it runs up to the repository root, and
+`~/.agents/skills` ([Codex skills](https://learn.chatgpt.com/docs/build-skills.md)). It never read
+`.codex/skills`, which is where earlier versions of hm installed them — labelled "GitHub Codex", on
+top. OpenCode reads `.agents/skills` as well as its own `.opencode/skills`
+([OpenCode skills](https://opencode.ai/docs/skills)), and so do other agents: `generic` is for
+them. `codex` and `generic` share the directory, so either one is enough.
+
+### What an earlier hm left in `.codex/skills`
+
+It is reported, never deleted. `hm ai-init`, `hm ai-pull` and `hm ai-doctor` list every skill the
+registration says hm installed there and that is still there, with the command that cleans it:
+
+```bash
+hm ai-reset && hm ai-pull
+```
+
+`hm ai-reset` removes what hm installed — in `.codex/skills` too — and nothing else; `hm ai-pull`
+installs it again where Codex reads it. A skill of your own in `.codex/skills` is not touched by
+either: move it to `.agents/skills` if you want Codex to see it.
+
 ## Knowing what you have
 
 ```bash
@@ -69,7 +101,7 @@ hm ai-doctor
 ```
 
 Lists every skill and agent installed in this project, where it came from, and which of five
-states it is in:
+states it is in, plus the one for what a platform no longer reads:
 
 | State | Means |
 |---|---|
@@ -78,6 +110,7 @@ states it is in:
 | `modified` | Changed since installation — **the next pull overwrites it** |
 | `custom` | The tool never installed it. It is yours, and it is safe |
 | `missing` | Tracked, and no longer there |
+| `legacy` | Installed where its platform no longer reads it, such as `.codex/skills` — see above |
 
 `modified` is the state worth knowing about. `hm ai-pull` keeps its promise to preserve custom
 skills by leaving alone what it did not install — so a skill somebody improved *in place*, without

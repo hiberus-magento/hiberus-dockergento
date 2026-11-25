@@ -61,7 +61,7 @@ func aiDoctor(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	fmt.Fprint(stdout, paint("\033[1m", "AI tooling in this project\n\n"))
 	fmt.Fprintf(stdout, "  %-10s %-30s %-9s %-24s %s\n", "PLATFORM", "NAME", "STATE", "FROM", "INSTALLED")
 
-	outdated, modified := 0, 0
+	outdated, modified, legacy := 0, 0, 0
 
 	for _, resource := range report.Resources {
 		from := resource.Origin
@@ -83,6 +83,10 @@ func aiDoctor(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		if strings.Contains(row, core.AIStateModified) {
 			modified++
 		}
+
+		if resource.State == core.AIStateLegacy {
+			legacy++
+		}
 	}
 
 	fmt.Fprint(stdout, "\n")
@@ -96,6 +100,11 @@ func aiDoctor(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		fmt.Fprint(stderr, warning(fmt.Sprintf("%d changed since they were installed", modified))+"\n")
 		fmt.Fprint(stdout, code(reset)+"  Those edits are lost on the next "+binaryName()+" ai-pull.\n")
 		fmt.Fprint(stdout, code(reset)+"  Rename them to keep them: what the tool did not install, it does not touch.\n")
+	}
+
+	if legacy > 0 {
+		fmt.Fprint(stderr, warning(fmt.Sprintf("%d installed where its platform no longer reads them", legacy))+"\n")
+		fmt.Fprint(stdout, code(reset)+"  "+binaryName()+" ai-reset && "+binaryName()+" ai-pull\n")
 	}
 
 	fmt.Fprint(stdout, "\n")

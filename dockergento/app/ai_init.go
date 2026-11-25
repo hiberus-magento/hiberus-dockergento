@@ -99,6 +99,7 @@ func (a *AITools) Init(options AIInitOptions, interactive bool) int {
 
 	a.Console.Say(AIInfo, "Starting download and installation...\n", AIDecorated)
 	a.initAll(repositories, platforms, types, resources)
+	a.reportLegacy(AIDecorated)
 
 	a.Console.Stdout("\n")
 	a.Console.Say(AIInfo, "AI tools initialization complete!\n", AIDecorated)

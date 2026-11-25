@@ -93,7 +93,7 @@ const aiInitUsage = `Usage: hm ai-init [OPTIONS]
 Initialize AI tools configuration via interactive wizard and download skills/agents.
 
 Options:
-  --platforms=<list>    Comma-separated AI platforms (claude,cursor,codex,copilot,gemini,opencode)
+  --platforms=<list>    Comma-separated AI platforms (claude,cursor,codex,copilot,gemini,opencode,generic)
   --types=<list>        Comma-separated skill types (hyva,acs,magento,php)
   --resources=<list>    Resource types to download (skills,agents,both)
   --repository=<url>    Custom repository URL (HTTPS only)
@@ -154,8 +154,9 @@ Behavior:
 
 Safety:
   - Whitelist-based approach: only registered files can be deleted
-  - Only entries directly inside a platform's skills/agents directory in the project are deleted;
-    any other registered path is refused and reported
+  - Only entries directly inside a platform's skills/agents directory in the project are deleted
+    (or one it used to have, such as .codex/skills); any other registered path is refused and
+    reported
   - Shows list of files to be deleted and asks for confirmation
   - Refuses to operate if registration file is corrupted
 

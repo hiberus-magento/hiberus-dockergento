@@ -15,6 +15,29 @@ import (
 // words, columns and streams of console/commands/ai-doctor.sh.
 //
 
+// TestAIDoctorSaysHowToCleanALegacyInstall: what a platform no longer reads is reported with the
+// command that cleans it, and nothing is removed.
+func TestAIDoctorSaysHowToCleanALegacyInstall(t *testing.T) {
+	fake := answering(t)
+	fake.aiDoctor = core.AIDoctorReport{Configured: true, Resources: []core.AIResource{
+		resource("codex", "skills", "dockergento-environment", "legacy", "dockergento", "1.5.0", "2026-01-02"),
+	}}
+	t.Setenv("NO_COLOR", "1")
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--no-json", "ai-doctor"}, &stdout, &stderr); code != exitOK {
+		t.Fatalf("ai-doctor = %d", code)
+	}
+
+	if want := "1 installed where its platform no longer reads them\n"; stderr.String() != want {
+		t.Errorf("stderr = %q, want %q", stderr.String(), want)
+	}
+
+	if want := "  hm ai-reset && hm ai-pull\n"; !bytes.Contains(stdout.Bytes(), []byte(want)) {
+		t.Errorf("stdout lacks %q:\n%s", want, stdout.String())
+	}
+}
+
 func doctorReport() core.AIDoctorReport {
 	return core.AIDoctorReport{Configured: true, Resources: []core.AIResource{
 		resource("claude", "skills", "magento-expert", "current", "hiberus", "1.2.0", "2026-11-19"),
