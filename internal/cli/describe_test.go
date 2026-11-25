@@ -2,7 +2,6 @@ package cli
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"os"
 	"strings"
@@ -401,25 +400,24 @@ func TestWhatDescribePrintsAsText(t *testing.T) {
 	})
 }
 
-// TestDescribeReportsAnUnresolvableProject is what a failed Describe becomes: exitProject and
-// project_not_configured, with the engine's own reason interpolated rather than swallowed
-// (describe.go:27-29), and a hint that names a real invocation — the unit-2 half of unit 0's
-// knowing exception: describe.go:29's corrected hint shipped there and is only proved here,
-// because reaching this branch needs the fake.
+// TestDescribeReportsAnUnresolvableProject: a directory that is not a configured project is
+// refused by the engine as project_not_configured, and describe passes that refusal on as it is —
+// its code, its message with the engine's own reason, and a hint naming the binary as invoked.
 func TestDescribeReportsAnUnresolvableProject(t *testing.T) {
 	cases := []struct {
 		name       string
 		binaryName string
-		wantHint   string
 	}{
-		{"default binary", "hm", "hm setup"},
-		{"a renamed binary", "hd", "hd setup"},
+		{"default binary", "hm"},
+		{"a renamed binary", "hd"},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			fake := answering(t)
-			fake.outcomes = []outcome{{err: errors.New("compose file is invalid")}}
+			fake.outcomes = []outcome{{err: core.Refusal{Kind: "project_not_configured", Code: 4,
+				Message: "This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid: compose file is invalid",
+				Hint:    tt.binaryName + " setup"}}}
 			t.Setenv("COMMAND_BIN_NAME", tt.binaryName)
 
 			stderr := &strings.Builder{}
@@ -430,29 +428,9 @@ func TestDescribeReportsAnUnresolvableProject(t *testing.T) {
 				t.Fatalf("describe = %d, want exitProject", code)
 			}
 
-			var envelope struct {
-				Error struct {
-					Type    string `json:"type"`
-					Message string `json:"message"`
-					Hint    string `json:"hint"`
-				} `json:"error"`
-			}
-
-			if err := json.Unmarshal([]byte(stderr.String()), &envelope); err != nil {
-				t.Fatalf("json.Unmarshal(%q) = %v, want valid JSON", stderr.String(), err)
-			}
-
-			if envelope.Error.Type != "project_not_configured" {
-				t.Fatalf("describe error.type = %q, want %q", envelope.Error.Type, "project_not_configured")
-			}
-
-			if !strings.Contains(envelope.Error.Message, "compose file is invalid") {
-				t.Fatalf("describe error.message = %q, want it to contain the engine's own error text", envelope.Error.Message)
-			}
-
-			if envelope.Error.Hint != tt.wantHint {
-				t.Fatalf("describe error.hint = %q, want %q", envelope.Error.Hint, tt.wantHint)
-			}
+			assertError(t, stderr.String(), "project_not_configured",
+				"This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid: compose file is invalid",
+				tt.binaryName+" setup")
 		})
 	}
 }

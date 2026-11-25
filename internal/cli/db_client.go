@@ -59,14 +59,9 @@ func dbClient(client string, args []string, stdout, stderr io.Writer, jsonOutput
 
 	description, err := newEngine(stdout, stderr, jsonOutput).Describe(here(), true)
 	if err != nil {
-		var refused core.Refusal
-		if asRefusal(err, &refused) {
-			return report(stderr, jsonOutput, client, err)
-		}
-
-		return failure(stderr, jsonOutput, client, exitProject, "project_not_configured",
-			fmt.Sprintf("This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid: %s", err),
-			binaryName()+" setup")
+		// As describe answers it: a refusal as the engine gave it, and anything else as the
+		// failure it is, never as a project that is not configured
+		return report(stderr, jsonOutput, client, err)
 	}
 
 	if !serviceRunning(description, "db") {

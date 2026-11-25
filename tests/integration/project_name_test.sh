@@ -77,8 +77,8 @@ make_project "$LAB/otro-directorio" '{"MAGENTO_DIR": ".", "COMPOSE_PROJECT_NAME"
 assert_equals "hmnametest" "$(hm_name "$LAB/otro-directorio")"
 
 # A project command is the window onto the refusal bin/run raised for every command
-# (no_project_name): describe answers any unresolvable project with the generic
-# project_not_configured, which would let this case pass for an unrelated reason.
+# (no_project_name). The binary's own commands give the same refusal now, describe among them,
+# but a project command is checked by its own code, so this case still proves that path.
 test_case "a directory with no usable name is refused, not passed to Compose"
 make_project "$LAB/___"
 mkdir -p "$LAB/___/config/hm/commands"

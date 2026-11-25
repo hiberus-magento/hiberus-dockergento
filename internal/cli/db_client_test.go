@@ -358,3 +358,49 @@ func TestTheRouterAnswersForTheDatabaseLaunchers(t *testing.T) {
 		})
 	}
 }
+
+// TestWhatAFailedDescribeBecomes: describe and the three launchers ask the same question, and
+// answer its failure the same way. A refusal is passed on as the engine gave it; anything else is
+// not a configuration problem — a daemon that cannot be reached is a Docker failure, said as one.
+func TestWhatAFailedDescribeBecomes(t *testing.T) {
+	refused := core.Refusal{Kind: "no_project_name", Code: 4,
+		Message: "No project name can be derived from ___", Hint: "Rename the directory"}
+
+	for _, command := range []string{"describe", "dbeaver", "sequelace", "tableplus"} {
+		t.Run(command+" refused", func(t *testing.T) {
+			fake := answering(t)
+			fake.outcomes = []outcome{{err: refused}}
+
+			var stdout, stderr bytes.Buffer
+			if code := Run([]string{"--json", command}, &stdout, &stderr); code != 4 {
+				t.Fatalf("%s = %d, want the refusal's own 4", command, code)
+			}
+
+			if stdout.Len() != 0 {
+				t.Errorf("stdout = %q, want nothing", stdout.String())
+			}
+
+			assertError(t, stderr.String(), refused.Kind, refused.Message, refused.Hint)
+		})
+
+		t.Run(command+" unreachable", func(t *testing.T) {
+			fake := answering(t)
+			fake.outcomes = []outcome{{err: errors.New("cannot connect to the Docker daemon")}}
+
+			var stdout, stderr bytes.Buffer
+			if code := Run([]string{"--json", command}, &stdout, &stderr); code != exitDocker {
+				t.Fatalf("%s = %d, want exitDocker", command, code)
+			}
+
+			if stdout.Len() != 0 {
+				t.Errorf("stdout = %q, want nothing", stdout.String())
+			}
+
+			assertError(t, stderr.String(), "docker_failed", "cannot connect to the Docker daemon", "")
+
+			if len(fake.calls) != 1 {
+				t.Errorf("asked the engine %v, want only Describe", fake.calls)
+			}
+		})
+	}
+}

@@ -50,7 +50,8 @@ they do not know. Removing or renaming a documented key bumps `schema_version`.
 |---|---|
 | `0` | Success |
 | `2` | Unknown option |
-| `4` | Not a configured Dockergento project |
+| `3` | Docker could not be reached |
+| `4` | Not a configured Dockergento project (`project_not_configured`), or one whose directory leaves no name (`no_project_name`) |
 
 ## Example
 

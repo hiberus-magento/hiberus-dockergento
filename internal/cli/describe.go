@@ -24,9 +24,9 @@ func describe(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	description, err := newEngine(stdout, stderr, jsonOutput).Describe(here(), withSecrets)
 	if err != nil {
-		return failure(stderr, jsonOutput, "describe", exitProject, "project_not_configured",
-			fmt.Sprintf("This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid: %s", err),
-			binaryName()+" setup")
+		// A directory that is not a project is the engine's refusal, passed on as it is; anything
+		// else, a daemon that cannot be reached among them, is not a configuration problem
+		return report(stderr, jsonOutput, "describe", err)
 	}
 
 	if jsonOutput {

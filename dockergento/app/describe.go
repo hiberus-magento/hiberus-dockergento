@@ -5,6 +5,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
 )
@@ -20,6 +21,9 @@ type Describer struct {
 	Tooling ports.Tooling
 	State   ports.DataState
 	Machine string
+
+	// Binary is the name the tool is invoked as, which the not-configured refusal's hint names
+	Binary string
 }
 
 // Describe builds the whole description of a project.
@@ -71,8 +75,13 @@ func (d Describer) Describe(project core.Project, files core.ComposeFiles, withS
 
 	if configErr != nil {
 		// A project whose configuration cannot be read is not a project. Saying which file and
-		// why is the difference between a fixable message and "something went wrong"
-		return core.Description{}, configErr
+		// why is the difference between a fixable message and "something went wrong". A refusal,
+		// so that the commands can tell it from a daemon that cannot be reached
+		return core.Description{}, core.Refusal{
+			Kind: "project_not_configured", Code: contract.ExitProject,
+			Message: "This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid: " + configErr.Error(),
+			Hint:    d.Binary + " setup",
+		}
 	}
 
 	if enginErr != nil {

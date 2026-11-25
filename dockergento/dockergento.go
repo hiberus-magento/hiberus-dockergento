@@ -192,6 +192,7 @@ func (e *Engine) describer(project core.Project) app.Describer {
 		Tooling: toolinfo.Reader{Root: e.options.Root, Stamped: e.options.Version, WorkdirPHP: e.Property(project, "WORKDIR_PHP")},
 		State:   toolinfo.State{Dir: e.options.StateDir},
 		Machine: Platform(),
+		Binary:  e.options.Binary,
 	}
 }
 
