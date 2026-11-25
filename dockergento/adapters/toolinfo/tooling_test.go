@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/docker/docker/api/types/container"
 )
 
 //
@@ -185,5 +187,48 @@ func TestASourceBuildPastATagIsNotRoundedDownToIt(t *testing.T) {
 	got := (Reader{Root: dir}).Version()
 	if !strings.HasPrefix(got, "2.0.0-1-g") {
 		t.Fatalf("Version = %q, want 2.0.0-1-g<hash>", got)
+	}
+}
+
+//
+// Which running container is the project's php one, for the Xdebug probe.
+//
+// The project is read from hm.project when the container has it and from the Compose label when it
+// does not, the way core.Container.Key() reads it: the source is chosen first, then compared.
+//
+
+func TestThePhpContainerIsTheProjectsByItsLabels(t *testing.T) {
+	php := func(id string, labels map[string]string) container.Summary {
+		labels["com.docker.compose.service"] = "phpfpm"
+
+		return container.Summary{ID: id, Labels: labels}
+	}
+
+	tests := []struct {
+		name       string
+		project    string
+		containers []container.Summary
+		want       string
+	}{
+		{"by its hm.project label", "tienda",
+			[]container.Summary{php("a", map[string]string{"hm.project": "tienda"})}, "a"},
+		{"by its Compose project when it has no hm.project", "tienda",
+			[]container.Summary{php("a", map[string]string{"com.docker.compose.project": "tienda"})}, "a"},
+		{"hm.project wins over the Compose project", "tienda",
+			[]container.Summary{php("a", map[string]string{"hm.project": "otra", "com.docker.compose.project": "tienda"})}, ""},
+		{"only the php service", "tienda",
+			[]container.Summary{{ID: "a", Labels: map[string]string{"hm.project": "tienda", "com.docker.compose.service": "nginx"}}}, ""},
+		{"an empty project name does not match a container without hm.project", "",
+			[]container.Summary{php("a", map[string]string{"com.docker.compose.project": "ajeno"})}, ""},
+		{"an empty project name does not match a container without any project label", "",
+			[]container.Summary{php("a", map[string]string{})}, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := phpfpmOf(tt.containers, tt.project); got != tt.want {
+				t.Fatalf("phpfpmOf(%q) = %q, want %q", tt.project, got, tt.want)
+			}
+		})
 	}
 }

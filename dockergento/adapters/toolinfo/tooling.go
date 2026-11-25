@@ -90,18 +90,7 @@ func (Reader) Xdebug(project string) string {
 		return "unknown"
 	}
 
-	id := ""
-	for _, item := range containers {
-		matches := item.Labels["hm.project"] == project ||
-			(item.Labels["hm.project"] == "" && item.Labels["com.docker.compose.project"] == project)
-
-		if matches && item.Labels["com.docker.compose.service"] == "phpfpm" {
-			id = item.ID
-
-			break
-		}
-	}
-
+	id := phpfpmOf(containers, project)
 	if id == "" {
 		return "unknown"
 	}
@@ -132,6 +121,29 @@ func (Reader) Xdebug(project string) string {
 	}
 
 	return "off"
+}
+
+// phpfpmOf is the id of the project's php container among those running, or "" when it has none.
+//
+// The label to read is chosen before comparing, as core.Container.Key() does: compared label by
+// label, an empty name matched every container that has no hm.project.
+func phpfpmOf(containers []container.Summary, project string) string {
+	if project == "" {
+		return ""
+	}
+
+	for _, item := range containers {
+		key := item.Labels["hm.project"]
+		if key == "" {
+			key = item.Labels["com.docker.compose.project"]
+		}
+
+		if key == project && item.Labels["com.docker.compose.service"] == "phpfpm" {
+			return item.ID
+		}
+	}
+
+	return ""
 }
 
 func connect() (*client.Client, error) {
