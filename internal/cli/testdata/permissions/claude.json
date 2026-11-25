@@ -40,6 +40,7 @@
       "Bash(hm setup:*)",
       "Bash(hm ssl:*)",
       "Bash(hm start:*)",
+      "Bash(hm status:*)",
       "Bash(hm stop:*)",
       "Bash(hm switch:*)",
       "Bash(hm tableplus:*)",

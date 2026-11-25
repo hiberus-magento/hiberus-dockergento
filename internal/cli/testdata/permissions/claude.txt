@@ -1,7 +1,7 @@
 
 Permissions for an agent using hm
 
-  53 command(s) allowed, 13 asking for confirmation.
+  54 command(s) allowed, 13 asking for confirmation.
 
   8 path(s) denied outright: secrets, customer data, and what is
   generated rather than written. See docs/ai-context.md.
@@ -48,6 +48,7 @@ Permissions for an agent using hm
       "Bash(hm setup:*)",
       "Bash(hm ssl:*)",
       "Bash(hm start:*)",
+      "Bash(hm status:*)",
       "Bash(hm stop:*)",
       "Bash(hm switch:*)",
       "Bash(hm tableplus:*)",

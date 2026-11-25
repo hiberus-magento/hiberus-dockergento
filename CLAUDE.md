@@ -8,7 +8,7 @@ Hiberus Dockergento is a CLI tool (`hm`) for creating and managing Docker-based 
 
 **Core Concept**: This project is a command router that translates simplified Magento 2-specific commands into operations on the dockerized services. For example, `hm magento cache:clean` runs the Magento CLI inside the PHP container through Compose, which the binary uses as a library (`dockergento/adapters/composelib`), and the Docker API (`dockergento/adapters/dockerd`).
 
-**Implementation Language**: The `cmd/hm` Go binary is the entry point; `internal/cli/run.go` answers every invocation: the 66 commands, the help (`hm`, `--help`, `<cmd> --help`), `--version`, and a project's own scripts under `config/hm/commands` (`internal/cli/project_command.go`). There is no Bash entry point any more: `bin/run` and the `console/` tree are gone, and the shell completion is printed by the binary itself (`hm completion bash|zsh`, `internal/cli/completion.go`) — `MIGRATION.md` keeps the history.
+**Implementation Language**: The `cmd/hm` Go binary is the entry point; `internal/cli/run.go` answers every invocation: the 67 commands, the help (`hm`, `--help`, `<cmd> --help`), `--version`, and a project's own scripts under `config/hm/commands` (`internal/cli/project_command.go`). There is no Bash entry point any more: `bin/run` and the `console/` tree are gone, and the shell completion is printed by the binary itself (`hm completion bash|zsh`, `internal/cli/completion.go`) — `MIGRATION.md` keeps the history.
 
 ## Architecture Documentation
 

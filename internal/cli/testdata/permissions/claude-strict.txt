@@ -19,6 +19,7 @@ Permissions for an agent using hm
       "Bash(hm logs:*)",
       "Bash(hm mcp:*)",
       "Bash(hm permissions:*)",
+      "Bash(hm status:*)",
       "Bash(hm switch:*)",
       "Bash(hm tui:*)",
       "Bash(hm verify:*)",
