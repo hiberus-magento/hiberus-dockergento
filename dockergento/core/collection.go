@@ -53,6 +53,9 @@ type AbandonedWorktree struct {
 }
 
 // Anything reports whether there is something to collect at all.
+//
+// Volumes count on their own: a dead project's frozen template outlives its containers, so it can
+// be all that is left. Hosts and the unattributable are listed and never removed, so they do not.
 func (c Collection) Anything() bool {
-	return len(c.Environments) > 0 || len(c.Worktrees) > 0
+	return len(c.Environments) > 0 || len(c.Volumes) > 0 || len(c.Worktrees) > 0
 }

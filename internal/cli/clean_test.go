@@ -181,6 +181,94 @@ func TestCleanWithNothingToCollectExitsZeroWithoutCollecting(t *testing.T) {
 	}
 }
 
+func onlyDeadTemplates() core.Collection {
+	collection := nothingToCollect()
+	collection.Volumes = []string{"hm-template-hm-clean-dead-base"}
+
+	return collection
+}
+
+// A machine left with nothing but dead templates has something to collect: --force deletes them,
+// in both formats, and the text names them instead of saying there is nothing to collect.
+func TestCleanWithForceCollectsTemplatesLeftAlone(t *testing.T) {
+	for _, jsonOutput := range []bool{false, true} {
+		t.Run(map[bool]string{false: "text", true: "json"}[jsonOutput], func(t *testing.T) {
+			t.Setenv("HM_FORCE", "")
+
+			fake := answering(t)
+			fake.outcomes = []outcome{{collection: onlyDeadTemplates()}}
+
+			var stdout, stderr bytes.Buffer
+
+			if code := clean([]string{"--force"}, &stdout, &stderr, jsonOutput); code != exitOK {
+				t.Fatalf("clean --force = %d, want exitOK; stderr = %q", code, stderr.String())
+			}
+
+			collected := onlyDeadTemplates()
+			collected.Removed = true
+
+			want := []call{{Method: "Survey"}, {Method: "Collect", Collection: collected}}
+			if diff := cmp.Diff(want, fake.calls); diff != "" {
+				t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+			}
+
+			if stderr.Len() != 0 {
+				t.Fatalf("stderr = %q, want nothing", stderr.String())
+			}
+
+			if jsonOutput {
+				var envelope struct {
+					OK   bool            `json:"ok"`
+					Data core.Collection `json:"data"`
+				}
+
+				if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+					t.Fatalf("json.Unmarshal(%q) = %v, want one document", stdout.String(), err)
+				}
+
+				if diff := cmp.Diff(collected, envelope.Data); diff != "" || !envelope.OK {
+					t.Fatalf("document ok=%v, data (-want +got):\n%s", envelope.OK, diff)
+				}
+
+				return
+			}
+
+			text := stdout.String()
+			if strings.Contains(text, "Nothing to collect") || !strings.Contains(text, "hm-template-hm-clean-dead-base") ||
+				!strings.Contains(text, "Done.") {
+				t.Fatalf("stdout = %q, want the template named and Done., not nothing to collect", text)
+			}
+		})
+	}
+}
+
+// Hosts entries and what cannot be attributed are listed and never removed, so on their own they
+// are still nothing to collect: --force deletes nothing and asks nothing of the engine.
+func TestCleanWithForceLeavesWhatIsNeverRemoved(t *testing.T) {
+	t.Setenv("HM_FORCE", "")
+
+	listedOnly := nothingToCollect()
+	listedOnly.Hosts = []string{"hm-clean-dead.test"}
+	listedOnly.Unattributable.Volumes = []string{"hm-clean-stray_workspace"}
+
+	fake := answering(t)
+	fake.outcomes = []outcome{{collection: listedOnly}}
+
+	var stdout, stderr bytes.Buffer
+
+	if code := clean([]string{"--force"}, &stdout, &stderr, false); code != exitOK {
+		t.Fatalf("clean --force = %d, want exitOK; stderr = %q", code, stderr.String())
+	}
+
+	if diff := cmp.Diff([]string{"Survey"}, methods(fake.calls)); diff != "" {
+		t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+	}
+
+	if !strings.Contains(stdout.String(), "Nothing to collect") || strings.Contains(stdout.String(), "Done.") {
+		t.Fatalf("stdout = %q, want nothing to collect and no Done.", stdout.String())
+	}
+}
+
 func TestCleanRefusesAnUnknownOptionAskingNothing(t *testing.T) {
 	t.Setenv("HM_FORCE", "")
 

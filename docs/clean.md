@@ -40,6 +40,14 @@ then the registration.
 
 The branch is not touched, and neither are that project's database snapshots.
 
+## Templates whose project is gone
+
+A frozen data template (`hm-template-*`) belongs to no compose project, and it outlives the
+containers of the project that made it. It carries the directory that project lived in, and when
+that directory no longer exists it is collected too — also when it is all that is left of the
+project, in which case it is listed under "Volumes whose project's directory is gone" and
+`--force` deletes it.
+
 ## What it will not, and why
 
 **Volumes carry no `hm.*` labels** — only the ones Compose adds. So a volume can only be attributed

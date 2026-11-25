@@ -103,10 +103,19 @@ func confirmed(collection core.Collection, stdout io.Writer) bool {
 func cleanAsText(collection core.Collection, stdout io.Writer) {
 	fmt.Fprintf(stdout, "\n")
 
-	if len(collection.Environments) == 0 {
+	switch {
+	case len(collection.Environments) == 0 && len(collection.Volumes) == 0:
 		fmt.Fprint(stdout, good(
 			"Nothing to collect: every environment on this machine still has its directory.\n"))
-	} else {
+	case len(collection.Environments) == 0:
+		// Only frozen templates are left of projects whose directory is gone: their containers
+		// went before them, so there is no environment to list them under.
+		fmt.Fprintf(stdout, "%s\n", header("Volumes whose project's directory is gone\n"))
+
+		for _, volume := range collection.Volumes {
+			fmt.Fprintf(stdout, "  %s\n", volume)
+		}
+	default:
 		fmt.Fprintf(stdout, "%s\n", header("Environments whose directory is gone\n"))
 
 		for _, one := range collection.Environments {

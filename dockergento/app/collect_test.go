@@ -483,6 +483,51 @@ func TestNothingToCollectIsAnEmptyCollectionAndNoError(t *testing.T) {
 	}
 }
 
+// Templates outlive their project's containers — they are frozen data, not part of a compose
+// project — so a machine can be left with nothing of a dead project but its template. That alone is
+// something to collect, and collecting it deletes the template and nothing else.
+func TestAMachineWithOnlyADeadTemplateHasSomethingToCollect(t *testing.T) {
+	template := "hm-template-" + dead + "-base"
+	s := sweepOf(
+		nil,
+		[]string{template},
+		map[string]map[string]string{template: templateLabels(dead, goneRoot)},
+		map[string][]core.Worktree{},
+		map[string]bool{},
+		nil,
+	)
+
+	collection := surveyed(t, s)
+
+	if !collection.Anything() {
+		t.Fatalf("Anything() = false for %+v, want the dead template to be something to collect", collection)
+	}
+
+	if err := s.collector.Collect(collection); err != nil {
+		t.Fatalf("Collect() = %v, want no error", err)
+	}
+
+	if diff := cmp.Diff([]string{template}, s.volumes.removed); diff != "" {
+		t.Fatalf("volumes removed (-want +got):\n%s", diff)
+	}
+
+	if len(s.engine.removed) != 0 || len(s.registry.forgotten) != 0 {
+		t.Fatalf("containers removed = %v, forgotten = %v, want neither", s.engine.removed, s.registry.forgotten)
+	}
+}
+
+// What is listed but never removed — hosts entries, unattributable volumes and environments — is
+// not something to collect on its own: --force has nothing to delete.
+func TestOnlyWhatIsNeverRemovedIsNothingToCollect(t *testing.T) {
+	collection := core.Collection{Hosts: []string{dead + ".test"}}
+	collection.Unattributable.Volumes = []string{stray + "_workspace"}
+	collection.Unattributable.Environments = []core.Abandoned{{Name: "viejo", Reason: "no hm labels"}}
+
+	if collection.Anything() {
+		t.Fatalf("Anything() = true for %+v, want nothing to collect", collection)
+	}
+}
+
 // The lists are separate lists, each sorted, whatever order Docker and the registry answered in.
 func TestTheListsAreListsAndSorted(t *testing.T) {
 	s := sweepOf(
