@@ -33,6 +33,9 @@ export HM_WORKTREE_DIR="$LAB/registry"
 export HM_LOCK_DIR="$LAB/locks"
 export HM_STATE_DIR="$LAB/state"
 export HM_SNAPSHOT_DIR="$LAB/snapshots"
+# The cache too (validated-<root> entries): it left one hm-lab entry per run in the real ~/.hm/cache.
+# HOME itself stays real, because the run reuses the machine's shared proxy under ~/.hm.
+export HM_CACHE_DIR="$LAB/cache"
 
 say()  { printf '\033[1;37m%s\033[0m\n' "$*"; }
 note() { printf '  %s\n' "$*"; }
