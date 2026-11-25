@@ -44,21 +44,6 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	switch rest[0] {
-	//
-	// Scaffolding, and marked as such: the underscore is what this tool already uses in
-	// `data/command_descriptions.json` for keys that are not commands, and these are not
-	// commands. They are not in the help, not in the command list, and they exist for one
-	// reason — while the discipline is byte-for-byte parity with the shell implementation,
-	// a ported command cannot report anything the shell one does not, so what only the Go
-	// layer knows has nowhere else to be looked at.
-	//
-	// Each has a condition for disappearing, written down in MIGRATION.md:
-	//
-	//   _registry  goes when nothing in shell needs to read the registry — which, with the
-	//              shell entry point gone, is now; only the suites still look through it
-	//
-	case "_registry":
-		return registryState(stdout, stderr)
 	case "list":
 		return list(rest[1:], stdout, stderr, jsonOutput)
 	case "describe":

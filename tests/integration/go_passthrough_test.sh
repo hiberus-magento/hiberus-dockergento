@@ -273,25 +273,36 @@ assert_equals "$DIR" "$(printf '%s' "$resolved" | jq -r '.data.project.root')"
 
 #
 # The registry. There is no import step to run any more: what earlier versions wrote is read on the
-# way in, every time, which is why looking at it is enough to see it.
+# way in, every time, which is why listing the branch environments is enough to see it. The
+# `_registry` diagnostic that used to show it is gone; `worktree list` is the command that does,
+# and it asks the daemon which environments run. What it does not show — the shared vendor, and a
+# branch's anonymisation answering for itself and not for its parent — is pinned where it is kept:
+# dockergento/adapters/registry/store_test.go (TestTraerseLoQueEscribioBash,
+# TestCadaEntornoResponsePorSusDatos).
 #
-test_case "the registry can be looked at, and brings across what bash wrote"
 CASA=$(mktemp -d)
-mkdir -p "$CASA/.hm/worktrees/tienda" "$CASA/.hm/state"
-printf '{"path":"/code/a","branch":"rama","profile":"agent","domain":"a.test","project":"tienda-a","vendor":"shared"}\n' \
-    > "$CASA/.hm/worktrees/tienda/a.json"
-printf '{"anonymised_at":"2026-08-02 11:00"}\n' > "$CASA/.hm/state/tienda-a.json"
-registro=$( HOME="$CASA" "$GO_BINARY" _registry )
-assert_equals "a" "$(printf '%s' "$registro" | jq -r '.data.projects[0].worktrees[0].name')"
-assert_equals "shared" "$(printf '%s' "$registro" | jq -r 'if .data.projects[0].worktrees[0].shared_vendor then "shared" else "own" end')"
+mkdir -p "$CASA/.hm/worktrees/$PROJECT"
+printf '{"path":"/code/a","branch":"rama","profile":"agent","domain":"a.test","project":"%s-a","vendor":"shared"}\n' \
+    "$PROJECT" > "$CASA/.hm/worktrees/$PROJECT/a.json"
 
-test_case "and the data of a branch answers for itself, not for its parent"
-assert_equals "yes" "$(printf '%s' "$registro" | jq -r '.data.projects[0].worktrees[0].anonymised')"
-assert_equals "unknown" "$(printf '%s' "$registro" | jq -r '.data.projects[0].anonymised')"
+if HOME="$CASA" docker info >/dev/null 2>&1; then
+    test_case "the branch environments can be listed, and bring across what bash wrote"
+    registro=$( cd "$DIR" && HOME="$CASA" "$GO_BINARY" --json worktree list )
+    assert_equals "$PROJECT" "$(printf '%s' "$registro" | jq -r '.data.project')"
+    assert_equals "a" "$(printf '%s' "$registro" | jq -r '.data.worktrees[0].name')"
+    assert_equals "rama" "$(printf '%s' "$registro" | jq -r '.data.worktrees[0].branch')"
+    assert_equals "agent" "$(printf '%s' "$registro" | jq -r '.data.worktrees[0].profile')"
+    assert_equals "https://a.test" "$(printf '%s' "$registro" | jq -r '.data.worktrees[0].url')"
 
-test_case "importing twice brings nothing twice"
-HOME="$CASA" "$GO_BINARY" _registry >/dev/null 2>&1
-assert_equals "1" "$( HOME="$CASA" "$GO_BINARY" _registry | jq -r '.data.projects[0].worktrees | length' )"
+    test_case "and one whose worktree is not on disk says so"
+    assert_equals "missing" "$(printf '%s' "$registro" | jq -r '.data.worktrees[0].state')"
+
+    test_case "importing twice brings nothing twice"
+    ( cd "$DIR" && HOME="$CASA" "$GO_BINARY" --json worktree list ) >/dev/null 2>&1
+    assert_equals "1" "$( cd "$DIR" && HOME="$CASA" "$GO_BINARY" --json worktree list | jq -r '.data.worktrees | length' )"
+else
+    echo "  - skipped: listing the branch environments needs docker"
+fi
 rm -rf "$CASA"
 
 #

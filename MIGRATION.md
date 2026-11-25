@@ -77,15 +77,10 @@ go test ./...                  # los tests de Go
 ./bin/hm hm-go-project         # lo que la capa Go resuelve aquí
 ```
 
-**El andamio, y cuándo se cae.** Queda una entrada que no es comando —no salen en `--help` ni
-están en `command_descriptions.json`, y llevan guion bajo porque es lo que ese fichero ya usa para
-las claves que no son comandos—. Existen porque, mientras la disciplina sea paridad byte a byte,
-un comando portado no puede reportar nada que el de bash no reporte, así que lo que sólo sabe la
-capa Go no tiene dónde mirarse. Cada una muere en un sitio concreto:
-
-| | qué enseña | desaparece cuando |
-|---|---|---|
-| `hm _registry` | lo que guarda el registro | nada en shell necesite leerlo — condición cumplida desde que `bin/run` no existe; sólo lo miran ya las suites (`go_passthrough_test.sh`) |
+**El andamio, ya caído.** La última entrada que no era comando, `hm _registry` (lo que guarda el
+registro), tenía por condición que nada en shell necesitara leerlo; se cumplió al desaparecer
+`bin/run`, y se ha quitado. Las ramas registradas las enseña `hm worktree list`, y lo que éste no
+enseña lo fijan los tests del registro (`dockergento/adapters/registry/store_test.go`).
 
 El código está en dos mitades. `dockergento/` es la herramienta como librería —dominio, puertos,
 casos de uso, adaptadores y una fachada— y es pública porque `internal/` es una regla del lenguaje
