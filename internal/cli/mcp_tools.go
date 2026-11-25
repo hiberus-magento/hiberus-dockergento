@@ -35,6 +35,14 @@ func (s mcpServer) call(name string, arguments jqValue) jqValue {
 		return s.fromCommand("doctor")
 	case "environment_status":
 		return s.fromCommand("status")
+	case "run_tests":
+		return s.runTests(arguments)
+	case "xdebug":
+		return s.xdebug(arguments)
+	case "after_change":
+		return s.afterChange(arguments)
+	case "magento_exceptions":
+		return s.magentoExceptions(arguments)
 	case "service_logs":
 		return s.serviceLogs(arguments)
 	case "database_query":

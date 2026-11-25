@@ -137,8 +137,8 @@ func TestAConfigurationPathLooksLikeOne(t *testing.T) {
 func TestTheWriteToolsAreOnlyOfferedWithWrite(t *testing.T) {
 	read, write := mcpToolNames(false), mcpToolNames(true)
 
-	if len(read) != 6 || len(write) != 10 {
-		t.Fatalf("tools = %d without --write and %d with it, want 6 and 10", len(read), len(write))
+	if len(read) != 10 || len(write) != 14 {
+		t.Fatalf("tools = %d without --write and %d with it, want 10 and 14", len(read), len(write))
 	}
 
 	for _, forbidden := range []string{"setup", "upgrade", "composer", "compile", "install", "import", "down"} {

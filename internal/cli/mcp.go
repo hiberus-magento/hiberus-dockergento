@@ -27,7 +27,8 @@ import (
 //
 // The read-only half and the write half are separate decisions: `hm exec` and `hm mysql` run
 // whatever they are given, and a list of typed questions is the opposite shape. The write tools
-// exist only with --write, and are absent rather than refused without it.
+// exist only with --write, and are absent rather than refused without it; the two read tools that
+// can also act (xdebug, after_change) say without it that acting takes --write.
 //
 
 const (
@@ -48,22 +49,22 @@ func (s mcpServer) instructions() string {
 		return mcpInstructions
 	}
 
-	read := map[string]bool{}
-	for _, name := range mcpToolNames(false) {
-		read[name] = true
-	}
-
+	// Read from the catalogue's own annotations, so a tool that becomes able to change something
+	// is named here without anybody editing a sentence
 	var writing []string
 
-	for _, name := range mcpToolNames(true) {
-		if !read[name] {
-			writing = append(writing, name)
+	for _, tool := range mcpCatalogue(true).items {
+		hints, _ := tool.field("annotations")
+		if readOnly, _ := hints.field("readOnlyHint"); readOnly.kind == jqFalse {
+			name, _ := tool.field("name")
+			writing = append(writing, name.text)
 		}
 	}
 
 	return "Tools for the Magento environment in the current directory. " +
-		strings.Join(writing, ", ") + " change the environment; the others only read it. " +
-		"Setup, Composer, database imports and anything that removes an environment are not offered: use the hm command line for those."
+		strings.Join(writing, ", ") + " can change the environment; the others only read it. " +
+		"after_change runs setup:upgrade only when asked to. " +
+		"hm setup, Composer, database imports and anything that removes an environment are not offered: use the hm command line for those."
 }
 
 // mcpCapture runs this tool's binary with args, standard input closed, and returns what it
@@ -86,6 +87,18 @@ var mcpCapture = func(executable, dir string, args []string, combined bool) []by
 	}
 
 	return output
+}
+
+// mcpCaptureStatus is mcpCapture with the exit status, for the tools whose answer depends on it:
+// a test run that failed, a step that has to stop the ones after it. A binary that cannot be
+// started says so in the output, with -1 as its status.
+var mcpCaptureStatus = func(executable, dir string, args []string, combined bool) ([]byte, int) {
+	output, status, err := selfrun.Runner{Executable: executable, Dir: dir}.CaptureStatus(args, combined)
+	if err != nil {
+		return append(output, []byte(executable+" could not be run: "+err.Error())...), -1
+	}
+
+	return output, status
 }
 
 // mcp is the command: --config prints the client configuration, anything else serves the
@@ -131,6 +144,9 @@ func mcp(args []string, in io.Reader, stdout, stderr io.Writer, jsonOutput bool)
 		capture: func(dir string, args []string, combined bool) []byte {
 			return mcpCapture(executable, dir, args, combined)
 		},
+		captureStatus: func(dir string, args []string, combined bool) ([]byte, int) {
+			return mcpCaptureStatus(executable, dir, args, combined)
+		},
 	}
 	server.serve(in, stdout)
 
@@ -163,6 +179,9 @@ type mcpServer struct {
 
 	// capture runs that binary in a directory: see mcpCapture
 	capture func(dir string, args []string, combined bool) []byte
+
+	// captureStatus is capture with the exit status: see mcpCaptureStatus
+	captureStatus func(dir string, args []string, combined bool) ([]byte, int)
 
 	// dir is where one tool call runs its commands: the branch environment its `environment`
 	// argument named, or empty for the directory the server was started in

@@ -4,7 +4,8 @@ package cli
 // The tool catalogue, as the protocol wants it: a name, a sentence a model can choose by, and a
 // schema for the arguments. Copied from console/tasks/mcp_tools.sh, key order and all, because
 // tools/list answers with it as it is written; since then every tool but list_environments takes
-// an `environment`, and the three that answer with JSON declare an outputSchema.
+// an `environment`, the tools that answer with JSON declare an outputSchema, and the Magento loop
+// tools were added.
 //
 // The output schemas name the top-level fields and require none, and leave the rest open: the
 // server must answer with data that conforms, and the data is what describe, list and doctor
@@ -122,6 +123,89 @@ const mcpReadTools = `
       "additionalProperties": false
     },
     "annotations": { "readOnlyHint": true }
+  },
+  {
+    "name": "run_tests",
+    "description": "Run the project's PHPUnit tests, unit or integration, optionally only those under a path, and say whether they passed: how many ran, failed, errored and were skipped, and each failure with its message, read from PHPUnit's JUnit report. When there is no report, the exit code and the last lines of the output.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "suite": { "type": "string", "enum": ["unit", "integration"], "description": "Which suite (default unit)" },
+        "path": { "type": "string", "description": "A test file or directory, relative to the Magento root (unit) or to dev/tests/integration (integration), for example app/code/Acme/Shop/Test/Unit" },
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "suite": { "type": "string" },
+        "passed": { "type": "boolean" },
+        "exit_code": { "type": "integer" },
+        "source": { "type": "string", "description": "junit when the counts come from PHPUnit's report, exit code when there was none" },
+        "tests": { "type": "integer" },
+        "failures": { "type": "integer" },
+        "errors": { "type": "integer" },
+        "skipped": { "type": "integer" },
+        "failed": { "type": "array", "description": "Each failing test with its name, kind and message, up to twenty" },
+        "tail": { "type": "string", "description": "The last lines of the output, when the report does not say why" }
+      }
+    },
+    "annotations": { "readOnlyHint": true, "openWorldHint": false }
+  },
+  {
+    "name": "xdebug",
+    "description": "Whether xdebug is on or off in the php container.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": { "xdebug": { "type": "string", "description": "on, off or unknown" } }
+    },
+    "annotations": { "readOnlyHint": true }
+  },
+  {
+    "name": "after_change",
+    "description": "Given the files you changed, what Magento needs before it shows them: which cache types to clean, whether di:compile or setup:upgrade is needed, and whether static files are involved. It only says; nothing is run.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "paths": { "type": "array", "items": { "type": "string" }, "description": "The changed files, relative to the project, for example [\"app/code/Acme/Shop/etc/di.xml\"]" },
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
+      },
+      "required": ["paths"],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "cache_types": { "type": "array", "items": { "type": "string" } },
+        "di_compile": { "type": "boolean" },
+        "setup_upgrade": { "type": "boolean" },
+        "static": { "type": "boolean", "description": "pub/static and var/view_preprocessed hold an older copy" },
+        "paths": { "type": "array", "description": "Each path with what it needs" },
+        "commands": { "type": "array", "items": { "type": "string" }, "description": "The commands that would apply it, in order" }
+      }
+    },
+    "annotations": { "readOnlyHint": true }
+  },
+  {
+    "name": "magento_exceptions",
+    "description": "The last lines of var/log/exception.log. Only when the database is anonymised, and only what was logged after it was: before that, the log is about real customers.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "lines": { "type": "integer", "description": "How many lines from the end (default 50, at most 200)" },
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
+      },
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": true }
   }
 ]
 `
@@ -135,6 +219,35 @@ const mcpReadTools = `
 // permission than that shell, not a larger one.
 const mcpWriteTools = `
 [
+  {
+    "name": "xdebug",
+    "description": "Whether xdebug is on or off in the php container, or, with state, turn it on or off (hm debug-on, hm debug-off), which restarts the php container.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "state": { "type": "string", "enum": ["on", "off"], "description": "Turn it on or off. Leave it out to only ask" },
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
+      },
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true }
+  },
+  {
+    "name": "after_change",
+    "description": "Given the files you changed, what Magento needs before it shows them: which cache types to clean, whether di:compile or setup:upgrade is needed, and whether static files are involved. With apply, it cleans those caches and runs di:compile when needed; setup:upgrade only runs when setup_upgrade is true as well.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "paths": { "type": "array", "items": { "type": "string" }, "description": "The changed files, relative to the project, for example [\"app/code/Acme/Shop/etc/di.xml\"]" },
+        "apply": { "type": "boolean", "description": "Clean the caches and run di:compile when needed, instead of only saying so" },
+        "setup_upgrade": { "type": "boolean", "description": "With apply, also run setup:upgrade when the files need it. It changes the database schema and data" },
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
+      },
+      "required": ["paths"],
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true }
+  },
   {
     "name": "cache_flush",
     "description": "Flush the whole Magento cache. Use after a change that a page does not seem to have picked up.",
@@ -200,9 +313,30 @@ const mcpWriteTools = `
 func mcpCatalogue(write bool) jqValue {
 	catalogue, _ := parseJQ([]byte(mcpReadTools))
 
-	if write {
-		more, _ := parseJQ([]byte(mcpWriteTools))
-		catalogue.items = append(catalogue.items, more.items...)
+	if !write {
+		return catalogue
+	}
+
+	//
+	// A write tool with the name of a read tool takes its place: the same question, which with
+	// --write can also do something — xdebug turns it on, after_change applies what it says.
+	// Keeping one name keeps one tool to choose by.
+	//
+	more, _ := parseJQ([]byte(mcpWriteTools))
+
+	for _, tool := range more.items {
+		name, _ := tool.field("name")
+		replaced := false
+
+		for at, existing := range catalogue.items {
+			if called, _ := existing.field("name"); called.text == name.text {
+				catalogue.items[at], replaced = tool, true
+			}
+		}
+
+		if !replaced {
+			catalogue.items = append(catalogue.items, tool)
+		}
 	}
 
 	return catalogue
