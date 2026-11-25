@@ -154,6 +154,27 @@ func TestCopyOutOfTheContainer(t *testing.T) {
 
 // Copying it again over what is already there replaces its contents rather than nesting a second
 // copy inside the first, which is what a mirror has to do to be a mirror.
+// Composer's macOS dance stops phpfpm before it copies the workdir back out; a stopped container
+// is still copied out of, as `docker cp` always did. Refusing it left the host's vendor cleared
+// and nothing brought back.
+func TestCopyOutOfAStoppedContainer(t *testing.T) {
+	t.Parallel()
+
+	session, project := mounted(t)
+
+	e2e.Inside(t, session, project, "mkdir -p vendor/acme && printf 'instalado\\n' > vendor/acme/paquete.php")
+	e2e.Compose(t, session, project, "stop", "phpfpm")
+
+	got := session.Run(t, project.Root, "copy-from-container", "vendor")
+	if got.Code != 0 {
+		t.Fatalf("copy-from-container vendor with phpfpm stopped = %d, want 0\n%s", got.Code, got.Output())
+	}
+
+	if content := strings.TrimSpace(project.Read("vendor/acme/paquete.php")); content != "instalado" {
+		t.Errorf("vendor/acme/paquete.php on the host = %q, want %q", content, "instalado")
+	}
+}
+
 func TestCopyingOutAgainReplacesRatherThanNests(t *testing.T) {
 	t.Parallel()
 

@@ -109,7 +109,10 @@ func (t Transfer) All(project core.Project, owner string) error {
 
 // From copies paths out of the container into the project.
 func (t Transfer) From(project core.Project, paths []string) error {
-	container, err := t.container(project)
+	// Stopped is enough: copying out is a read of the container's filesystem, which the daemon
+	// serves either way, and Composer's macOS dance stops phpfpm on purpose before this copy so
+	// that nothing writes to the tree while it is read
+	container, err := t.phpContainer(project, false)
 	if err != nil {
 		return err
 	}
@@ -210,6 +213,12 @@ func (t Transfer) boundAt(container, target string) string {
 
 // container is this project's php container, refusing when it is not running.
 func (t Transfer) container(project core.Project) (string, error) {
+	return t.phpContainer(project, true)
+}
+
+// phpContainer is this project's php container; when running is asked for, one that exists but
+// is stopped is refused as well.
+func (t Transfer) phpContainer(project core.Project, running bool) (string, error) {
 	containers, err := t.Engine.Containers()
 	if err != nil {
 		return "", err
@@ -220,7 +229,7 @@ func (t Transfer) container(project core.Project) (string, error) {
 			continue
 		}
 
-		if !candidate.Running {
+		if running && !candidate.Running {
 			break
 		}
 

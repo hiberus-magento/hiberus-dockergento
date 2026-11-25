@@ -172,3 +172,55 @@ func (f *recordingFiles) Into(container, source, target string) error {
 }
 
 func (f *recordingFiles) From(string, string, string) error { return nil }
+
+// Composer's macOS dance stops phpfpm before copying the workdir back out, so that nothing writes
+// to the tree while it is read: copying out of a container is a read of its filesystem, which the
+// daemon serves whether it runs or not, and refusing it left the host's vendor cleared and empty.
+func TestCopyingOutOfAStoppedContainerWorks(t *testing.T) {
+	transfer, project := transferencia(t, &runner{}, &runner{})
+	transfer.Engine = &engine{containers: []core.Container{
+		{ID: "php1", Project: "tienda", ComposeService: "phpfpm", Running: false},
+	}}
+
+	if err := transfer.From(project, []string{"vendor"}); err != nil {
+		t.Fatalf("From a stopped container = %v, want the copy made", err)
+	}
+
+	copied := transfer.Files.(*files).from
+	if len(copied) != 1 || copied[0][0] != "/var/www/html/vendor/." {
+		t.Fatalf("copied %v, want vendor out of the stopped container", copied)
+	}
+}
+
+// Copying in still needs it running: the files are given back to PHP's user with a chown run
+// inside the container.
+func TestCopyingIntoAStoppedContainerIsStillRefused(t *testing.T) {
+	transfer, project := transferencia(t, &runner{}, &runner{})
+	transfer.Engine = &engine{containers: []core.Container{
+		{ID: "php1", Project: "tienda", ComposeService: "phpfpm", Running: false},
+	}}
+
+	err := transfer.Into(project, []string{"vendor"}, "app:app")
+
+	var refused core.Refusal
+	if !errors.As(err, &refused) || refused.Kind != "service_not_running" || refused.Code != 5 {
+		t.Fatalf("Into a stopped container = %#v, want the service_not_running refusal", err)
+	}
+
+	if into := transfer.Files.(*files).into; len(into) != 0 {
+		t.Fatalf("copied %v into a stopped container", into)
+	}
+}
+
+// A project with no php container at all has nothing to copy out of.
+func TestCopyingOutWithNoContainerIsRefused(t *testing.T) {
+	transfer, project := transferencia(t, &runner{}, &runner{})
+	transfer.Engine = &engine{}
+
+	err := transfer.From(project, []string{"vendor"})
+
+	var refused core.Refusal
+	if !errors.As(err, &refused) || refused.Kind != "service_not_running" {
+		t.Fatalf("From with no container = %#v, want the service_not_running refusal", err)
+	}
+}
