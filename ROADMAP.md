@@ -58,6 +58,8 @@ argumento desconocido; `toolinfo` no casa nada con un nombre vacío; `setup -u` 
 `install`; las suites usan su propio HOME y caché. El contador de métodos de `engine.go` nunca
 existió. Commits de `814d2ca` a `7929f29`.
 
+Cerrados el 2026-11-25 (T8): el antiguo `config/docker/properties` se convierte una vez en `properties.json` y queda como `properties.bak`; `hm _registry` retirado; `setup --force` regenera los compose como `-f`; `clean` lista los volúmenes de un entorno de rama muerto bajo ese entorno.
+
 Ya no aplican (retiradas el 2026-11-25): `docker-stop-all` no interactivo (corregido en `a4927e6`),
 `update` sin Go (`update` descarga releases), la restauración de `config.php` de `install` (ya da
 `config_restore_failed`), las secuencias literales de la ayuda (ninguna descripción tiene `%` ni
