@@ -23,6 +23,13 @@ func setup(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return report(stderr, jsonOutput, "setup", err)
 	}
 
+	// `--force` is also one of the tool's own flags, and globals() takes it out before these
+	// arguments get here: read back, it is setup's own -f as well as the lifted worktree
+	// protection it already was
+	if os.Getenv("HM_FORCE") == "1" {
+		options.Force = true
+	}
+
 	engine := newEngine(stdout, stderr, jsonOutput)
 
 	if err := engine.Setup(here(), options, os.Getenv("HM_NON_INTERACTIVE") == ""); err != nil {

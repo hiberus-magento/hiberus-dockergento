@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -45,6 +46,49 @@ func TestWhatSetupAsks(t *testing.T) {
 
 	if !options.Force || options.ProjectName != "shop" {
 		t.Errorf("the instruction was not read whole: %+v", options)
+	}
+}
+
+// TestSetupForceLongFormRegeneratesLikeF: `--force` is one of the tool's own flags and globals()
+// takes it out before setup sees its arguments, so the long form of setup's own -f never reached
+// it. Setup reads it back: `hm setup --force` regenerates the compose files like `hm setup -f`,
+// and it still lifts the worktree protection, which reads the same HM_FORCE the engine is built
+// with (engine.go). Without either, nothing is regenerated.
+func TestSetupForceLongFormRegeneratesLikeF(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		wantForce bool
+		wantEnv   string
+	}{
+		{"--force after the command", []string{"setup", "--force"}, true, "1"},
+		{"--force before the command", []string{"--force", "setup"}, true, "1"},
+		{"-f, as before", []string{"setup", "-f"}, true, ""},
+		{"neither", []string{"setup"}, false, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := answering(t)
+			t.Setenv("HM_FORCE", "")
+			fake.project = core.Project{Name: "shop", Domain: "shop.test"}
+
+			if code := Run(append([]string{"--no-json"}, tt.args...), io.Discard, io.Discard); code != exitOK {
+				t.Fatalf("hm %v = %d, want exitOK", tt.args, code)
+			}
+
+			if len(fake.calls) == 0 || fake.calls[0].Method != "Setup" {
+				t.Fatalf("asked of the engine %v, want a Setup first", fake.calls)
+			}
+
+			if got := fake.calls[0].SetupOptions.Force; got != tt.wantForce {
+				t.Errorf("hm %v asked for Force = %v, want %v", tt.args, got, tt.wantForce)
+			}
+
+			if got := os.Getenv("HM_FORCE"); got != tt.wantEnv {
+				t.Errorf("hm %v left HM_FORCE = %q, want %q: the worktree protection reads it", tt.args, got, tt.wantEnv)
+			}
+		})
 	}
 }
 

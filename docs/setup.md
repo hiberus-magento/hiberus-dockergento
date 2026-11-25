@@ -83,7 +83,7 @@ This will be the result
 | ------------------------ | ------------------------------------------------------- | -------------------------------------- |
 | `-d` , `--domain`        | Domain of project. Only accept lowercase.               | `hm setup -d my-domain.local`          |
 | `-D`, `--dump`           | Path to sql dump to import.                             | `hm setup -D="/User/..../dump.sql"`    |
-| `-f`, `--force`          | Used for rebuilt `docker-compose` file.s                | `hm setup -f`                          |
+| `-f`, `--force`          | Regenerates the `docker-compose` files. `--force` also lifts the worktree protection, as it does for every command. | `hm setup -f`, `hm setup --force` |
 | `-i`, `--install`        | Execute Magento installation.                           | `hm setup -i`                          |
 | `-p`, `--project-name`   | Project path. Use relative path.                        | `hm setup -p ./my_project`             |
 | `-r`, `--root-directory` | Path to root directory where Magento project is.        | `hm setup -r "./project"`              |
