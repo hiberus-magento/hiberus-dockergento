@@ -236,6 +236,7 @@ const mcpWriteTools = `
       "properties": {
         "suite": { "type": "string" },
         "runner": { "type": "string", "enum": ["pest", "phpunit"], "description": "Which ran: pest when the project has vendor/bin/pest, phpunit otherwise" },
+        "all_tests_passed": { "type": "boolean", "description": "With a report: whether every test passed, apart from the runner's exit code (a run can fail over a configuration warning with every test green)" },
         "passed": { "type": "boolean" },
         "exit_code": { "type": "integer" },
         "source": { "type": "string", "description": "junit when the counts come from the runner's report, exit code when there was none" },

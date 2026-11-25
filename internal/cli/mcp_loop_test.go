@@ -783,3 +783,51 @@ func TestTheReadVariantsGiveWayToTheWriteOnes(t *testing.T) {
 		}
 	}
 }
+
+// Every test in the report passed but the runner exited 1 — a warning about its configuration, as
+// Magento's phpunit.xml.dist gives with an extension PHPUnit no longer loads: the run is not
+// passed, as CI would read it, and the answer says that the tests themselves all passed and shows
+// the output that explains the exit code.
+func TestRunTestsSaysWhenEveryTestPassedButTheRunnerFailed(t *testing.T) {
+	quiet(t)
+
+	_, server := looping(true, withoutPest(func(args []string) (string, int) {
+		switch {
+		case len(args) > 1 && args[1] == "test-unit":
+			return "WARN Cannot bootstrap extension\nTests: 2 passed\n", 1
+		case len(args) > 2 && args[2] == "cat":
+			return junitPassing, 0
+		}
+
+		return "", 0
+	}))
+
+	content, isError := structured(t, serving(server, toolCall("run_tests", `{}`)))
+
+	if isError || content["passed"] != false || content["all_tests_passed"] != true ||
+		!strings.Contains(content["tail"].(string), "Cannot bootstrap extension") {
+		t.Fatalf("content = %v, want a run not passed whose tests all passed, with the output", content)
+	}
+}
+
+// When a test failed, all_tests_passed is false.
+func TestRunTestsSaysNotAllTestsPassedWhenOneFailed(t *testing.T) {
+	quiet(t)
+
+	_, server := looping(true, withoutPest(func(args []string) (string, int) {
+		switch {
+		case len(args) > 1 && args[1] == "test-unit":
+			return "FAILURES!\n", 1
+		case len(args) > 2 && args[2] == "cat":
+			return junitFailing, 0
+		}
+
+		return "", 0
+	}))
+
+	content, _ := structured(t, serving(server, toolCall("run_tests", `{}`)))
+
+	if content["all_tests_passed"] != false {
+		t.Fatalf("all_tests_passed = %v, want false with a failing test", content["all_tests_passed"])
+	}
+}

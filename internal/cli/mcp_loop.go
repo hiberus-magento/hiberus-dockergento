@@ -70,10 +70,15 @@ type testRun struct {
 
 	// Runner is "pest" or "phpunit": which of the two ran, so that a failure is read against the
 	// right one's output
-	Runner   string `json:"runner"`
-	Passed   bool   `json:"passed"`
-	ExitCode int    `json:"exit_code"`
-	Source   string `json:"source"`
+	Runner string `json:"runner"`
+	Passed bool   `json:"passed"`
+
+	// AllTestsPassed is what the report says of the tests alone, there only when there is one:
+	// a run can fail with every test green, when the runner exits 1 over a warning about its
+	// configuration, and an agent has to tell that apart from a failing test
+	AllTestsPassed *bool  `json:"all_tests_passed,omitempty"`
+	ExitCode       int    `json:"exit_code"`
+	Source         string `json:"source"`
 	*core.TestReport
 	Tail string `json:"tail,omitempty"`
 }
@@ -128,7 +133,9 @@ func (s mcpServer) runTests(arguments jqValue) jqValue {
 
 	if parsed, err := core.ParseJUnit([]byte(report)); err == nil {
 		run.Source, run.TestReport = "junit", &parsed
-		run.Passed = status == 0 && parsed.Failures == 0 && parsed.Errors == 0
+		allPassed := parsed.Failures == 0 && parsed.Errors == 0
+		run.AllTestsPassed = &allPassed
+		run.Passed = status == 0 && allPassed
 
 		// The report says which tests failed; when the run failed and it names none — a warning
 		// turned into a failure, a crash after the last test — the output is the only answer

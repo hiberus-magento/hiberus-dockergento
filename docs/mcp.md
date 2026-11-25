@@ -67,7 +67,10 @@ tests are written for Pest cannot run them with PHPUnit, which stops with "Pleas
 `dev/tests/integration`), and PHPUnit's own `--log-junit`, which Pest accepts
 ([CLI reference](https://pestphp.com/docs/cli-api-reference), Logging), so the report is read the
 same way and the path is checked the same way. The answer's `runner` says which ran: `pest` or
-`phpunit`. Pest is looked for at `./vendor/bin`, not at a custom `BIN_DIR`.
+`phpunit`. Pest is looked for at `./vendor/bin`, not at a custom `BIN_DIR`. With a JUnit report, `all_tests_passed` says whether every test passed regardless of the runner's
+exit code: `passed` is false when the runner exits non-zero over a warning about its configuration
+(as Magento's `phpunit.xml.dist` gives with an extension the installed PHPUnit cannot load), and
+`tail` shows why.
 
 **`xdebug`** says whether xdebug is `on`, `off` or `unknown`, as `hm describe` reads it. With
 `--write` it also takes `state: "on" | "off"` and runs `hm debug-on` or `hm debug-off`, which
