@@ -105,7 +105,7 @@ func (e *Engine) Switch(options core.SwitchOptions) (core.Switched, error) {
 	}
 
 	if target.Tag == options.Running {
-		path, _ := install.executable()
+		path, _ := install.target()
 
 		return core.Switched{Reference: target.Tag, Version: target.Tag, From: options.Running, Path: path, Unchanged: true}, nil
 	}

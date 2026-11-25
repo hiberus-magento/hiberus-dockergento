@@ -17,6 +17,10 @@ over the running executable — the same download, check and replacement as
 [update](update.md), with the same refusals when something fails. Unlike `update`, `switch`
 goes to the version you name, older or newer, pre-release or not.
 
+A binary in a directory only root writes is moved to `~/.hm/bin/hm` the way `update` moves it:
+on a terminal, with `sudo` once; anywhere else the switch is refused with how to reinstall. See
+[A binary root installed](update.md#a-binary-root-installed).
+
 Switching to the version already running changes nothing and says so.
 
 ## Only releases of 2.0 and later

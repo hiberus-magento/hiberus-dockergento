@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -38,6 +39,12 @@ import (
 // The replacement is atomic — a temporary file beside the executable, made executable, renamed over
 // it — and renaming over the running executable is safe on Linux and macOS: the process keeps the
 // inode it was started from, and nothing here executes the path again.
+//
+// The executable's links are resolved first, so /usr/local/bin/hm linking to ~/.hm/bin/hm — what
+// the installer leaves when /usr/local/bin is root's — is replaced at ~/.hm/bin/hm, without root.
+// A binary sitting in a directory only root writes (2.0.0-rc.1 to rc.3 were installed that way) is
+// moved: with a person at a terminal, the new binary is written to ~/.hm/bin/hm and sudo, once,
+// makes the old path a link to it. With nobody to give sudo a password, the update is refused.
 //
 
 // releasesAPI lists the tool's releases, newest first.
@@ -78,10 +85,25 @@ type releaseSource interface {
 type installer struct {
 	source releaseSource
 
-	// executable is the path of the running executable, symlinks resolved.
+	// executable is the path of the running executable, as it was started: through a link,
+	// possibly, which the replacement resolves.
 	executable func() (string, error)
 
 	goos, goarch string
+
+	// interactive is whether a person at a terminal is there to give root's password, which is
+	// what moving a binary out of a directory only root writes takes.
+	interactive func() bool
+
+	// home is the user's home directory, where ~/.hm/bin is.
+	home func() (string, error)
+
+	// sudo runs a command as root, attached to the terminal so that sudo can ask for the
+	// password; nil when there is no sudo.
+	sudo func(args ...string) error
+
+	// notice is where the move to ~/.hm/bin says what it does, on its way and once done.
+	notice io.Writer
 }
 
 // realInstaller is GitHub, or the fixture ReleasesURLVariable names, and the executable of this
@@ -92,13 +114,32 @@ func realInstaller() installer {
 		address = fixture
 	}
 
-	return installer{
+	install := installer{
 		source:     githubReleases{address: address, token: os.Getenv("GITHUB_TOKEN")},
-		executable: runningExecutable,
+		executable: os.Executable,
 		goos:       runtime.GOOS,
 		goarch:     runtime.GOARCH,
+		interactive: func() bool {
+			return inputIsTerminal() && os.Getenv("HM_NON_INTERACTIVE") == ""
+		},
+		home:   os.UserHomeDir,
+		notice: os.Stderr,
 	}
+
+	if sudo, err := exec.LookPath("sudo"); err == nil {
+		install.sudo = func(args ...string) error {
+			command := exec.Command(sudo, args...)
+			command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
+
+			return command.Run()
+		}
+	}
+
+	return install
 }
+
+// inputIsTerminal is whether this process reads from a terminal. A variable so tests decide.
+var inputIsTerminal = func() bool { return terminal(os.Stdin) }
 
 // newInstaller is what an engine without an injected installer uses. A variable so the package's
 // tests can replace it for every engine they build.
@@ -112,13 +153,19 @@ func (e *Engine) installer() installer {
 	return newInstaller()
 }
 
-func runningExecutable() (string, error) {
-	executable, err := os.Executable()
+// target is the file the running executable really is, links resolved: /usr/local/bin/hm linking
+// to ~/.hm/bin/hm is replaced at ~/.hm/bin/hm, and the link is kept.
+func (i installer) target() (string, error) {
+	executable, err := i.executable()
 	if err != nil {
 		return "", err
 	}
 
 	return filepath.EvalSymlinks(executable)
+}
+
+func runningExecutable() (string, error) {
+	return installer{executable: os.Executable}.target()
 }
 
 // githubReleases reads the releases API, unauthenticated unless GITHUB_TOKEN is set. A file:// address
@@ -403,7 +450,7 @@ func (e *Engine) put(install installer, item published) (string, error) {
 		}
 	}
 
-	target, err := install.executable()
+	target, err := install.target()
 	if err != nil {
 		return "", core.Refusal{
 			Kind:    "install_failed",
@@ -419,6 +466,12 @@ func (e *Engine) put(install installer, item published) (string, error) {
 
 	temporary, err := os.CreateTemp(dir, ".hm-new-*")
 	if err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			if moved, ok := install.movable(target); ok {
+				return e.moveHome(install, item, asset, target, moved)
+			}
+		}
+
 		return "", e.notWritable(target, tag, err)
 	}
 	path := temporary.Name()
@@ -458,9 +511,120 @@ func (e *Engine) put(install installer, item published) (string, error) {
 	return target, nil
 }
 
+// installScript is the installer, which installs the newest release and moves a binary root
+// installed to ~/.hm/bin.
+const installScript = "https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/install.sh"
+
+// notWritableHint is what a user who cannot write the executable's directory can do instead.
+const notWritableHint = "Re-run the installer, which asks for sudo once to move hm to ~/.hm/bin so that " +
+	"updates need none: curl -fsSL " + installScript + " | bash; or install where you can write: " +
+	"curl -fsSL " + installScript + " | HM_INSTALL_DIR=$HOME/.local/bin bash"
+
+// movable is where the binary goes when its directory is root's, ~/.hm/bin/hm, and whether it may
+// go there now: only with a person at a terminal to give sudo the password. Without one (CI, a
+// pipe, --json, HM_NON_INTERACTIVE) or without sudo, the replacement is refused as it always was.
+func (i installer) movable(target string) (string, bool) {
+	if i.interactive == nil || !i.interactive() || i.sudo == nil || i.home == nil {
+		return "", false
+	}
+
+	home, err := i.home()
+	if err != nil || home == "" {
+		return "", false
+	}
+
+	moved := filepath.Join(home, ".hm", "bin", "hm")
+
+	// ~/.hm/bin itself not writable is nothing a link to it fixes
+	return moved, moved != target
+}
+
+// moveHome installs item at moved, ~/.hm/bin/hm, and has sudo make target a link to it: root once,
+// for a binary root installed (2.0.0-rc.1 to rc.3 put it in /usr/local/bin), and never again,
+// because the next update replaces ~/.hm/bin/hm through the link. Until sudo has linked it, target
+// is the binary it was and still runs, and a copy in ~/.hm/bin that nothing points at is harmless.
+func (e *Engine) moveHome(install installer, item published, asset, target, moved string) (string, error) {
+	tag := item.Tag
+	dir := filepath.Dir(target)
+
+	binary, err := verifiedAsset(install.source, item, asset)
+	if err != nil {
+		return "", core.Refusal{
+			Kind:    "download_failed",
+			Code:    contract.ExitError,
+			Message: err.Error() + "; " + target + " was not changed",
+			Hint:    "Try again; if it keeps failing, re-run the installer",
+		}
+	}
+
+	notice := install.notice
+	if notice == nil {
+		notice = io.Discard
+	}
+
+	fmt.Fprintf(notice, "%s is in %s, which only root can write: sudo is needed this once, to move hm to %s "+
+		"and leave a link to it in its place\n", target, dir, filepath.Dir(moved))
+
+	if err := placeAt(moved, binary); err != nil {
+		return "", core.Refusal{
+			Kind:    "install_failed",
+			Code:    contract.ExitError,
+			Message: fmt.Sprintf("Could not write %s to %s: %v; %s was not changed", tag, moved, err, target),
+			Hint:    notWritableHint,
+		}
+	}
+
+	if err := install.sudo("ln", "-sfn", moved, target); err != nil {
+		return "", core.Refusal{
+			Kind: "install_dir_not_writable",
+			Code: contract.ExitError,
+			Message: fmt.Sprintf("Cannot replace %s: %s is not writable by you and sudo did not link it (%v), "+
+				"so %s was not installed; %s still runs as before, and %s is a copy nothing uses yet",
+				target, dir, err, tag, target, moved),
+			Hint: notWritableHint,
+		}
+	}
+
+	fmt.Fprintf(notice, "hm now lives in %s and %s links to it, so later updates need no sudo\n", moved, target)
+
+	return moved, nil
+}
+
+// placeAt writes binary to path in one rename, creating its directory: a temporary file beside it,
+// made executable and renamed over whatever was there.
+func placeAt(path string, binary []byte) error {
+	dir := filepath.Dir(path)
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+
+	temporary, err := os.CreateTemp(dir, ".hm-new-*")
+	if err != nil {
+		return err
+	}
+	name := temporary.Name()
+
+	_, err = temporary.Write(binary)
+	if closeErr := temporary.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = os.Chmod(name, 0o755)
+	}
+	if err == nil {
+		err = os.Rename(name, path)
+	}
+	if err != nil {
+		_ = os.Remove(name)
+	}
+
+	return err
+}
+
 // notWritable is a replacement the directory of the executable did not allow: installed by root, in
-// /usr/local/bin say. The installer can put it back there with the rights it needs, or somewhere
-// the user owns.
+// /usr/local/bin say, with nobody at a terminal to give sudo the password. The installer can move
+// it to ~/.hm/bin with the rights it needs, or put it somewhere the user owns.
 func (e *Engine) notWritable(target, tag string, err error) error {
 	dir := filepath.Dir(target)
 
@@ -470,7 +634,7 @@ func (e *Engine) notWritable(target, tag string, err error) error {
 			Code: contract.ExitError,
 			Message: fmt.Sprintf("Cannot replace %s: %s is not writable by you, so %s was not installed",
 				target, dir, tag),
-			Hint: "Re-run the installer with sudo, or install where you can write with HM_INSTALL_DIR=$HOME/.local/bin",
+			Hint: notWritableHint,
 		}
 	}
 

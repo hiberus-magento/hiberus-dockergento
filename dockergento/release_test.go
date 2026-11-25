@@ -91,7 +91,12 @@ func (f *fakeReleases) publish(tag string, preRelease bool) {
 func installed(t *testing.T, source *fakeReleases) (*Engine, string) {
 	t.Helper()
 
-	dir := t.TempDir()
+	// Resolved, because the replacement resolves the executable's links and a temporary directory
+	// can sit behind one (/var is /private/var on macOS)
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	target := filepath.Join(dir, "hm")
 
 	if err := os.WriteFile(target, []byte("old"), 0o755); err != nil {
@@ -313,12 +318,252 @@ func TestADirectoryThatCannotBeWrittenIsSaidBeforeDownloading(t *testing.T) {
 	refusal := refusalOf(t, err)
 	if refusal.Kind != "install_dir_not_writable" || refusal.Code != 1 ||
 		refusal.Message != "Cannot replace "+target+": "+dir+" is not writable by you, so 2.1.0 was not installed" ||
-		!strings.Contains(refusal.Hint, "sudo") || !strings.Contains(refusal.Hint, "HM_INSTALL_DIR") {
+		!strings.Contains(refusal.Hint, installerOneLiner) || !strings.Contains(refusal.Hint, "HM_INSTALL_DIR") {
 		t.Fatalf("refusal = %+v", refusal)
 	}
 
 	if contentOf(t, target) != "old" || source.downloaded() != 0 {
 		t.Fatalf("the executable was touched or something downloaded: %v", source.asked)
+	}
+}
+
+// installerOneLiner is the one-liner a refusal to replace the binary points at.
+const installerOneLiner = "curl -fsSL https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/install.sh | bash"
+
+// sudoer stands in for sudo: it records what it was asked to run, and answers with err.
+type sudoer struct {
+	asked [][]string
+	err   error
+}
+
+func (s *sudoer) run(args ...string) error {
+	s.asked = append(s.asked, args)
+
+	return s.err
+}
+
+// atTerminal gives engine a person at a terminal who can become root through sudo, a home of its
+// own, and somewhere to say things; it returns them.
+func atTerminal(t *testing.T, engine *Engine) (*sudoer, string, *strings.Builder) {
+	t.Helper()
+
+	home, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sudo, notice := &sudoer{}, &strings.Builder{}
+
+	engine.install.interactive = func() bool { return true }
+	engine.install.home = func() (string, error) { return home, nil }
+	engine.install.sudo = sudo.run
+	engine.install.notice = notice
+
+	return sudo, home, notice
+}
+
+// rootOwned makes the directory of target one the user cannot write, until the test ends.
+func rootOwned(t *testing.T, target string) {
+	t.Helper()
+
+	if os.Geteuid() == 0 {
+		t.Skip("root writes anywhere")
+	}
+
+	dir := filepath.Dir(target)
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+}
+
+func TestABinaryReachedThroughALinkIsReplacedWhereItReallyIs(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	engine, target := installed(t, source)
+
+	link := filepath.Join(t.TempDir(), "hm")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	engine.install.executable = func() (string, error) { return link, nil }
+
+	updated, err := engine.Update(core.UpdateOptions{Running: "2.0.0"})
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	if updated.Path != target || contentOf(t, target) != "#!/bin/sh\n# 2.1.0\n" {
+		t.Fatalf("updated = %+v, the real file holds %q", updated, contentOf(t, target))
+	}
+
+	if pointed, err := os.Readlink(link); err != nil || pointed != target {
+		t.Fatalf("the link points at %q (%v), want %s", pointed, err, target)
+	}
+
+	noLeftovers(t, target)
+}
+
+func TestAWritableDirectoryAtATerminalIsReplacedInPlaceWithoutSudo(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	engine, target := installed(t, source)
+	sudo, home, notice := atTerminal(t, engine)
+
+	updated, err := engine.Update(core.UpdateOptions{Running: "2.0.0"})
+	if err != nil || updated.Path != target || contentOf(t, target) != "#!/bin/sh\n# 2.1.0\n" {
+		t.Fatalf("updated = %+v, err = %v", updated, err)
+	}
+
+	if len(sudo.asked) != 0 || notice.Len() != 0 {
+		t.Fatalf("sudo was asked %v and the notice said %q, want neither", sudo.asked, notice.String())
+	}
+
+	if _, err := os.Stat(filepath.Join(home, ".hm")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("~/.hm was touched: %v", err)
+	}
+}
+
+func TestADirectoryOnlyRootWritesMovesHmHomeWithSudoOnce(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	engine, target := installed(t, source)
+	rootOwned(t, target)
+	sudo, home, notice := atTerminal(t, engine)
+	moved := filepath.Join(home, ".hm", "bin", "hm")
+
+	updated, err := engine.Update(core.UpdateOptions{Running: "2.0.0"})
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	if updated != (core.Updated{Updated: true, From: "2.0.0", To: "2.1.0", Latest: "2.1.0", Path: moved}) {
+		t.Fatalf("updated = %+v", updated)
+	}
+
+	if got := contentOf(t, moved); got != "#!/bin/sh\n# 2.1.0\n" {
+		t.Fatalf("%s holds %q, want the binary of 2.1.0", moved, got)
+	}
+
+	if info, _ := os.Stat(moved); info.Mode().Perm() != 0o755 {
+		t.Fatalf("mode = %v, want 0755", info.Mode().Perm())
+	}
+
+	noLeftovers(t, moved)
+
+	if want := [][]string{{"ln", "-sfn", moved, target}}; fmt.Sprint(sudo.asked) != fmt.Sprint(want) {
+		t.Fatalf("sudo was asked %q, want %q", sudo.asked, want)
+	}
+
+	want := target + " is in " + filepath.Dir(target) + ", which only root can write: sudo is needed this " +
+		"once, to move hm to " + filepath.Dir(moved) + " and leave a link to it in its place\n" +
+		"hm now lives in " + moved + " and " + target + " links to it, so later updates need no sudo\n"
+	if notice.String() != want {
+		t.Fatalf("notice =\n%q\nwant\n%q", notice.String(), want)
+	}
+}
+
+func TestSwitchMovesHmHomeTheSameWay(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	source.publish("2.0.0", false)
+	engine, target := installed(t, source)
+	rootOwned(t, target)
+	sudo, home, _ := atTerminal(t, engine)
+	moved := filepath.Join(home, ".hm", "bin", "hm")
+
+	switched, err := engine.Switch(core.SwitchOptions{Running: "2.1.0", Version: "2.0.0"})
+	if err != nil || switched.Path != moved || contentOf(t, moved) != "#!/bin/sh\n# 2.0.0\n" || len(sudo.asked) != 1 {
+		t.Fatalf("switched = %+v, err = %v, sudo asked %v", switched, err, sudo.asked)
+	}
+}
+
+func TestWithoutATerminalADirectoryOnlyRootWritesIsRefusedAsBefore(t *testing.T) {
+	cases := map[string]func(*Engine){
+		"no terminal": func(engine *Engine) { engine.install.interactive = func() bool { return false } },
+		"no sudo":     func(engine *Engine) { engine.install.sudo = nil },
+	}
+
+	for name, without := range cases {
+		t.Run(name, func(t *testing.T) {
+			source := &fakeReleases{}
+			source.publish("2.1.0", false)
+			engine, target := installed(t, source)
+			rootOwned(t, target)
+			sudo, home, notice := atTerminal(t, engine)
+			without(engine)
+
+			_, err := engine.Update(core.UpdateOptions{Running: "2.0.0"})
+
+			refusal := refusalOf(t, err)
+			if refusal.Kind != "install_dir_not_writable" || refusal.Code != 1 ||
+				refusal.Message != "Cannot replace "+target+": "+filepath.Dir(target)+" is not writable by you, so 2.1.0 was not installed" ||
+				!strings.Contains(refusal.Hint, installerOneLiner) || !strings.Contains(refusal.Hint, "HM_INSTALL_DIR") {
+				t.Fatalf("refusal = %+v", refusal)
+			}
+
+			if len(sudo.asked) != 0 || notice.Len() != 0 || source.downloaded() != 0 || contentOf(t, target) != "old" {
+				t.Fatalf("sudo asked %v, notice %q, downloaded %v", sudo.asked, notice.String(), source.asked)
+			}
+
+			if _, err := os.Stat(filepath.Join(home, ".hm")); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("~/.hm was written: %v", err)
+			}
+		})
+	}
+}
+
+func TestSudoRefusedLeavesTheOldBinaryRunning(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	engine, target := installed(t, source)
+	rootOwned(t, target)
+	sudo, home, _ := atTerminal(t, engine)
+	sudo.err = errors.New("exit status 1")
+	moved := filepath.Join(home, ".hm", "bin", "hm")
+
+	_, err := engine.Update(core.UpdateOptions{Running: "2.0.0"})
+
+	refusal := refusalOf(t, err)
+	if refusal.Kind != "install_dir_not_writable" || refusal.Code != 1 ||
+		refusal.Message != "Cannot replace "+target+": "+filepath.Dir(target)+" is not writable by you and sudo "+
+			"did not link it (exit status 1), so 2.1.0 was not installed; "+target+" still runs as before, and "+
+			moved+" is a copy nothing uses yet" ||
+		!strings.Contains(refusal.Hint, installerOneLiner) || !strings.Contains(refusal.Hint, "HM_INSTALL_DIR") {
+		t.Fatalf("refusal = %+v", refusal)
+	}
+
+	if contentOf(t, target) != "old" {
+		t.Fatal("the old binary was replaced")
+	}
+
+	noLeftovers(t, target)
+}
+
+func TestTheRealInstallerAsksOnlyAPersonAtATerminal(t *testing.T) {
+	original := inputIsTerminal
+	t.Cleanup(func() { inputIsTerminal = original })
+
+	cases := []struct {
+		name           string
+		terminal       bool
+		nonInteractive string
+		want           bool
+	}{
+		{"a terminal", true, "", true},
+		{"HM_NON_INTERACTIVE", true, "1", false},
+		{"a pipe", false, "", false},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			inputIsTerminal = func() bool { return c.terminal }
+			t.Setenv("HM_NON_INTERACTIVE", c.nonInteractive)
+
+			if got := realInstaller().interactive(); got != c.want {
+				t.Fatalf("interactive = %v, want %v", got, c.want)
+			}
+		})
 	}
 }
 

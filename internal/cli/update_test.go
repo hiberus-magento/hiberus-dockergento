@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
@@ -122,5 +123,68 @@ func TestAnUpdateRefusalKeepsItsCode(t *testing.T) {
 
 	if !bytes.Contains(stderr.Bytes(), []byte(`"type": "built_from_source"`)) {
 		t.Fatalf("stderr = %s", stderr.String())
+	}
+}
+
+// promptsSeen is the fake engine, recording what HM_NON_INTERACTIVE was while it was asked to
+// replace the binary: what decides whether sudo may ask for a password.
+type promptsSeen struct {
+	*fakeEngine
+	during []string
+}
+
+func (p *promptsSeen) Update(options core.UpdateOptions) (core.Updated, error) {
+	p.during = append(p.during, os.Getenv("HM_NON_INTERACTIVE"))
+
+	return p.fakeEngine.Update(options)
+}
+
+func (p *promptsSeen) Switch(options core.SwitchOptions) (core.Switched, error) {
+	p.during = append(p.during, os.Getenv("HM_NON_INTERACTIVE"))
+
+	return p.fakeEngine.Switch(options)
+}
+
+// watchingPrompts answers with a fake engine that records HM_NON_INTERACTIVE, starting unset.
+func watchingPrompts(t *testing.T) *promptsSeen {
+	t.Helper()
+
+	seen := &promptsSeen{fakeEngine: answering(t)}
+	newEngine = func(_, _ io.Writer, _ bool) commands { return seen }
+	t.Setenv("HM_NON_INTERACTIVE", "")
+	os.Unsetenv("HM_NON_INTERACTIVE") //nolint:errcheck
+
+	return seen
+}
+
+// TestAJSONUpdateNeverAsksForAPassword: a program reads a JSON answer, and nobody is there to give
+// sudo a password, so the replacement runs as HM_NON_INTERACTIVE does, and only for its duration.
+func TestAJSONUpdateNeverAsksForAPassword(t *testing.T) {
+	cases := []struct {
+		name string
+		run  func(jsonOutput bool) int
+	}{
+		{"update", func(jsonOutput bool) int { return update(nil, io.Discard, io.Discard, jsonOutput) }},
+		{"switch", func(jsonOutput bool) int {
+			return switchVersion([]string{"2.0.0"}, io.Discard, io.Discard, jsonOutput)
+		}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			seen := watchingPrompts(t)
+			stamped(t, "2.1.0")
+
+			c.run(false)
+			c.run(true)
+
+			if len(seen.during) != 2 || seen.during[0] != "" || seen.during[1] != "1" {
+				t.Fatalf("HM_NON_INTERACTIVE while replacing = %q, want [\"\" \"1\"] (text, then JSON)", seen.during)
+			}
+
+			if value, set := os.LookupEnv("HM_NON_INTERACTIVE"); set {
+				t.Fatalf("HM_NON_INTERACTIVE is still %q after the command", value)
+			}
+		})
 	}
 }

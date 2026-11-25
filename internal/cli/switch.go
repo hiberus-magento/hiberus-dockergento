@@ -58,6 +58,8 @@ func switchVersion(args []string, stdout, stderr io.Writer, jsonOutput bool) int
 		return exitOK
 	}
 
+	defer promptless(jsonOutput)()
+
 	switched, err := tool.Switch(options)
 	if err != nil {
 		return report(stderr, jsonOutput, "switch", err)

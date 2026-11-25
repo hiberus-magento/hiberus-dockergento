@@ -24,7 +24,39 @@ hm update --pre    # newest release, pre-releases included
    installed.
 5. Replaces the running executable (symlinks resolved, so the real file is replaced and the link
    kept) in one rename: the new binary is written beside it, made executable and renamed over
-   it. An interrupted update never leaves half a binary.
+   it. An interrupted update never leaves half a binary. When `/usr/local/bin/hm` is a link to
+   `~/.hm/bin/hm`, which is what the installer leaves, `~/.hm/bin/hm` is replaced and no `sudo`
+   is needed.
+
+## A binary root installed
+
+2.0.0-rc.1 to rc.3 put the binary itself in `/usr/local/bin`, which only root can write. On a
+terminal, `hm update` (and `hm switch`) moves it once:
+
+```console
+$ hm update --pre
+/usr/local/bin/hm is in /usr/local/bin, which only root can write: sudo is needed this once, to move hm to /home/you/.hm/bin and leave a link to it in its place
+Password:
+hm now lives in /home/you/.hm/bin/hm and /usr/local/bin/hm links to it, so later updates need no sudo
+Hiberus Dockergento updated from 2.0.0-rc.2 to 2.0.0-rc.3
+  installed    /home/you/.hm/bin/hm
+```
+
+The verified binary is written to `~/.hm/bin/hm` first, then `sudo ln -sfn ~/.hm/bin/hm
+/usr/local/bin/hm` asks for your password. If `sudo` is refused or fails, the old binary still
+runs as before, and `~/.hm/bin/hm` is a copy nothing uses yet. Later updates replace
+`~/.hm/bin/hm` through the link, without `sudo`.
+
+Without a terminal — CI, a pipe, `--json`, `HM_NON_INTERACTIVE` or `--yes` — or without `sudo`,
+nothing is asked and the update is refused (`install_dir_not_writable`). Re-run the installer,
+which moves it with `sudo` once:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/install.sh | bash
+```
+
+or install where you can write with `HM_INSTALL_DIR=$HOME/.local/bin` (the variable goes on
+`bash`).
 
 ## When it refuses
 
@@ -34,7 +66,7 @@ hm update --pre    # newest release, pre-releases included
 | `releases_unavailable` | 1 | GitHub could not be read: no connection, an error, or the rate limit (set `GITHUB_TOKEN`) |
 | `asset_missing` | 1 | The release publishes no binary for your platform |
 | `download_failed` | 1 | The binary or its checksums could not be downloaded, or they do not match |
-| `install_dir_not_writable` | 1 | The directory of the executable is not yours to write, `/usr/local/bin` say. Re-run the installer with `sudo`, or install where you can write with `HM_INSTALL_DIR=$HOME/.local/bin` |
+| `install_dir_not_writable` | 1 | The directory of the executable is not yours to write, `/usr/local/bin` say, and there is no terminal to move it to `~/.hm/bin` with `sudo`, or `sudo` was refused. Re-run the installer, or install where you can write with `HM_INSTALL_DIR=$HOME/.local/bin` (see [A binary root installed](#a-binary-root-installed)) |
 
 In every case the running executable is left exactly as it was.
 

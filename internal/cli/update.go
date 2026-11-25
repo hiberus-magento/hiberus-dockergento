@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -12,6 +13,28 @@ import (
 // carries a release version, only "(devel)" or a pseudo-version. Empty is a binary built from a
 // checkout.
 func runningVersion() string { return Version }
+
+// promptless makes a JSON invocation non-interactive while it replaces the binary, and returns what
+// undoes it. A binary in a directory only root writes is moved to ~/.hm/bin with sudo when a person
+// is at the terminal; a JSON answer is read by a program, with nobody to give sudo a password. The
+// engine has no idea of the output format, and the installer it builds reads HM_NON_INTERACTIVE,
+// the same variable --yes sets.
+func promptless(jsonOutput bool) func() {
+	if !jsonOutput {
+		return func() {}
+	}
+
+	previous, set := os.LookupEnv("HM_NON_INTERACTIVE")
+	os.Setenv("HM_NON_INTERACTIVE", "1") //nolint:errcheck
+
+	return func() {
+		if set {
+			os.Setenv("HM_NON_INTERACTIVE", previous) //nolint:errcheck
+		} else {
+			os.Unsetenv("HM_NON_INTERACTIVE") //nolint:errcheck
+		}
+	}
+}
 
 // update replaces this binary with the newest release when there is a newer one. --pre lets that
 // be a pre-release.
@@ -26,6 +49,8 @@ func update(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 		options.PreReleases = true
 	}
+
+	defer promptless(jsonOutput)()
 
 	updated, err := newEngine(stdout, stderr, jsonOutput).Update(options)
 	if err != nil {

@@ -32,7 +32,7 @@ func (e *Engine) Update(options core.UpdateOptions) (core.Updated, error) {
 			latest = found[0].Tag
 		}
 
-		path, _ := install.executable()
+		path, _ := install.target()
 
 		return core.Updated{From: options.Running, To: options.Running, Latest: latest, Path: path}, nil
 	}
