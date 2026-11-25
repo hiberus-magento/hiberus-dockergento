@@ -31,6 +31,9 @@ import (
 	"github.com/docker/compose/v2/cmd/formatter"
 	"github.com/docker/compose/v2/pkg/api"
 	"github.com/docker/compose/v2/pkg/compose"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -174,29 +177,89 @@ func (o Orchestrator) Logs(project core.Project, files core.ComposeFiles, servic
 	})
 }
 
-// RecentLog is the last lines of one service's log, as text to be read rather than shown.
+// RecentLog is the last lines of one service's log since its container last started, as text to
+// be read rather than shown.
 //
 // Not through Compose's consumer, which writes the container's stdout and stderr to the two
 // streams it was given, where Compose's own messages go too: read back from there, a warning of
 // Compose's is a line of the service's log. Here what the container wrote, on either of its
 // streams, is the log, and Compose's own streams stay the orchestrator's. The context bounds the
-// request to the daemon.
+// requests to the daemon.
+//
+// Since the start, because a container's log outlives a stop: the SIGTERM varnish logged when it
+// was last stopped, or an error from months ago, is still its last error line otherwise, and says
+// nothing about how it is doing now. The time is Docker's own State.StartedAt — what `docker logs
+// --since` is given, rather than dates read out of lines whose format each service chooses. With
+// several containers, the earliest start, so none loses what it said since its own.
 func (o Orchestrator) RecentLog(ctx context.Context, project core.Project, files core.ComposeFiles,
 	service, tail string) (string, error) {
-	compose, loaded, err := o.open(project, files)
+	docker, err := o.cli()
+	if err != nil {
+		return "", err
+	}
+
+	loaded, err := o.load(project, files)
+	if err != nil {
+		return "", err
+	}
+
+	since, err := startedAt(ctx, docker.Client(), loaded.Name, service)
 	if err != nil {
 		return "", err
 	}
 
 	log := &logLines{}
 
-	err = compose.Logs(ctx, loaded.Name, log, api.LogOptions{
+	err = compose.NewComposeService(docker).Logs(ctx, loaded.Name, log, api.LogOptions{
 		Project:  loaded,
 		Services: []string{service},
 		Tail:     tail,
+		Since:    since,
 	})
 
 	return log.String(), err
+}
+
+// startedAt is when the earliest running container of a service started, as Docker writes it, or
+// "" when none says: a container with no start time is read whole, as before, rather than not at
+// all. The filters are the ones Compose's own Logs lists the service's containers with.
+func startedAt(ctx context.Context, docker client.APIClient, project, service string) (string, error) {
+	listed, err := docker.ContainerList(ctx, container.ListOptions{Filters: filters.NewArgs(
+		filters.Arg("label", api.ProjectLabel+"="+project),
+		filters.Arg("label", api.ServiceLabel+"="+service),
+		filters.Arg("label", api.OneoffLabel+"=False"),
+	)})
+	if err != nil {
+		return "", err
+	}
+
+	var earliest time.Time
+
+	for _, summary := range listed {
+		inspected, err := docker.ContainerInspect(ctx, summary.ID)
+		if err != nil {
+			return "", err
+		}
+
+		if inspected.State == nil {
+			continue
+		}
+
+		started, err := time.Parse(time.RFC3339Nano, inspected.State.StartedAt)
+		if err != nil || started.IsZero() || started.Unix() <= 0 {
+			continue
+		}
+
+		if earliest.IsZero() || started.Before(earliest) {
+			earliest = started
+		}
+	}
+
+	if earliest.IsZero() {
+		return "", nil
+	}
+
+	return earliest.Format(time.RFC3339Nano), nil
 }
 
 // logLines is a LogConsumer that keeps what the containers wrote, on either stream, and nothing
@@ -247,20 +310,35 @@ func (o Orchestrator) Exec(project core.Project, files core.ComposeFiles, name s
 
 // open builds the Compose service and loads the project it will act on.
 func (o Orchestrator) open(project core.Project, files core.ComposeFiles) (api.Compose, *types.Project, error) {
+	docker, err := o.cli()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	loaded, err := o.load(project, files)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return compose.NewComposeService(docker), loaded, nil
+}
+
+// cli is the Docker CLI Compose runs on, initialised as the `docker` command initialises itself.
+func (o Orchestrator) cli() (*command.DockerCli, error) {
 	docker, err := command.NewDockerCli(
 		command.WithInputStream(o.in()),
 		command.WithOutputStream(o.out()),
 		command.WithErrorStream(o.err()),
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// The docker CLI's own initialisation, which is also what resolves the daemon: the context
 	// store, DOCKER_HOST, the config file. Doing it any other way is how a binary reports "Docker
 	// is not running" on every machine using Colima
 	if err := docker.Initialize(flags.NewClientOptions()); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	//
@@ -276,12 +354,7 @@ func (o Orchestrator) open(project core.Project, files core.ComposeFiles) (api.C
 
 	formatter.SetANSIMode(docker, ansi)
 
-	loaded, err := o.load(project, files)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return compose.NewComposeService(docker), loaded, nil
+	return docker, nil
 }
 
 func (o Orchestrator) load(project core.Project, files core.ComposeFiles) (*types.Project, error) {

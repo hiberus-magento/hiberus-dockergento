@@ -479,8 +479,9 @@ func (e *Engine) Logs(dir string, services []string, options core.LogOptions) er
 // The logs are read through Compose into a buffer, never the engine's own output: the lines are
 // read for errors, not shown. Only what the containers wrote is read; Compose's own messages go
 // to the engine's stderr, never stdout, which under --json is the document's. Two hundred lines
-// each, which is minutes of a busy nginx and enough to say whether something is failing now, all
-// services at once, each with the reporter's deadline.
+// each, logged since the container last started (an older line is about a run that is over), which
+// is minutes of a busy nginx and enough to say whether something is failing now, all services at
+// once, each with the reporter's deadline.
 func (e *Engine) Status(dir string) (core.Status, error) {
 	project, err := e.Resolve(dir)
 	if err != nil {

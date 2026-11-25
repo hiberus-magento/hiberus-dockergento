@@ -43,10 +43,12 @@ shop  running  mode developer  xdebug off  anonymised 2026-11-25 10:00
 Everything `describe` knows, it reuses: the services and their state, the URLs (with the admin's
 real front name), the mode, Xdebug and the anonymisation. On top of that it asks two things:
 
-- **The last error.** The last 200 lines of each *running* service's log are read and the last
-  line that says `error`, `fatal`, `critical`, `emergency`, `alert` or `panic` — as a whole word,
-  so `error_reporting` in a configuration dump is not one, and a warning is not one either — is
-  reported, cut at 300 characters. A stopped container is not asked. Only what the container
+- **The last error.** The last 200 lines each *running* service logged since its container last
+  started are read — Docker's own start time, so the error a container logged when it was stopped
+  last week is not reported as how it is doing now. The last line that says `error`, `fatal`,
+  `critical`, `emergency`, `alert` or `panic` — as a whole word, so `error_reporting` in a
+  configuration dump is not one, and a warning is not one either — is reported, cut at 300
+  characters. A stopped container is not asked. Only what the container
   wrote, on its stdout or its stderr, is read; Compose's own messages are not part of it. All
   running services are read at once, each with a five-second deadline: a log that does not
   arrive in time is reported as `(the log could not be read: it did not answer within 5s)`, and
