@@ -243,3 +243,58 @@ func TestNothingIsConvertedWhereThereIsNoProject(t *testing.T) {
 		t.Fatalf("announced %q, want nothing", notices.String())
 	}
 }
+
+// A link where hm writes its temporary file (committed with the project, or left there by
+// anyone) is never followed: the file it points to, outside the project, is not written, both
+// when the old format is converted and when a property is set.
+func TestATemporaryNameThatIsALinkIsNeverWrittenThrough(t *testing.T) {
+	for name, write := range map[string]func(root string) error{
+		"converting the old format": func(root string) error {
+			if err := os.WriteFile(filepath.Join(root, "config", "docker", "properties"),
+				[]byte("COMPOSE_PROJECT_NAME=shop\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := (Reader{}).Load(root)
+
+			return err
+		},
+		"setting a property": func(root string) error {
+			if err := os.WriteFile(filepath.Join(root, "config", "docker", "properties.json"),
+				[]byte(`{"COMPOSE_PROJECT_NAME": "shop"}`+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			return (Reader{}).Set(root, "DOMAIN", "shop.local")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(root, "config", "docker"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+
+			outside := filepath.Join(t.TempDir(), "victim")
+			if err := os.WriteFile(outside, []byte("untouched\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := os.Symlink(outside, filepath.Join(root, "config", "docker", "properties.json.tmp")); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := write(root); err != nil {
+				t.Fatalf("write = %v, want it done beside the link", err)
+			}
+
+			if got, _ := os.ReadFile(outside); string(got) != "untouched\n" {
+				t.Fatalf("the file the link points to now says %q, want it untouched", got)
+			}
+
+			written, err := os.ReadFile(filepath.Join(root, "config", "docker", "properties.json"))
+			if err != nil || !strings.Contains(string(written), "shop") {
+				t.Fatalf("properties.json = %q, %v; want the project's properties", written, err)
+			}
+		})
+	}
+}

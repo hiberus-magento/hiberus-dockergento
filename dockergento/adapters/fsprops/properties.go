@@ -99,13 +99,7 @@ func (r Reader) convert(dir string) error {
 		return err
 	}
 
-	temporary := file + ".tmp"
-
-	if err := os.WriteFile(temporary, append(document, '\n'), 0o644); err != nil { //nolint:gosec
-		return err
-	}
-
-	if err := os.Rename(temporary, file); err != nil {
+	if err := replace(file, append(document, '\n')); err != nil {
 		return err
 	}
 
@@ -231,11 +225,36 @@ func (r Reader) Set(dir, key, value string) error {
 
 	// Written beside and moved into place: a half-written properties.json is a project with no
 	// identity, and this runs while somebody is importing a database
-	temporary := file + ".tmp"
+	return replace(file, append(document, '\n'))
+}
 
-	if err := os.WriteFile(temporary, append(document, '\n'), 0o644); err != nil { //nolint:gosec
+// replace puts contents at file in one rename, from a temporary file created beside it under a
+// name nobody can have prepared: a fixed name such as properties.json.tmp could already be a
+// link, committed with the project, and writing to it would write wherever it points.
+func replace(file string, contents []byte) error {
+	temporary, err := os.CreateTemp(filepath.Dir(file), "."+filepath.Base(file)+".*")
+	if err != nil {
 		return err
 	}
 
-	return os.Rename(temporary, file)
+	name := temporary.Name()
+
+	_, err = temporary.Write(contents)
+	if closeErr := temporary.Close(); err == nil {
+		err = closeErr
+	}
+
+	if err == nil {
+		err = os.Chmod(name, 0o644) //nolint:gosec
+	}
+
+	if err == nil {
+		err = os.Rename(name, file)
+	}
+
+	if err != nil {
+		_ = os.Remove(name)
+	}
+
+	return err
 }
