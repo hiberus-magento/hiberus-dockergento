@@ -36,7 +36,9 @@ ever wanted back.
 
 So those are listed here too, and collected with `--force`: the containers and volumes **by
 name**, because the directory that held the compose configuration is exactly what is missing, and
-then the registration.
+then the registration. The volumes Compose labelled with that environment's project are listed
+under it (`volume …` lines, `volumes` in `--json`) even when its containers are already gone, and
+never as unattributable: what is shown under it is what `--force` deletes with it.
 
 The branch is not touched, and neither are that project's database snapshots.
 

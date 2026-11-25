@@ -50,6 +50,10 @@ type AbandonedWorktree struct {
 	Name    string `json:"name"`
 	Project string `json:"project"`
 	Path    string `json:"path"`
+
+	// Volumes are the ones Compose labelled with its project that no rule above already lists:
+	// collecting the registration deletes them, so they are shown here and not as unattributable.
+	Volumes []string `json:"volumes,omitempty"`
 }
 
 // Anything reports whether there is something to collect at all.

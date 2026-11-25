@@ -95,11 +95,13 @@ func (c Collector) Survey() (core.Collection, error) {
 			core.Abandoned{Name: name, Reason: "no hm labels"})
 	}
 
-	if err := c.volumes(&collection, collectable, projects); err != nil {
+	// The worktrees first: a dead branch environment's volumes are listed under it, and the volume
+	// rule needs to know which they are
+	if err := c.worktrees(&collection); err != nil {
 		return collection, err
 	}
 
-	if err := c.worktrees(&collection); err != nil {
+	if err := c.volumes(&collection, collectable, projects); err != nil {
 		return collection, err
 	}
 
@@ -111,11 +113,24 @@ func (c Collector) Survey() (core.Collection, error) {
 }
 
 // volumes are attributed through their project's containers. A volume whose project has no
-// containers left could belong to anything, so it is listed and left alone.
+// containers left could belong to anything, so it is listed and left alone — unless that project
+// is a branch environment whose worktree is gone: collecting it deletes the volumes Compose
+// labelled for it (removeByProject), so they are listed under it, and the survey says what
+// --force does.
 func (c Collector) volumes(collection *core.Collection, collectable, projects map[string]bool) error {
 	all, err := c.Volumes.All()
 	if err != nil {
 		return err
+	}
+
+	// No empty project: it would claim every volume with no compose label, which removeByProject
+	// never matches either
+	branches := map[string]int{}
+
+	for at, worktree := range collection.Worktrees {
+		if worktree.Project != "" {
+			branches[worktree.Project] = at
+		}
 	}
 
 	for _, volume := range all {
@@ -139,9 +154,13 @@ func (c Collector) volumes(collection *core.Collection, collectable, projects ma
 			continue
 		}
 
+		at, branch := branches[project]
+
 		switch {
 		case collectable[project]:
 			collection.Volumes = append(collection.Volumes, volume)
+		case branch:
+			collection.Worktrees[at].Volumes = append(collection.Worktrees[at].Volumes, volume)
 		case !projects[project]:
 			collection.Unattributable.Volumes = append(collection.Unattributable.Volumes, volume)
 		}
@@ -300,4 +319,8 @@ func sortCollection(collection *core.Collection) {
 	sort.Slice(collection.Worktrees, func(a, b int) bool {
 		return collection.Worktrees[a].Name < collection.Worktrees[b].Name
 	})
+
+	for _, worktree := range collection.Worktrees {
+		sort.Strings(worktree.Volumes)
+	}
 }

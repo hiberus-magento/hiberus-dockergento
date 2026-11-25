@@ -346,6 +346,44 @@ func TestCleanInteractivelyCollectsOnlyOnYes(t *testing.T) {
 	}
 }
 
+// The volumes a dead branch environment takes with it are shown under it, counted in what the
+// question says will be deleted, and not among what is left alone.
+func TestCleanShowsABranchEnvironmentsVolumesUnderIt(t *testing.T) {
+	t.Setenv("HM_FORCE", "")
+
+	collection := somethingToCollect()
+	collection.Worktrees[0].Volumes = []string{"hm-clean-dead-rama-muerta_db", "hm-clean-dead-rama-muerta_workspace"}
+
+	fake := answering(t)
+	fake.outcomes = []outcome{{collection: collection}}
+	t.Setenv("HM_NON_INTERACTIVE", "")
+
+	var stdout, stderr bytes.Buffer
+
+	askingWith(t, "n\n", func() {
+		clean([]string{"--force"}, &stdout, &stderr, false)
+	})
+
+	text := stdout.String()
+	branches := strings.Index(text, "Branch environments whose worktree is gone")
+	alone := strings.Index(text, "Cannot be attributed")
+
+	if branches < 0 || alone < branches {
+		t.Fatalf("stdout = %q, want the branch environments listed before what is left alone", text)
+	}
+
+	for _, volume := range collection.Worktrees[0].Volumes {
+		at := strings.Index(text, volume)
+		if at < branches || at > alone {
+			t.Errorf("stdout = %q, want %s under the branch environment, not among what is left alone", text, volume)
+		}
+	}
+
+	if !strings.Contains(text, "1 environment(s), 3 volume(s) and 1 branch environment(s)") {
+		t.Errorf("stdout = %q, want the question to count the branch environment's volumes", text)
+	}
+}
+
 // A pipe on stdout makes the output JSON, and that must not make the question go away:
 // `printf 'n\n' | hm clean --force >/dev/null` deletes nothing. Only an explicit yes, or --yes,
 // deletes, and the document says whether anything was.

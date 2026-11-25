@@ -89,10 +89,16 @@ func clean(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 // confirmed shows what is about to be deleted on out and asks; anything but a yes is a no.
 func confirmed(collection core.Collection, stdout io.Writer) bool {
+	volumes := len(collection.Volumes)
+
+	for _, worktree := range collection.Worktrees {
+		volumes += len(worktree.Volumes)
+	}
+
 	fmt.Fprintf(stdout, "\n")
 	fmt.Fprint(stdout, warning(fmt.Sprintf(
 		"This deletes %d environment(s), %d volume(s) and %d branch environment(s).\n",
-		len(collection.Environments), len(collection.Volumes), len(collection.Worktrees))))
+		len(collection.Environments), volumes, len(collection.Worktrees))))
 	fmt.Fprint(stdout, warning("Their database snapshots are not touched.\n\n"))
 
 	answer, err := ask("Delete them? [y/N]:", "")
@@ -131,6 +137,11 @@ func cleanAsText(collection core.Collection, stdout io.Writer) {
 
 		for _, one := range collection.Worktrees {
 			fmt.Fprintf(stdout, "  %-28s was at %s\n", one.Name, one.Path)
+
+			// Collected with it, so shown with it and not among what is left alone
+			for _, volume := range one.Volumes {
+				fmt.Fprintf(stdout, "    volume %s\n", volume)
+			}
 		}
 	}
 

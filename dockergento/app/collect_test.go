@@ -696,6 +696,45 @@ func TestAnEmptyNameDeletesNothingByName(t *testing.T) {
 	}
 }
 
+// TestADeadBranchEnvironmentsVolumesAreListedUnderIt: a branch environment whose worktree is gone,
+// with no containers left, still has the volumes Compose labelled for it — and collecting it
+// deletes them. Listing them as unattributable, "left alone", while --force deleted them was a
+// survey that did not say what would happen: they are listed under the environment that removes
+// them, and what is collected is exactly what was listed. A volume of a project with no
+// containers and no registration stays unattributable.
+func TestADeadBranchEnvironmentsVolumesAreListedUnderIt(t *testing.T) {
+	s := sweepOf(
+		nil,
+		[]string{"x_data", "x_algo_data"},
+		map[string]map[string]string{
+			"x_data":      composeLabels("x"),
+			"x_algo_data": composeLabels("x_algo"),
+		},
+		map[string][]core.Worktree{"padre": {{Name: "x", Project: "x", Path: "/lab/no-existe"}}},
+		map[string]bool{},
+		nil,
+	)
+
+	collection := surveyed(t, s)
+
+	want := []core.AbandonedWorktree{{Name: "padre/x", Project: "x", Path: "/lab/no-existe", Volumes: []string{"x_data"}}}
+	if diff := cmp.Diff(want, collection.Worktrees); diff != "" {
+		t.Fatalf("worktrees (-want +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff([]string{"x_algo_data"}, collection.Unattributable.Volumes); diff != "" {
+		t.Fatalf("unattributable volumes (-want +got):\n%s", diff)
+	}
+
+	if err := s.collector.Collect(collection); err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := cmp.Diff([]string{"x_data"}, s.volumes.removed); diff != "" {
+		t.Fatalf("volumes removed (-want +got):\n%s", diff)
+	}
+}
+
 // TestABranchEnvironmentsVolumesAreTheOnesComposeLabelledForIt: compose project names may contain
 // underscores, so a dead branch environment called "x" and a live project called "x_algo" share
 // the prefix "x_". Matching by prefix took the live project's volumes with the dead one's; matching
