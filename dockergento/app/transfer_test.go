@@ -318,6 +318,33 @@ func TestCopyingEverythingInIsWatchedWithTheTotalMeasuredOnThisMachine(t *testin
 	}
 }
 
+// transfer-db's dump is the largest single file this tool copies, and it is copied in like any
+// other: watched, against the size of the file on this machine.
+func TestADumpCopiedIntoAServiceIsWatchedWithItsSize(t *testing.T) {
+	transfer, project, files, watch := watched(t, &runner{})
+	transfer.Engine = &engine{containers: []core.Container{
+		{ID: "db1", Project: "tienda", ComposeService: "db", Running: true},
+	}}
+
+	dump := filepath.Join(t.TempDir(), "db.sql.gz")
+	if err := os.WriteFile(dump, []byte("0123456789abc"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := transfer.IntoService(project, "db", dump, "/tmp"); err != nil {
+		t.Fatal(err)
+	}
+
+	if files.metered != 1 || files.plain != 0 {
+		t.Fatalf("%d metered and %d plain copies, want one metered", files.metered, files.plain)
+	}
+
+	if len(watch.totals) != 1 || watch.totals[0] != 13 || watch.ended != 1 || watch.failed {
+		t.Fatalf("watched totals %v, ended %d, failed %v; want [13] ended once as done",
+			watch.totals, watch.ended, watch.failed)
+	}
+}
+
 func TestCopyingOutOfARunningContainerAsksDuForTheTotal(t *testing.T) {
 	comun := &runner{answer: "675000000\t/var/www/html/vendor\n"}
 	transfer, project, files, watch := watched(t, comun)

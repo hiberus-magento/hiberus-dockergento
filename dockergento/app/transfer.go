@@ -231,14 +231,15 @@ func hostSize(source string) int64 {
 }
 
 // IntoService copies one file from this machine into a directory of another service's container: the
-// dump transfer-db brought over SSH, into the database container that restores it.
+// dump transfer-db brought over SSH, into the database container that restores it. Watched like
+// any copy in: a dump of several gigabytes is as long a silence as a vendor directory.
 func (t Transfer) IntoService(project core.Project, service, source, target string) error {
 	container, err := resolveContainer(t.Engine, project, service, t.Binary)
 	if err != nil {
 		return err
 	}
 
-	return t.Files.Into(container, source, target)
+	return t.into(container, source, target)
 }
 
 // mkdir makes a directory inside the container, and says nothing when it is already there.

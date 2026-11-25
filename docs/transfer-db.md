@@ -14,6 +14,8 @@ Refer to the [options section](#options) for an overview of available `OPTIONS` 
 
 The `transfer-db` command is used to transfer database from external source.
 
+On a terminal, copying the dump into the database container shows the same progress line as
+[`copy-to-container`](copy-to-container.md#progress), against the size of the dump on this machine.
 
 ## Options
 
