@@ -125,7 +125,12 @@ spinner_stop() {
     [ -z "${1:-}" ] || printf '  %s✗%s %s\n' "$red" "$reset" "$SPINNER_TEXT" >&2
 }
 
-warn() { printf '%s%s%s%s\n' "${FANCY:+  ! }" "$orange" "$*" "$reset" >&2; }
+# warn stops a running spinner first, as die does: a line written while it turns would be drawn
+# onto its half-written frame and then overwritten by the next one
+warn() {
+    spinner_stop
+    printf '%s%s%s%s\n' "${FANCY:+  ! }" "$orange" "$*" "$reset" >&2
+}
 die() {
     spinner_stop failed
     printf '%s%s%s\n' "$red" "$1" "$reset" >&2
