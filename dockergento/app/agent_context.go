@@ -57,6 +57,12 @@ func (a AgentContext) Write() (core.AgentContextResult, error) {
 
 	description, err := a.Describe()
 	if err != nil {
+		// Already the project's own answer (configuration unreadable, no name to derive)
+		var refusal core.Refusal
+		if errors.As(err, &refusal) {
+			return core.AgentContextResult{}, refusal
+		}
+
 		return core.AgentContextResult{}, core.Refusal{
 			Kind: "project_not_configured", Code: contract.ExitProject,
 			Message: "This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid: " + err.Error(),

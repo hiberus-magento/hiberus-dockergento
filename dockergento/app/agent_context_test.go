@@ -380,3 +380,36 @@ func TestAnUnknownExecutableIsNeverAnEmptyMCPCommand(t *testing.T) {
 		t.Errorf(".mcp.json = %s, want the command hm", written)
 	}
 }
+
+// A description that is already refused (the configuration unreadable, a directory with no
+// name) is passed on as it is: wrapping it again would repeat its sentence, or turn
+// no_project_name into project_not_configured.
+func TestARefusedDescriptionIsPassedOnAsItIs(t *testing.T) {
+	for _, refused := range []core.Refusal{
+		{Kind: "project_not_configured", Code: contract.ExitProject,
+			Message: "This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid: no compose file",
+			Hint:    "hm setup"},
+		{Kind: "no_project_name", Code: contract.ExitProject,
+			Message: "No project name can be derived from /x/___", Hint: "Rename the directory"},
+	} {
+		t.Run(refused.Kind, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "shop")
+			seed(t, root, nil)
+
+			writer := agentScenes()[0].writer(t, root, repositoryRoot(t))
+			writer.Daemon = daemon{reachable: true}
+			writer.Describe = func() (core.Description, error) { return core.Description{}, refused }
+
+			_, err := writer.Write()
+
+			var got core.Refusal
+			if !errors.As(err, &got) || got != refused {
+				t.Fatalf("Write = %#v, want the description's own refusal %#v", err, refused)
+			}
+
+			if len(snapshot(t, root)) != 0 {
+				t.Errorf("files were written: %v", snapshot(t, root))
+			}
+		})
+	}
+}
