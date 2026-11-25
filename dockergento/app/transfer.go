@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
@@ -34,6 +35,11 @@ type Transfer struct {
 
 	Announce func(string)
 	Binary   string
+
+	// Watch shows each path's copy while it happens. Nil, which is what anything but a person at
+	// a terminal gets, copies exactly as before: nothing measured, nothing asked inside the
+	// container.
+	Watch ports.CopyWatch
 }
 
 // Into copies paths from the project into the container.
@@ -77,7 +83,7 @@ func (t Transfer) Into(project core.Project, paths []string, owner string) error
 
 		t.say(fmt.Sprintf("Copying %s -> phpfpm:%s\n", one, target))
 
-		if err := t.Files.Into(container, source, target); err != nil {
+		if err := t.into(container, source, target); err != nil {
 			return err
 		}
 
@@ -100,7 +106,7 @@ func (t Transfer) All(project core.Project, owner string) error {
 
 	source := filepath.Join(project.Root, project.MagentoDir)
 
-	if err := t.Files.Into(container, source+string(filepath.Separator)+".", t.workdir()); err != nil {
+	if err := t.into(container, source+string(filepath.Separator)+".", t.workdir()); err != nil {
 		return err
 	}
 
@@ -112,7 +118,7 @@ func (t Transfer) From(project core.Project, paths []string) error {
 	// Stopped is enough: copying out is a read of the container's filesystem, which the daemon
 	// serves either way, and Composer's macOS dance stops phpfpm on purpose before this copy so
 	// that nothing writes to the tree while it is read
-	container, err := t.phpContainer(project, false)
+	container, running, err := t.phpFound(project, false)
 	if err != nil {
 		return err
 	}
@@ -131,12 +137,95 @@ func (t Transfer) From(project core.Project, paths []string) error {
 
 		t.say(fmt.Sprintf("Copying phpfpm:%s -> %s\n", one, one))
 
-		if err := t.Files.From(container, source, target); err != nil {
+		if err := t.from(container, source, target, running); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// into copies one path in, shown while it happens when somebody is watching, against the total
+// measured here: what is on this machine is what is about to be sent.
+func (t Transfer) into(container, source, target string) error {
+	metered, ok := t.Files.(ports.MeteredFileTransfer)
+	if t.Watch == nil || !ok {
+		return t.Files.Into(container, source, target)
+	}
+
+	meter, end := t.Watch(hostSize(source))
+	defer end()
+
+	return metered.IntoMetered(container, source, target, meter)
+}
+
+// from copies one path out, shown while it happens when somebody is watching. The total is asked
+// of the container only while it runs; a stopped one cannot run du, and is shown as a counter.
+func (t Transfer) from(container, source, target string, running bool) error {
+	metered, ok := t.Files.(ports.MeteredFileTransfer)
+	if t.Watch == nil || !ok {
+		return t.Files.From(container, source, target)
+	}
+
+	var total int64
+	if running {
+		total = t.containerSize(container, strings.TrimSuffix(source, "/."))
+	}
+
+	meter, end := t.Watch(total)
+	defer end()
+
+	return metered.FromMetered(container, source, target, meter)
+}
+
+// containerSize is what du says a path inside the container weighs, or 0 when it says anything
+// else: the total only decides whether a percentage is shown, never whether the copy is made.
+func (t Transfer) containerSize(container, target string) int64 {
+	var answer strings.Builder
+
+	code, err := t.Runner.Run(container, []string{"du", "-sb", target}, nil, &answer)
+	if err != nil || code != 0 {
+		return 0
+	}
+
+	fields := strings.Fields(answer.String())
+	if len(fields) == 0 {
+		return 0
+	}
+
+	size, err := strconv.ParseInt(fields[0], 10, 64)
+	if err != nil || size < 0 {
+		return 0
+	}
+
+	return size
+}
+
+// hostSize is the bytes a copy of source will carry, counted the way the copy reads them: a link
+// is followed to what it points at, a link to nothing is skipped, and a linked directory is not
+// walked into. Anything unreadable is left out rather than failing — it is an estimate.
+func hostSize(source string) int64 {
+	var total int64
+
+	filepath.Walk(filepath.Clean(source), func(path string, entry os.FileInfo, err error) error { //nolint:errcheck
+		if err != nil {
+			return nil //nolint:nilerr
+		}
+
+		if entry.Mode()&os.ModeSymlink != 0 {
+			if entry, err = os.Stat(path); err != nil {
+				return nil //nolint:nilerr
+			}
+		}
+
+		if entry.Mode().IsRegular() {
+			total += entry.Size()
+		}
+
+		return nil
+	})
+
+	return total
 }
 
 // IntoService copies one file from this machine into a directory of another service's container: the
@@ -219,9 +308,16 @@ func (t Transfer) container(project core.Project) (string, error) {
 // phpContainer is this project's php container; when running is asked for, one that exists but
 // is stopped is refused as well.
 func (t Transfer) phpContainer(project core.Project, running bool) (string, error) {
+	id, _, err := t.phpFound(project, running)
+
+	return id, err
+}
+
+// phpFound is phpContainer, also saying whether the container it found is running.
+func (t Transfer) phpFound(project core.Project, running bool) (string, bool, error) {
 	containers, err := t.Engine.Containers()
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
 	for _, candidate := range containers {
@@ -233,10 +329,10 @@ func (t Transfer) phpContainer(project core.Project, running bool) (string, erro
 			break
 		}
 
-		return candidate.ID, nil
+		return candidate.ID, candidate.Running, nil
 	}
 
-	return "", core.Refusal{
+	return "", false, core.Refusal{
 		Kind:    "service_not_running",
 		Code:    5,
 		Message: "The php container of this project is not running",

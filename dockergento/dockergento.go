@@ -106,6 +106,11 @@ type Options struct {
 	// HTTP adapter would send events; a caller that does not care leaves it nil.
 	Progress func(label string) func(ok bool, note string)
 
+	// Copying shows a copy between this machine and the php container while it happens. The
+	// command line draws a progress line on a terminal and leaves it nil everywhere else, which is
+	// what keeps a log, a pipe or --json byte for byte what it was.
+	Copying ports.CopyWatch
+
 	// Ask is how a value that cannot be worked out is obtained. The command line reads the
 	// terminal; anything else answers however it likes — which is the reason this is not a
 	// terminal read buried three layers down.
@@ -900,6 +905,7 @@ func (e *Engine) transfer(project core.Project) app.Transfer {
 		Workdir:  e.Property(project, "WORKDIR_PHP"),
 		Announce: e.options.Announce,
 		Binary:   e.options.Binary,
+		Watch:    e.options.Copying,
 	}
 }
 

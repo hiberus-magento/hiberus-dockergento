@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
 )
 
 type files struct {
@@ -222,5 +223,181 @@ func TestCopyingOutWithNoContainerIsRefused(t *testing.T) {
 	var refused core.Refusal
 	if !errors.As(err, &refused) || refused.Kind != "service_not_running" {
 		t.Fatalf("From with no container = %#v, want the service_not_running refusal", err)
+	}
+}
+
+// meteredFiles is a transfer that can say how far it has got, and keeps which kind of copy it was
+// asked for.
+type meteredFiles struct {
+	plain, metered int
+}
+
+func (f *meteredFiles) Into(string, string, string) error { f.plain++; return nil }
+func (f *meteredFiles) From(string, string, string) error { f.plain++; return nil }
+
+func (f *meteredFiles) IntoMetered(_, _, _ string, meter ports.CopyMeter) error {
+	f.metered++
+	meter(11, 2)
+
+	return nil
+}
+
+func (f *meteredFiles) FromMetered(_, _, _ string, meter ports.CopyMeter) error {
+	f.metered++
+	meter(7, 1)
+
+	return nil
+}
+
+// watching keeps the totals each copy was shown with, what it was told, and whether it was ended.
+type watching struct {
+	totals       []int64
+	bytes, files int64
+	ended        int
+}
+
+func (w *watching) watch(total int64) (ports.CopyMeter, func()) {
+	w.totals = append(w.totals, total)
+
+	return func(bytes, files int64) { w.bytes, w.files = bytes, files }, func() { w.ended++ }
+}
+
+// watched is transferencia with a vendor of 11 bytes in two files, a metered transfer and a watch.
+func watched(t *testing.T, comun *runner) (Transfer, core.Project, *meteredFiles, *watching) {
+	t.Helper()
+
+	transfer, project := transferencia(t, comun, &runner{})
+
+	for name, content := range map[string]string{"one.php": "hello", "two.php": "world!"} {
+		if err := os.WriteFile(filepath.Join(project.Root, "vendor", name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	files, watch := &meteredFiles{}, &watching{}
+	transfer.Files, transfer.Watch = files, watch.watch
+
+	return transfer, project, files, watch
+}
+
+func TestCopyingInIsWatchedWithTheTotalMeasuredOnThisMachine(t *testing.T) {
+	transfer, project, files, watch := watched(t, &runner{})
+
+	if err := transfer.Into(project, []string{"vendor"}, "app:app"); err != nil {
+		t.Fatal(err)
+	}
+
+	if files.metered != 1 || files.plain != 0 {
+		t.Fatalf("%d metered and %d plain copies, want one metered", files.metered, files.plain)
+	}
+
+	if len(watch.totals) != 1 || watch.totals[0] != 11 || watch.ended != 1 {
+		t.Fatalf("watched totals %v, ended %d; want [11] ended once", watch.totals, watch.ended)
+	}
+
+	if watch.bytes != 11 || watch.files != 2 {
+		t.Fatalf("the watch was told %d bytes, %d files; want what the copy reported", watch.bytes, watch.files)
+	}
+}
+
+func TestCopyingEverythingInIsWatchedWithTheTotalMeasuredOnThisMachine(t *testing.T) {
+	transfer, project, files, watch := watched(t, &runner{})
+
+	if err := transfer.All(project, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	if files.metered != 1 || len(watch.totals) != 1 || watch.totals[0] != 11 || watch.ended != 1 {
+		t.Fatalf("metered %d, totals %v, ended %d; want one copy watched with 11", files.metered,
+			watch.totals, watch.ended)
+	}
+}
+
+func TestCopyingOutOfARunningContainerAsksDuForTheTotal(t *testing.T) {
+	comun := &runner{answer: "675000000\t/var/www/html/vendor\n"}
+	transfer, project, files, watch := watched(t, comun)
+
+	if err := transfer.From(project, []string{"vendor"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := strings.Join(comun.command, " "); got != "du -sb /var/www/html/vendor" {
+		t.Fatalf("asked the container %q, want du of the path without the trailing /.", got)
+	}
+
+	if files.metered != 1 || len(watch.totals) != 1 || watch.totals[0] != 675000000 || watch.ended != 1 {
+		t.Fatalf("metered %d, totals %v, ended %d; want one copy watched with du's total",
+			files.metered, watch.totals, watch.ended)
+	}
+}
+
+// Out of a stopped container nothing can be asked inside it: a counter, with no total.
+func TestCopyingOutOfAStoppedContainerIsWatchedWithoutATotal(t *testing.T) {
+	comun := &runner{answer: "675000000\t/var/www/html/vendor\n"}
+	transfer, project, files, watch := watched(t, comun)
+	transfer.Engine = &engine{containers: []core.Container{
+		{ID: "php1", Project: "tienda", ComposeService: "phpfpm", Running: false},
+	}}
+
+	if err := transfer.From(project, []string{"vendor"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if comun.command != nil {
+		t.Fatalf("ran %q inside a stopped container", comun.command)
+	}
+
+	if files.metered != 1 || len(watch.totals) != 1 || watch.totals[0] != 0 {
+		t.Fatalf("metered %d, totals %v; want one copy watched with no total", files.metered, watch.totals)
+	}
+}
+
+// du is a guess at a total, and a guess that fails is no total rather than a failed copy.
+func TestADuThatFailsLeavesTheCopyWithoutATotal(t *testing.T) {
+	tests := []struct {
+		name  string
+		comun *runner
+	}{
+		{"du exits with an error", &runner{status: 1, answer: "675000000\t/var/www/html/vendor\n"}},
+		{"du answers something else", &runner{answer: "du: not found\n"}},
+		{"du answers nothing", &runner{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			transfer, project, files, watch := watched(t, tt.comun)
+
+			if err := transfer.From(project, []string{"vendor"}); err != nil {
+				t.Fatalf("From = %v, want the copy made anyway", err)
+			}
+
+			if files.metered != 1 || len(watch.totals) != 1 || watch.totals[0] != 0 {
+				t.Fatalf("metered %d, totals %v; want the copy watched with no total", files.metered, watch.totals)
+			}
+		})
+	}
+}
+
+// Nobody watching is the copy as it always was: the plain transfer, nothing measured, nothing
+// asked inside the container.
+func TestWithoutAWatchNothingIsMeasuredOrAsked(t *testing.T) {
+	comun := &runner{answer: "675000000\t/var/www/html/vendor\n"}
+	transfer, project, files, _ := watched(t, comun)
+	transfer.Watch = nil
+
+	if err := transfer.From(project, []string{"vendor"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if comun.command != nil {
+		t.Fatalf("ran %q inside the container with nobody watching", comun.command)
+	}
+
+	if err := transfer.Into(project, []string{"vendor"}, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	if files.metered != 0 || files.plain != 2 {
+		t.Fatalf("%d metered and %d plain copies, want two plain", files.metered, files.plain)
 	}
 }
