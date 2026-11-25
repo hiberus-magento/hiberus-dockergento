@@ -5,6 +5,7 @@
 #   tests/run.sh unit       only the shell unit suites
 #   tests/run.sh <file>     a single shell suite
 #   tests/run.sh --shell    only the shell suites
+#   anything else           refused with exit 2, before a suite runs
 #
 # Two suites. What is written in Go is tested in Go — the packages underneath and, in test/e2e, the
 # built binary run the way somebody runs it. The shell suites drive bin/hm from the outside, against
@@ -46,6 +47,13 @@ export HM_CACHE_DIR
 
 target="${1:-}"
 suites=()
+
+# Checked before anything runs: an argument that names nothing used to run every suite, so a typo
+# went unnoticed for the twenty minutes the run took
+if [ -n "$target" ] && [ "$target" != "--shell" ] && [ ! -f "$target" ] && [ ! -d "$TESTS_DIR/$target" ]; then
+    printf 'tests/run.sh: unknown argument: %s (expected nothing, --shell, a directory under tests/ or a suite file)\n' "$target" >&2
+    exit 2
+fi
 
 #
 # The Go suites first: they are seconds, and there is no reason to find out that the package tests
