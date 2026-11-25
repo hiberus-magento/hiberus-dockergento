@@ -184,7 +184,8 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	status, err = engine.Exec(project.Root, phpService,
-		[]string{"bin/magento", cache, "full_page"}, terminalOptions(""))
+		besideTheEnvelope([]string{"bin/magento", cache, "full_page"}, jsonOutput),
+		besideTheEnvelopeOptions(jsonOutput))
 	if status != 0 {
 		return failure(stderr, jsonOutput, command, status, "command_failed",
 			fmt.Sprintf("The %s failed in the phpfpm container", cache), "")
@@ -202,7 +203,20 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 			return code
 		}
 
-		if code := magento([]string{"cache:clean"}, stdout, stderr, jsonOutput); code != 0 {
+		// What `hm magento cache:clean` does, with its output kept off the envelope's stream
+		project, code := codeProjectOr(stderr, jsonOutput, "magento")
+		if code != 0 {
+			return code
+		}
+
+		status, err := newEngine(stdout, stderr, jsonOutput).Exec(project.Root, phpService,
+			besideTheEnvelope([]string{"php", "./bin/magento", "cache:clean"}, jsonOutput),
+			besideTheEnvelopeOptions(jsonOutput))
+		if status != 0 {
+			return status
+		}
+
+		if code := report(stderr, jsonOutput, "magento", err); code != 0 {
 			return code
 		}
 	}
@@ -220,6 +234,28 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 	fmt.Fprint(stdout, good("Varnish cache disabled!\n"))
 
 	return exitOK
+}
+
+// besideTheEnvelope is a command whose output is the container's stdout, which is the process's
+// own: under --json that is where the envelope goes, so the command's output is sent to stderr
+// inside the container. In text mode it is the command as it was.
+func besideTheEnvelope(command []string, jsonOutput bool) []string {
+	if !jsonOutput {
+		return command
+	}
+
+	return []string{"sh", "-c", strings.Join(command, " ") + " >&2"}
+}
+
+// besideTheEnvelopeOptions never asks for a terminal under --json: a pseudo-terminal merges both
+// streams into stdout, whatever the command redirects.
+func besideTheEnvelopeOptions(jsonOutput bool) core.ExecOptions {
+	options := terminalOptions("")
+	if jsonOutput {
+		options.Tty = false
+	}
+
+	return options
 }
 
 //
