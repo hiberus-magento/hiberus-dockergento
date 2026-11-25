@@ -13,25 +13,25 @@ on:
       - "[1-9][0-9].*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   #
-  # On macOS, and not on Linux, for one reason: Compose's file watcher reaches macOS's FSEvents
-  # through cgo, so a darwin binary cannot be cross-compiled with cgo off — it fails to build at
-  # all. A macOS runner produces all four: darwin natively and for the other architecture through
-  # Apple's toolchain, and linux with cgo off, which cross-compiles from anywhere.
+  # The tagged tree passes its tests before anything is published: a tag pushed on a red commit
+  # stops here, and no binary of it ever reaches `hm update` or the installer.
   #
-  binaries:
-    runs-on: macos-latest
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    outputs:
+      go: ${{ steps.guard.outputs.go }}
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v7
 
       # Belt and braces behind the filters: a tagged tree without the Go program has no binaries to
-      # publish, so the job ends here, successfully, and publishes nothing
+      # publish, so the workflow ends here, successfully, and publishes nothing
       - name: The tagged tree is a Go version
         id: guard
         run: |
@@ -42,21 +42,61 @@ jobs:
             echo "::notice::${GITHUB_REF_NAME} has no cmd/hm: a version of the shell tool, nothing is published"
           fi
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         if: steps.guard.outputs.go == 'true'
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: go vet
+        if: steps.guard.outputs.go == 'true'
+        run: go vet ./...
+
+      - name: go test
+        if: steps.guard.outputs.go == 'true'
+        run: go test ./... -race
+
+      - name: shell suites (unit)
+        if: steps.guard.outputs.go == 'true'
+        run: ./tests/run.sh unit
+
+  #
+  # On macOS, and not on Linux, for one reason: Compose's file watcher reaches macOS's FSEvents
+  # through cgo, so a darwin binary cannot be cross-compiled with cgo off — it fails to build at
+  # all. A macOS runner produces all four: darwin natively and for the other architecture through
+  # Apple's toolchain, and linux with cgo off, which cross-compiles from anywhere.
+  #
+  binaries:
+    needs: test
+    if: needs.test.outputs.go == 'true'
+
+    runs-on: macos-15
+
+    # A build takes about ten minutes; the limit only stops a hang from holding the runner for six
+    # hours. A job GitHub cannot give a runner to is cancelled on its side, and is re-run with
+    # `gh run rerun <id> --failed`: the tag stays, nothing was published.
+    timeout-minutes: 30
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.25"
 
       - name: Both platforms build before anything is published
-        if: steps.guard.outputs.go == 'true'
         run: |
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build ./...
           CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build ./...
           CGO_ENABLED=0 GOOS=linux  GOARCH=arm64 go build ./...
           CGO_ENABLED=0 GOOS=linux  GOARCH=amd64 go build ./...
 
-      - uses: goreleaser/goreleaser-action@v6
-        if: steps.guard.outputs.go == 'true'
+      - uses: goreleaser/goreleaser-action@v7
         with:
           args: release --clean
         env:

@@ -24,8 +24,8 @@ context: |
     - `console/components/*.sh` — E/S (print_message.sh, input_info.sh)
     - `data/*.json` — configuración (requirements, properties, command_descriptions)
     - `docker-compose/*.template.yml` — plantillas de compose
-    - `Dockerfiles/<servicio>/<versión>/` — imágenes propias, publicadas en Docker Hub
-      mediante `.github/workflows/dockerhub-publish.yml`
+    - `Dockerfiles/<servicio>/<versión>/` — imágenes propias, construidas y publicadas en Docker
+      Hub desde la máquina de quien las publica con `build-publish.sh`
     - `MIGRATION.md` — estado y plan de la migración Bash → Go
 
   Convenciones de código:

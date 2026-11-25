@@ -50,6 +50,10 @@ func mounted(t *testing.T) (*e2e.Session, e2e.Project) {
 
 	e2e.Up(t, session, project)
 
+	// The project's images have the user PHP runs as, and the copy gives the files back to it
+	// (chown app:app); bare alpine has no such user, so it is made here, as root, before any copy
+	e2e.Inside(t, session, project, "adduser -D app")
+
 	return session, project
 }
 

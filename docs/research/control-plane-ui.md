@@ -94,7 +94,7 @@ hm proxy up
 ```
 
 Se distribuye como imagen (`hiberusmagento/dashboard:<versión>`), que encaja con el
-pipeline que ya existe (`.github/workflows/dockerhub-publish.yml`). Se versiona junto a la
+publicación de imágenes que ya existe (`build-publish.sh`, desde la máquina de quien publica). Se versiona junto a la
 CLI: la web nunca va por delante de los comandos que llama.
 
 ### 5.2 Cómo descubre lo que hay: etiquetas, no registro

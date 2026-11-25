@@ -5,36 +5,37 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 `openspec/changes/archive/`; este fichero no lo repite. Los principios que sigue todo cambio están
 en `.specify/memory/constitution.md` (2.0.0).
 
-> **La migración a Go está completada.** El binario responde los 65 comandos, la ayuda,
+> **La migración a Go está completada.** El binario responde los 66 comandos, la ayuda,
 > `--version` y los comandos del proyecto; `bin/run` y el árbol `console/` ya no existen.
-> Lo que queda es publicar 2.0.0 y los defectos conocidos de la pista C.
+> Publicadas `2.0.0-rc.1` y `2.0.0-rc.2`: lo que queda es validarlas, publicar 2.0.0, fusionar en
+> `main` y los defectos conocidos de la pista C.
 >
-> Estado medido el **2026-11-20** sobre `release/2.0.0` en `8426d3d`.
+> Estado medido el **2026-11-25** sobre `release/2.0.0` en `f02de97`.
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
 
 | Medida | Valor | Cómo comprobarlo |
 |---|---|---|
-| Comandos respondidos por el binario | **65 de 65** | `rg -n "Comandos en Go" MIGRATION.md` |
+| Comandos respondidos por el binario | **66 de 66** | `rg -n "Comandos en Go" MIGRATION.md` |
 | Comandos aún en shell | **0** | `rg -c "\| shell \|" MIGRATION.md` |
 | Ficheros de shell en `console/` | **0** (el autocompletado lo imprime `hm completion`) | `git ls-files console` |
 | `bin/run` | **borrado** | `test -e bin/run` falla |
 | Tests Go | todos pasan | `DOCKER_HOST=unix:///nonexistent go test ./...` · `./tests/run.sh unit` |
-| Binarios publicados por CI | sólo para etiquetas `>= 2.0`, sin `v` | `.github/workflows/release.yml` |
+| Binarios publicados por CI | sólo para etiquetas `>= 2.0`, sin `v`, y sólo si sus tests pasan | `.github/workflows/release.yml` |
+| Imágenes de Docker Hub | se construyen y publican en local, sin CI | `build-publish.sh` |
 | `hm switch` y el instalador ante una 1.x | la rechazan | `docs/switch.md`, `installer.sh` |
-| Etiqueta `2.0.0` | **sin crear** en el clon local (la última es `1.6.0-rc.2`) | `git tag --sort=-creatordate \| head -1` |
+| Etiqueta `2.0.0` | **sin crear**; la última es `2.0.0-rc.2` | `git tag --sort=-creatordate \| head -1` |
 
 ## Qué hacer después, en orden
 
 1. ~~**Pista A** — retirar los gemelos de shell~~: cerrada, no queda ninguno.
-2. ~~**Pista B** — portar los comandos que seguían en shell~~: cerrada, el binario responde los 65
+2. ~~**Pista B** — portar los comandos que seguían en shell~~: cerrada, el binario responde los 66
    y `bin/run` está borrado (`MIGRATION.md`, «Cierre»).
-3. **Etiquetar la release.** Una candidata `2.0.0-rc.N` para validar con `hm switch`, y después
-   `2.0.0`, con el ritual de siempre (commit de release con `changelogs/v2.0.0.md`, etiqueta
-   anotada sin `v`, `gh release`). CI publica los binarios al empujar la etiqueta. Lo decide y lo
-   hace el humano. El instalador instala la última etiqueta `>= 2.0` (o la última candidata si
-   no hay final): hasta que exista una, se niega con «has no release of 2.0 or later».
+3. **Etiquetar la release.** Candidatas publicadas: `2.0.0-rc.1` y `2.0.0-rc.2`. Falta validarlas y
+   publicar `2.0.0` con el ritual de siempre (commit de release con `changelogs/v2.0.0.md` y
+   etiqueta anotada sin `v`). CI pasa los tests y publica los binarios y la release de GitHub al
+   empujar la etiqueta. Lo decide el humano.
 4. **Fusionar `release/2.0.0` en `main`** por pull request, cuando la candidata esté validada.
 5. **Pista C — defectos conocidos.** Ninguno bloquea la release; varios llevan cinco ciclos
    aplazados.
@@ -70,7 +71,10 @@ en `.specify/memory/constitution.md` (2.0.0).
 | `switch` decide con la rama local aunque esté desfasada respecto a `origin` | `dockergento/switch.go:57-58` | Una rama local vieja sin `cmd/hm` se rechazaría aunque `origin` ya lo tenga |
 | Algunas suites escriben en el `~/.hm/cache` real (`validated-*-lab-*`) | `tests/integration/*` | Inofensivo, pero las pruebas deberían usar su propio `HOME` |
 
-Ya resueltos (no reabrir): CI sin macOS, `gofmt` sin `./dockergento`, CI corriendo `tests/unit`
+Ya resueltos (no reabrir): el CI en rojo permanente (fixture e2e sin el usuario `app`, jobs sin
+límite de tiempo, runs viejos sin cancelar, release sin tests, actions en Node 20) y el workflow
+`dockerhub-publish.yml`, retirado porque las imágenes se publican en local: en el commit que sigue a
+`f02de97`. CI sin macOS, `gofmt` sin `./dockergento`, CI corriendo `tests/unit`
 como "todo" — los tres en `d03d54c`. El aviso de worktree «los contenedores sirven el código de…»,
 que el binario no daba para ninguno de los ocho comandos de código que responde, en `f03a5e4`.
 El baile del vendor de `composer` en macOS desde un worktree sin entorno propio: se niega, con la

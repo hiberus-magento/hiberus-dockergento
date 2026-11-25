@@ -1,66 +1,75 @@
 name: go
 
-# From the first commit, and not later: with the shell implementation a bad commit breaks the
-# command somebody runs; with a binary it breaks everybody who pulls. That difference is the one
-# thing the migration cannot be casual about.
+#
+# Every push to main or a release branch, and every pull request: with a binary, a bad commit breaks
+# everybody who pulls, so nothing reaches those branches unchecked.
+#
 on:
   push:
     branches: [main, "release/**"]
   pull_request:
 
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request makes the run in progress pointless: it is
+# cancelled, so the queue holds the commit that matters and not three stale ones before it.
+concurrency:
+  group: go-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    # Both, and macOS is not decoration. The tool has code that only runs there — the
-    # copy-from-container branch, the platform checks — and until now no runner ever executed it,
-    # because this job was ubuntu-only and release.yml's macOS job never ran a test. A test gated
-    # on runtime.GOOS does not fail on the other platform; it does not run, and the suite goes
-    # green having exercised nothing.
+  test:
     #
-    # That is not hypothetical. `hm debug-on --json` shipped a double JSON envelope on macOS and was
-    # caught by luck, because the person who wrote the test happened to be on a Mac.
+    # Both, and macOS is not decoration: the tool has code that only runs there (the
+    # copy-from-container branch, the platform checks), and a test gated on runtime.GOOS does not
+    # fail on the other platform, it does not run. `hm debug-on --json` once shipped a double JSON
+    # envelope on macOS for exactly that reason.
+    #
+    # Linux is the one with a Docker daemon, so test/e2e only runs for real there; on macOS those
+    # tests skip.
+    #
+    # A label of a fixed version rather than macos-latest, so that the image does not change under
+    # the job without a commit saying so.
+    #
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, macos-15]
 
     runs-on: ${{ matrix.os }}
 
-    steps:
-      - uses: actions/checkout@v4
+    # The whole job takes a few minutes; anything longer is a hang, and without a limit a hang
+    # holds the runner for GitHub's six hours
+    timeout-minutes: 20
 
-      - uses: actions/setup-go@v5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
         with:
-          # 1.25 because the Docker SDK's dependency graph asks for it — otel and
-          # grpc-gateway declare it. Only building needs it; the binary runs anywhere.
+          # 1.25 because the Docker SDK's dependency graph asks for it (otel and grpc-gateway
+          # declare it). Only building needs it; the binary runs anywhere.
           go-version: "1.25"
           cache: true
 
-      # ./dockergento is included deliberately: it is the whole hexagonal core, and the previous
-      # version of this check named only ./cmd and ./internal, so the package holding most of the
-      # Go code was never formatted-checked at all.
-      - name: formato
+      - name: gofmt
         run: |
-          unformatted=$(gofmt -l ./cmd ./internal ./dockergento)
+          unformatted=$(gofmt -l ./cmd ./internal ./dockergento ./test)
           if [ -n "$unformatted" ]; then
-            echo "sin formatear:"; echo "$unformatted"; exit 1
+            echo "Not formatted:"; echo "$unformatted"; exit 1
           fi
 
-      - name: vet
+      - name: go vet
         run: go vet ./...
 
-      - name: tests de go
+      - name: go test
         run: go test ./... -race
 
-      - name: compila
+      - name: build
         run: go build -o bin/hm ./cmd/hm
 
-      # The shell implementation is still most of the tool, and it is what the binary delegates
-      # to. Its unit suite runs here too: the parts that need Docker do not, and they are the
-      # ones a runner cannot give.
-      #
-      # The argument is `unit`, not `tests/unit`. run.sh tests `-d "$TESTS_DIR/$target"`, so
-      # `tests/unit` resolves to `tests/tests/unit`, misses, and falls through to the branch that
-      # runs *every* suite in the repository — including the ones that want a daemon. This job has
-      # been doing that, under a name saying it ran the unit suite.
-      - name: suite de bash (unidad)
+      # The shell suites that need no daemon: the installer, the docs and help checks, the
+      # migration table. The argument is `unit`, not `tests/unit`, which run.sh would not find.
+      - name: shell suites (unit)
         run: ./tests/run.sh unit
