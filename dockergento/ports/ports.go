@@ -404,8 +404,9 @@ type FileTransfer interface {
 type CopyMeter func(bytes, files int64)
 
 // CopyWatch shows one copy while it happens. It is given the bytes the copy is expected to carry,
-// or 0 when nobody knows, and returns what receives the counts and what ends the copy's display.
-type CopyWatch func(total int64) (meter CopyMeter, end func())
+// or 0 when nobody knows, and returns what receives the counts and what ends the copy's display,
+// told whether the copy failed, so that a broken copy is never shown as a finished one.
+type CopyWatch func(total int64) (meter CopyMeter, end func(failed bool))
 
 // MeteredFileTransfer is a FileTransfer that can also say how far a copy has got as it goes.
 type MeteredFileTransfer interface {

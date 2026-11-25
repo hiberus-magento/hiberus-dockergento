@@ -230,6 +230,9 @@ func TestCopyingOutWithNoContainerIsRefused(t *testing.T) {
 // asked for.
 type meteredFiles struct {
 	plain, metered int
+
+	// broken makes every metered copy fail after carrying a part of what it was asked for
+	broken error
 }
 
 func (f *meteredFiles) Into(string, string, string) error { f.plain++; return nil }
@@ -239,14 +242,14 @@ func (f *meteredFiles) IntoMetered(_, _, _ string, meter ports.CopyMeter) error 
 	f.metered++
 	meter(11, 2)
 
-	return nil
+	return f.broken
 }
 
 func (f *meteredFiles) FromMetered(_, _, _ string, meter ports.CopyMeter) error {
 	f.metered++
 	meter(7, 1)
 
-	return nil
+	return f.broken
 }
 
 // watching keeps the totals each copy was shown with, what it was told, and whether it was ended.
@@ -254,12 +257,14 @@ type watching struct {
 	totals       []int64
 	bytes, files int64
 	ended        int
+	failed       bool
 }
 
-func (w *watching) watch(total int64) (ports.CopyMeter, func()) {
+func (w *watching) watch(total int64) (ports.CopyMeter, func(bool)) {
 	w.totals = append(w.totals, total)
 
-	return func(bytes, files int64) { w.bytes, w.files = bytes, files }, func() { w.ended++ }
+	return func(bytes, files int64) { w.bytes, w.files = bytes, files },
+		func(failed bool) { w.ended++; w.failed = failed }
 }
 
 // watched is transferencia with a vendor of 11 bytes in two files, a metered transfer and a watch.
@@ -400,4 +405,85 @@ func TestWithoutAWatchNothingIsMeasuredOrAsked(t *testing.T) {
 	if files.metered != 0 || files.plain != 2 {
 		t.Fatalf("%d metered and %d plain copies, want two plain", files.metered, files.plain)
 	}
+}
+
+// A copy that fails partway is ended as failed, in and out, so that what is drawn does not read
+// as a finished copy just before the error.
+func TestAFailedCopyIsEndedAsFailed(t *testing.T) {
+	for name, copy := range map[string]func(Transfer, core.Project) error{
+		"in":  func(t Transfer, p core.Project) error { return t.Into(p, []string{"vendor"}, "app:app") },
+		"out": func(t Transfer, p core.Project) error { return t.From(p, []string{"vendor"}) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			transfer, project, files, watch := watched(t, &runner{})
+			files.broken = errors.New("the daemon closed the stream")
+
+			if err := copy(transfer, project); !errors.Is(err, files.broken) {
+				t.Fatalf("copy = %v, want the copy's own error", err)
+			}
+
+			if watch.ended != 1 || !watch.failed {
+				t.Fatalf("ended %d, failed %v; want ended once, as failed", watch.ended, watch.failed)
+			}
+		})
+	}
+}
+
+// One that works is ended as done.
+func TestACopyThatWorksIsEndedAsDone(t *testing.T) {
+	transfer, project, _, watch := watched(t, &runner{})
+
+	if err := transfer.Into(project, []string{"vendor"}, "app:app"); err != nil {
+		t.Fatal(err)
+	}
+
+	if watch.ended != 1 || watch.failed {
+		t.Fatalf("ended %d, failed %v; want ended once, not failed", watch.ended, watch.failed)
+	}
+}
+
+// Copying out takes a stopped container only when there is no running one: an orphaned stopped
+// phpfpm listed before the live one must not be the one read.
+func TestCopyingOutPrefersTheRunningContainer(t *testing.T) {
+	transfer, project := transferencia(t, &runner{}, &runner{})
+	transfer.Engine = &engine{containers: []core.Container{
+		{ID: "old", Project: "tienda", ComposeService: "phpfpm", Running: false},
+		{ID: "live", Project: "tienda", ComposeService: "phpfpm", Running: true},
+	}}
+
+	recorder := &containerFiles{}
+	transfer.Files = recorder
+
+	if err := transfer.From(project, []string{"vendor"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(recorder.from) != 1 || recorder.from[0] != "live" {
+		t.Fatalf("copied out of %v, want the running container", recorder.from)
+	}
+}
+
+// With no php container at all, the refusal says it is not there rather than that it is stopped.
+func TestCopyingOutOfNoContainerSaysItIsNotThere(t *testing.T) {
+	transfer, project := transferencia(t, &runner{}, &runner{})
+	transfer.Engine = &engine{}
+	transfer.Binary = "hm"
+
+	err := transfer.From(project, []string{"vendor"})
+
+	var refused core.Refusal
+	if !errors.As(err, &refused) || refused.Code != 5 ||
+		refused.Message != "This project has no php container" || refused.Hint != "hm start" {
+		t.Fatalf("From with no container = %#v, want the refusal saying there is none", err)
+	}
+}
+
+// containerFiles records which container each copy out read.
+type containerFiles struct{ from []string }
+
+func (f *containerFiles) Into(string, string, string) error { return nil }
+func (f *containerFiles) From(container, _, _ string) error {
+	f.from = append(f.from, container)
+
+	return nil
 }

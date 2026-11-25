@@ -152,7 +152,7 @@ func TestCopyLineEndsWithTheFinalStateOnItsOwnLine(t *testing.T) {
 	meter, end := drawCopy(&out, 2000, false)
 	meter(1000, 1)
 	meter(2000, 2)
-	end()
+	end(false)
 
 	got := out.String()
 
@@ -180,5 +180,27 @@ func TestCopyLinePadsOverALongerLine(t *testing.T) {
 
 	if got, want := out.String(), "\r  0123456789\r  01        "; got != want {
 		t.Fatalf("output %q, want %q", got, want)
+	}
+}
+
+// A copy that failed is left where it stopped and says so: filling the bar would read as a copy
+// that finished, just above the error that says it did not.
+func TestAFailedCopyIsNotDrawnAsFinished(t *testing.T) {
+	var out bytes.Buffer
+
+	meter, end := drawCopy(&out, 2000, false)
+	meter(800, 1)
+	end(true)
+
+	got := out.String()
+	final := got[strings.LastIndex(got, "\r")+1:]
+
+	if strings.Contains(final, "100%") || !strings.Contains(final, " 40%  800 B / 2.0 kB") ||
+		!strings.Contains(final, "failed") {
+		t.Fatalf("final state %q, want 40%% of 2.0 kB marked failed", final)
+	}
+
+	if !strings.HasSuffix(got, "\n") {
+		t.Fatalf("output %q, want the line ended", got)
 	}
 }

@@ -47,7 +47,7 @@ func copyWatch(stderr io.Writer, jsonOutput bool) ports.CopyWatch {
 	// NO_COLOR asks for no colour, not for no progress: the bar is characters, not escapes
 	colour := os.Getenv("NO_COLOR") == "" && os.Getenv("HM_NO_COLOR") == ""
 
-	return func(total int64) (ports.CopyMeter, func()) {
+	return func(total int64) (ports.CopyMeter, func(bool)) {
 		return drawCopy(stderr, total, colour)
 	}
 }
@@ -60,16 +60,16 @@ const copyRedraw = 100 * time.Millisecond
 //
 // The counts are kept in atomics and drawn by a ticker, never by the copy itself, so the meter
 // costs the copy two stores however often it is called.
-func drawCopy(out io.Writer, total int64, colour bool) (ports.CopyMeter, func()) {
+func drawCopy(out io.Writer, total int64, colour bool) (ports.CopyMeter, func(bool)) {
 	line := &copyLine{out: out}
 	started := time.Now()
 
 	var carried, files atomic.Int64
 
-	state := func(done bool) copyState {
+	state := func(done, failed bool) copyState {
 		return copyState{
 			bytes: carried.Load(), files: files.Load(), total: total,
-			elapsed: time.Since(started), done: done,
+			elapsed: time.Since(started), done: done, failed: failed,
 		}
 	}
 
@@ -90,7 +90,7 @@ func drawCopy(out io.Writer, total int64, colour bool) (ports.CopyMeter, func())
 			case <-stop:
 				return
 			case <-ticker.C:
-				line.draw(formatCopy(state(false), colour))
+				line.draw(formatCopy(state(false, false), colour))
 			}
 		}
 	}()
@@ -102,11 +102,11 @@ func drawCopy(out io.Writer, total int64, colour bool) (ports.CopyMeter, func())
 
 	var once sync.Once
 
-	end := func() {
+	end := func(failed bool) {
 		once.Do(func() {
 			close(stop)
 			drawing.Wait()
-			line.draw(formatCopy(state(true), colour))
+			line.draw(formatCopy(state(true, failed), colour))
 			fmt.Fprint(out, "\n")
 		})
 	}
@@ -165,6 +165,9 @@ type copyState struct {
 
 	elapsed time.Duration
 	done    bool
+
+	// failed is a copy that ended without finishing: left where it stopped, and said
+	failed bool
 }
 
 const copyBar = 20
@@ -177,7 +180,7 @@ func formatCopy(state copyState, colour bool) string {
 
 	// A finished copy carried exactly what it carried: the measured total was an estimate (du
 	// counts directories, a file may have changed meanwhile), and a copy that is done is 100%
-	if total > 0 && (state.done || state.bytes > total) {
+	if total > 0 && ((state.done && !state.failed) || state.bytes > total) {
 		total = state.bytes
 	}
 
@@ -223,6 +226,15 @@ func formatCopy(state copyState, colour bool) string {
 		parts = append(parts, duration(int(seconds)))
 	case total > 0 && rate > 0 && state.bytes < total:
 		parts = append(parts, "~"+duration(int(math.Ceil(float64(total-state.bytes)/rate))))
+	}
+
+	if state.failed {
+		failed := "failed"
+		if colour {
+			failed = "\033[0;31m" + failed + "\033[0m"
+		}
+
+		parts = append(parts, failed)
 	}
 
 	return head + strings.Join(parts, " · ")

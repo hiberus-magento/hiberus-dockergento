@@ -154,9 +154,10 @@ func (t Transfer) into(container, source, target string) error {
 	}
 
 	meter, end := t.Watch(hostSize(source))
-	defer end()
+	err := metered.IntoMetered(container, source, target, meter)
+	end(err != nil)
 
-	return metered.IntoMetered(container, source, target, meter)
+	return err
 }
 
 // from copies one path out, shown while it happens when somebody is watching. The total is asked
@@ -173,9 +174,10 @@ func (t Transfer) from(container, source, target string, running bool) error {
 	}
 
 	meter, end := t.Watch(total)
-	defer end()
+	err := metered.FromMetered(container, source, target, meter)
+	end(err != nil)
 
-	return metered.FromMetered(container, source, target, meter)
+	return err
 }
 
 // containerSize is what du says a path inside the container weighs, or 0 when it says anything
@@ -320,16 +322,35 @@ func (t Transfer) phpFound(project core.Project, running bool) (string, bool, er
 		return "", false, err
 	}
 
+	// A running one wins; a stopped one is taken only when stopped is enough and there is no
+	// running one, which keeps an orphaned stopped phpfpm from being read instead of the live one
+	stopped := ""
+
 	for _, candidate := range containers {
 		if candidate.Key() != project.Name || candidate.ComposeService != phpService {
 			continue
 		}
 
-		if running && !candidate.Running {
-			break
+		if candidate.Running {
+			return candidate.ID, true, nil
 		}
 
-		return candidate.ID, candidate.Running, nil
+		if stopped == "" {
+			stopped = candidate.ID
+		}
+	}
+
+	if stopped != "" && !running {
+		return stopped, false, nil
+	}
+
+	if stopped == "" && !running {
+		return "", false, core.Refusal{
+			Kind:    "service_not_running",
+			Code:    5,
+			Message: "This project has no php container",
+			Hint:    t.Binary + " start",
+		}
 	}
 
 	return "", false, core.Refusal{

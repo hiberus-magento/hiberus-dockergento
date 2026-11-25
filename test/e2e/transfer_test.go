@@ -152,8 +152,6 @@ func TestCopyOutOfTheContainer(t *testing.T) {
 	}
 }
 
-// Copying it again over what is already there replaces its contents rather than nesting a second
-// copy inside the first, which is what a mirror has to do to be a mirror.
 // Composer's macOS dance stops phpfpm before it copies the workdir back out; a stopped container
 // is still copied out of, as `docker cp` always did. Refusing it left the host's vendor cleared
 // and nothing brought back.
@@ -175,6 +173,8 @@ func TestCopyOutOfAStoppedContainer(t *testing.T) {
 	}
 }
 
+// Copying it again over what is already there replaces its contents rather than nesting a second
+// copy inside the first, which is what a mirror has to do to be a mirror.
 func TestCopyingOutAgainReplacesRatherThanNests(t *testing.T) {
 	t.Parallel()
 
