@@ -63,13 +63,13 @@ en `.specify/memory/constitution.md` (2.0.0).
 | `grunt` mete el tema y el locale sin escapar en un `bash -c` del contenedor | `internal/cli/grunt.go`; el shell hacía lo mismo | Son los argumentos del propio usuario dentro de su contenedor; validarlos contra `Vendor/theme` y `xx_YY` lo cerraría |
 | `hm stop -t 5` toma `-t` y `5` por servicios | `internal/cli/orchestrate.go` (`stop`) | `stop.sh` pasaba las opciones a `docker compose stop`; el port no. `restart` las niega con 2: decidir entre pasarlas o negarlas |
 | `docker-stop-all` con el daemon inaccesible responde «No containers running» y sale con 0 | `dockergento/app/orchestrate.go` (`StopEverything`, `containers, _ := o.Engine.Containers()`) | Heredado del shell (`docker ps -q 2>/dev/null`); un fallo de conexión se lee como éxito. `go_passthrough_test.sh` fija hoy ese comportamiento |
-| `docker-stop-all` no interactivo para todos los contenedores sin preguntar | `go_passthrough_test.sh` lo ejecutaba con `HM_NON_INTERACTIVE=1` y el daemon accesible | Corregido en `a4927e6` (la prueba fija un `DOCKER_HOST` inexistente). Queda la regla: ninguna suite corre un comando de máquina sin cortar el daemon dentro de la propia prueba |
-| `update` sin Go: el aviso de la línea 74-80 de `update.go` y su prueba (R3-001 de `review-d173dd6c0796a3a6`) | `dockergento/update.go` | Aviso de revisión sin bloqueo; comprobar el caso que señala |
-| `install`: restauración de `config.php` (R3-002 de `review-d173dd6c0796a3a6`) | `internal/cli/install.go:209-211` | Aviso de revisión sin bloqueo |
-| La ayuda imprime literalmente secuencias que antes se interpretaban | `internal/cli/help.go:74` | Decidido así al quitar `bin/run`; revisar si alguna descripción las usaba |
-| El instalador comprueba las dependencias después de clonar | `installer.sh:356` | Si falta una, deja un clon a medias; comprobarlas antes |
-| `switch` decide con la rama local aunque esté desfasada respecto a `origin` | `dockergento/switch.go:57-58` | Una rama local vieja sin `cmd/hm` se rechazaría aunque `origin` ya lo tenga |
 | Algunas suites escriben en el `~/.hm/cache` real (`validated-*-lab-*`) | `tests/integration/*` | Inofensivo, pero las pruebas deberían usar su propio `HOME` |
+
+Ya no aplican (retiradas el 2026-11-25): `docker-stop-all` no interactivo (corregido en `a4927e6`),
+`update` sin Go (`update` descarga releases), la restauración de `config.php` de `install` (ya da
+`config_restore_failed`), las secuencias literales de la ayuda (ninguna descripción tiene `%` ni
+`\`), las dependencias de `installer.sh` (es un envoltorio de `install.sh`) y `switch` con la rama
+local (`switch` instala releases, nunca ramas).
 
 Ya resueltos (no reabrir): el CI en rojo permanente (fixture e2e sin el usuario `app`, jobs sin
 límite de tiempo, runs viejos sin cancelar, release sin tests, actions en Node 20) y el workflow
