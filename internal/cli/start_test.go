@@ -28,6 +28,8 @@ func TestWhatStartAsks(t *testing.T) {
 		{"services are passed on in order", []string{"phpfpm", "nginx"}, []string{"phpfpm", "nginx"}, false},
 		{"-s stops the rest first", []string{"-s"}, []string{}, true},
 		{"-s is not a service, wherever it is", []string{"db", "-s"}, []string{"db"}, true},
+		// The descriptor declares -s|--switch, and the help and the completion offer the long one
+		{"--switch is -s", []string{"--switch", "db"}, []string{"db"}, true},
 	}
 
 	for _, tt := range cases {

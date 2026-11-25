@@ -20,12 +20,12 @@ func start(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	for _, argument := range args {
 		switch argument {
-		case "-s":
+		case "-s", "--switch":
 			stopOthers = true
 		default:
 			if strings.HasPrefix(argument, "-") {
 				return failure(stderr, jsonOutput, "start", exitUsage, "invalid_argument",
-					fmt.Sprintf("Unknown option: %s", argument), binaryName()+" start [-s] [service...]")
+					fmt.Sprintf("Unknown option: %s", argument), binaryName()+" start [-s|--switch] [service...]")
 			}
 
 			services = append(services, argument)
