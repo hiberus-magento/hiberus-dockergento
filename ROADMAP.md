@@ -44,26 +44,23 @@ en `.specify/memory/constitution.md` (2.0.0).
 
 | Defecto | Dónde | Por qué importa |
 |---|---|---|
-| Disyunción de etiquetas que casa con cualquier contenedor sin `hm.project` cuando el nombre de proyecto es vacío | `dockergento/adapters/toolinfo/tooling.go` (~`:84-85`) | Arreglo: seleccionar la fuente antes de comparar, como `core.Container.Key()` |
 | El binario no convierte el antiguo `config/docker/properties` en `properties.json` | Lo hacía `console/tasks/load_properties.sh` (`refactor_old_version`) en cada invocación, ya borrado | Un proyecto que sólo tenga el formato antiguo se ve como «no es un proyecto». Decidir si se porta o se documenta la conversión a mano |
-| Un directorio cuyo nombre no deja nada admisible (`___`) responde `project_not_configured` | `dockergento/app/resolve.go` (`projectFrom`) | `bin/run` respondía `no_project_name` con la pista de renombrar o fijar la propiedad; el binario da una negativa más genérica |
 | `hm _registry` ya cumplió su condición de desaparecer (nada en shell lee el registro) | `internal/cli/run.go`, `MIGRATION.md` | Sólo lo usa `go_passthrough_test.sh`; quitarlo exige mover esas aserciones |
 | Tercera copia de la resolución servicio→contenedor, con mensaje distinto | `dockergento/app/transfer.go` (`container`) | Converger cambia un mensaje al usuario: es decisión, no refactor |
-| Fallo de `CopyFrom` bajo `--json` en macOS sale como texto por stderr | `internal/cli/wrappers.go` (`debugOn`) | Hueco estrecho, declarado |
-| `tests/run.sh` con un argumento no reconocido corre **todo** en vez de fallar | `tests/run.sh` (~`:81-83`) | Un error tipográfico no se nota nunca |
-| El número de métodos de la interfaz `commands` (18) solo está en prosa | `internal/cli/engine.go` | Nada lo vigila |
 | `architecture/` puede describir comportamiento que el código no tiene | `architecture/*.md` | Ningún test vigila la documentación; §5.8.1 estuvo mal tres ciclos. Reescrita para 2.0 el 2026-11-20 (sin fragmentos del shell), pero sigue sin nada que la compruebe |
 | La forma larga del `--force` propio de `setup` (regenerar los compose) nunca le llega: `--force` es global y se lo queda `globals()` | `internal/cli/globals.go` | `-f` sí llega. Y `hm setup --force` desde un worktree levanta la protección, como en el shell. Decidir si `setup` pasa a ser transparente para su `--force` o se documenta `-f` |
 | `go_database_test.sh` con la base de datos parada sólo mira el código y `ok: false` | `tests/integration/go_database_test.sh` | La comparación con el shell cubría también el tipo de error; afirmarlo exige ver la negativa con daemon |
-| `clean` nunca recoge plantillas muertas solas: `Anything()` sólo cuenta entornos y entornos de rama | `dockergento/core/collection.go` (`Anything`); el shell decidía igual (`clean.sh:265`) | Con sólo plantillas que sobran, `clean --force` sale con 0 y no borra nada |
 | `clean` borra los volúmenes de un entorno de rama muerto aunque la exploración los liste como no atribuibles | `dockergento/app/collect.go` (`removeByProject`); el shell hacía lo mismo | Ahora sólo los que Compose etiquetó con ese proyecto (no por prefijo, que alcanzaba a un `x_algo` vivo al recoger un `x` muerto), y un nombre vacío no casa con nada; que la exploración los dé por no atribuibles sigue siendo una contradicción de presentación |
-| El paso `install` del `setup` de Go no pasa `-u` aunque se pida `--use-default` | `dockergento/app/setup.go` (`installStep` sólo lo pone `create-project`) | `install` preguntará; el `setup.sh` del shell lo exportaba como `USE_DEFAULT_SETTINGS` |
-| `dbeaver`/`sequelace`/`tableplus` dan por `project_not_configured` cualquier error de `Describe` que no sea una negativa | `internal/cli/db_client.go` (copiado de `describe.go`) | Un daemon inaccesible se presenta como proyecto mal configurado; decidir con `describe` a la vez |
-| `cloud-login` ignora sus argumentos y escribe prosa en stdout también con `--json` | `internal/cli/cloud.go` | Como el shell; `config-env` ya niega los argumentos que ignoraría |
-| `grunt` mete el tema y el locale sin escapar en un `bash -c` del contenedor | `internal/cli/grunt.go`; el shell hacía lo mismo | Son los argumentos del propio usuario dentro de su contenedor; validarlos contra `Vendor/theme` y `xx_YY` lo cerraría |
 | `hm stop -t 5` toma `-t` y `5` por servicios | `internal/cli/orchestrate.go` (`stop`) | `stop.sh` pasaba las opciones a `docker compose stop`; el port no. `restart` las niega con 2: decidir entre pasarlas o negarlas |
-| `docker-stop-all` con el daemon inaccesible responde «No containers running» y sale con 0 | `dockergento/app/orchestrate.go` (`StopEverything`, `containers, _ := o.Engine.Containers()`) | Heredado del shell (`docker ps -q 2>/dev/null`); un fallo de conexión se lee como éxito. `go_passthrough_test.sh` fija hoy ese comportamiento |
-| Algunas suites escriben en el `~/.hm/cache` real (`validated-*-lab-*`) | `tests/integration/*` | Inofensivo, pero las pruebas deberían usar su propio `HOME` |
+
+Cerrados el 2026-11-25 (revisión `review-19842cf4645a4d43`, aprobada): `docker-stop-all` con el
+daemon caído falla con `docker_failed`; `clean` recoge plantillas muertas solas; `___` responde
+`no_project_name`; `debug-on` respeta `--json` al fallar la copia; `describe` y los clientes de base
+de datos sólo llaman `project_not_configured` a una negativa (`app.NotConfigured`, una sola
+construcción); `cloud-login` niega argumentos; `grunt` valida tema y locale; `tests/run.sh` niega un
+argumento desconocido; `toolinfo` no casa nada con un nombre vacío; `setup -u` pasa `-u` a
+`install`; las suites usan su propio HOME y caché. El contador de métodos de `engine.go` nunca
+existió. Commits de `814d2ca` a `7929f29`.
 
 Ya no aplican (retiradas el 2026-11-25): `docker-stop-all` no interactivo (corregido en `a4927e6`),
 `update` sin Go (`update` descarga releases), la restauración de `config.php` de `install` (ya da
