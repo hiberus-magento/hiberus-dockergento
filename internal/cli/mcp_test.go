@@ -21,6 +21,9 @@ import (
 //	DOCKER_HOST=unix:///nonexistent bin/run mcp         < read.jsonl  > read.golden
 //	DOCKER_HOST=unix:///nonexistent bin/run mcp --write < write.jsonl > write.golden
 //
+// One line has moved on from the shell's since: the tools/list answer, whose catalogue gained the
+// `environment` argument and the output schemas (mcp_protocol_test.go has what they do).
+//
 // The tool calls that do run a command are proved against a recorder standing in for this
 // binary, which is the seam the shell did not have.
 //
@@ -29,21 +32,29 @@ import (
 type ranCall struct {
 	args     []string
 	combined bool
+
+	// dir is the directory it ran in: empty for the server's own
+	dir string
 }
 
 // recording answers every run with output and records what was asked.
-func recording(output string) (*[]ranCall, func([]string, bool) []byte) {
+func recording(output string) (*[]ranCall, func(string, []string, bool) []byte) {
+	return scripted(func([]string) string { return output })
+}
+
+// scripted answers each run with what answer says for its arguments, and records what was asked.
+func scripted(answer func(args []string) string) (*[]ranCall, func(string, []string, bool) []byte) {
 	calls := &[]ranCall{}
 
-	return calls, func(args []string, combined bool) []byte {
-		*calls = append(*calls, ranCall{args: append([]string(nil), args...), combined: combined})
+	return calls, func(dir string, args []string, combined bool) []byte {
+		*calls = append(*calls, ranCall{args: append([]string(nil), args...), combined: combined, dir: dir})
 
-		return []byte(output)
+		return []byte(answer(args))
 	}
 }
 
-func refusing(t *testing.T) func([]string, bool) []byte {
-	return func(args []string, _ bool) []byte {
+func refusing(t *testing.T) func(string, []string, bool) []byte {
+	return func(_ string, args []string, _ bool) []byte {
 		t.Fatalf("ran %v, want nothing run", args)
 
 		return nil
@@ -481,7 +492,7 @@ func TestALineEndedByACarriageReturnIsAnswered(t *testing.T) {
 // TestABinaryThatCannotBeRunIsSaid: with nothing printed, every tool reads as success — "(done)"
 // for a config:set that never ran. What stopped it is the answer instead.
 func TestABinaryThatCannotBeRunIsSaid(t *testing.T) {
-	output := string(mcpCapture(filepath.Join(t.TempDir(), "missing", "hm"), []string{"magento", "cache:flush"}, true))
+	output := string(mcpCapture(filepath.Join(t.TempDir(), "missing", "hm"), "", []string{"magento", "cache:flush"}, true))
 
 	if !strings.Contains(output, "could not be run") {
 		t.Errorf("output = %q, want it to say the binary could not be run", output)
@@ -498,7 +509,7 @@ func TestACommandThatFailsSilentlyIsSaid(t *testing.T) {
 	}
 
 	for _, combined := range []bool{true, false} {
-		output := string(mcpCapture(path, []string{"magento", "cache:flush"}, combined))
+		output := string(mcpCapture(path, "", []string{"magento", "cache:flush"}, combined))
 
 		if !strings.Contains(output, "exited with status 3") {
 			t.Errorf("combined %v: output = %q, want the failing status said", combined, output)
@@ -510,8 +521,37 @@ func TestACommandThatFailsSilentlyIsSaid(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if output := string(mcpCapture(path, nil, true)); output != "broken\n" {
+	if output := string(mcpCapture(path, "", nil, true)); output != "broken\n" {
 		t.Errorf("output = %q, want what the command printed, untouched", output)
+	}
+}
+
+// TestACommandForAnEnvironmentRunsInItsDirectory: a branch environment is a directory, and every
+// command of this binary answers about the directory it runs in.
+func TestACommandForAnEnvironmentRunsInItsDirectory(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "hm")
+	worktree := filepath.Join(root, "feature")
+
+	if err := os.Mkdir(worktree, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(path, []byte("#!/bin/sh\npwd -P\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	want, err := filepath.EvalSymlinks(worktree)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if output := string(mcpCapture(path, worktree, nil, false)); output != want+"\n" {
+		t.Errorf("output = %q, want it run in %s", output, want)
+	}
+
+	if output := string(mcpCapture(path, filepath.Join(root, "gone"), nil, false)); !strings.Contains(output, "could not be run") {
+		t.Errorf("a directory that is not there: output = %q, want it said", output)
 	}
 }
 

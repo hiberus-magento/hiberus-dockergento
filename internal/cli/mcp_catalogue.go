@@ -3,7 +3,13 @@ package cli
 //
 // The tool catalogue, as the protocol wants it: a name, a sentence a model can choose by, and a
 // schema for the arguments. Copied from console/tasks/mcp_tools.sh, key order and all, because
-// tools/list answers with it as it is written.
+// tools/list answers with it as it is written; since then every tool but list_environments takes
+// an `environment`, and the three that answer with JSON declare an outputSchema.
+//
+// The output schemas name the top-level fields and require none, and leave the rest open: the
+// server must answer with data that conforms, and the data is what describe, list and doctor
+// print, which grows a field now and then. A schema that pinned every field would turn an added
+// field into an answer the client rejects.
 //
 
 // mcpReadTools are offered always.
@@ -12,19 +18,56 @@ const mcpReadTools = `
   {
     "name": "describe_project",
     "description": "What the Magento project in the current directory is: PHP, database and search versions, the services and whether they are running, its URLs and its deploy mode.",
-    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "project": { "type": "object", "description": "Name, root, domain, status and URLs" },
+        "magento": { "type": "object", "description": "Version and deploy mode" },
+        "data": { "type": "object", "description": "Whether the database is anonymised, and since when" },
+        "services": { "type": "array", "description": "Each service with its image, version and state" },
+        "paths": { "type": "object", "description": "Magento directory, workdir, sync strategy and compose files" },
+        "tooling": { "type": "object", "description": "Machine, hm, Compose and xdebug" }
+      }
+    },
     "annotations": { "readOnlyHint": true }
   },
   {
     "name": "list_environments",
     "description": "Every Dockergento environment on this machine, with the directory it belongs to, its branch and its state. Use it to find out what else is running.",
     "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "environments": { "type": "array", "description": "Each environment with its name, root, branch, containers and status" },
+        "count": { "type": "integer" }
+      }
+    },
     "annotations": { "readOnlyHint": true }
   },
   {
     "name": "check_environment",
     "description": "Run the diagnostics (hm doctor) and return each check with its result. Use it when something does not work and you do not know why yet.",
-    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "checks": { "type": "array", "description": "Each finding with its id, scope, severity, message and action" },
+        "summary": { "type": "object", "description": "How many checks, and how many are ok, warnings and errors" }
+      }
+    },
     "annotations": { "readOnlyHint": true }
   },
   {
@@ -34,7 +77,8 @@ const mcpReadTools = `
       "type": "object",
       "properties": {
         "service": { "type": "string", "description": "The service whose log to read" },
-        "lines": { "type": "integer", "description": "How many lines from the end (default 100)" }
+        "lines": { "type": "integer", "description": "How many lines from the end (default 100)" },
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
       },
       "required": ["service"],
       "additionalProperties": false
@@ -47,7 +91,8 @@ const mcpReadTools = `
     "inputSchema": {
       "type": "object",
       "properties": {
-        "sql": { "type": "string", "description": "A single SELECT, SHOW, DESCRIBE or EXPLAIN statement" }
+        "sql": { "type": "string", "description": "A single SELECT, SHOW, DESCRIBE or EXPLAIN statement" },
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
       },
       "required": ["sql"],
       "additionalProperties": false
@@ -69,7 +114,13 @@ const mcpWriteTools = `
   {
     "name": "cache_flush",
     "description": "Flush the whole Magento cache. Use after a change that a page does not seem to have picked up.",
-    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
+      },
+      "additionalProperties": false
+    },
     "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true }
   },
   {
@@ -82,7 +133,8 @@ const mcpWriteTools = `
           "type": "array",
           "items": { "type": "string" },
           "description": "Cache types to clean, for example [\"config\", \"layout\"]"
-        }
+        },
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
       },
       "additionalProperties": false
     },
@@ -94,7 +146,8 @@ const mcpWriteTools = `
     "inputSchema": {
       "type": "object",
       "properties": {
-        "indexer": { "type": "string", "description": "One indexer, for example catalog_product_price" }
+        "indexer": { "type": "string", "description": "One indexer, for example catalog_product_price" },
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
       },
       "additionalProperties": false
     },
@@ -107,7 +160,8 @@ const mcpWriteTools = `
       "type": "object",
       "properties": {
         "path": { "type": "string", "description": "Configuration path, for example web/secure/use_in_frontend" },
-        "value": { "type": "string", "description": "The value to set" }
+        "value": { "type": "string", "description": "The value to set" },
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
       },
       "required": ["path", "value"],
       "additionalProperties": false

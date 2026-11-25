@@ -2,9 +2,12 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -35,7 +38,11 @@ const (
 	mcpInstructions = "Read-only tools for the Magento environment in the current directory. Nothing here changes the environment; use the hm command line for that."
 )
 
+// mcpKnownVersions are the handshake revisions, the ones `initialize` negotiates.
 var mcpKnownVersions = []string{"2025-06-18", "2025-03-26", "2024-11-05"}
+
+// mcpStatelessVersion is the revision with no handshake, where each request names its version.
+const mcpStatelessVersion = "2026-07-28"
 
 // instructions is what the client is told about this server. With --write, saying that nothing
 // changes the environment would be the opposite of what the write tools do, so they are named.
@@ -68,8 +75,20 @@ func (s mcpServer) instructions() string {
 // output: left empty, every tool would read as having worked — "(done)" for a change never made.
 // A command that fails and prints nothing would read the same way, so its exit status is said
 // (the shell's command substitution dropped it: a deliberate difference).
-var mcpCapture = func(executable string, args []string, combined bool) []byte {
-	output, status, err := selfrun.Runner{Executable: executable}.CaptureStatus(args, combined)
+//
+// dir is the directory it runs in, a branch environment's, or empty for the server's own.
+var mcpCapture = func(executable, dir string, args []string, combined bool) []byte {
+	var (
+		output []byte
+		status int
+		err    error
+	)
+
+	if dir == "" {
+		output, status, err = selfrun.Runner{Executable: executable}.CaptureStatus(args, combined)
+	} else {
+		output, status, err = captureIn(executable, dir, args, combined)
+	}
 
 	switch {
 	case err != nil:
@@ -80,6 +99,30 @@ var mcpCapture = func(executable string, args []string, combined bool) []byte {
 	}
 
 	return output
+}
+
+// captureIn is selfrun's CaptureStatus run in another directory, which the runner has no way to
+// say: every command of this binary answers about the directory it runs in, and a branch
+// environment is a directory.
+func captureIn(executable, dir string, args []string, combined bool) ([]byte, int, error) {
+	var output bytes.Buffer
+
+	command := exec.Command(executable, args...)
+	command.Dir = dir
+	command.Stdout = &output
+
+	if combined {
+		command.Stderr = &output
+	}
+
+	err := command.Run()
+
+	var exit *exec.ExitError
+	if errors.As(err, &exit) {
+		return output.Bytes(), exit.ExitCode(), nil
+	}
+
+	return output.Bytes(), 0, err
 }
 
 // mcp is the command: --config prints the client configuration, anything else serves the
@@ -122,8 +165,8 @@ func mcp(args []string, in io.Reader, stdout, stderr io.Writer, jsonOutput bool)
 	server := mcpServer{
 		write:      write,
 		executable: executable,
-		capture: func(args []string, combined bool) []byte {
-			return mcpCapture(executable, args, combined)
+		capture: func(dir string, args []string, combined bool) []byte {
+			return mcpCapture(executable, dir, args, combined)
 		},
 	}
 	server.serve(in, stdout)
@@ -155,8 +198,12 @@ type mcpServer struct {
 	// executable is the binary tool calls run, named in the answer when one prints nothing
 	executable string
 
-	// capture runs that binary: see mcpCapture
-	capture func(args []string, combined bool) []byte
+	// capture runs that binary in a directory: see mcpCapture
+	capture func(dir string, args []string, combined bool) []byte
+
+	// dir is where one tool call runs its commands: the branch environment its `environment`
+	// argument named, or empty for the directory the server was started in
+	dir string
 }
 
 // serve answers one line at a time until in ends.
@@ -212,6 +259,32 @@ func (s mcpServer) handle(line string) (string, bool) {
 
 	params, _ := request.field("params")
 
+	//
+	// The 2026-07-28 revision has no handshake: every request says which version it speaks, in
+	// _meta, and is answered in it or refused. A request that says nothing is a client of the
+	// handshake revisions, and is answered exactly as before — this server speaks both.
+	//
+	stateless := false
+
+	if meta, ok := params.field("_meta"); ok && meta.kind == jqObject {
+		if requested, _ := meta.field("io.modelcontextprotocol/protocolVersion"); requested.kind != jqNull {
+			if !mcpSupports(requested) {
+				return mcpUnsupported(id, requested), true
+			}
+
+			stateless = requested.text == mcpStatelessVersion
+		}
+	}
+
+	result := func(value jqValue) (string, bool) {
+		if stateless {
+			value = value.with("resultType", jqText("complete")).
+				with("_meta", jqObjectOf("io.modelcontextprotocol/serverInfo", mcpServerInfo()))
+		}
+
+		return mcpResult(id, value), true
+	}
+
 	switch method {
 	case "initialize":
 		requested := rawField(params, "protocolVersion", "")
@@ -225,25 +298,33 @@ func (s mcpServer) handle(line string) (string, bool) {
 			}
 		}
 
-		name := binaryName()
-
-		toolVersion := os.Getenv("HM_VERSION")
-		if toolVersion == "" {
-			toolVersion = Version
-		}
-
-		if toolVersion == "" {
-			toolVersion = "unknown"
-		}
-
 		return mcpResult(id, jqObjectOf(
 			"protocolVersion", jqText(version),
 			"capabilities", jqObjectOf("tools", jqObjectOf()),
-			"serverInfo", jqObjectOf("name", jqText(name), "version", jqText(toolVersion)),
+			"serverInfo", mcpServerInfo(),
 			"instructions", jqText(s.instructions()),
 		)), true
+	case "server/discover":
+		// Asked before anything else, by a client finding out which revision this server speaks,
+		// so it is answered in the stateless one whether the request named a version or not
+		stateless = true
+
+		versions := []jqValue{jqText(mcpStatelessVersion)}
+		for _, known := range mcpKnownVersions {
+			versions = append(versions, jqText(known))
+		}
+
+		return result(mcpCacheable(jqObjectOf(
+			"supportedVersions", jqValue{kind: jqArray, items: versions},
+			"capabilities", jqObjectOf("tools", jqObjectOf()),
+			"instructions", jqText(s.instructions()),
+		)))
 	case "tools/list":
-		return mcpResult(id, jqObjectOf("tools", mcpCatalogue(s.write))), true
+		if stateless {
+			return result(mcpCacheable(jqObjectOf("tools", mcpCatalogue(s.write))))
+		}
+
+		return result(jqObjectOf("tools", mcpCatalogue(s.write)))
 	case "tools/call":
 		name := rawField(params, "name", "")
 
@@ -257,14 +338,69 @@ func (s mcpServer) handle(line string) (string, bool) {
 			arguments = jqValue{kind: jqString}
 		}
 
-		return mcpResult(id, s.call(name, arguments)), true
+		return result(s.call(name, arguments))
 	case "ping":
-		return mcpResult(id, jqObjectOf()), true
+		return result(jqObjectOf())
 	case "":
 		return mcpFail(id, -32600, "Invalid request: no method"), true
 	}
 
 	return mcpFail(id, -32601, "This server does not implement '"+method+"'"), true
+}
+
+// mcpSupports says whether a request's protocol version is one this server speaks.
+func mcpSupports(requested jqValue) bool {
+	if requested.kind != jqString {
+		return false
+	}
+
+	if requested.text == mcpStatelessVersion {
+		return true
+	}
+
+	for _, known := range mcpKnownVersions {
+		if requested.text == known {
+			return true
+		}
+	}
+
+	return false
+}
+
+// mcpUnsupported is UnsupportedProtocolVersionError, which lists the versions there are so that
+// the client can retry in one of them.
+func mcpUnsupported(id, requested jqValue) string {
+	supported := []jqValue{jqText(mcpStatelessVersion)}
+	for _, known := range mcpKnownVersions {
+		supported = append(supported, jqText(known))
+	}
+
+	return jqObjectOf("jsonrpc", jqText("2.0"), "id", id, "error", jqObjectOf(
+		"code", jqValue{kind: jqNumber, text: "-32022"},
+		"message", jqText("Unsupported protocol version"),
+		"data", jqObjectOf("supported", jqValue{kind: jqArray, items: supported}, "requested", requested),
+	)).compact()
+}
+
+// mcpCacheable is a result the client may keep. What this server offers is fixed for as long as it
+// runs, by --write; the time is short because a server restarted with the other flag answers
+// differently, and private because it describes one machine.
+func mcpCacheable(result jqValue) jqValue {
+	return result.with("ttlMs", jqValue{kind: jqNumber, text: "300000"}).with("cacheScope", jqText("private"))
+}
+
+// mcpServerInfo is who is answering.
+func mcpServerInfo() jqValue {
+	toolVersion := os.Getenv("HM_VERSION")
+	if toolVersion == "" {
+		toolVersion = Version
+	}
+
+	if toolVersion == "" {
+		toolVersion = "unknown"
+	}
+
+	return jqObjectOf("name", jqText(binaryName()), "version", jqText(toolVersion))
 }
 
 func mcpResult(id, result jqValue) string {

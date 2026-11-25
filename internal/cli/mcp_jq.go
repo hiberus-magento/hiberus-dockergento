@@ -56,6 +56,22 @@ func jqObjectOf(pairs ...any) jqValue {
 	return object
 }
 
+// with is this object with key set to value: replaced where it is, added at the end otherwise.
+func (v jqValue) with(key string, value jqValue) jqValue {
+	object := jqValue{kind: jqObject, keys: append([]string(nil), v.keys...), items: append([]jqValue(nil), v.items...)}
+
+	if at := object.index(key); at >= 0 {
+		object.items[at] = value
+
+		return object
+	}
+
+	object.keys = append(object.keys, key)
+	object.items = append(object.items, value)
+
+	return object
+}
+
 // parseJQ reads one JSON document, or says it is not one.
 func parseJQ(data []byte) (jqValue, bool) {
 	if !json.Valid(data) {

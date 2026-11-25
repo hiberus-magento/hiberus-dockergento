@@ -17,6 +17,15 @@ import (
 
 // call runs one tool and answers with its content.
 func (s mcpServer) call(name string, arguments jqValue) jqValue {
+	if mcpTakesEnvironment(name, s.write) {
+		dir, refusal := s.environment(rawField(arguments, "environment", ""))
+		if refusal != "" {
+			return mcpContent(refusal, true)
+		}
+
+		s.dir = dir
+	}
+
 	switch name {
 	case "describe_project":
 		return s.fromCommand("describe")
@@ -68,7 +77,74 @@ func (s mcpServer) call(name string, arguments jqValue) jqValue {
 
 // run is one command of this binary, its output as a command substitution would keep it.
 func (s mcpServer) run(combined bool, args ...string) string {
-	return substituted(string(s.capture(args, combined)))
+	return substituted(string(s.capture(s.dir, args, combined)))
+}
+
+// mcpTakesEnvironment says whether a tool answers about one environment, and so takes the
+// `environment` argument: every tool there is but list_environments, which is about the machine.
+func mcpTakesEnvironment(name string, write bool) bool {
+	if name == "list_environments" {
+		return false
+	}
+
+	for _, tool := range mcpToolNames(write) {
+		if tool == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+// environment is the directory of the branch environment called name, or why there is none.
+// Nothing at all is the directory the server runs in, as before the argument existed.
+//
+// The registry is asked through `worktree list`, the command that already answers which branch
+// environments this project has and where they are, so a name means here what it means there.
+// The directory comes from the registry, never from the model: a name is only ever matched.
+func (s mcpServer) environment(name string) (string, string) {
+	if name == "" {
+		return "", ""
+	}
+
+	output := s.run(false, "worktree", "list", "--json")
+
+	document, ok := parseJQ([]byte(output))
+	data, _ := document.field("data")
+	listed, _ := data.field("worktrees")
+
+	if !ok || listed.kind != jqArray {
+		return "", "The branch environments of this project could not be read, so '" + name +
+			"' cannot be found. Leave environment out to use the current directory, or try check_environment."
+	}
+
+	var names []string
+
+	for _, worktree := range listed.items {
+		called := rawField(worktree, "name", "")
+		names = append(names, called)
+
+		if called != name {
+			continue
+		}
+
+		path := rawField(worktree, "path", "")
+
+		if rawField(worktree, "state", "") == "missing" || path == "" {
+			return "", "The branch environment '" + name + "' no longer has its directory (" + path +
+				"). Collect it with " + binaryName() + " clean."
+		}
+
+		return path, ""
+	}
+
+	if len(names) == 0 {
+		return "", "This project has no branch environments, so there is none called '" + name +
+			"'. Leave environment out to use the current directory."
+	}
+
+	return "", "There is no branch environment called '" + name + "' in this project. The ones there are: " +
+		strings.Join(names, " ")
 }
 
 // fromCommand asks a command for its JSON and gives the model the data: the `ok` and
@@ -96,7 +172,19 @@ func (s mcpServer) fromCommand(command string) jqValue {
 		data = document
 	}
 
-	return mcpContent(substituted(data.raw()), false)
+	content := mcpContent(substituted(data.raw()), false)
+
+	//
+	// The same data again as structuredContent, which a client can validate against the tool's
+	// outputSchema and read without parsing text. Only an object: that is what the schemas
+	// declare, and what a 2025-06-18 client accepts there. The text stays for the clients that
+	// read nothing else.
+	//
+	if data.kind == jqObject {
+		content = content.with("structuredContent", data)
+	}
+
+	return content
 }
 
 func (s mcpServer) serviceLogs(arguments jqValue) jqValue {

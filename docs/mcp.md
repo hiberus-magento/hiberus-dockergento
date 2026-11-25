@@ -31,6 +31,24 @@ have.
 Each one wraps a command that already answers in JSON, so there is a single implementation of
 "what is this project" — the one with tests behind it.
 
+`describe_project`, `list_environments` and `check_environment` answer with that JSON twice: as
+text, for clients that read only text, and as `structuredContent`, described by the tool's
+`outputSchema`, for clients that validate it and read fields without parsing. The schemas name the
+top-level fields and leave the rest open, because the commands grow a field now and then and a
+schema that pinned every one would turn that into an answer the client rejects.
+
+### One server, several branch environments
+
+Every tool except `list_environments` takes an optional `environment`: the name of a
+[branch environment](worktree.md) of this project, as `hm worktree list` shows it. The tool then
+runs its command in that environment's directory, so one server configured for the main checkout
+answers about each worktree too. Left out, the tool answers about the directory the server was
+started in, as before.
+
+The name is looked up through `hm worktree list`, and only matched: the directory comes from the
+registry, never from the model. A name that is not there is a tool error listing the ones that
+are; one whose directory was deleted says so and points at `hm clean`.
+
 ## Nothing here changes anything
 
 That is the point of doing the read-only half on its own. `hm exec`, `hm bash` and `hm mysql` are
@@ -140,11 +158,28 @@ Everything the server prints on stdout is a protocol message, so a wrapped comma
 stdout would be a parse error in the client and a server that appears to have died. Every command
 it calls has its stderr redirected and its stdin closed for that reason.
 
+### Protocol versions
+
+The server speaks both kinds of revision. A client of the handshake revisions (`2025-06-18`,
+`2025-03-26`, `2024-11-05`) opens with `initialize` and is answered as it always was. A client of
+the stateless revision `2026-07-28` names its version in every request's `_meta` and is answered in
+it: results carry `resultType`, the server's identity in `_meta`, and, for `tools/list`, how long
+the client may cache it. Such a client can call `server/discover` first to learn the versions,
+the capabilities and the instructions in one request. A request naming a version the server does
+not speak is refused with `UnsupportedProtocolVersionError` (code `-32022`), which lists the ones
+it does.
+
 To see a session by hand:
 
 ```bash
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' \
               '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | hm mcp
+```
+
+or, in the stateless revision:
+
+```bash
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}' | hm mcp
 ```
 
 A tool that could not answer replies with a result marked as an error rather than a protocol
