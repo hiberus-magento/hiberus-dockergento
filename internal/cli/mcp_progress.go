@@ -101,17 +101,24 @@ var mcpStream = func(executable, dir string, args []string, line func(string)) [
 	go func() {
 		defer close(read)
 
-		lines := bufio.NewScanner(reader)
-		lines.Buffer(make([]byte, 64*1024), 1024*1024)
+		// A reader rather than a Scanner: a Scanner stops at a line longer than its buffer and
+		// drops what it had read of it, and a serialised object on one line is longer than any
+		// buffer worth picking. Reading to the end also means the command never blocks on a pipe
+		// nobody empties.
+		lines := bufio.NewReader(reader)
 
-		for lines.Scan() {
-			output.WriteString(lines.Text() + "\n")
-			line(lines.Text())
+		for {
+			text, err := lines.ReadString('\n')
+			if text != "" {
+				text = strings.TrimSuffix(text, "\n")
+				output.WriteString(text + "\n")
+				line(text)
+			}
+
+			if err != nil {
+				break
+			}
 		}
-
-		// A line longer than the scanner takes ends the scan, not the command: the rest is kept,
-		// and read, so the command never blocks on a pipe nobody empties
-		io.Copy(&output, reader) //nolint:errcheck
 	}()
 
 	err := command.Run()

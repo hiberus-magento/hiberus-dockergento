@@ -221,7 +221,8 @@ revisions define them, then the response:
 
 - One notification when the command starts and one per line it prints: the indexer's own line per
   index is the only measure of how far it has got, so `progress` counts lines and there is no
-  `total`.
+  `total`. Lines of any length are kept: one longer than a mebibyte is still a notification, and
+  still whole in the answer.
 - The token is a string or an integer; anything else, or no token, means no notifications, and the
   call is answered exactly as before.
 - The other tools answer in a moment and send none. `message` is part of the revisions from

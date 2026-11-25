@@ -174,3 +174,30 @@ func TestTheStreamHandsOverEveryLineAndKeepsTheOutput(t *testing.T) {
 		t.Fatalf("output = %q, want the status said", silent)
 	}
 }
+
+// TestALineLongerThanAMebibyteIsKeptWhole: an indexer that prints a serialised object on one line
+// is still answered with all of its output, that line included, and the lines after it are still
+// handed over.
+func TestALineLongerThanAMebibyteIsKeptWhole(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hm")
+
+	// 1.5 MiB of x on one line, then two ordinary ones
+	body := "#!/bin/sh\nhead -c 1572864 /dev/zero | tr '\\0' x\necho\necho after\necho last >&2\n"
+	if err := os.WriteFile(path, []byte(body), 0o755); err != nil { //nolint:gosec
+		t.Fatal(err)
+	}
+
+	var seen []string
+
+	output := string(mcpStream(path, dir, []string{"magento"}, func(line string) { seen = append(seen, line) }))
+
+	if want := strings.Repeat("x", 1572864) + "\nafter\nlast\n"; output != want {
+		t.Fatalf("output = %d bytes ending %q, want the long line whole and the two after it (%d bytes)",
+			len(output), output[max(0, len(output)-20):], len(want))
+	}
+
+	if len(seen) != 3 || len(seen[0]) != 1572864 || seen[1] != "after" || seen[2] != "last" {
+		t.Fatalf("lines handed over = %d, want the long one and the two after it", len(seen))
+	}
+}
