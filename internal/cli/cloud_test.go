@@ -117,7 +117,7 @@ func TestCloudLoginRefusesAnArgument(t *testing.T) {
 		t.Errorf("stdout = %q, want nothing", stdout.String())
 	}
 
-	assertError(t, stderr.String(), "invalid_argument", "Unknown option: --token=abc", "hm cloud-login")
+	assertError(t, stderr.String(), "invalid_argument", "cloud-login takes no arguments, and was given '--token=abc'", "hm cloud-login")
 
 	if len(fake.calls) != 0 {
 		t.Errorf("asked the engine %v, want nothing", fake.calls)

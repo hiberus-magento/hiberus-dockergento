@@ -140,9 +140,7 @@ func projectOr(stderr io.Writer, jsonOutput bool, command string) (core.Project,
 	}
 
 	if err != nil || project.Name == "" {
-		return core.Project{}, failure(stderr, jsonOutput, command, exitProject, "project_not_configured",
-			"This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid",
-			binaryName()+" setup")
+		return core.Project{}, report(stderr, jsonOutput, command, app.NotConfigured("", binaryName()))
 	}
 
 	return project, 0

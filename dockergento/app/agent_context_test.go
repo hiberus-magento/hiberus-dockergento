@@ -326,7 +326,7 @@ func TestNothingIsWrittenWithoutADaemonOrAProject(t *testing.T) {
 		code     int
 	}{
 		{"no daemon", false, nil, "docker_unavailable", contract.ExitDocker},
-		{"no configuration", true, errors.New("no docker-compose.yml"), "project_not_configured", contract.ExitProject},
+		{"no configuration", true, NotConfigured("no docker-compose.yml", "hm"), "project_not_configured", contract.ExitProject},
 	}
 
 	for _, c := range cases {
@@ -411,5 +411,30 @@ func TestARefusedDescriptionIsPassedOnAsItIs(t *testing.T) {
 				t.Errorf("files were written: %v", snapshot(t, root))
 			}
 		})
+	}
+}
+
+// An error that is not a refusal is the engine's or the daemon's, and goes out as it is, as
+// describe sends it: calling it project_not_configured would send somebody to `hm setup` for a
+// daemon that stopped answering.
+func TestAnEngineErrorIsNotCalledAnUnconfiguredProject(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "shop")
+	seed(t, root, nil)
+
+	broken := errors.New("Cannot connect to the Docker daemon")
+
+	writer := agentScenes()[0].writer(t, root, repositoryRoot(t))
+	writer.Daemon = daemon{reachable: true}
+	writer.Describe = func() (core.Description, error) { return core.Description{}, broken }
+
+	_, err := writer.Write()
+
+	var refusal core.Refusal
+	if !errors.Is(err, broken) || errors.As(err, &refusal) {
+		t.Fatalf("Write = %#v, want the engine's own error, not a refusal", err)
+	}
+
+	if len(snapshot(t, root)) != 0 {
+		t.Errorf("files were written: %v", snapshot(t, root))
 	}
 }

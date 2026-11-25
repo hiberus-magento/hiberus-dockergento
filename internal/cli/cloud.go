@@ -34,7 +34,7 @@ func cloud(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 func cloudLogin(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	if len(args) > 0 {
 		return failure(stderr, jsonOutput, "cloud-login", exitUsage, "invalid_argument",
-			fmt.Sprintf("Unknown option: %s", args[0]), binaryName()+" cloud-login")
+			fmt.Sprintf("cloud-login takes no arguments, and was given '%s'", args[0]), binaryName()+" cloud-login")
 	}
 
 	project, code := projectOr(stderr, jsonOutput, "cloud-login")

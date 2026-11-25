@@ -50,8 +50,10 @@ func (r Resolver) Resolve(dir string) (core.Project, error) {
 	project := projectFrom(root, properties)
 	project.InWorktree = isWorktree
 
-	// Checked here and not in projectFrom: a registered worktree's name comes from its
-	// registration, so a worktree directory that leaves nothing to derive is still well named.
+	// Checked here and not in projectFrom, which also builds a registered worktree's project from
+	// the worktree's own directory, whose name comes from its registration. From a worktree, root
+	// is the main checkout: its name is the key the registration is found by, so a main checkout
+	// that leaves no name has no worktree environment to find either.
 	if project.Name == "" && len(properties) > 0 {
 		return core.Project{}, core.Refusal{Kind: "no_project_name", Code: contract.ExitProject,
 			Message: "No project name can be derived from " + filepath.Base(root),

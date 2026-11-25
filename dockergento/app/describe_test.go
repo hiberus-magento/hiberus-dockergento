@@ -25,7 +25,8 @@ func TestWhatDescribeAnswersWithNothingToDescribe(t *testing.T) {
 			errors.New("no compose file to read in /code/shop"), nil,
 			core.Refusal{Kind: "project_not_configured", Code: 4,
 				Message: notConfigured + ": no compose file to read in /code/shop", Hint: "hd setup"}},
-		// Whoever asks decides what a nameless description means: agent-context answers no_project
+		// Whoever asks decides what a nameless description means: agent-context answers it with
+		// its own no_project refusal, so describe does not refuse it here
 		{"a nameless directory whose configuration reads", core.Project{Root: "/code/anywhere"}, nil, nil,
 			nil},
 		{"a daemon that cannot be reached", core.Project{Name: "shop", Root: "/code/shop"}, nil, unreachable,
