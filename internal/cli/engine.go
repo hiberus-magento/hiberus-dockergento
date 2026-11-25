@@ -1,14 +1,12 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/app"
-	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
@@ -187,28 +185,4 @@ func binaryName() string {
 	}
 
 	return "hm"
-}
-
-// registryState prints what the registry holds.
-//
-// One of the `hm-`prefixed diagnostics: it exists so the registry can be looked at while nothing
-// else shows it, and it changes nothing that any real command does.
-func registryState(stdout, stderr io.Writer) int {
-	held, err := engine(stdout, stderr, false).RegistryState()
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-
-		return exitError
-	}
-
-	document, err := json.MarshalIndent(contract.Success("registry", held), "", "  ")
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-
-		return exitError
-	}
-
-	fmt.Fprintf(stdout, "%s\n", document)
-
-	return exitOK
 }

@@ -1371,67 +1371,6 @@ func configuredDatabase(e *Engine, project core.Project) (string, string) {
 	return app.DataDirectory(configuration)
 }
 
-// RegistryState is what the registry holds, for looking at it.
-//
-// Through the engine's own registry and not a second one opened here: a diagnostic that reads a
-// different database from the one the commands use is a diagnostic that lies.
-func (e *Engine) RegistryState() (map[string]any, error) {
-	held := map[string]any{}
-	listed := []any{}
-
-	parents, err := e.registry().Parents()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, parent := range parents {
-		worktrees, err := e.registry().Worktrees(parent)
-		if err != nil {
-			return nil, err
-		}
-
-		branches := []any{}
-
-		for _, worktree := range worktrees {
-			state, at := toolinfo.State{Dir: e.options.StateDir}.Anonymisation(worktree.Project)
-
-			var slot *core.Allocation
-
-			// Only where there is one to have: a classic project hands out no slots, and the
-			// registry that can be asked is the one backed by a store
-			if allocating, ok := e.registry().(interface {
-				Allocation(string, string) (*core.Allocation, error)
-			}); ok {
-				slot, _ = allocating.Allocation(parent, worktree.Name)
-			}
-
-			branches = append(branches, map[string]any{
-				"allocation": slot,
-				"name":       worktree.Name, "environment": worktree.Project,
-				"branch": worktree.Branch, "profile": worktree.Profile,
-				"shared_vendor": worktree.SharedVendor,
-				"anonymised":    state, "anonymised_at": at,
-
-				// The path and the address are here because the shell implementation reads
-				// this: it cannot open the database, and a bridged command run from a branch
-				// environment has to arrive at that environment and not at the main one
-				"path": worktree.Path, "domain": worktree.Domain,
-			})
-		}
-
-		state, at := toolinfo.State{Dir: e.options.StateDir}.Anonymisation(parent)
-
-		listed = append(listed, map[string]any{
-			"name": parent, "worktrees": branches,
-			"anonymised": state, "anonymised_at": at,
-		})
-	}
-
-	held["projects"] = listed
-
-	return held, nil
-}
-
 //
 // Collecting what abandoned environments left behind.
 //
