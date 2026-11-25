@@ -98,6 +98,7 @@
   [0;33m--yes                 [0mNever ask questions: use defaults or fail with an actionable error
   [0;33m--force               [0mRun a command refused from a git worktree (one invocation only)
   [0;33m--no-color            [0mNever colour the output (see also NO_COLOR)
+  [0;33m--progress=jsonl      [0mWrite the steps of long commands to stderr as JSON lines (see docs/progress.md)
 
 [0mRun [0;33mhm <command> --help[0m[0m for details on a single command.
 

@@ -1151,6 +1151,13 @@
                     "long": "no-color"
                 },
                 "description": "Never colour the output (see also NO_COLOR)"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "progress=jsonl"
+                },
+                "description": "Write the steps of long commands to stderr as JSON lines (see docs/progress.md)"
             }
         ]
     },

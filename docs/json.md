@@ -115,3 +115,10 @@ well.
 Commands whose stdout belongs to a program inside a container — `magento`, `composer`, `exec`,
 `bash`, `logs`, `mysql`, `npm`, `grunt` and the like — print that program's output, never an
 envelope on success.
+
+## Progress as JSON lines
+
+`--progress=jsonl`, a global option like `--json`, turns the steps the long commands announce
+(setup, rebuild, `db snapshot`, `db restore`...) into one JSON object per line on **stderr**:
+`{"phase","step","pct","elapsed"}`, with `pct` `null` when unknown. stdout is untouched. See
+[progress](progress.md#for-a-program---progressjsonl).

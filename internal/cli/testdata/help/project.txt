@@ -98,6 +98,7 @@ Global options
   --yes                 Never ask questions: use defaults or fail with an actionable error
   --force               Run a command refused from a git worktree (one invocation only)
   --no-color            Never colour the output (see also NO_COLOR)
+  --progress=jsonl      Write the steps of long commands to stderr as JSON lines (see docs/progress.md)
 
 Run hm <command> --help for details on a single command.
 

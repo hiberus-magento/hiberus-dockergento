@@ -1,6 +1,9 @@
 package cli
 
-import "os"
+import (
+	"os"
+	"time"
+)
 
 //
 // The flags that belong to the tool rather than to any one command.
@@ -48,6 +51,10 @@ func globals(args []string) (format string, rest []string) {
 			os.Setenv("HM_FORCE", "1") //nolint:errcheck
 		case "--no-color":
 			os.Setenv("HM_NO_COLOR", "1") //nolint:errcheck
+		case "--progress=jsonl":
+			os.Setenv("HM_PROGRESS", "jsonl") //nolint:errcheck
+		case "--progress=text":
+			os.Setenv("HM_PROGRESS", "") //nolint:errcheck
 		default:
 			if argument == "" || argument[0] != '-' {
 				if !seen {
@@ -59,6 +66,9 @@ func globals(args []string) (format string, rest []string) {
 			rest = append(rest, argument)
 		}
 	}
+
+	// What the progress events of this invocation are about, and when it began
+	progressCommand, progressStarted = progressPhase(rest), time.Now()
 
 	return format, rest
 }

@@ -117,11 +117,12 @@ func TestCopyWatchIsOnlyForATerminal(t *testing.T) {
 		{"non interactive", true, false, map[string]string{"HM_NON_INTERACTIVE": "1"}, false},
 		{"a terminal that cannot draw", true, false, map[string]string{"TERM": "dumb"}, false},
 		{"NO_COLOR still draws, without colour", true, false, map[string]string{"NO_COLOR": "1"}, true},
+		{"progress as JSON lines on a terminal", true, false, map[string]string{"HM_PROGRESS": "jsonl"}, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, name := range []string{"CI", "HM_NO_PROGRESS", "HM_NON_INTERACTIVE", "NO_COLOR", "HM_NO_COLOR"} {
+			for _, name := range []string{"CI", "HM_NO_PROGRESS", "HM_NON_INTERACTIVE", "NO_COLOR", "HM_NO_COLOR", "HM_PROGRESS"} {
 				t.Setenv(name, "")
 			}
 

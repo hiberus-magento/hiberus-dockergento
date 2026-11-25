@@ -91,6 +91,8 @@ var newEngine = func(stdout, stderr io.Writer, jsonOutput bool) commands {
 // itself has no opinion about terminals — which is what lets the same calls answer an HTTP request
 // later without any of this coming along.
 func engine(stdout, stderr io.Writer, jsonOutput bool) *dockergento.Engine {
+	announce, progress := reporting(stdout, stderr, jsonOutput)
+
 	return dockergento.New(dockergento.Options{
 		Binary:   binaryName(),
 		Version:  Version,
@@ -101,22 +103,12 @@ func engine(stdout, stderr io.Writer, jsonOutput bool) *dockergento.Engine {
 		// environment the flag set and never from a file
 		Forced: os.Getenv("HM_FORCE") == "1",
 
-		// In JSON mode stdout carries the document, so anything decorative goes to stderr:
-		// otherwise a program reading the output finds a sentence in the middle of it
-		Announce: func(message string) {
-			where := stdout
-			if jsonOutput {
-				where = stderr
-			}
+		// How the steps that take a while are shown: see reporting
+		Announce: announce,
+		Progress: progress,
 
-			fmt.Fprint(where, good(message))
-		},
-
-		// The spinner and the question live here for the same reason: the engine has no terminal
-		// and should not learn about one
-		Progress: func(label string) func(bool, string) {
-			return begin(label, stdout, stderr, jsonOutput)
-		},
+		// The question lives here for the same reason: the engine has no terminal and should not
+		// learn about one
 		Ask:    ask,
 		Choose: choose,
 

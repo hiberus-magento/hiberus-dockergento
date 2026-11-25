@@ -27,7 +27,8 @@ var copyTerminal = isTerminal
 
 // copyWatch is what the engine is handed to show copies, or nil when nobody is watching.
 func copyWatch(stderr io.Writer, jsonOutput bool) ports.CopyWatch {
-	if jsonOutput || !copyTerminal(stderr) {
+	// Under --progress=jsonl stderr is events, one per line, and a line redrawn in place is not one
+	if jsonOutput || !copyTerminal(stderr) || os.Getenv("HM_PROGRESS") == "jsonl" {
 		return nil
 	}
 
