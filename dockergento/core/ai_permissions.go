@@ -146,8 +146,11 @@ func OpenCodePermissions(permissions AgentPermissions) OpenCodeConfig {
 		config.Permissions = append(config.Permissions, OpenCodeRule{"shell", command + " *", "ask"})
 	}
 
+	// A pattern matches the entire path and its `*` matches `/` too, so "var/log/*" is everything
+	// under var/log at any depth; the directory itself is a path of its own and needs its own rule
 	for _, path := range rules.Deny {
-		if strings.HasSuffix(path, "/") {
+		if directory, ok := strings.CutSuffix(path, "/"); ok {
+			config.Permissions = append(config.Permissions, OpenCodeRule{"read", directory, "deny"})
 			path += "*"
 		}
 

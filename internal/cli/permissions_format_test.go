@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -284,6 +285,11 @@ func TestPermissionsForOpenCodeAreItsPermissions(t *testing.T) {
     },
     {
       "action": "read",
+      "resource": "var/log",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
       "resource": "var/log/*",
       "effect": "deny"
     }
@@ -292,6 +298,86 @@ func TestPermissionsForOpenCodeAreItsPermissions(t *testing.T) {
 `
 	if diff := cmp.Diff(want, stdout.String()); diff != "" {
 		t.Errorf("stdout (-want +got):\n%s", diff)
+	}
+}
+
+// openCodeDecides is OpenCode's matching as documented (https://opencode.ai/docs/permissions): a
+// pattern matches the entire path, `*` is zero or more characters including `/`, `?` exactly one,
+// the last matching rule wins, and with no match the answer is ask.
+func openCodeDecides(t *testing.T, rules []core.OpenCodeRule, action, resource string) string {
+	t.Helper()
+
+	effect := "ask"
+
+	for _, rule := range rules {
+		var pattern strings.Builder
+
+		for _, r := range rule.Resource {
+			switch r {
+			case '*':
+				pattern.WriteString(".*")
+			case '?':
+				pattern.WriteString(".")
+			default:
+				pattern.WriteString(regexp.QuoteMeta(string(r)))
+			}
+		}
+
+		if rule.Action == action && regexp.MustCompile("^"+pattern.String()+"$").MatchString(resource) {
+			effect = rule.Effect
+		}
+	}
+
+	return effect
+}
+
+// TestPermissionsForOpenCodeDenyEverythingUnderAnExcludedDirectory: every path ai-exclusions.json
+// names is denied, a directory with everything under it, at any depth, and the directory itself.
+func TestPermissionsForOpenCodeDenyEverythingUnderAnExcludedDirectory(t *testing.T) {
+	contents, err := fs.ReadFile(hm.Embedded(), "data/ai-exclusions.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var excluded struct {
+		Exclusions []struct {
+			Path string `json:"path"`
+		} `json:"exclusions"`
+	}
+	if err := json.Unmarshal(contents, &excluded); err != nil {
+		t.Fatal(err)
+	}
+
+	fake := answering(t)
+	fake.permissions = realPermissions(t, false)
+
+	var stdout bytes.Buffer
+	if code := permissions([]string{"--format=opencode"}, &stdout, io.Discard, true); code != exitOK {
+		t.Fatalf("permissions --format=opencode --json = %d", code)
+	}
+
+	var config core.OpenCodeConfig
+	if err := json.Unmarshal(stdout.Bytes(), &config); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, exclusion := range excluded.Exclusions {
+		paths := []string{exclusion.Path}
+		if !strings.Contains(exclusion.Path, ".") {
+			paths = append(paths, exclusion.Path+"/a.txt", exclusion.Path+"/2026/11/a.log", exclusion.Path+"/a/b/c/d")
+		}
+
+		for _, path := range paths {
+			if got := openCodeDecides(t, config.Permissions, "read", path); got != "deny" {
+				t.Errorf("read %s = %s, want deny", path, got)
+			}
+		}
+	}
+
+	for _, path := range []string{"app/code/Vendor/Module/etc/di.xml", "var/logbook.txt", "generated.txt"} {
+		if got := openCodeDecides(t, config.Permissions, "read", path); got == "deny" {
+			t.Errorf("read %s = deny, and nothing excludes it", path)
+		}
 	}
 }
 

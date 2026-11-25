@@ -79,7 +79,9 @@ What each one can say differs, and the output says so rather than pretending:
   not JSON.
 - **OpenCode** ([permissions](https://opencode.ai/docs/permissions)) takes an ordered list where
   the last match wins and `hm down *` also matches a bare `hm down`. The denied paths come last so
-  nothing after them can undo them. This is the `permissions` list of OpenCode's current
+  nothing after them can undo them. A path pattern matches the whole path and its `*` matches `/`
+  as well, so an excluded directory is two rules: `var/log`, the directory itself, and `var/log/*`,
+  everything under it at any depth. OpenCode documents no `**`, so none is written. This is the `permissions` list of OpenCode's current
   configuration; its V1 configuration called it `permission`, with `bash` for `shell`.
 
 ### A Claude Code plugin
