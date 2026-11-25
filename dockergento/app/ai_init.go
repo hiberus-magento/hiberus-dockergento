@@ -24,7 +24,7 @@ func (a *AITools) Init(options AIInitOptions, interactive bool) int {
 			a.captured(AIError, "Invalid JSON in "+core.AIPropertiesFile)
 		}
 
-		a.Console.Say(AIError, "Failed to load existing configuration", AIDecorated)
+		a.Console.Say(AIError, "Failed to load existing configuration\n", AIDecorated)
 
 		return 1
 	}
@@ -74,7 +74,7 @@ func (a *AITools) Init(options AIInitOptions, interactive bool) int {
 	platforms, types, resources := core.AIJoin(platformsValue), core.AIJoin(typesValue), core.AIJoin(resourcesValue)
 
 	if platforms == "" || resources == "" {
-		a.Console.Say(AIError, "Configuration incomplete: platforms and resources are required", AIDecorated)
+		a.Console.Say(AIError, "Configuration incomplete: platforms and resources are required\n", AIDecorated)
 
 		return 1
 	}
@@ -86,7 +86,7 @@ func (a *AITools) Init(options AIInitOptions, interactive bool) int {
 	a.Console.Say(AIInfo, "Saving configuration...\n", AIDecorated)
 
 	if a.writeJSON(core.AIPropertiesFile, config) != nil {
-		a.Console.Say(AIError, "Failed to save configuration", AIDecorated)
+		a.Console.Say(AIError, "Failed to save configuration\n", AIDecorated)
 
 		return 1
 	}
@@ -100,7 +100,7 @@ func (a *AITools) Init(options AIInitOptions, interactive bool) int {
 
 	repositories, ok := a.repositories("", config)
 	if !ok {
-		a.Console.Say(AIError, "Failed to resolve repositories", AIDecorated)
+		a.Console.Say(AIError, "Failed to resolve repositories\n", AIDecorated)
 
 		return 1
 	}
@@ -172,8 +172,8 @@ func (a *AITools) placed(platforms, resources string, fromOptions bool) bool {
 func (a *AITools) createDirectories(platforms, resources string) {
 	file := a.data("ai-platforms.json")
 	if !a.hasData("ai-platforms.json") {
-		a.Console.Say(AIError, "Platform definitions not found: "+file, AIDecorated)
-		a.Console.Say(AIWarning, "Some directories could not be created", AIDecorated)
+		a.Console.Say(AIError, "Platform definitions not found: "+file+"\n", AIDecorated)
+		a.Console.Say(AIWarning, "Some directories could not be created\n", AIDecorated)
 
 		return
 	}
@@ -184,7 +184,7 @@ func (a *AITools) createDirectories(platforms, resources string) {
 		for _, kind := range split(resources) {
 			if directory := catalog.Directory(platform, kind); directory != "" {
 				if os.MkdirAll(a.path(directory), 0o777) != nil {
-					a.Console.Say(AIWarning, "Failed to create directory: "+directory, AIDecorated)
+					a.Console.Say(AIWarning, "Failed to create directory: "+directory+"\n", AIDecorated)
 				}
 			}
 		}
@@ -197,7 +197,7 @@ func (a *AITools) initAll(repositories []any, platforms, types, resources string
 	catalog := a.catalog()
 
 	if len(repositories) == 0 {
-		a.Console.Say(AIInfo, "No repositories configured", AIDecorated)
+		a.Console.Say(AIInfo, "No repositories configured\n", AIDecorated)
 
 		return
 	}
@@ -216,20 +216,20 @@ func (a *AITools) initAll(repositories []any, platforms, types, resources string
 
 		// Deliberately unlike the script, which joined whatever name it was given
 		if !core.ValidAIRepositoryName(repository.Name) {
-			a.Console.Say(AIWarning, "Invalid repository name: "+repository.Name+", skipping...", AIDecorated)
+			a.Console.Say(AIWarning, "Invalid repository name: "+repository.Name+", skipping...\n", AIDecorated)
 
 			continue
 		}
 
 		dir := temp + "/" + repository.Name
 		if !a.download(repository.URL, repository.Branch, dir) {
-			a.Console.Say(AIWarning, "Failed to download "+repository.Name+", skipping...", AIDecorated)
+			a.Console.Say(AIWarning, "Failed to download "+repository.Name+", skipping...\n", AIDecorated)
 
 			continue
 		}
 
 		if !a.validStructure(dir) {
-			a.Console.Say(AIWarning, "Invalid repository structure in "+repository.Name+", skipping...", AIDecorated)
+			a.Console.Say(AIWarning, "Invalid repository structure in "+repository.Name+", skipping...\n", AIDecorated)
 
 			continue
 		}

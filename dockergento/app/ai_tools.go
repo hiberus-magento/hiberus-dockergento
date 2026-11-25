@@ -196,7 +196,7 @@ func (a *AITools) writeJSON(name string, value any) error {
 	target := a.path(name)
 
 	if err := os.MkdirAll(filepath.Dir(target), 0o777); err != nil {
-		a.Console.Say(AIError, "Failed to create directory: "+filepath.Dir(name), AIDecorated)
+		a.Console.Say(AIError, "Failed to create directory: "+filepath.Dir(name)+"\n", AIDecorated)
 
 		return err
 	}
@@ -209,7 +209,7 @@ func (a *AITools) writeJSON(name string, value any) error {
 	if _, err := temp.Write(core.EncodeAIJSON(value)); err != nil {
 		temp.Close()           //nolint:errcheck
 		os.Remove(temp.Name()) //nolint:errcheck
-		a.Console.Say(AIError, "Failed to write temporary file", AIDecorated)
+		a.Console.Say(AIError, "Failed to write temporary file\n", AIDecorated)
 
 		return err
 	}
@@ -218,7 +218,7 @@ func (a *AITools) writeJSON(name string, value any) error {
 
 	if err := os.Rename(temp.Name(), target); err != nil {
 		os.Remove(temp.Name()) //nolint:errcheck
-		a.Console.Say(AIError, "Failed to save "+name, AIDecorated)
+		a.Console.Say(AIError, "Failed to save "+name+"\n", AIDecorated)
 
 		return err
 	}
@@ -264,7 +264,7 @@ func (a *AITools) saveRegistration(registration *core.AIObject) bool {
 	agents, _ := registration.Get("agents")
 
 	if !core.AITruthy(skills) || !core.AITruthy(agents) {
-		a.Console.Say(AIError, "Invalid registration JSON structure (missing skills/agents keys)", AIDecorated)
+		a.Console.Say(AIError, "Invalid registration JSON structure (missing skills/agents keys)\n", AIDecorated)
 
 		return false
 	}

@@ -213,7 +213,7 @@ func TestAIResetRefusesAnUnknownOption(t *testing.T) {
 		t.Fatalf("ai-reset = %d, want 2", code)
 	}
 
-	if want := "Unknown option: --not-an-option" + aiResetUsage; stdout != want {
+	if want := "Unknown option: --not-an-option\n" + aiResetUsage; stdout != want {
 		t.Errorf("stdout (-want +got):\n%s", cmp.Diff(want, stdout))
 	}
 }

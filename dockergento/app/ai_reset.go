@@ -321,7 +321,7 @@ func (a *AITools) preserved() int {
 		// the variable, jq was handed that sentence, and set -e stopped the script on jq's
 		// failure — before anything was removed
 		if a.Console.JSON() {
-			a.Console.Say(AIError, "Invalid JSON in "+core.AIPropertiesFile, AIDecorated)
+			a.Console.Say(AIError, "Invalid JSON in "+core.AIPropertiesFile+"\n", AIDecorated)
 
 			return 0
 		}

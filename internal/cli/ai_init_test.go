@@ -91,7 +91,7 @@ func TestAIInitWithOptionsConfiguresAndInstalls(t *testing.T) {
 		"Downloading from 2 repositories...\n" +
 		"Processing repository: dockergento\n" +
 		// print_warning, which adds no newline
-		"Failed to download dockergento, skipping..." +
+		"Failed to download dockergento, skipping...\n" +
 		"Processing repository: remote-tools\n" +
 		"Installing skills for claude...\n" +
 		"Installing agents for claude...\n" +
@@ -222,7 +222,7 @@ func TestAIInitWithNobodyToAskRefusesEachQuestion(t *testing.T) {
 		t.Errorf("refusals = %d, want one per menu\n%s", got, stderr)
 	}
 
-	if want := "Configuration incomplete: platforms and resources are required"; stdout != want {
+	if want := "Configuration incomplete: platforms and resources are required\n"; stdout != want {
 		t.Errorf("stdout = %q, want %q", stdout, want)
 	}
 
@@ -255,7 +255,7 @@ func TestAIInitUnderJSONRefusesWithEnvelopes(t *testing.T) {
 		t.Errorf("envelopes = %d, want 3\n%s", got, stderr)
 	}
 
-	if !strings.HasSuffix(stderr, "Configuration incomplete: platforms and resources are required") {
+	if !strings.HasSuffix(stderr, "Configuration incomplete: platforms and resources are required\n") {
 		t.Errorf("stderr does not end with the complaint:\n%s", stderr)
 	}
 
@@ -272,7 +272,8 @@ func TestAIInitRefusesAnUnknownOption(t *testing.T) {
 		t.Fatalf("ai-init --platforms = %d, want 2", code)
 	}
 
-	if want := "Unknown option: --platforms" + aiInitUsage; stdout != want {
+	// The message on a line of its own, then the usage: they were printed run together
+	if want := "Unknown option: --platforms\n" + aiInitUsage; stdout != want {
 		t.Errorf("stdout (-want +got):\n%s", cmp.Diff(want, stdout))
 	}
 
@@ -290,7 +291,7 @@ func TestAIInitRefusesAConfigurationThatIsNotJSON(t *testing.T) {
 		t.Fatalf("ai-init = %d, want 1", code)
 	}
 
-	if want := "Failed to load existing configuration"; stdout != want {
+	if want := "Failed to load existing configuration\n"; stdout != want {
 		t.Errorf("stdout = %q, want %q", stdout, want)
 	}
 

@@ -206,7 +206,7 @@ func aiInit(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		case "--branch":
 			options.Branch = value
 		default:
-			console.Say(app.AIError, "Unknown option: "+argument, app.AIDecorated)
+			console.Say(app.AIError, "Unknown option: "+argument+"\n", app.AIDecorated)
 			console.Stdout(aiInitUsage)
 
 			return exitUsage
@@ -263,7 +263,7 @@ func aiReset(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	for _, argument := range args {
 		if argument != "--confirm" {
-			console.Say(app.AIError, "Unknown option: "+argument, app.AIDecorated)
+			console.Say(app.AIError, "Unknown option: "+argument+"\n", app.AIDecorated)
 			console.Stdout(aiResetUsage)
 
 			return exitUsage
