@@ -40,7 +40,9 @@ func permissions(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 	}
 
-	configuration, err := newEngine(stdout, stderr, jsonOutput).AgentPermissions(strict)
+	// Codex runs an allowed command outside its sandbox without asking, so only what changes
+	// nothing may be allowed there: that is the strict classification, with or without --strict
+	configuration, err := newEngine(stdout, stderr, jsonOutput).AgentPermissions(strict || format == "codex")
 	if err != nil {
 		return report(stderr, jsonOutput, "permissions", err)
 	}

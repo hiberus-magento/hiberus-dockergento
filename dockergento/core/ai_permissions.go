@@ -74,6 +74,9 @@ const CodexRulesFile = ".codex/rules/hm.rules"
 // CodexRules is the permissions as a Codex rules file: one prefix_rule() per command, allow or
 // prompt (https://learn.chatgpt.com/docs/agent-configuration/rules). Codex has no rule for a path
 // an agent must not read, so those are written down as comments rather than dropped.
+//
+// An allowed command runs outside Codex's sandbox without prompting, so the permissions given must
+// be the strict ones, which allow only the commands whose safety is "safe".
 func CodexRules(permissions AgentPermissions, binary string) string {
 	rules := ReadAgentRules(permissions)
 
@@ -107,8 +110,8 @@ func CodexRules(permissions AgentPermissions, binary string) string {
 	}
 
 	out.WriteString("\n")
-	write(rules.Allow, "allow", "changes nothing, or changes things recoverably")
-	write(rules.Ask, "prompt", "destroys data or reaches beyond the project")
+	write(rules.Allow, "allow", "changes nothing")
+	write(rules.Ask, "prompt", "changes the environment, destroys data or reaches beyond the project")
 
 	return out.String()
 }

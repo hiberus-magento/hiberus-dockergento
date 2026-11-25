@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -134,6 +135,103 @@ func TestPermissionsForCodexAreRules(t *testing.T) {
 
 	if strings.Contains(stdout.String(), "Bash(") {
 		t.Errorf("Claude's rules leaked into Codex's:\n%s", stdout.String())
+	}
+}
+
+// TestPermissionsForCodexAllowOnlyWhatChangesNothing: in Codex, allow runs the command outside the
+// sandbox without prompting (https://learn.chatgpt.com/docs/agent-configuration/rules), so only a
+// command whose safety is "safe" may be allow. A "caution" command Claude Code allows is prompt
+// there, and a "dangerous" one stays prompt, with or without --strict.
+func TestPermissionsForCodexAllowOnlyWhatChangesNothing(t *testing.T) {
+	contents, err := fs.ReadFile(hm.Embedded(), "data/command_descriptions.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var described map[string]json.RawMessage
+	if err := json.Unmarshal(contents, &described); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, strict := range []bool{false, true} {
+		fake := answering(t)
+		// What the engine answers to the strict question, which is the one Codex's rules ask
+		fake.permissions = realPermissions(t, true)
+
+		args := []string{"--format=codex"}
+		if strict {
+			args = append(args, "--strict")
+		}
+
+		var stdout bytes.Buffer
+		if code := permissions(args, &stdout, io.Discard, true); code != exitOK {
+			t.Fatalf("permissions %v --json = %d", args, code)
+		}
+
+		var got struct {
+			Rules string `json:"rules"`
+		}
+		if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+
+		checked := 0
+
+		for name, raw := range described {
+			if strings.HasPrefix(name, "_") {
+				continue
+			}
+
+			var one struct {
+				Safety string `json:"safety"`
+			}
+			if err := json.Unmarshal(raw, &one); err != nil {
+				t.Fatal(err)
+			}
+
+			want := "prompt"
+			if one.Safety == "safe" {
+				want = "allow"
+			}
+
+			rule := `prefix_rule(pattern = ["hm", "` + name + `"], decision = "` + want + `",`
+			if !strings.Contains(got.Rules, rule) {
+				t.Errorf("strict=%v: %s (%s) is not %s:\n%s", strict, name, one.Safety, want, got.Rules)
+			}
+
+			checked++
+		}
+
+		if checked == 0 {
+			t.Fatal("no command was checked")
+		}
+	}
+}
+
+// TestPermissionsForCodexAsksForTheStrictClassification: the strict classification is the one
+// that allows only "safe" commands, so Codex's rules are built from it whether or not --strict was
+// given, and the summary counts what Codex will allow.
+func TestPermissionsForCodexAsksForTheStrictClassification(t *testing.T) {
+	fake := answering(t)
+	fake.permissions = realPermissions(t, true)
+	t.Setenv("NO_COLOR", "1")
+
+	var stdout bytes.Buffer
+	if code := permissions([]string{"--format=codex"}, &stdout, io.Discard, false); code != exitOK {
+		t.Fatalf("permissions --format=codex = %d", code)
+	}
+
+	if len(fake.calls) != 1 || !fake.calls[0].All {
+		t.Errorf("asked %v, want one strict AgentPermissions", fake.calls)
+	}
+
+	allowed, asked := len(fake.permissions.Permissions.Allow), len(fake.permissions.Permissions.Ask)
+	if want := fmt.Sprintf("%d command(s) allowed, %d asking for confirmation.", allowed, asked); !strings.Contains(stdout.String(), want) {
+		t.Errorf("stdout lacks %q:\n%s", want, stdout.String())
+	}
+
+	if strings.Contains(stdout.String(), "Strict: only commands") {
+		t.Errorf("--strict was not given, and the output says it was:\n%s", stdout.String())
 	}
 }
 

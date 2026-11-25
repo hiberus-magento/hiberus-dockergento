@@ -55,18 +55,26 @@ where it is written down.
 One classification, printed in the configuration each agent reads. `--strict` applies to all of
 them; an unknown `--format` is a usage error (exit 2).
 
+| Level | `claude`, `opencode` | `claude`, `opencode` with `--strict` | `codex` |
+|---|---|---|---|
+| `safe` | allow | allow | `allow` |
+| `caution` | allow | ask | `prompt` |
+| `dangerous` | ask | ask | `prompt` |
+
 | `--format=` | What it prints | Where it goes |
 |---|---|---|
 | `claude` (default) | `permissions.allow`, `ask` and `deny` rules, exactly as before `--format` existed | Claude Code's `settings.json` |
-| `codex` | One `prefix_rule()` per command, `allow` or `prompt` | `.codex/rules/hm.rules`, or `~/.codex/rules/` |
+| `codex` | One `prefix_rule()` per command: `allow` only for `safe`, `prompt` for the rest | `.codex/rules/hm.rules`, or `~/.codex/rules/` |
 | `opencode` | A `permissions` list of `shell` rules (`allow`, `ask`) and `read` rules (`deny`) | `opencode.json` |
 
 What each one can say differs, and the output says so rather than pretending:
 
 - **Codex** ([rules](https://learn.chatgpt.com/docs/agent-configuration/rules)) controls commands
   only. It has no rule for a path an agent must not read, so the denied paths are listed as
-  comments in the file. `allow` there means *run outside the sandbox without prompting*; project
-  rules load only once you trust the project. Under
+  comments in the file. `allow` there means *run outside the sandbox without prompting*, which is
+  more than Claude Code's allow, so only `safe` commands are `allow`; `caution` and `dangerous` are
+  `prompt`, with or without `--strict`. Nothing is `forbidden`: no level denies a command outright.
+  Project rules load only once you trust the project. Under
   `--json` the output is `{"file": ".codex/rules/hm.rules", "rules": "..."}`, since a rules file is
   not JSON.
 - **OpenCode** ([permissions](https://opencode.ai/docs/permissions)) takes an ordered list where
