@@ -399,6 +399,20 @@ type FileTransfer interface {
 	From(container, source, target string) error
 }
 
+// CopyMeter receives how far one copy has got: the bytes and the files carried so far. It is
+// called from inside the copy, as often as every block, so it has to be cheap and must not block.
+type CopyMeter func(bytes, files int64)
+
+// CopyWatch shows one copy while it happens. It is given the bytes the copy is expected to carry,
+// or 0 when nobody knows, and returns what receives the counts and what ends the copy's display.
+type CopyWatch func(total int64) (meter CopyMeter, end func())
+
+// MeteredFileTransfer is a FileTransfer that can also say how far a copy has got as it goes.
+type MeteredFileTransfer interface {
+	IntoMetered(container, source, target string, meter CopyMeter) error
+	FromMetered(container, source, target string, meter CopyMeter) error
+}
+
 // Resolver answers whether a name already reaches this machine.
 //
 // Asked of the machine's own resolution rather than of a file: a wildcard resolver for the TLD

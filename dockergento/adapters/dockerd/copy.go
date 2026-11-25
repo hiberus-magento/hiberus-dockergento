@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
+
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
 )
 
 //
@@ -23,11 +25,18 @@ import (
 // Files copies between the host and a container.
 type Files struct{}
 
+var _ ports.MeteredFileTransfer = Files{}
+
 // Into copies a file or a directory from this machine into a container.
 //
 // The target is a directory, as it is for `docker cp`: a file lands in it under its own name, and
 // a directory lands in it as itself.
-func (Files) Into(id, source, target string) error {
+func (f Files) Into(id, source, target string) error {
+	return f.IntoMetered(id, source, target, nil)
+}
+
+// IntoMetered is Into, telling meter how far it has got; a nil meter is Into.
+func (Files) IntoMetered(id, source, target string, meter ports.CopyMeter) error {
 	docker, err := connect()
 	if err != nil {
 		return err
@@ -37,7 +46,7 @@ func (Files) Into(id, source, target string) error {
 	read, write := io.Pipe()
 
 	go func() {
-		write.CloseWithError(pack(write, source)) //nolint:errcheck
+		write.CloseWithError(pack(write, source, meter)) //nolint:errcheck
 	}()
 
 	defer read.Close()
@@ -47,7 +56,12 @@ func (Files) Into(id, source, target string) error {
 }
 
 // From copies a path out of a container onto this machine.
-func (Files) From(id, source, target string) error {
+func (f Files) From(id, source, target string) error {
+	return f.FromMetered(id, source, target, nil)
+}
+
+// FromMetered is From, telling meter how far it has got; a nil meter is From.
+func (Files) FromMetered(id, source, target string, meter ports.CopyMeter) error {
 	docker, err := connect()
 	if err != nil {
 		return err
@@ -60,11 +74,11 @@ func (Files) From(id, source, target string) error {
 	}
 	defer stream.Close()
 
-	return unpack(stream, target, filepath.Base(strings.TrimSuffix(source, "/.")))
+	return unpack(stream, target, filepath.Base(strings.TrimSuffix(source, "/.")), meter)
 }
 
 // pack writes a path into a tar stream, as the daemon expects to receive it.
-func pack(out io.Writer, source string) error {
+func pack(out io.Writer, source string, meter ports.CopyMeter) error {
 	source = filepath.Clean(source)
 
 	info, err := os.Stat(source)
@@ -75,12 +89,14 @@ func pack(out io.Writer, source string) error {
 	archive := tar.NewWriter(out)
 	defer archive.Close()
 
+	count := newTally(meter)
+
 	// A file is sent under its own name; a directory is sent as itself with everything under it,
 	// which is what makes the two behave the way `docker cp` behaves
 	base := filepath.Dir(source)
 
 	if !info.IsDir() {
-		return add(archive, source, filepath.Base(source))
+		return add(archive, source, filepath.Base(source), count)
 	}
 
 	return filepath.Walk(source, func(path string, entry os.FileInfo, err error) error {
@@ -93,13 +109,13 @@ func pack(out io.Writer, source string) error {
 			return err
 		}
 
-		return add(archive, path, name)
+		return add(archive, path, name, count)
 	})
 }
 
 // add writes one entry, following what it finds rather than what it was told: a symbolic link
 // carried across as a link is a link to somewhere that does not exist on the other side.
-func add(archive *tar.Writer, path, name string) error {
+func add(archive *tar.Writer, path, name string, count *tally) error {
 	info, err := os.Lstat(path)
 	if err != nil {
 		return err
@@ -124,6 +140,8 @@ func add(archive *tar.Writer, path, name string) error {
 		return err
 	}
 
+	count.entry(header)
+
 	if info.IsDir() {
 		return nil
 	}
@@ -134,7 +152,7 @@ func add(archive *tar.Writer, path, name string) error {
 	}
 	defer file.Close()
 
-	_, err = io.Copy(archive, file)
+	_, err = io.Copy(archive, count.through(file))
 
 	return err
 }
@@ -143,9 +161,10 @@ func add(archive *tar.Writer, path, name string) error {
 //
 // The stream carries the copied path as its top-level entry. When the target is where that entry
 // should land, its own name is stripped: `docker cp container:/x/y ./y` writes `./y`, not `./y/y`.
-func unpack(stream io.Reader, target, top string) error {
+func unpack(stream io.Reader, target, top string, meter ports.CopyMeter) error {
 	archive := tar.NewReader(stream)
 	strip := filepath.Base(target) == top
+	count := newTally(meter)
 
 	for {
 		header, err := archive.Next()
@@ -169,13 +188,15 @@ func unpack(stream io.Reader, target, top string) error {
 			return fmt.Errorf("refusing to write outside %s: %s", target, header.Name)
 		}
 
-		if err := restore(archive, header, path); err != nil {
+		count.entry(header)
+
+		if err := restore(count.through(archive), header, path); err != nil {
 			return err
 		}
 	}
 }
 
-func restore(archive *tar.Reader, header *tar.Header, path string) error {
+func restore(archive io.Reader, header *tar.Header, path string) error {
 	switch header.Typeflag {
 	case tar.TypeDir:
 		return os.MkdirAll(path, os.FileMode(header.Mode))
@@ -202,4 +223,46 @@ func restore(archive *tar.Reader, header *tar.Header, path string) error {
 	// Anything else — a device, a socket — is not something a project's code contains, and
 	// recreating one is not something this should be doing
 	return nil
+}
+
+// tally counts what a copy carries, the contents of its files and how many there are, and tells
+// the meter as it goes. A nil tally counts nothing, which is a copy without a meter.
+type tally struct {
+	meter        ports.CopyMeter
+	bytes, files int64
+}
+
+func newTally(meter ports.CopyMeter) *tally {
+	if meter == nil {
+		return nil
+	}
+
+	return &tally{meter: meter}
+}
+
+// entry counts one entry of the archive; only a regular file is a file, a directory or a link is
+// not what anybody is counting.
+func (t *tally) entry(header *tar.Header) {
+	if t == nil || header.Typeflag != tar.TypeReg {
+		return
+	}
+
+	t.files++
+	t.meter(t.bytes, t.files)
+}
+
+// through is what a file's contents are read through to be counted.
+func (t *tally) through(contents io.Reader) io.Reader {
+	if t == nil {
+		return contents
+	}
+
+	return io.TeeReader(contents, t)
+}
+
+func (t *tally) Write(block []byte) (int, error) {
+	t.bytes += int64(len(block))
+	t.meter(t.bytes, t.files)
+
+	return len(block), nil
 }
