@@ -183,6 +183,7 @@ See [create-project](docs/create-project.md).
 hm doctor             # diagnose the machine and the project
 hm logs -f phpfpm     # follow a service's log
 hm describe           # versions, services, URLs and state of this project
+hm status             # how the environment is doing: containers, last errors, URLs answering
 hm version            # what to paste into a bug report: hm, Docker and Compose versions
 ```
 
@@ -192,8 +193,8 @@ See [doctor](docs/doctor.md), [logs](docs/logs.md), [describe](docs/describe.md)
 ## Commands
 
 `hm --help` lists every command, grouped as below; `hm <command> --help` explains one. The
-global options `--json`, `--no-json`, `--yes`, `--force` and `--no-color` go before the command
-name. After it they work too, except for the commands that hand their arguments to another
+global options `--json`, `--no-json`, `--yes`, `--force`, `--no-color` and `--progress=jsonl` go before
+the command name. After it they work too, except for the commands that hand their arguments to another
 program (`exec`, `bash`, `magento`, `composer`, `mysql`, `logs`, `docker-compose`, ...), where
 they belong to that program: `hm composer show --format=json` asks Composer for JSON. See [Output, exit codes and non-interactive use](#output-exit-codes-and-non-interactive-use)).
 
@@ -346,6 +347,13 @@ hm describe              # readable text in a terminal
 hm describe | jq .       # JSON, because stdout is not a terminal
 hm describe --json       # JSON on demand
 ```
+
+Commands that change something (`start`, `stop`, `restart`, `rebuild`, `purge`, `down`, ...)
+answer with a success document under `--json`, and `hm --json` lists every command with its
+options and safety level, so an agent can discover what exists in one call. `--dry-run` on
+`down`, `clean`, `db restore` and `purge` says what would be removed and changes nothing;
+`--progress=jsonl` writes the steps of long commands to stderr as JSON lines. See
+[JSON output](docs/json.md) and [progress](docs/progress.md).
 
 Commands whose output *is* data are never wrapped: `mysqldump`, `mysql`,
 `copy-from-container` and the passthrough commands (`exec`, `bash`, `magento`,
