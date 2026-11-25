@@ -3,6 +3,7 @@ package dockergento
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -547,6 +548,22 @@ func (e *Engine) moveHome(install installer, item published, asset, target, move
 	tag := item.Tag
 	dir := filepath.Dir(target)
 
+	// Whatever is at ~/.hm/bin/hm and is not an hm is the user's, and placeAt would rename over it
+	previous := false
+	if _, err := os.Lstat(moved); err == nil {
+		if !isHm2(moved) {
+			return "", core.Refusal{
+				Kind: "install_dir_not_writable",
+				Code: contract.ExitError,
+				Message: fmt.Sprintf("Cannot replace %s: %s is not writable by you, and %s, where hm would move to, "+
+					"is not an hm, so %s was not installed; neither was changed", target, dir, moved, tag),
+				Hint: "Move " + moved + " out of the way and try again, or install where you can write: curl -fsSL " +
+					installScript + " | HM_INSTALL_DIR=$HOME/.local/bin bash",
+			}
+		}
+		previous = true
+	}
+
 	binary, err := verifiedAsset(install.source, item, asset)
 	if err != nil {
 		return "", core.Refusal{
@@ -565,6 +582,20 @@ func (e *Engine) moveHome(install installer, item published, asset, target, move
 	fmt.Fprintf(notice, "%s is in %s, which only root can write: sudo is needed this once, to move hm to %s "+
 		"and leave a link to it in its place\n", target, dir, filepath.Dir(moved))
 
+	// An earlier hm there is kept aside until sudo has linked target, so a refusal loses nothing
+	kept := ""
+	if previous {
+		if kept, err = copyBeside(moved); err != nil {
+			return "", core.Refusal{
+				Kind:    "install_failed",
+				Code:    contract.ExitError,
+				Message: fmt.Sprintf("Could not keep a copy of %s: %v; %s was not changed", moved, err, target),
+				Hint:    notWritableHint,
+			}
+		}
+		defer func() { _ = os.Remove(kept) }()
+	}
+
 	if err := placeAt(moved, binary); err != nil {
 		return "", core.Refusal{
 			Kind:    "install_failed",
@@ -575,12 +606,19 @@ func (e *Engine) moveHome(install installer, item published, asset, target, move
 	}
 
 	if err := install.sudo("ln", "-sfn", moved, target); err != nil {
+		left := moved + " is a copy nothing uses yet"
+		if kept != "" {
+			left = moved + " was put back as it was"
+			if restoreErr := os.Rename(kept, moved); restoreErr != nil {
+				left = fmt.Sprintf("%s holds %s, as the hm it held could not be put back (%v)", moved, tag, restoreErr)
+			}
+		}
+
 		return "", core.Refusal{
 			Kind: "install_dir_not_writable",
 			Code: contract.ExitError,
 			Message: fmt.Sprintf("Cannot replace %s: %s is not writable by you and sudo did not link it (%v), "+
-				"so %s was not installed; %s still runs as before, and %s is a copy nothing uses yet",
-				target, dir, err, tag, target, moved),
+				"so %s was not installed; %s still runs as before, and %s", target, dir, err, tag, target, left),
 			Hint: notWritableHint,
 		}
 	}
@@ -620,6 +658,72 @@ func placeAt(path string, binary []byte) error {
 	}
 
 	return err
+}
+
+// copyBeside copies path to a new file in its directory, with its mode, and returns the copy's
+// name: beside it, so that putting it back is one rename.
+func copyBeside(path string) (string, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+
+	copied, err := os.CreateTemp(filepath.Dir(path), ".hm-previous-*")
+	if err != nil {
+		return "", err
+	}
+	name := copied.Name()
+
+	_, err = copied.Write(content)
+	if closeErr := copied.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = os.Chmod(name, info.Mode().Perm())
+	}
+	if err != nil {
+		_ = os.Remove(name)
+
+		return "", err
+	}
+
+	return name, nil
+}
+
+// colourCodes are the escapes a version line may be styled with.
+var colourCodes = regexp.MustCompile("\x1b\\[[0-9;]*m")
+
+// isHm2 is whether path is hm 2.0 or later, the check the installer's is_hm2 makes: an executable
+// regular file, not a link, whose --version begins "hm X.Y.Z" with X at least 2.
+func isHm2(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
+		return false
+	}
+
+	// Bounded, since whatever is there runs: a program that waits must not hold the update
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	output, err := exec.CommandContext(ctx, path, "--version").Output()
+	if err != nil {
+		return false
+	}
+
+	first, _, _ := strings.Cut(colourCodes.ReplaceAllString(string(output), ""), "\n")
+	fields := strings.Fields(first)
+	if len(fields) < 2 || fields[0] != "hm" {
+		return false
+	}
+
+	version, ok := parseVersion(fields[1])
+
+	return ok && version.major >= 2
 }
 
 // notWritable is a replacement the directory of the executable did not allow: installed by root, in

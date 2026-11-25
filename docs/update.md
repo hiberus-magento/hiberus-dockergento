@@ -44,8 +44,17 @@ Hiberus Dockergento updated from 2.0.0-rc.2 to 2.0.0-rc.3
 
 The verified binary is written to `~/.hm/bin/hm` first, then `sudo ln -sfn ~/.hm/bin/hm
 /usr/local/bin/hm` asks for your password. If `sudo` is refused or fails, the old binary still
-runs as before, and `~/.hm/bin/hm` is a copy nothing uses yet. Later updates replace
-`~/.hm/bin/hm` through the link, without `sudo`.
+runs as before, and `~/.hm/bin/hm` is a copy nothing uses yet, or, when an earlier hm was already
+there, that hm put back as it was. Something at `~/.hm/bin/hm` that is not hm 2 (another program,
+hm 1.x, a link) is never overwritten: the update is refused before anything is downloaded, naming
+the file. Later updates replace `~/.hm/bin/hm` through the link, without `sudo`.
+
+The link in `/usr/local/bin` then points at a binary you own. On a machine several people use,
+anyone who can act as your user can change what every other account runs as
+`/usr/local/bin/hm`. On a shared host, install per user instead (`HM_INSTALL_DIR=$HOME/.local/bin`),
+or keep a binary only root can change by passing the system directory to the installer
+explicitly, `--dir /usr/local/bin`, and updating through the installer that way, since `hm update`
+at a terminal offers to move it (see [Installation](installation.md)).
 
 Without a terminal — CI, a pipe, `--json`, `HM_NON_INTERACTIVE` or `--yes` — or without `sudo`,
 nothing is asked and the update is refused (`install_dir_not_writable`). Re-run the installer,
@@ -66,7 +75,7 @@ or install where you can write with `HM_INSTALL_DIR=$HOME/.local/bin` (the varia
 | `releases_unavailable` | 1 | GitHub could not be read: no connection, an error, or the rate limit (set `GITHUB_TOKEN`) |
 | `asset_missing` | 1 | The release publishes no binary for your platform |
 | `download_failed` | 1 | The binary or its checksums could not be downloaded, or they do not match |
-| `install_dir_not_writable` | 1 | The directory of the executable is not yours to write, `/usr/local/bin` say, and there is no terminal to move it to `~/.hm/bin` with `sudo`, or `sudo` was refused. Re-run the installer, or install where you can write with `HM_INSTALL_DIR=$HOME/.local/bin` (see [A binary root installed](#a-binary-root-installed)) |
+| `install_dir_not_writable` | 1 | The directory of the executable is not yours to write, `/usr/local/bin` say, and there is no terminal to move it to `~/.hm/bin` with `sudo`, or `sudo` was refused, or `~/.hm/bin/hm` is something other than hm 2. Re-run the installer, or install where you can write with `HM_INSTALL_DIR=$HOME/.local/bin` (see [A binary root installed](#a-binary-root-installed)) |
 
 In every case the running executable is left exactly as it was.
 

@@ -540,6 +540,146 @@ func TestSudoRefusedLeavesTheOldBinaryRunning(t *testing.T) {
 	noLeftovers(t, target)
 }
 
+// homeBinary puts content at ~/.hm/bin/hm of home, executable, and returns its path.
+func homeBinary(t *testing.T, home, content string) string {
+	t.Helper()
+
+	moved := filepath.Join(home, ".hm", "bin", "hm")
+	if err := os.MkdirAll(filepath.Dir(moved), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(moved, []byte(content), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	return moved
+}
+
+// earlierHm is an hm 2 binary as far as anyone asking its version can tell.
+const earlierHm = "#!/bin/sh\necho 'hm 2.0.0-rc.2'\necho '  commit abc'\n"
+
+func TestAFileAtTheHomeBinaryThatIsNotHmIsNeverOverwritten(t *testing.T) {
+	cases := map[string]func(t *testing.T, home string) string{
+		"a program that is not hm": func(t *testing.T, home string) string {
+			return homeBinary(t, home, "#!/bin/sh\necho something else\n")
+		},
+		"the shell tool, hm 1.x": func(t *testing.T, home string) string {
+			return homeBinary(t, home, "#!/bin/sh\necho 'hm 1.6.0'\n")
+		},
+		"a link": func(t *testing.T, home string) string {
+			moved := homeBinary(t, home, "")
+			elsewhere := filepath.Join(t.TempDir(), "hm")
+			if err := os.WriteFile(elsewhere, []byte(earlierHm), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(moved); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(elsewhere, moved); err != nil {
+				t.Fatal(err)
+			}
+
+			return moved
+		},
+	}
+
+	for name, existing := range cases {
+		t.Run(name, func(t *testing.T) {
+			source := &fakeReleases{}
+			source.publish("2.1.0", false)
+			engine, target := installed(t, source)
+			rootOwned(t, target)
+			sudo, home, notice := atTerminal(t, engine)
+			moved := existing(t, home)
+			before, _ := os.Readlink(moved)
+			if before == "" {
+				before = contentOf(t, moved)
+			}
+
+			_, err := engine.Update(core.UpdateOptions{Running: "2.0.0"})
+
+			refusal := refusalOf(t, err)
+			if refusal.Kind != "install_dir_not_writable" || refusal.Code != 1 ||
+				refusal.Message != "Cannot replace "+target+": "+filepath.Dir(target)+" is not writable by you, and "+
+					moved+", where hm would move to, is not an hm, so 2.1.0 was not installed; neither was changed" ||
+				!strings.Contains(refusal.Hint, "Move "+moved+" out of the way") ||
+				!strings.Contains(refusal.Hint, "HM_INSTALL_DIR") {
+				t.Fatalf("refusal = %+v", refusal)
+			}
+
+			after, _ := os.Readlink(moved)
+			if after == "" {
+				after = contentOf(t, moved)
+			}
+			if after != before || contentOf(t, target) != "old" {
+				t.Fatalf("%s now holds %q (was %q), the old binary %q", moved, after, before, contentOf(t, target))
+			}
+
+			if len(sudo.asked) != 0 || notice.Len() != 0 || source.downloaded() != 0 {
+				t.Fatalf("sudo asked %v, notice %q, downloaded %v", sudo.asked, notice.String(), source.asked)
+			}
+
+			noLeftovers(t, moved)
+		})
+	}
+}
+
+func TestAnEarlierHmAtTheHomeBinaryIsReplacedWhenSudoLinksIt(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	engine, target := installed(t, source)
+	rootOwned(t, target)
+	sudo, home, _ := atTerminal(t, engine)
+	moved := homeBinary(t, home, earlierHm)
+
+	updated, err := engine.Update(core.UpdateOptions{Running: "2.0.0"})
+	if err != nil || updated.Path != moved || len(sudo.asked) != 1 {
+		t.Fatalf("updated = %+v, err = %v, sudo asked %v", updated, err, sudo.asked)
+	}
+
+	if got := contentOf(t, moved); got != "#!/bin/sh\n# 2.1.0\n" {
+		t.Fatalf("%s holds %q, want the binary of 2.1.0", moved, got)
+	}
+
+	noLeftovers(t, moved)
+}
+
+func TestSudoRefusedPutsBackTheHmThatWasAtTheHomeBinary(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	engine, target := installed(t, source)
+	rootOwned(t, target)
+	sudo, home, _ := atTerminal(t, engine)
+	sudo.err = errors.New("exit status 1")
+	moved := homeBinary(t, home, earlierHm)
+
+	_, err := engine.Update(core.UpdateOptions{Running: "2.0.0"})
+
+	refusal := refusalOf(t, err)
+	if refusal.Kind != "install_dir_not_writable" || refusal.Code != 1 ||
+		refusal.Message != "Cannot replace "+target+": "+filepath.Dir(target)+" is not writable by you and sudo "+
+			"did not link it (exit status 1), so 2.1.0 was not installed; "+target+" still runs as before, and "+
+			moved+" was put back as it was" ||
+		!strings.Contains(refusal.Hint, installerOneLiner) {
+		t.Fatalf("refusal = %+v", refusal)
+	}
+
+	if got := contentOf(t, moved); got != earlierHm {
+		t.Fatalf("%s holds %q, want the hm that was there", moved, got)
+	}
+
+	if info, _ := os.Stat(moved); info.Mode().Perm() != 0o755 {
+		t.Fatalf("mode = %v, want 0755", info.Mode().Perm())
+	}
+
+	if contentOf(t, target) != "old" {
+		t.Fatal("the old binary was replaced")
+	}
+
+	noLeftovers(t, moved)
+}
+
 func TestTheRealInstallerAsksOnlyAPersonAtATerminal(t *testing.T) {
 	original := inputIsTerminal
 	t.Cleanup(func() { inputIsTerminal = original })
