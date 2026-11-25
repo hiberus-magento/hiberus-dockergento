@@ -2,6 +2,7 @@ package app
 
 import (
 	"compress/gzip"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -74,6 +75,34 @@ func TestAComplaintDoesNotEndUpInsideTheCopy(t *testing.T) {
 	// The header says what it is, which is what makes a file found a year later readable
 	if !strings.Contains(string(written), "-- hm snapshot: antes") {
 		t.Fatalf("copy = %q, want a header saying what it is", written)
+	}
+}
+
+// A preview names the database a restore would empty. A container that names none would make the
+// preview say a restore replaces "" — and the restore itself would drop a database called "" — so
+// it is refused, not shown.
+func TestAPreviewRefusesADatabaseWithNoName(t *testing.T) {
+	corredor := &runner{answer: "CREATE TABLE pedidos (id INT);\n"}
+	snapshots, project := copias(t, corredor)
+
+	if _, err := snapshots.Take(project, "antes", false); err != nil {
+		t.Fatalf("Take = %v, want a copy to preview", err)
+	}
+
+	corredor.answer = "magento"
+
+	preview, err := snapshots.Preview(project, "antes")
+	if err != nil || preview.Database != "magento" || preview.Snapshot.Name != "antes" {
+		t.Fatalf("Preview = %+v, %v; want magento replaced by antes", preview, err)
+	}
+
+	corredor.answer = "  "
+
+	_, err = snapshots.Preview(project, "antes")
+
+	var refusal core.Refusal
+	if !errors.As(err, &refusal) || refusal.Kind != "no_database_name" || !strings.Contains(refusal.Message, "MYSQL_DATABASE") {
+		t.Fatalf("Preview with no database name = %v, want a no_database_name refusal naming MYSQL_DATABASE", err)
 	}
 }
 

@@ -274,6 +274,17 @@ func (s Snapshots) Preview(project core.Project, name string) (core.RestorePrevi
 		return core.RestorePreview{}, fmt.Errorf("reading the database's name failed with status %d", status)
 	}
 
+	// A preview that said "replaces ''" would describe a restore that drops a database with no
+	// name: neither is something to show as though it would work
+	if strings.TrimSpace(database.String()) == "" {
+		return core.RestorePreview{}, core.Refusal{
+			Kind:    "no_database_name",
+			Code:    1,
+			Message: "The db container does not say which database it holds ($MYSQL_DATABASE is empty), so there is nothing a restore would replace",
+			Hint:    s.Binary + " logs db",
+		}
+	}
+
 	return core.RestorePreview{Snapshot: s.describe(source, name), Database: database.String()}, nil
 }
 

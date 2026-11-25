@@ -933,3 +933,21 @@ func TestAnOperatorWithoutAProxyRefusesInsteadOfPanicking(t *testing.T) {
 		t.Fatalf("the environment was brought up without the proxy it needs")
 	}
 }
+
+// TestADownPreviewListsTheVolumesInOrder: the preview's volumes are sorted here, whatever order the
+// caller found them in, so two previews of the same environment read the same and a golden of one
+// does not depend on how Docker happened to answer.
+func TestADownPreviewListsTheVolumesInOrder(t *testing.T) {
+	operator := Operator{Engine: &engine{}}
+	project := core.Project{Name: "tienda", Root: "/code/tienda"}
+
+	got, err := operator.DownPreview(project, core.DownOptions{Volumes: true},
+		[]string{"tienda_redisdata", "tienda_dbdata", "tienda_appdata"})
+	if err != nil {
+		t.Fatalf("DownPreview(-v) = %v, want no error", err)
+	}
+
+	if want := "tienda_appdata tienda_dbdata tienda_redisdata"; strings.Join(got.Volumes, " ") != want {
+		t.Fatalf("volumes = %v, want %s", got.Volumes, want)
+	}
+}

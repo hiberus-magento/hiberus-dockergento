@@ -65,7 +65,8 @@ With `--json`, stdout holds one envelope (see [JSON output](json.md)):
 ## Looking first: `--dry-run`
 
 `hm down --dry-run` (with `-v` or without) says what would go and removes nothing: the project's
-containers, and with `-v` its volumes that are there, the database's among them. Nothing is asked.
+containers, and with `-v` its volumes that are there, the database's among them, each list in
+alphabetical order. Nothing is asked.
 It is refused where the real `down` would be, from a git worktree with no environment of its own.
 
 ```console

@@ -574,6 +574,7 @@ func (o Operator) DownPreview(project core.Project, options core.DownOptions, vo
 
 	if options.Volumes {
 		preview.Volumes = append(preview.Volumes, volumes...)
+		sort.Strings(preview.Volumes)
 	}
 
 	return preview, nil
