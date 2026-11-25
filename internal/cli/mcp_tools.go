@@ -249,8 +249,17 @@ func (s mcpServer) databaseQuery(arguments jqValue) jqValue {
 		return mcpContent(refusal, true)
 	}
 
-	output := s.run(true, "--no-json", "mysql", "-q", mcpReadOnly+sql)
+	output, status := s.statusOf(true, "--no-json", "mysql", "-q", mcpReadOnly+sql)
+
+	// What the database refused is an error, in its own words: the read-only transaction is only a
+	// second layer if a statement it stops reaches the model as a refusal, not as the rows asked for
+	refused := status != 0 || mysqlError.MatchString(output)
+
 	if output == "" {
+		if refused {
+			return mcpContent("The database client exited with status "+strconv.Itoa(status)+" and said nothing.", true)
+		}
+
 		return mcpContent("(no rows)", false)
 	}
 
@@ -271,8 +280,13 @@ func (s mcpServer) databaseQuery(arguments jqValue) jqValue {
 			"\n... truncated at " + limit + " rows. Narrow the query with a WHERE or a LIMIT."
 	}
 
-	return mcpContent(output, false)
+	return mcpContent(output, refused)
 }
+
+// mysqlError is the line the MariaDB and MySQL clients print when the server refuses a statement:
+// `ERROR 1792 (25006) at line 3: ...`, at the start of a line. Batch mode prints rows tab-separated
+// and unadorned, so a row would have to be exactly that to be mistaken for one.
+var mysqlError = regexp.MustCompile(`(?m)^ERROR \d+( \([0-9A-Z]{5}\))?( at line \d+)?:`)
 
 // magento is one Magento command with its arguments checked. Together the write tools are a
 // smaller permission than the shell an agent is given today to do the same four things.

@@ -270,7 +270,7 @@ func TestTheEnvironmentArgumentPicksABranchEnvironment(t *testing.T) {
 			quiet(t)
 			calls, capture := scripted(inEnvironments(`{"ok":true,"data":{"n":1}}`))
 
-			_, isError := answer(t, serving(mcpServer{write: c.write, capture: capture}, toolCall(c.tool, c.arguments)))
+			_, isError := answer(t, serving(mcpServer{write: c.write, capture: capture, captureStatus: withStatus(capture)}, toolCall(c.tool, c.arguments)))
 
 			c.want.dir = "/src/tienda-feature-x"
 			if diff := cmp.Diff([]ranCall{lookup, c.want}, *calls, cmp.AllowUnexported(ranCall{})); diff != "" || isError {

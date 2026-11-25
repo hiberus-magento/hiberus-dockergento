@@ -157,6 +157,12 @@ because a statement that commits implicitly starts a new transaction in the sess
 is a second layer behind the check, not a replacement for it: the check still answers first, and
 a refused statement never reaches the database.
 
+What the database refuses is a tool error (`isError`), with the client's own words as the text:
+when the client exits with a status other than 0, or its output has a line starting
+`ERROR nnnn` — `ERROR 1792 (25006) at line 3: Cannot execute statement in a READ ONLY
+transaction`, for example. Answered as an ordinary result, a refusal would read as the rows asked
+for.
+
 Results are capped at 200 rows, because a `SELECT * FROM sales_order` would otherwise be answered
 with the whole context window.
 

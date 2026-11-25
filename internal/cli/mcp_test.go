@@ -55,6 +55,14 @@ func scripted(answer func(args []string) string) (*[]ranCall, func(string, []str
 	}
 }
 
+// withStatus is capture answering through the door that also says the exit status, which is 0:
+// for a tool that reads the status, a recorder that answers like a command that succeeded.
+func withStatus(capture func(string, []string, bool) []byte) func(string, []string, bool) ([]byte, int) {
+	return func(dir string, args []string, combined bool) ([]byte, int) {
+		return capture(dir, args, combined), 0
+	}
+}
+
 func refusing(t *testing.T) func(string, []string, bool) []byte {
 	return func(_ string, args []string, _ bool) []byte {
 		t.Fatalf("ran %v, want nothing run", args)
@@ -246,7 +254,7 @@ func TestDatabaseQueryRunsWhatOnlyReads(t *testing.T) {
 		quiet(t)
 		calls, capture := recording("respuesta\n42\n")
 
-		text, isError := answer(t, serving(mcpServer{capture: capture},
+		text, isError := answer(t, serving(mcpServer{capture: capture, captureStatus: withStatus(capture)},
 			toolCall("database_query", `{"sql":"SELECT 42 AS respuesta"}`)))
 
 		want := []ranCall{{args: []string{"--no-json", "mysql", "-q", mcpReadOnly + "SELECT 42 AS respuesta"}, combined: true}}
@@ -263,7 +271,7 @@ func TestDatabaseQueryRunsWhatOnlyReads(t *testing.T) {
 		quiet(t)
 		calls, capture := recording("1")
 
-		serving(mcpServer{capture: capture}, toolCall("database_query", `{"sql":"show tables -- todas\n"}`))
+		serving(mcpServer{capture: capture, captureStatus: withStatus(capture)}, toolCall("database_query", `{"sql":"show tables -- todas\n"}`))
 
 		if len(*calls) != 1 || (*calls)[0].args[3] != mcpReadOnly+"show tables -- todas" {
 			t.Fatalf("runs = %v, want the statement as given, its trailing newline gone", *calls)
@@ -274,7 +282,7 @@ func TestDatabaseQueryRunsWhatOnlyReads(t *testing.T) {
 		quiet(t)
 		_, capture := recording("")
 
-		if text, _ := answer(t, serving(mcpServer{capture: capture},
+		if text, _ := answer(t, serving(mcpServer{capture: capture, captureStatus: withStatus(capture)},
 			toolCall("database_query", `{"sql":"SELECT 1"}`))); text != "(no rows)" {
 			t.Fatalf("= %q", text)
 		}
@@ -285,7 +293,7 @@ func TestDatabaseQueryRunsWhatOnlyReads(t *testing.T) {
 		t.Setenv("HM_MCP_ROW_CAP", "2")
 		_, capture := recording("a\nb\nc\n")
 
-		text, _ := answer(t, serving(mcpServer{capture: capture}, toolCall("database_query", `{"sql":"SELECT 1"}`)))
+		text, _ := answer(t, serving(mcpServer{capture: capture, captureStatus: withStatus(capture)}, toolCall("database_query", `{"sql":"SELECT 1"}`)))
 
 		if want := "a\nb\n... truncated at 2 rows. Narrow the query with a WHERE or a LIMIT."; text != want {
 			t.Fatalf("= %q, want %q", text, want)
@@ -296,13 +304,41 @@ func TestDatabaseQueryRunsWhatOnlyReads(t *testing.T) {
 		quiet(t)
 		_, capture := recording(strings.Repeat("fila\n", 201))
 
-		text, _ := answer(t, serving(mcpServer{capture: capture}, toolCall("database_query", `{"sql":"SELECT 1"}`)))
+		text, _ := answer(t, serving(mcpServer{capture: capture, captureStatus: withStatus(capture)}, toolCall("database_query", `{"sql":"SELECT 1"}`)))
 
 		if !strings.HasSuffix(text, "fila\n... truncated at 200 rows. Narrow the query with a WHERE or a LIMIT.") ||
 			strings.Count(text, "fila") != 200 {
 			t.Fatalf("= %q", text)
 		}
 	})
+}
+
+// TestDatabaseQueryReportsWhatTheDatabaseRefused: a statement MariaDB refuses — a locking read
+// inside the read-only transaction, a table that is not there — is an error, said as one, with the
+// database's own words kept: answered as data, a model reads the refusal as the rows it asked for.
+func TestDatabaseQueryReportsWhatTheDatabaseRefused(t *testing.T) {
+	for _, c := range []struct {
+		name, output string
+		status       int
+		isError      bool
+	}{
+		{"the client exits with an error", "ERROR 1792 (25006) at line 3: Cannot execute statement in a READ ONLY transaction", 1, true},
+		{"the client exits non-zero with no ERROR line", "mysql: unknown option '--x'", 2, true},
+		{"an ERROR line under an exit status of 0", "id\n1\nERROR 1146 (42S02) at line 4: Table 'magento.nope' doesn't exist", 0, true},
+		{"a row that says error is a row", "message\nERROR in payment gateway\nan ERROR 404 page", 0, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			quiet(t)
+
+			_, server := looping(false, func([]string) (string, int) { return c.output + "\n", c.status })
+
+			text, isError := answer(t, serving(server, toolCall("database_query", `{"sql":"SELECT * FROM sales_order FOR UPDATE"}`)))
+
+			if isError != c.isError || text != c.output {
+				t.Fatalf("= %q, %v; want %q, isError %v", text, isError, c.output, c.isError)
+			}
+		})
+	}
 }
 
 // TestDatabaseQueryRunsInsideAReadOnlyTransaction: the text guard reads the statement, not what
@@ -326,7 +362,7 @@ func TestDatabaseQueryRunsInsideAReadOnlyTransaction(t *testing.T) {
 
 			calls, capture := recording("1")
 
-			serving(mcpServer{capture: capture}, toolCall("database_query", `{"sql":`+jqText(c.sql).compact()+`}`))
+			serving(mcpServer{capture: capture, captureStatus: withStatus(capture)}, toolCall("database_query", `{"sql":`+jqText(c.sql).compact()+`}`))
 
 			want := []ranCall{{args: []string{"--no-json", "mysql", "-q",
 				"SET SESSION TRANSACTION READ ONLY;\nSTART TRANSACTION READ ONLY;\n" + c.statement}, combined: true}}
