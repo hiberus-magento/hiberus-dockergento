@@ -260,20 +260,7 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 			return code
 		}
 
-		// What `hm magento cache:clean` does, with its output kept off the envelope's stream
-		project, code := codeProjectOr(stderr, jsonOutput, "magento")
-		if code != 0 {
-			return code
-		}
-
-		status, err := newEngine(stdout, stderr, jsonOutput).Exec(project.Root, phpService,
-			besideTheEnvelope([]string{"php", "./bin/magento", "cache:clean"}, jsonOutput),
-			besideTheEnvelopeOptions(jsonOutput))
-		if status != 0 {
-			return status
-		}
-
-		if code := report(stderr, jsonOutput, "magento", err); code != 0 {
+		if code := cleanAfterVarnish(command, stdout, stderr, jsonOutput); code != 0 {
 			return code
 		}
 	}
@@ -291,6 +278,32 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 	fmt.Fprint(stdout, good("Varnish cache disabled!\n"))
 
 	return exitOK
+}
+
+// cleanAfterVarnish is `hm magento cache:clean`. In text mode it is that command, run through
+// magento, the way it always ran. Under --json it cannot be: the container's stdout is the
+// process's, and bin/magento's sentences would sit beside the envelope, so the same command is sent
+// to the container's stderr — and a failure is the command's failure envelope, since nothing else
+// would say why the document never came.
+func cleanAfterVarnish(command string, stdout, stderr io.Writer, jsonOutput bool) int {
+	if !jsonOutput {
+		return magento([]string{"cache:clean"}, stdout, stderr, false)
+	}
+
+	project, code := codeProjectOr(stderr, true, command)
+	if code != 0 {
+		return code
+	}
+
+	status, err := newEngine(stdout, stderr, true).Exec(project.Root, phpService,
+		besideTheEnvelope([]string{"php", "./bin/magento", "cache:clean"}, true),
+		besideTheEnvelopeOptions(true))
+	if status != 0 {
+		return failure(stderr, true, command, status, "command_failed",
+			"The cache:clean failed in the phpfpm container", "")
+	}
+
+	return report(stderr, true, command, err)
 }
 
 // besideTheEnvelope is a command whose output is the container's stdout, which is the process's
