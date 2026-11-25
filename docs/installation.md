@@ -34,6 +34,12 @@ What it does:
    nothing — the profile is left exactly as it was and the line to add (or remove) is printed.
 6. Prints what it did: the version, the path and what changed.
 
+In a terminal, a spinner turns while the release is looked up (`✓ Latest release: X`, or
+`Latest pre-release` with `--pre`) and the binary's download draws a progress bar on stderr:
+curl's, or wget's when only wget is installed (wget 1.16 or later; older and busybox wget stay
+quiet). If the lookup fails, the spinner is drawn as a red `✗` before the reason. Without a
+terminal, or with `NO_COLOR`, none of this is drawn and the output is plain text.
+
 Running it again upgrades to a newer release, or says the installed one is up to date.
 
 ## Options
@@ -46,8 +52,8 @@ Options go after `bash -s --`. Each one has an environment variable that does th
 | `--pre` | `HM_PRE=1` | The latest may be a pre-release. |
 | `--dir D` | `HM_INSTALL_DIR=D` | Install the binary in `D`. |
 | `--uninstall` | | Remove what the installer installed. |
-| | `NO_COLOR=1` | Plain text, with no colours, ticks or box, even in a terminal. |
-| | `CLICOLOR_FORCE=1` | Colours, ticks and box even when the output is not a terminal (unless `NO_COLOR` is set). |
+| | `NO_COLOR=1` | Plain text, with no colours, ticks, box, spinner or progress bar, even in a terminal. |
+| | `CLICOLOR_FORCE=1` | Colours, ticks, box, spinner and progress bar even when the output is not a terminal (unless `NO_COLOR` is set). |
 | | `GITHUB_TOKEN` | Sent to the GitHub API only, to avoid its rate limit. It is handed to curl (or wget) in a file only you can read, removed afterwards, never on the command line where `ps` would show it. |
 
 ```bash

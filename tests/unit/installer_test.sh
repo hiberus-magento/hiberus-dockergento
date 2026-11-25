@@ -28,10 +28,11 @@ mkdir -p "$TOOLS"
 cat >"$TOOLS/curl" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >>"$FAKE_CURL_ARGV"
-out="" url="" headers="" write=""
+out="" url="" headers="" write="" bar=false
 while [ $# -gt 0 ]; do
     case "$1" in
         -o) out="$2"; shift ;;
+        --progress-bar) bar=true ;;
         -H)
             header="$2"
             if [[ "$header" == @* ]]; then
@@ -54,6 +55,7 @@ case "$url" in
         [ "$write" == '%{redirect_url}' ] && printf '%s' "$location"
         exit 0 ;;
     https://api.github.com/*)
+        [ -z "${FAKE_API_DELAY:-}" ] || sleep "$FAKE_API_DELAY"
         if [ -n "${FAKE_API_STATUS:-}" ]; then status "$FAKE_API_STATUS"; exit 22; fi
         source="$FAKE_API" ;;
     https://github.com/*/releases/download/*) rest="${url#*/releases/download/}"; source="$FAKE_RELEASES/$rest" ;;
@@ -62,6 +64,7 @@ case "$url" in
 esac
 [ -f "$source" ] || { status 404; exit 22; }
 if [ -n "$out" ]; then cp "$source" "$out"; else cat "$source"; fi
+! $bar || printf '##################################################### 100.0%%\n' >&2
 status 200
 EOF
 printf '#!/usr/bin/env bash\ncase "$1" in -s) echo "${FAKE_OS:-Linux}" ;; -m) echo x86_64 ;; *) echo "${FAKE_OS:-Linux}" ;; esac\n' >"$TOOLS/uname"
@@ -196,6 +199,13 @@ assert_contains "$OUT" "hm 2.0.0 installed at $HM_SYSTEM_BIN/hm"
 test_case "nothing is left behind in the temporary directory or next to the binary"
 assert_equals "" "$(ls -A "$TMPDIR")"
 assert_equals "hm" "$(ls -A "$HM_SYSTEM_BIN")"
+
+test_case "without a terminal no progress is drawn: curl stays silent, no spinner, no lookup step"
+assert_contains "$(grep hm_linux_amd64 "$FAKE_CURL_ARGV")" "-fsSL"
+assert_not_contains "$(cat "$FAKE_CURL_ARGV")" "progress"
+assert_not_contains "$(cat "$FAKE_CURL_ARGV")" "-#"
+assert_not_contains "$OUT" "Looking up"
+assert_not_contains "$OUT" "Latest release"
 
 # ------------------------------------------------------------------ re-running
 
@@ -939,6 +949,9 @@ done
 cp "$TOOLS/uname" "$TOOLS/sudo" "$TOOLS/jq" "$WGET_TOOLS/"
 cat >"$WGET_TOOLS/wget" <<'EOF'
 #!/usr/bin/env bash
+echo "$*" >>"$FAKE_CURL_ARGV"
+# GNU wget 1.16 and later list --show-progress in their help; busybox's does not
+[ "$1" == "--help" ] && { echo "       --show-progress             display the progress bar in any verbosity mode"; exit 0; }
 out="" url="" headers=false
 for argument in "$@"; do
     case "$argument" in
@@ -976,6 +989,25 @@ test_case "with wget and no curl, the latest final release still comes from the 
 assert_equals "0" "$STATUS"
 assert_equals "hm 2.1.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
 assert_not_contains "$(cat "$FAKE_CURL_LOG")" "api.github.com"
+
+test_case "and without a terminal wget stays quiet: no progress bar"
+assert_contains "$(grep hm_linux_amd64 "$FAKE_CURL_ARGV")" "-q"
+assert_not_contains "$(cat "$FAKE_CURL_ARGV")" "progress"
+
+new_case latest-redirect-wget-styled
+publish 2.1.0
+api_releases 2.0.0
+export FAKE_LATEST=2.1.0
+(PATH="$WGET_TOOLS:$NO_CURL" CLICOLOR_FORCE=1 bash "$INSTALL_SH" >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+PLAIN=$(cat "$CASE/out" "$CASE/err" | sed $'s/\033\\[[0-9;]*m//g')
+
+test_case "styled, with wget only, the binary's download shows wget's progress bar, the checksums do not"
+assert_equals "0" "$STATUS"
+assert_contains "$PLAIN" "✓ Latest release: 2.1.0"
+assert_contains "$(grep hm_linux_amd64 "$FAKE_CURL_ARGV")" "--show-progress"
+assert_not_contains "$(grep checksums.txt "$FAKE_CURL_ARGV")" "progress"
+assert_contains "$PLAIN" "✓ Downloaded hm 2.1.0 for linux/amd64, checksum verified"
 
 new_case rate-limited
 publish 2.0.0
@@ -1154,6 +1186,90 @@ assert_not_contains "$PLAIN" "  - "
 test_case "and every line of the box is as wide as its border"
 widths=$(printf '%s\n' "$PLAIN" | grep -E '^  [╭│╰]' | while IFS= read -r line; do printf '%s' "$line" | sed 's/╭/x/g; s/╮/x/g; s/╰/x/g; s/╯/x/g; s/│/x/g; s/─/x/g' | wc -c | tr -d ' '; done | sort -u)
 assert_equals "1" "$(printf '%s\n' "$widths" | wc -l | tr -d ' ')"
+
+test_case "a spinner on stderr while the latest release is looked up, then a tick naming it"
+assert_contains "$(cat "$CASE/err")" "Looking up the latest release…"
+assert_contains "$PLAIN" "✓ Latest release: 2.0.0"
+assert_not_contains "$(cat "$CASE/out")" "Looking up"
+
+test_case "the binary's download draws curl's progress bar on stderr; the checksums and the API stay silent"
+assert_contains "$(grep hm_linux_amd64 "$FAKE_CURL_ARGV")" "--progress-bar"
+assert_not_contains "$(grep -v hm_linux_amd64 "$FAKE_CURL_ARGV")" "progress"
+assert_contains "$(cat "$CASE/err")" "100.0%"
+
+# err_settles <file>: whether nothing writes to the file any more once the installer has exited,
+# which a spinner left running would
+err_settles() {
+    local before
+    before=$(wc -c <"$1")
+    sleep 0.3
+    [ "$before" == "$(wc -c <"$1")" ] && echo yes || echo no
+}
+
+test_case "and the spinner is gone once the installer exits"
+assert_equals "yes" "$(err_settles "$CASE/err")"
+
+new_case styled-pre
+publish 2.0.0
+publish 2.1.0-rc.1
+api_releases 2.1.0-rc.1 2.0.0
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 bash "$INSTALL_SH" --pre >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+PLAIN=$(cat "$CASE/out" "$CASE/err" | sed $'s/\033\\[[0-9;]*m//g')
+
+test_case "styled, a pre-release found by --pre is named as one"
+assert_equals "0" "$STATUS"
+assert_contains "$PLAIN" "✓ Latest pre-release: 2.1.0-rc.1"
+
+new_case styled-version
+publish 2.0.0
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 bash "$INSTALL_SH" --version 2.0.0 >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+
+test_case "styled, a version asked for is not looked up, so there is no spinner"
+assert_equals "0" "$STATUS"
+assert_not_contains "$(cat "$CASE/out" "$CASE/err")" "Looking up"
+assert_not_contains "$(cat "$CASE/out" "$CASE/err")" "Latest"
+
+new_case styled-rate-limited
+publish 2.0.0
+export FAKE_API_STATUS=403
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 bash "$INSTALL_SH" --pre >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+PLAIN=$(sed $'s/\033\\[[0-9;]*m//g' "$CASE/err")
+
+test_case "styled, a failed lookup draws the spinner as failed, then the reason"
+assert_equals "1" "$STATUS"
+assert_contains "$PLAIN" "✗ Looking up the latest release"
+assert_not_contains "$PLAIN" "✓ Latest"
+failed_line=$(printf '%s\n' "$PLAIN" | grep -n '✗ Looking up' | head -n 1 | cut -d: -f1)
+reason_line=$(printf '%s\n' "$PLAIN" | grep -n 'rate limit was reached' | head -n 1 | cut -d: -f1)
+assert_equals "yes" "$([ -n "$failed_line" ] && [ -n "$reason_line" ] && [ "$failed_line" -lt "$reason_line" ] && echo yes || echo no)"
+assert_equals "yes" "$(err_settles "$CASE/err")"
+assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
+
+# Interrupted while the spinner turns. A background job of a script ignores SIGINT, so it gets the
+# SIGTERM a closing terminal sends; Ctrl-C reaches the same EXIT trap.
+new_case styled-interrupted
+publish 2.0.0
+api_releases 2.0.0
+PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 FAKE_API_DELAY=3 bash "$INSTALL_SH" --pre >"$CASE/out" 2>"$CASE/err" </dev/null &
+installer=$!
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    grep -q 'Looking up' "$CASE/err" 2>/dev/null && break
+    sleep 0.1
+done
+kill -TERM "$installer"
+# Its stderr carries only bash's own "Terminated" notice about the job
+wait "$installer" 2>/dev/null
+STATUS=$?
+
+test_case "styled, an interrupted lookup stops the spinner and leaves nothing behind"
+assert_equals "yes" "$([ "$STATUS" -ne 0 ] && echo yes || echo no)"
+assert_contains "$(cat "$CASE/err")" "Looking up the latest release…"
+assert_equals "yes" "$(err_settles "$CASE/err")"
+assert_equals "" "$(ls -A "$TMPDIR")"
+assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
 
 new_case styled-no-color
 publish 2.0.0

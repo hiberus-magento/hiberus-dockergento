@@ -91,8 +91,43 @@ box() {
     done
     printf '  %s╰%s╯%s\n' "$green" "$rule" "$reset"
 }
+
+# spinner_start <text>: a spinner and the text on stderr while something runs, in a terminal only.
+# The first frame is drawn here, so the text is on screen however quickly the work ends.
+SPINNER_PID="" SPINNER_TEXT=""
+spinner_start() {
+    [ -n "$FANCY" ] || return 0
+    SPINNER_TEXT="$1"
+    printf '\r  %s⠋%s %s…' "$cyan" "$reset" "$SPINNER_TEXT" >&2
+    # Exits on TERM only between frames, so it never leaves a sleep behind or draws after the
+    # line is cleared. It ignores SIGINT, as background jobs of a script do: Ctrl-C ends the
+    # installer, whose EXIT trap stops it.
+    (
+        trap 'exit 0' TERM
+        frames=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
+        i=1
+        while :; do
+            sleep 0.1 2>/dev/null || sleep 1
+            printf '\r  %s%s%s %s…' "$cyan" "${frames[i]}" "$reset" "$SPINNER_TEXT" >&2
+            i=$(((i + 1) % ${#frames[@]}))
+        done
+    ) </dev/null >/dev/null &
+    SPINNER_PID=$!
+}
+
+# spinner_stop [failed]: the spinner stopped and its line cleared, or redrawn with a red cross
+spinner_stop() {
+    [ -n "$SPINNER_PID" ] || return 0
+    kill "$SPINNER_PID" 2>/dev/null || true
+    wait "$SPINNER_PID" 2>/dev/null || true
+    SPINNER_PID=""
+    printf '\r\033[K' >&2
+    [ -z "${1:-}" ] || printf '  %s✗%s %s\n' "$red" "$reset" "$SPINNER_TEXT" >&2
+}
+
 warn() { printf '%s%s%s%s\n' "${FANCY:+  ! }" "$orange" "$*" "$reset" >&2; }
 die() {
+    spinner_stop failed
     printf '%s%s%s\n' "$red" "$1" "$reset" >&2
     exit "${2:-1}"
 }
@@ -175,12 +210,15 @@ token_header() {
     printf '%s' "$file"
 }
 
-# fetch <url> <file>: with curl, or wget when there is no curl. GITHUB_TOKEN goes to the API only,
-# through a 0600 file removed afterwards. FETCH_STATUS is the HTTP status when curl could tell it.
+# fetch <url> <file> [progress]: with curl, or wget when there is no curl. GITHUB_TOKEN goes to the
+# API only, through a 0600 file removed afterwards. FETCH_STATUS is the HTTP status when curl could
+# tell it. With progress, and in a terminal, a progress bar on stderr.
 fetch() {
     local url="$1" out="$2" header="" status=0
-    local -a auth=()
+    local -a auth=() quiet=(-fsSL)
+    local progress=""
     FETCH_STATUS=""
+    [ -z "${3:-}" ] || progress="$FANCY"
 
     if [ -n "${GITHUB_TOKEN:-}" ] && [[ "$url" == https://api.github.com/* ]]; then
         header="$(token_header)" || die "Could not write a private file for GITHUB_TOKEN in $WORK."
@@ -188,14 +226,23 @@ fetch() {
     fi
 
     if command -v curl >/dev/null 2>&1; then
-        FETCH_STATUS="$(curl -fsSL --retry 2 ${auth[@]+"${auth[@]}"} -o "$out" -w '%{http_code}' "$url")" || status=$?
+        # -s would hide the bar as well; -S only kept the errors under -s, and curl prints them
+        # without it
+        [ -z "$progress" ] || quiet=(-fL --progress-bar)
+        FETCH_STATUS="$(curl "${quiet[@]}" --retry 2 ${auth[@]+"${auth[@]}"} -o "$out" -w '%{http_code}' "$url")" || status=$?
     elif command -v wget >/dev/null 2>&1; then
+        quiet=(-q)
+        # --show-progress is GNU wget 1.16 and later; busybox's and older ones refuse it, and stay
+        # quiet. Its help is read whole rather than piped to grep -q, which pipefail would fail.
+        if [ -n "$progress" ]; then
+            case "$(wget --help 2>&1 || true)" in *--show-progress*) quiet=(-q --show-progress) ;; esac
+        fi
         if [ -n "$header" ]; then
             # wget reads the header from a wgetrc of its own rather than from its arguments
             (umask 077 && printf 'header = %s\n' "$(cat "$header")" >"$header.wgetrc") &&
-                wget -q --config="$header.wgetrc" -O "$out" "$url" || status=$?
+                wget "${quiet[@]}" --config="$header.wgetrc" -O "$out" "$url" || status=$?
         else
-            wget -q -O "$out" "$url" || status=$?
+            wget "${quiet[@]}" -O "$out" "$url" || status=$?
         fi
     else
         die "Neither curl nor wget is installed; install one of them and run this again."
@@ -310,7 +357,8 @@ download() {
     local version="$1" asset expected actual
     asset="$(platform_asset)"
 
-    fetch "$DOWNLOADS/$version/$asset" "$WORK/hm" ||
+    # The binary is the one download long enough to watch; the checksums stay silent
+    fetch "$DOWNLOADS/$version/$asset" "$WORK/hm" progress ||
         die "Could not download $asset of release $version ($DOWNLOADS/$version/$asset). Nothing was installed."
     fetch "$DOWNLOADS/$version/checksums.txt" "$WORK/checksums.txt" ||
         die "Could not download the checksums of release $version. Nothing was installed."
@@ -870,7 +918,17 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
     choose_target
     dir="$(dirname "$COMMAND")"
 
-    [ -n "${version:-}" ] || version="$(latest_version)"
+    if [ -z "${version:-}" ]; then
+        # In this shell rather than in $(...), so that a die inside it stops the spinner, which is
+        # this shell's child, before its message
+        spinner_start "Looking up the latest release"
+        latest_version >"$WORK/version"
+        version="$(cat "$WORK/version")"
+        spinner_stop
+        if [ -n "$FANCY" ]; then
+            if [[ "$version" == *-* ]]; then step "Latest pre-release: $version"; else step "Latest release: $version"; fi
+        fi
+    fi
 
     [ -n "$CURRENT_BINARY" ] && current="$(version_of "$CURRENT_BINARY")"
 
@@ -1063,7 +1121,8 @@ main() {
     if [ -n "$INSTALL_DIR" ] && [[ "$INSTALL_DIR" != /* ]]; then INSTALL_DIR="$PWD/$INSTALL_DIR"; fi
 
     WORK="$(mktemp -d "${TMPDIR:-/tmp}/hm-install.XXXXXX")"
-    trap 'rm -rf "$WORK"' EXIT
+    # The spinner first: interrupted, the installer must not leave it drawing over the terminal
+    trap 'spinner_stop; rm -rf "$WORK"' EXIT
 
     if [ "$action" == "uninstall" ]; then
         uninstall_hm
