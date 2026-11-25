@@ -512,6 +512,10 @@ func (e *Engine) Status(dir string) (core.Status, error) {
 // The certificate is not checked, and a redirect is not followed: the question is whether a
 // server answers at a development domain, whose certificate is the tool's own and may not be
 // trusted by this process, and a redirect is an answer. Nothing is sent but the request line.
+//
+// A HEAD answered 404 or 405 is asked again with a GET, whose answer is the one reported: some
+// servers route only GET — Mailhog answers HEAD with a 404 and serves its page to a browser — and
+// reporting the 404 says the URL is broken when it is not. The GET's body is never read.
 type urlProbe struct {
 	timeout time.Duration
 }
@@ -526,7 +530,16 @@ func (p urlProbe) Answer(url string) (int, error) {
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 
-	request, err := http.NewRequest(http.MethodHead, url, nil)
+	code, err := p.ask(client, http.MethodHead, url)
+	if err != nil || (code != http.StatusNotFound && code != http.StatusMethodNotAllowed) {
+		return code, err
+	}
+
+	return p.ask(client, http.MethodGet, url)
+}
+
+func (urlProbe) ask(client *http.Client, method, url string) (int, error) {
+	request, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return 0, err
 	}

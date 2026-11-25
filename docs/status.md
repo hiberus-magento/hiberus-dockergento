@@ -55,7 +55,9 @@ real front name), the mode, Xdebug and the anonymisation. On top of that it asks
   Any HTTP answer counts, a `500` or a redirect included: the question is whether a server is
   there, and the code says the rest. The certificate is not checked, because a development
   domain's certificate is the tool's own and may not be trusted by `hm` itself, and redirects are
-  not followed.
+  not followed. A `HEAD` answered `404` or `405` is asked again with a `GET`, with the same
+  timeout and the same rules, and the `GET`'s code is the one reported: some servers only route
+  `GET` — Mailhog answers `HEAD` with a `404` and its page to a browser. The body is not read.
 
 A container's Docker healthcheck is not reported: the images' compose templates declare none.
 
