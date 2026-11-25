@@ -23,14 +23,19 @@ REPOSITORY="hiberus-magento/hiberus-dockergento"
 DOWNLOADS="https://github.com/$REPOSITORY/releases/download"
 RELEASES_API="https://api.github.com/repos/$REPOSITORY/releases?per_page=100"
 
-# Where a 1.x installation linked hm, and the default directory when it is writable. Overridable so
-# the tests can stand in for it without root.
+# Where a 1.x installation linked hm, and the default directory (holding only a link to the binary
+# when it is not writable). Overridable so the tests can stand in for it without root.
 SYSTEM_BIN="${HM_SYSTEM_BIN:-/usr/local/bin}"
 
 # The installer's own files: the shell completion and a receipt of what it installed
 STATE_DIR="$HOME/.hm"
 COMPLETION_DIR="$STATE_DIR/completion"
 RECEIPT="$STATE_DIR/install-receipt"
+
+# Where the binary lives when the directory hm is run from is not the user's: that directory then
+# holds only a link to it, made once with sudo, so that updating hm never needs root again
+HOME_BIN="$STATE_DIR/bin"
+HOME_BINARY="$HOME_BIN/hm"
 
 # Marks the one profile line this installer owns, to replace or remove it and never add a second
 PROFILE_MARK="# hm shell completion"
@@ -364,6 +369,8 @@ checkout_of() {
     [ -L "$link" ] || return 0
     target="$(readlink "$link")"
     case "$target" in
+        # ~/.hm/bin/hm ends in bin/hm too, and is no clone even when it is missing
+        */.hm/bin/hm) return 0 ;;
         */bin/run | */bin/hm) ;;
         *) return 0 ;;
     esac
@@ -372,6 +379,11 @@ checkout_of() {
     if [[ "$target" == */bin/run ]] || [ -e "$checkout/.git" ] || [ ! -e "$target" ]; then
         printf '%s' "$checkout"
     fi
+}
+
+# is_layout_link <path>: a link to ~/.hm/bin/hm, made by this installer or by hm update
+is_layout_link() {
+    [ -L "$1" ] && [ "$(readlink "$1")" == "$HOME_BINARY" ]
 }
 
 # ------------------------------------------------------------------------------ writing files
@@ -406,6 +418,40 @@ place() {
         as_needed "$dir" rm -f "$partial" 2>/dev/null || true
         die "Could not write $target. Nothing was changed."
     fi
+}
+
+# place_link <link>: link made a link to ~/.hm/bin/hm in one rename, so whatever was there (a 1.x
+# link, an earlier binary) runs until the new link replaces it; fails, changing nothing, when even
+# sudo cannot write its directory
+place_link() {
+    local link="$1" dir partial
+    dir="$(dirname "$link")"
+    partial="$dir/.hm.install.$$"
+
+    if as_needed "$dir" ln -s "$HOME_BINARY" "$partial" && as_needed "$dir" mv -f "$partial" "$link"; then
+        return 0
+    fi
+    as_needed "$dir" rm -f "$partial" 2>/dev/null || true
+    return 1
+}
+
+# place_layout <source>: the binary at ~/.hm/bin/hm and LINK a link to it, sudo for the link only.
+# Fails when the link cannot be made — no sudo, or sudo refused — leaving LINK as it was and no
+# ~/.hm/bin/hm that was not there before.
+place_layout() {
+    local source="$1" existed=false
+    if [ ! -w "$(dirname "$LINK")" ] && ! command -v sudo >/dev/null 2>&1; then return 1; fi
+
+    { [ -e "$HOME_BINARY" ] || [ -L "$HOME_BINARY" ]; } && existed=true
+    mkdir -p "$HOME_BIN"
+    place "$source" "$HOME_BINARY"
+    place_link "$LINK" && return 0
+
+    if ! $existed; then
+        rm -f "$HOME_BINARY"
+        rmdir "$HOME_BIN" 2>/dev/null || true
+    fi
+    return 1
 }
 
 # resolve_link <path>: the regular file a chain of links ends at; fails when it ends nowhere
@@ -700,9 +746,13 @@ migrate_settings() {
     fi
 }
 
+# write_receipt <binary> <version> [link]: link is where hm is run from when the binary is behind one
 write_receipt() {
     mkdir -p "$STATE_DIR"
-    printf 'path=%s\nversion=%s\nsha256=%s\n' "$1" "$2" "$(sha256_of "$1")" >"$RECEIPT"
+    {
+        printf 'path=%s\nversion=%s\nsha256=%s\n' "$1" "$2" "$(sha256_of "$1")"
+        [ -z "${3:-}" ] || printf 'link=%s\n' "$3"
+    } >"$RECEIPT"
 }
 
 # ------------------------------------------------------------------------------------- installing
@@ -711,47 +761,83 @@ on_path() {
     case ":$PATH:" in *":$1:"*) return 0 ;; *) return 1 ;; esac
 }
 
-# Where the binary goes, and what is there now: sets TARGET, LEGACY_CHECKOUT, SOURCE_CHECKOUT
-# and REPLACING
-choose_target() {
-    local dir checkout
+# writable_dir <dir>: whether this user can write dir, or create it when it does not exist yet
+writable_dir() {
+    local dir="$1"
+    while [ ! -d "$dir" ] && [ "$dir" != "/" ]; do dir="$(dirname "$dir")"; done
+    [ -w "$dir" ]
+}
 
-    TARGET="" LEGACY_CHECKOUT="" SOURCE_CHECKOUT="" REPLACING=""
+# Where hm goes, and what is there now. Sets COMMAND, the path hm is run from; TARGET, where the
+# binary is written (COMMAND itself, or ~/.hm/bin/hm behind a link); LINK, COMMAND when it is such a
+# link; MAKE_LINK when that link is still to be made; CURRENT_BINARY, the hm 2 binary in use; and
+# LEGACY_CHECKOUT, SOURCE_CHECKOUT and REPLACING, what COMMAND is now.
+choose_target() {
+    local dir checkout receipt_path receipt_link
+
+    TARGET="" COMMAND="" LINK="" MAKE_LINK="" CURRENT_BINARY="" LEGACY_CHECKOUT="" SOURCE_CHECKOUT="" REPLACING=""
+    receipt_path="$(receipt_field path)"
+    receipt_link="$(receipt_field link)"
 
     if [ -n "$INSTALL_DIR" ]; then
         dir="$INSTALL_DIR"
-    elif [ -n "$(receipt_field path)" ] && is_hm2 "$(receipt_field path)"; then
-        # Where this installer put hm last time, --dir included: running it again upgrades that one
-        dir="$(dirname "$(receipt_field path)")"
+    elif [ -n "$receipt_link" ] && is_layout_link "$receipt_link" && is_hm2 "$HOME_BINARY"; then
+        # The binary behind a link last time: the link is where hm is run from
+        dir="$(dirname "$receipt_link")"
+    elif [ -n "$receipt_path" ] && [ "$receipt_path" != "$HOME_BINARY" ] &&
+        { is_hm2 "$receipt_path" || is_layout_link "$receipt_path"; }; then
+        # Where this installer put hm last time, --dir included: running it again upgrades that one.
+        # A link to ~/.hm/bin/hm there is hm update having moved the binary since: the receipt is
+        # this installer's alone, so it still names the old path.
+        dir="$(dirname "$receipt_path")"
     else
-        # An hm already in the system directory — a 1.x link or an earlier hm 2 — is replaced at the
-        # same path, so there is only ever one hm
+        # An hm already in the system directory — a 1.x link, an earlier hm 2 or a link to
+        # ~/.hm/bin/hm — is replaced at the same path, so there is only ever one hm
         checkout="$(checkout_of "$SYSTEM_BIN/hm")"
-        if [ -n "$checkout" ] || is_hm2 "$SYSTEM_BIN/hm"; then
+        if [ -n "$checkout" ] || is_hm2 "$SYSTEM_BIN/hm" || is_layout_link "$SYSTEM_BIN/hm"; then
             dir="$SYSTEM_BIN"
         elif is_hm2 "$HOME/.local/bin/hm"; then
             dir="$HOME/.local/bin"
-        elif [ -d "$SYSTEM_BIN" ] && [ -w "$SYSTEM_BIN" ] && [ ! -e "$SYSTEM_BIN/hm" ] && [ ! -L "$SYSTEM_BIN/hm" ]; then
+        elif [ -d "$SYSTEM_BIN" ] && [ ! -e "$SYSTEM_BIN/hm" ] && [ ! -L "$SYSTEM_BIN/hm" ]; then
+            # Writable or not: when it is not, only the link goes here
             dir="$SYSTEM_BIN"
         else
             dir="$HOME/.local/bin"
         fi
     fi
 
-    TARGET="$dir/hm"
-    checkout="$(checkout_of "$TARGET")"
+    COMMAND="$dir/hm"
+    TARGET="$COMMAND"
+    checkout="$(checkout_of "$COMMAND")"
 
-    if [ -n "$checkout" ] && is_legacy "$TARGET" "$checkout"; then
+    if is_layout_link "$COMMAND"; then
+        # Already the layout: the binary is replaced behind the link, which is left alone
+        TARGET="$HOME_BINARY" LINK="$COMMAND"
+        if is_hm2 "$HOME_BINARY"; then
+            REPLACING="hm2"
+            CURRENT_BINARY="$HOME_BINARY"
+        fi
+    elif [ -n "$checkout" ] && is_legacy "$COMMAND" "$checkout"; then
         LEGACY_CHECKOUT="$checkout"
         REPLACING="legacy"
     elif [ -n "$checkout" ]; then
         # A contributor's own build: replaced like any link, and the checkout is theirs, not 1.x
         SOURCE_CHECKOUT="$checkout"
         REPLACING="source"
-    elif is_hm2 "$TARGET"; then
+    elif is_hm2 "$COMMAND"; then
         REPLACING="hm2"
-    elif [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
-        die "$TARGET exists and is not an hm this installer can replace; it was left as it is. Remove it, or install elsewhere: --dir <directory>"
+        CURRENT_BINARY="$COMMAND"
+    elif [ -e "$COMMAND" ] || [ -L "$COMMAND" ]; then
+        die "$COMMAND exists and is not an hm this installer can replace; it was left as it is. Remove it, or install elsewhere: --dir <directory>"
+    fi
+
+    # A directory that is not the user's gets the link, and the binary goes where updates reach it
+    if [ -z "$LINK" ] && ! writable_dir "$dir"; then
+        TARGET="$HOME_BINARY" LINK="$COMMAND" MAKE_LINK=1
+    fi
+
+    if [ "$TARGET" == "$HOME_BINARY" ] && { [ -e "$HOME_BINARY" ] || [ -L "$HOME_BINARY" ]; } && ! is_hm2 "$HOME_BINARY"; then
+        die "$HOME_BINARY exists and is not an hm this installer can replace; it was left as it is. Remove it, or install elsewhere: --dir <directory>"
     fi
 
     # A 1.x checkout at ~/hm gets the notice even when its link was elsewhere or already gone
@@ -761,7 +847,7 @@ choose_target() {
 }
 
 install_hm() {
-    local version current="" dir
+    local version current="" dir source="" kept=""
     CHANGES=()
     header
 
@@ -773,18 +859,21 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
     fi
 
     choose_target
-    dir="$(dirname "$TARGET")"
+    dir="$(dirname "$COMMAND")"
 
     [ -n "${version:-}" ] || version="$(latest_version)"
 
-    [ "$REPLACING" == "hm2" ] && current="$(version_of "$TARGET")"
+    [ -n "$CURRENT_BINARY" ] && current="$(version_of "$CURRENT_BINARY")"
 
+    # The binary in use is kept when it is the one wanted; it is still moved behind a link when its
+    # directory is not the user's, so that the next update needs no root
     if [ -n "$current" ] && [ "$current" == "$version" ]; then
-        say "${green}hm $version is already installed at $TARGET; it is up to date.${reset}"
-        write_receipt "$TARGET" "$version"
+        say "${green}hm $version is already installed at $COMMAND; it is up to date.${reset}"
+        source="$CURRENT_BINARY" kept="receipt"
     elif [ -n "$current" ] && [ -z "$VERSION" ] && version_gt "$current" "$version"; then
-        say "${green}hm $current at $TARGET is newer than the latest release ($version); it was left as it is.${reset}"
+        say "${green}hm $current at $COMMAND is newer than the latest release ($version); it was left as it is.${reset}"
         version="$current"
+        source="$CURRENT_BINARY" kept="as-is"
     else
         download "$version"
         if [ -n "$FANCY" ]; then
@@ -799,18 +888,45 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
             if [[ "$dir" == "$HOME"/* ]]; then mkdir -p "$dir"; else as_needed "$(dirname "$dir")" mkdir -p "$dir"; fi
         fi
 
+        local replacement="the binary"
+        [ -z "$MAKE_LINK" ] || replacement="a link to $HOME_BINARY"
         case "$REPLACING" in
-            legacy) CHANGES+=("replaced the link $TARGET -> $(readlink "$TARGET") of the git-clone installation with the binary") ;;
+            legacy) CHANGES+=("replaced the link $COMMAND -> $(readlink "$COMMAND") of the git-clone installation with $replacement") ;;
             source)
                 # Quoted, so that the command still works pasted when the path has spaces
-                CHANGES+=("replaced the link $TARGET -> $(readlink "$TARGET"), a build of the source checkout $SOURCE_CHECKOUT, with the binary (to run your build again: ln -sf $(printf '%q' "$(readlink "$TARGET")") $(printf '%q' "$TARGET"))") ;;
+                CHANGES+=("replaced the link $COMMAND -> $(readlink "$COMMAND"), a build of the source checkout $SOURCE_CHECKOUT, with $replacement (to run your build again: ln -sf $(printf '%q' "$(readlink "$COMMAND")") $(printf '%q' "$COMMAND"))") ;;
             hm2) CHANGES+=("upgraded hm $current to $version") ;;
         esac
+        source="$WORK/hm"
+    fi
 
-        place "$WORK/hm" "$TARGET"
-        write_receipt "$TARGET" "$version"
+    if [ -n "$MAKE_LINK" ]; then
+        [ "$REPLACING" != "hm2" ] || CHANGES+=("moved the binary from $COMMAND to $HOME_BINARY")
+        if ! place_layout "$source"; then
+            # Only a fresh install has somewhere else to go; anything already there stays as it was
+            [ -z "$REPLACING" ] ||
+                die "Could not write $COMMAND: it needs root, and sudo is not available or was refused. Nothing was changed. To install where you can write: --dir ~/.local/bin"
+            warn "Linking $COMMAND needs root, and sudo is not available or was refused; hm goes to $HOME/.local/bin instead."
+            COMMAND="$HOME/.local/bin/hm" TARGET="$HOME/.local/bin/hm" LINK="" MAKE_LINK=""
+            dir="$HOME/.local/bin"
+            if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
+                die "$TARGET exists and is not an hm this installer can replace; it was left as it is. Remove it, or install elsewhere: --dir <directory>"
+            fi
+            mkdir -p "$dir"
+            place "$source" "$TARGET"
+        fi
+    elif [ "$source" == "$WORK/hm" ]; then
+        [ "$TARGET" != "$HOME_BINARY" ] || mkdir -p "$HOME_BIN"
+        place "$source" "$TARGET"
+    fi
+
+    if [ "$source" == "$WORK/hm" ] || [ -n "$MAKE_LINK" ] || [ "$kept" == "receipt" ]; then
+        write_receipt "$TARGET" "$version" "$LINK"
+    fi
+    if [ "$source" == "$WORK/hm" ]; then
         if [ -n "$FANCY" ]; then step "Installed at $TARGET"; else say "${green}${bold}hm $version installed at $TARGET${reset}"; fi
     fi
+    [ -z "$LINK" ] || CHANGES+=("the binary lives in $HOME_BINARY; $LINK links to it, so updates need no sudo")
 
     drop_legacy_completion
     install_completion "$TARGET"
@@ -821,14 +937,14 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
 
     if ! on_path "$dir"; then
         warn "$dir is not in your PATH. Add it to your shell profile: export PATH=\"$dir:\$PATH\""
-    elif [ "$(command -v hm 2>/dev/null || true)" != "$TARGET" ] && [ -n "$(command -v hm 2>/dev/null || true)" ]; then
-        warn "Another hm comes first in your PATH: $(command -v hm). Remove it so that $TARGET is the one that runs."
+    elif [ "$(command -v hm 2>/dev/null || true)" != "$COMMAND" ] && [ -n "$(command -v hm 2>/dev/null || true)" ]; then
+        warn "Another hm comes first in your PATH: $(command -v hm). Remove it so that $COMMAND is the one that runs."
     fi
 
     legacy_notice "$LEGACY_CHECKOUT"
 
     if [ -n "$FANCY" ]; then
-        box "hm $version is ready" "$TARGET"
+        if [ -n "$LINK" ]; then box "hm $version is ready" "$LINK -> $HOME_BINARY"; else box "hm $version is ready" "$TARGET"; fi
         say ""
         say "  Next: open a new terminal (or source your profile), then run ${bold}${cyan}hm --help${reset}"
         say ""
@@ -841,21 +957,36 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
 # ------------------------------------------------------------------------------------- uninstalling
 
 uninstall_hm() {
-    local candidate path="" profile checkout removed=false
+    local candidate path="" link="" profile checkout removed=false
 
-    for candidate in "$(receipt_field path)" "${INSTALL_DIR:+$INSTALL_DIR/hm}" "$SYSTEM_BIN/hm" "$HOME/.local/bin/hm"; do
-        [ -n "$candidate" ] || continue
-        if is_hm2 "$candidate"; then
-            path="$candidate"
+    # The link first, so that it never points at a binary already gone
+    for candidate in "$(receipt_field link)" "$(receipt_field path)" "${INSTALL_DIR:+$INSTALL_DIR/hm}" "$SYSTEM_BIN/hm" "$HOME/.local/bin/hm"; do
+        if [ -n "$candidate" ] && is_layout_link "$candidate"; then
+            link="$candidate"
             break
         fi
     done
+    if [ -n "$link" ]; then
+        as_needed "$(dirname "$link")" rm -f "$link"
+        say "Removed the link $link"
+        removed=true
+        is_hm2 "$HOME_BINARY" && path="$HOME_BINARY"
+    else
+        for candidate in "$(receipt_field path)" "${INSTALL_DIR:+$INSTALL_DIR/hm}" "$SYSTEM_BIN/hm" "$HOME/.local/bin/hm" "$HOME_BINARY"; do
+            [ -n "$candidate" ] || continue
+            if is_hm2 "$candidate"; then
+                path="$candidate"
+                break
+            fi
+        done
+    fi
 
     if [ -n "$path" ]; then
         as_needed "$(dirname "$path")" rm -f "$path"
         say "Removed $path"
         removed=true
-    else
+        rmdir "$HOME_BIN" 2>/dev/null || true
+    elif ! $removed; then
         say "No hm 2 binary installed by this installer was found; no binary was removed."
         checkout="$(checkout_of "$SYSTEM_BIN/hm")"
         if [ -n "$checkout" ]; then

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
 # install.sh installs hm 2 as one binary from a GitHub release: the latest of 2.0 or later, or the
-# one asked for, verified against the release's checksums.txt. A 1.x link is replaced by the binary
-# at the same path, its completion line by the new one, and its checkout is left where it is with a
-# notice. installer.sh, the old name, only runs install.sh.
+# one asked for, verified against the release's checksums.txt. A directory that is not the user's
+# gets only a link to the binary, which lives in ~/.hm/bin. A 1.x link is replaced at the same path,
+# its completion line by the new one, and its checkout is left where it is with a notice.
+# installer.sh, the old name, only runs install.sh.
 #
 # Each case runs against a HOME, a "system" bin directory (HM_SYSTEM_BIN, standing in for
 # /usr/local/bin) and a release of its own, with fake curl, uname and sudo first on PATH: nothing
@@ -147,6 +148,10 @@ run_install() {
 
 exists() { [ -e "$1" ] || [ -L "$1" ] && echo yes || echo no; }
 
+# sudo_outside_system: each sudo command whose last argument, the file it writes, is not in the
+# system directory; nothing when sudo only ever touched that directory
+sudo_outside_system() { awk -v dir="$HM_SYSTEM_BIN/" 'index($NF, dir) != 1' "$FAKE_SUDO_LOG"; }
+
 # ------------------------------------------------------------------ fresh install
 
 new_case fresh
@@ -244,14 +249,186 @@ api_releases 2.0.0
 chmod u-w "$HM_SYSTEM_BIN"
 run_install
 
-test_case "a system directory that is not writable means ~/.local/bin, created, without sudo"
+test_case "a system directory that is not writable gets a link; the binary lives in ~/.hm/bin, owned by the user"
 assert_equals "0" "$STATUS"
-assert_equals "hm 2.0.0" "$("$HOME/.local/bin/hm" --version | head -n 1)"
+assert_equals "hm 2.0.0" "$("$HOME/.hm/bin/hm" --version | head -n 1)"
+assert_equals "no" "$([ -L "$HOME/.hm/bin/hm" ] && echo yes || echo no)"
+assert_equals "-rwxr-xr-x" "$(ls -l "$HOME/.hm/bin/hm" | cut -c1-10)"
+assert_equals "$HOME/.hm/bin/hm" "$(readlink "$HM_SYSTEM_BIN/hm")"
+assert_equals "hm 2.0.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
+assert_equals "no" "$(exists "$HOME/.local/bin/hm")"
+assert_equals "hm" "$(ls -A "$HM_SYSTEM_BIN")"
+
+test_case "sudo is used for the link only, never to write the binary"
+assert_equals "yes" "$([ -s "$FAKE_SUDO_LOG" ] && echo yes || echo no)"
+assert_equals "" "$(sudo_outside_system)"
+assert_not_contains "$(cat "$FAKE_SUDO_LOG")" "cp "
+
+test_case "the receipt records the binary and the link"
+assert_equals "$HOME/.hm/bin/hm" "$(sed -n 's/^path=//p' "$HOME/.hm/install-receipt")"
+assert_equals "$HM_SYSTEM_BIN/hm" "$(sed -n 's/^link=//p' "$HOME/.hm/install-receipt")"
+
+test_case "the plain output names the layout"
+assert_contains "$OUT" "hm 2.0.0 installed at $HOME/.hm/bin/hm"
+assert_contains "$OUT" "the binary lives in $HOME/.hm/bin/hm; $HM_SYSTEM_BIN/hm links to it, so updates need no sudo"
+
+: >"$FAKE_SUDO_LOG"
+link_before=$(ls -di "$HM_SYSTEM_BIN/hm" | awk '{ print $1 }')
+run_install
+
+test_case "running it again with the link in place needs no sudo and leaves the link alone"
+assert_equals "0" "$STATUS"
+assert_contains "$OUT" "hm 2.0.0 is already installed"
 assert_equals "" "$(cat "$FAKE_SUDO_LOG")"
+assert_equals "$link_before" "$(ls -di "$HM_SYSTEM_BIN/hm" | awk '{ print $1 }')"
+
+publish 2.1.0
+api_releases 2.1.0 2.0.0
+run_install
+
+test_case "and an upgrade replaces ~/.hm/bin/hm only: no sudo, the link untouched"
+assert_equals "0" "$STATUS"
+assert_equals "hm 2.1.0" "$("$HOME/.hm/bin/hm" --version | head -n 1)"
+assert_equals "hm 2.1.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
+assert_contains "$OUT" "upgraded hm 2.0.0 to 2.1.0"
+assert_equals "" "$(cat "$FAKE_SUDO_LOG")"
+assert_equals "$link_before" "$(ls -di "$HM_SYSTEM_BIN/hm" | awk '{ print $1 }')"
+assert_equals "$HOME/.hm/bin/hm" "$(readlink "$HM_SYSTEM_BIN/hm")"
+assert_equals "" "$(ls -A "$HOME/.hm/bin" | grep -v '^hm$')"
+
+run_install --uninstall
+
+test_case "--uninstall removes the link, through sudo, and ~/.hm/bin/hm"
+assert_equals "0" "$STATUS"
+assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
+assert_equals "no" "$(exists "$HOME/.hm/bin/hm")"
+assert_contains "$(cat "$FAKE_SUDO_LOG")" "rm -f $HM_SYSTEM_BIN/hm"
+assert_contains "$OUT" "hm was uninstalled"
+chmod u+w "$HM_SYSTEM_BIN"
+
+new_case not-writable-styled
+publish 2.0.0
+api_releases 2.0.0
+chmod u-w "$HM_SYSTEM_BIN"
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 bash "$INSTALL_SH" >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+PLAIN=$(cat "$CASE/out" "$CASE/err" | sed $'s/\033\\[[0-9;]*m//g')
+chmod u+w "$HM_SYSTEM_BIN"
+
+test_case "the styled output names the layout too"
+assert_equals "0" "$STATUS"
+assert_contains "$PLAIN" "✓ Installed at $HOME/.hm/bin/hm"
+assert_contains "$PLAIN" "✓ The binary lives in $HOME/.hm/bin/hm; $HM_SYSTEM_BIN/hm links to it, so updates need no sudo"
+
+new_case not-writable-sudo-refused
+publish 2.0.0
+api_releases 2.0.0
+chmod u-w "$HM_SYSTEM_BIN"
+mkdir -p "$CASE/no-sudo"
+printf '#!/bin/sh\necho "sudo $*" >>"$FAKE_SUDO_LOG"\nexit 1\n' >"$CASE/no-sudo/sudo"
+chmod +x "$CASE/no-sudo/sudo"
+(PATH="$CASE/no-sudo:$TOOLS:$BASE_PATH" bash "$INSTALL_SH" >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+OUT=$(cat "$CASE/out" "$CASE/err")
+chmod u+w "$HM_SYSTEM_BIN"
+
+test_case "a fresh install whose sudo is refused falls back to ~/.local/bin, leaving no ~/.hm/bin/hm"
+if [ "$(id -u)" -eq 0 ]; then
+    echo "  - skipped: running as root, a read-only folder does not need sudo"
+else
+    assert_equals "0" "$STATUS"
+    assert_equals "hm 2.0.0" "$("$HOME/.local/bin/hm" --version | head -n 1)"
+    assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
+    assert_equals "no" "$(exists "$HOME/.hm/bin/hm")"
+    assert_equals "" "$(ls -A "$HM_SYSTEM_BIN")"
+    assert_contains "$(sed -n 's/^path=//p' "$HOME/.hm/install-receipt")" "$HOME/.local/bin/hm"
+    assert_equals "" "$(sed -n 's/^link=//p' "$HOME/.hm/install-receipt")"
+fi
 
 test_case "with a warning when it is not on PATH"
 assert_contains "$OUT" "$HOME/.local/bin is not in your PATH"
+
+new_case rc-binary
+publish 2.0.0
+api_releases 2.0.0
+run_install
+chmod u-w "$HM_SYSTEM_BIN"
+run_install
+
+test_case "an earlier binary directly in a system directory that is not writable is moved to ~/.hm/bin, even up to date"
+assert_equals "0" "$STATUS"
+assert_equals "$HOME/.hm/bin/hm" "$(readlink "$HM_SYSTEM_BIN/hm")"
+assert_equals "hm 2.0.0" "$("$HOME/.hm/bin/hm" --version | head -n 1)"
+assert_equals "1" "$(grep -c 'hm_linux_amd64' "$FAKE_CURL_LOG")"
+assert_contains "$OUT" "moved the binary from $HM_SYSTEM_BIN/hm to $HOME/.hm/bin/hm"
+assert_equals "" "$(sudo_outside_system)"
+assert_equals "hm" "$(ls -A "$HM_SYSTEM_BIN")"
 chmod u+w "$HM_SYSTEM_BIN"
+
+new_case rc-binary-upgrade
+publish 2.0.0
+api_releases 2.0.0
+run_install
+chmod u-w "$HM_SYSTEM_BIN"
+publish 2.1.0
+api_releases 2.1.0 2.0.0
+run_install
+chmod u+w "$HM_SYSTEM_BIN"
+
+test_case "and converted on an upgrade: the new version in ~/.hm/bin/hm, a link in its place, sudo for the link only"
+assert_equals "0" "$STATUS"
+assert_equals "$HOME/.hm/bin/hm" "$(readlink "$HM_SYSTEM_BIN/hm")"
+assert_equals "hm 2.1.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
+assert_contains "$OUT" "upgraded hm 2.0.0 to 2.1.0"
+assert_equals "yes" "$([ -s "$FAKE_SUDO_LOG" ] && echo yes || echo no)"
+assert_equals "" "$(sudo_outside_system)"
+assert_equals "$HM_SYSTEM_BIN/hm" "$(sed -n 's/^link=//p' "$HOME/.hm/install-receipt")"
+
+new_case receipt-without-link
+publish 2.0.0
+api_releases 2.0.0
+run_install
+# What hm update leaves after moving the binary: ~/.hm/bin/hm, a link in its place, the receipt untouched
+mkdir -p "$HOME/.hm/bin"
+mv "$HM_SYSTEM_BIN/hm" "$HOME/.hm/bin/hm"
+ln -s "$HOME/.hm/bin/hm" "$HM_SYSTEM_BIN/hm"
+chmod u-w "$HM_SYSTEM_BIN"
+publish 2.1.0
+api_releases 2.1.0 2.0.0
+run_install
+chmod u+w "$HM_SYSTEM_BIN"
+
+test_case "a receipt without link=, whose path is now a link to ~/.hm/bin/hm, still upgrades, without sudo"
+assert_equals "0" "$STATUS"
+assert_equals "hm 2.1.0" "$("$HOME/.hm/bin/hm" --version | head -n 1)"
+assert_equals "$HOME/.hm/bin/hm" "$(readlink "$HM_SYSTEM_BIN/hm")"
+assert_contains "$OUT" "upgraded hm 2.0.0 to 2.1.0"
+assert_equals "" "$(cat "$FAKE_SUDO_LOG")"
+assert_equals "$HM_SYSTEM_BIN/hm" "$(sed -n 's/^link=//p' "$HOME/.hm/install-receipt")"
+
+new_case layout-link-dangling
+publish 2.0.0
+api_releases 2.0.0
+ln -s "$HOME/.hm/bin/hm" "$HM_SYSTEM_BIN/hm"
+run_install
+
+test_case "a link to a missing ~/.hm/bin/hm is never a source checkout: hm is put back behind it"
+assert_equals "0" "$STATUS"
+assert_equals "$HOME/.hm/bin/hm" "$(readlink "$HM_SYSTEM_BIN/hm")"
+assert_equals "hm 2.0.0" "$("$HOME/.hm/bin/hm" --version | head -n 1)"
+assert_not_contains "$OUT" "source checkout"
+assert_not_contains "$OUT" "1.x"
+assert_not_contains "$OUT" "rm -rf"
+
+new_case layout-link-uninstall
+ln -s "$HOME/.hm/bin/hm" "$HM_SYSTEM_BIN/hm"
+run_install --uninstall
+
+test_case "--uninstall removes a link to a missing ~/.hm/bin/hm, and does not call it a checkout"
+assert_equals "0" "$STATUS"
+assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
+assert_not_contains "$OUT" "source checkout"
+assert_not_contains "$OUT" "1.x"
 
 new_case custom-dir
 publish 2.0.0
@@ -262,6 +439,11 @@ test_case "HM_INSTALL_DIR chooses the directory"
 assert_equals "0" "$STATUS"
 assert_equals "yes" "$(exists "$CASE/opt/bin/hm")"
 assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
+
+test_case "a directory of the user's own gets the binary itself: no link, no ~/.hm/bin"
+assert_equals "no" "$([ -L "$CASE/opt/bin/hm" ] && echo yes || echo no)"
+assert_equals "no" "$(exists "$HOME/.hm/bin")"
+assert_equals "" "$(sed -n 's/^link=//p' "$HOME/.hm/install-receipt")"
 
 new_case foreign
 publish 2.0.0
@@ -310,6 +492,7 @@ else
     assert_not_contains "$OUT" "installed at"
     assert_equals "$HOME/hm/bin/run" "$(readlink "$HM_SYSTEM_BIN/hm")"
     assert_equals "hm" "$(ls -A "$HM_SYSTEM_BIN")"
+    assert_equals "no" "$(exists "$HOME/.hm/bin/hm")"
 fi
 
 # ------------------------------------------------------------------ migrating from 1.x
@@ -333,15 +516,16 @@ before=$(cd "$HOME/hm" && find . -path ./.git -prune -o -type f -print | sort | 
 run_install
 chmod u+w "$HM_SYSTEM_BIN"
 
-test_case "the 1.x link is replaced by the binary at the same path"
+test_case "the 1.x link is replaced, at the same path, by a link to the binary in ~/.hm/bin"
 assert_equals "0" "$STATUS"
-assert_equals "no" "$([ -L "$HM_SYSTEM_BIN/hm" ] && echo yes || echo no)"
+assert_equals "$HOME/.hm/bin/hm" "$(readlink "$HM_SYSTEM_BIN/hm")"
 assert_equals "hm 2.0.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
 assert_equals "no" "$(exists "$HOME/.local/bin/hm")"
+assert_contains "$OUT" "replaced the link $HM_SYSTEM_BIN/hm -> $HOME/hm/bin/run of the git-clone installation with a link to $HOME/.hm/bin/hm"
 
 test_case "with sudo, only for that directory, because it was not writable"
 assert_contains "$(cat "$FAKE_SUDO_LOG")" "mv -f $HM_SYSTEM_BIN/.hm.install"
-assert_not_contains "$(cat "$FAKE_SUDO_LOG")" "$HOME/"
+assert_equals "" "$(sudo_outside_system)"
 
 test_case "the 1.x completion line is replaced by the new one, in every profile"
 assert_not_contains "$(cat "$HOME/.zshrc" "$HOME/.bashrc")" "console/hm-completion.bash"

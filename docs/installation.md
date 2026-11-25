@@ -22,7 +22,9 @@ What it does:
 3. Downloads `hm_<os>_<arch>` and `checksums.txt` from that release and checks the SHA-256. A
    mismatch installs nothing.
 4. Installs the binary (see [where](#where-it-is-installed)), replacing any previous one in a
-   single rename, so a failed run never leaves half an `hm`.
+   single rename, so a failed run never leaves half an `hm`. When that directory is not yours
+   (`/usr/local/bin` usually), the binary goes to `~/.hm/bin/hm` and the directory only gets a
+   link to it, so updates never need `sudo`.
 5. Writes the shell completion (`hm completion zsh|bash`) to `~/.hm/completion/hm.<shell>` and adds
    **one** line to your profile that loads it. Running the installer again never adds a second
    one. The profile is never rewritten in place: the new content goes to a temporary file beside
@@ -60,17 +62,42 @@ curl -fsSL .../install.sh | HM_VERSION=2.0.0 bash          # the variable goes o
 In this order:
 
 1. `--dir` / `HM_INSTALL_DIR`, when given.
-2. Where the installer put hm last time (`~/.hm/install-receipt`), when it is still that binary:
-   running the installer again upgrades the same `hm`, even one installed with `--dir`.
-3. `/usr/local/bin/hm`, when it is already an `hm`: the 1.x link or an earlier hm 2. The new binary
-   goes **at that same path**, so there is only ever one `hm`. If the directory is not yours, only
-   that write goes through `sudo`.
+2. Where the installer put hm last time (`~/.hm/install-receipt`), when it is still that binary,
+   or the link to it: running the installer again upgrades the same `hm`, even one installed with
+   `--dir`.
+3. `/usr/local/bin/hm`, when it is already an `hm`: the 1.x link, an earlier hm 2 or a link to
+   `~/.hm/bin/hm`. The new `hm` goes **at that same path**, so there is only ever one `hm`.
 4. `~/.local/bin/hm`, when an earlier hm 2 is there.
-5. `/usr/local/bin`, when it is writable and has no `hm`.
+5. `/usr/local/bin`, when it has no `hm`.
 6. `~/.local/bin`, created if needed. You get a warning if it is not on your PATH.
 
-A file called `hm` that is not hm is never overwritten: the installer stops and asks you to remove
-it or to choose another directory.
+### When the directory is not yours
+
+hm updates itself (`hm update`), so the binary has to be somewhere you can write. When the chosen
+directory is writable, the binary goes there directly. When it is not — `/usr/local/bin` on most
+machines — the binary goes to **`~/.hm/bin/hm`**, owned by you, and the directory gets a link to
+it:
+
+```console
+/usr/local/bin/hm -> /Users/you/.hm/bin/hm
+```
+
+`sudo` is used once, for that link only, and asks for your password. Every later update replaces
+`~/.hm/bin/hm` without `sudo` and leaves the link alone. The installer says so:
+
+```console
+  - the binary lives in /Users/you/.hm/bin/hm; /usr/local/bin/hm links to it, so updates need no sudo
+```
+
+An `hm` that is already there is moved to this layout the next time the installer runs, even when
+it is up to date: the binary of an earlier hm 2 (2.0.0-rc.1 to rc.3 put it straight in
+`/usr/local/bin`) or the 1.x link. If `sudo` is not available or you refuse it, a fresh install
+goes to `~/.local/bin/hm` instead, and an existing `hm` is left exactly as it was.
+
+The receipt `~/.hm/install-receipt` records where the binary is (`path=`) and the link (`link=`).
+
+A file called `hm` that is not hm is never overwritten — in the chosen directory or at
+`~/.hm/bin/hm`: the installer stops and asks you to remove it or to choose another directory.
 
 ## Upgrading from 1.x
 
@@ -79,7 +106,9 @@ hm 1.x was a git clone at `~/hm`, a link `/usr/local/bin/hm → ~/hm/bin/run`, a
 
 Run the one-liner. The installer:
 
-1. Replaces the link `/usr/local/bin/hm` with the hm 2 binary, at the same path.
+1. Replaces the link `/usr/local/bin/hm` with hm 2, at the same path: the binary itself when the
+   directory is yours, otherwise a link to `~/.hm/bin/hm` (see
+   [above](#when-the-directory-is-not-yours)).
 2. Removes the 1.x `source …/console/hm-completion.bash` line from your profiles and adds the new
    completion line.
 3. **Leaves `~/hm` where it is.** It tells you that it is no longer used, whether it has local
@@ -101,7 +130,8 @@ git clone -b 1.5.1 https://github.com/hiberus-magento/hiberus-dockergento.git ~/
 
 ## Updating
 
-`hm update`, or run the installer again.
+`hm update`, or run the installer again. Neither needs `sudo` once the binary is in a directory of
+yours, `~/.hm/bin` included.
 
 ## Uninstall
 
@@ -109,8 +139,9 @@ git clone -b 1.5.1 https://github.com/hiberus-magento/hiberus-dockergento.git ~/
 curl -fsSL https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/install.sh | bash -s -- --uninstall
 ```
 
-It removes the binary — only if it is the hm 2 the installer put there — the completion file and
-its profile line. hm's state in `~/.hm` (cache, settings) is kept; delete it with `rm -rf ~/.hm`.
+It removes the binary — only if it is the hm 2 the installer put there — the link to
+`~/.hm/bin/hm` when there is one (through `sudo` when its directory is not yours), the completion
+file and its profile line. hm's state in `~/.hm` (cache, settings) is kept; delete it with `rm -rf ~/.hm`.
 A 1.x link or clone is never removed.
 
 ## Manual install
@@ -145,7 +176,9 @@ Run it as `./bin/hm` or put `bin/hm` on your PATH.
 If the installed `hm` (`/usr/local/bin/hm` by default) is a link to the `bin/hm` of your clone, the installer replaces that link with
 the release binary and leaves the clone alone: it is not a 1.x installation, so nothing is copied
 from it and it is not offered for deletion. The installer prints the `ln -sf` that brings your build
-back. A clone counts as 1.x only while it still has `bin/run` or `console/`.
+back. A clone counts as 1.x only while it still has `bin/run` or `console/`. A link to
+`~/.hm/bin/hm` is the installer's own layout, never taken for a clone, even when that file is
+missing.
 
 Releases are built by GoReleaser from `.goreleaser.yaml`; the tests for the installer are
 `tests/unit/installer_test.sh`.
