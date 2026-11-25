@@ -340,39 +340,63 @@ func (a *AITools) legacy() ([]core.AILegacyDirectory, map[string][]string) {
 		return nil, nil
 	}
 
-	catalog := a.catalog()
-
-	var directories []core.AILegacyDirectory
-
-	found := map[string][]string{}
-
-	for _, kind := range []string{"skills", "agents"} {
+	// A kind the registration lacks, or holds as anything but an object, tracks nothing
+	tracked := func(kind string) []string {
 		value, _ := registration.Get(kind)
 		entries, _ := value.(*core.AIObject)
 
 		keys := entries.Keys()
 		sort.Strings(keys)
 
+		return keys
+	}
+
+	var directories []core.AILegacyDirectory
+
+	found := map[string][]string{}
+
+	for _, install := range legacyInstalls(a.catalog(), tracked, a.path) {
+		if _, seen := found[install.Directory.Directory]; !seen {
+			directories = append(directories, install.Directory)
+		}
+
+		found[install.Directory.Directory] = append(found[install.Directory.Directory], install.Path)
+	}
+
+	return directories, found
+}
+
+// legacyInstall is a tracked item an earlier version of the tool installed in a directory its
+// platform no longer reads.
+type legacyInstall struct {
+	Directory core.AILegacyDirectory
+	Kind      string
+	Path      string
+}
+
+// legacyInstalls is the one detection ai-init and ai-pull report from and ai-doctor lists, so they
+// cannot disagree: by kind, skills first, then by legacy directory in the catalog's order, then by
+// path in the order tracked gives. tracked is the paths the registration records for a kind, and
+// at where a recorded path is on disk. What is there is what exists through a link: a link left
+// pointing at nothing is read by no agent, and ai-doctor counts it as missing instead.
+func legacyInstalls(catalog core.AIPlatformCatalog, tracked func(kind string) []string, at func(path string) string) []legacyInstall {
+	var installs []legacyInstall
+
+	for _, kind := range []string{"skills", "agents"} {
+		paths := tracked(kind)
+
 		for _, directory := range catalog.LegacyDirectories(kind) {
-			for _, path := range keys {
-				if filepath.Dir(path) != filepath.Clean(directory.Directory) {
+			for _, path := range paths {
+				if filepath.Dir(path) != filepath.Clean(directory.Directory) || !exists(at(path)) {
 					continue
 				}
 
-				if _, err := os.Lstat(a.path(path)); err != nil {
-					continue
-				}
-
-				if _, seen := found[directory.Directory]; !seen {
-					directories = append(directories, directory)
-				}
-
-				found[directory.Directory] = append(found[directory.Directory], path)
+				installs = append(installs, legacyInstall{Directory: directory, Kind: kind, Path: path})
 			}
 		}
 	}
 
-	return directories, found
+	return installs
 }
 
 // reportLegacy says what an earlier version of the tool left where a platform no longer looks, and

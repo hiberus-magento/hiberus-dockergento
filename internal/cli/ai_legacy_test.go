@@ -3,11 +3,14 @@ package cli
 import (
 	"encoding/json"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	hm "github.com/hiberus-magento/hiberus-dockergento"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/app"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
@@ -158,6 +161,105 @@ func TestAIPullSaysNothingWithoutALegacyInstall(t *testing.T) {
 
 	if strings.Contains(stderr, "no longer reads") {
 		t.Errorf("stderr reports a legacy install that is not there:\n%s", stderr)
+	}
+}
+
+// legacyReported is the paths ai-pull's report names, in the order it names them.
+func legacyReported(stderr string) []string {
+	var paths []string
+
+	for _, line := range strings.Split(stderr, "\n") {
+		if path, ok := strings.CutPrefix(line, "  "); ok && strings.HasPrefix(path, ".codex/") {
+			paths = append(paths, path)
+		}
+	}
+
+	return paths
+}
+
+// TestALegacyInstallIsTheSameToAIPullAndAIDoctor: ai-pull's report and ai-doctor's legacy rows come
+// from one detection, so they cannot disagree — not even about a link left pointing at nothing,
+// which no agent can read and which ai-doctor counts as missing rather than legacy.
+func TestALegacyInstallIsTheSameToAIPullAndAIDoctor(t *testing.T) {
+	f := legacyCodex(t)
+	f.configure(t, `{"resources": ["skills"], "platforms": ["codex"], "types": [], "custom_repositories": []}`)
+
+	target := t.TempDir()
+	plantFile(t, filepath.Join(target, "SKILL.md"), "# linked\n", 0o644)
+
+	if err := os.Symlink(target, f.path(".codex/skills/linked")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(filepath.Join(t.TempDir(), "nothing"), f.path(".codex/skills/dangling")); err != nil {
+		t.Fatal(err)
+	}
+
+	plantFile(t, f.path(core.AIRegistrationFile), `{
+  "skills": {
+    ".codex/skills/dangling": {"checksum": "x", "origin": "dockergento", "version": "1.5.0"},
+    ".codex/skills/dockergento-environment": {"checksum": "x", "origin": "dockergento", "version": "1.5.0"},
+    ".codex/skills/linked": {"checksum": "x", "origin": "dockergento", "version": "1.5.0"}
+  },
+  "agents": {}
+}
+`, 0o644)
+
+	report, err := app.AIDoctor{Root: f.project, Dir: f.project, Tool: os.DirFS(f.tool)}.Report()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var doctor []string
+
+	for _, resource := range report.Resources {
+		if resource.State == core.AIStateLegacy {
+			doctor = append(doctor, ".codex/skills/"+resource.Name)
+		}
+	}
+
+	_, stderr, code := f.run(t, "", "--no-json", "ai-pull")
+	if code != exitOK {
+		t.Fatalf("ai-pull = %d\nstderr: %s", code, stderr)
+	}
+
+	want := []string{".codex/skills/dockergento-environment", ".codex/skills/linked"}
+
+	if diff := cmp.Diff(want, doctor); diff != "" {
+		t.Errorf("ai-doctor's legacy rows (-want +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(want, legacyReported(stderr)); diff != "" {
+		t.Errorf("ai-pull's report (-want +got):\n%s\nstderr: %s", diff, stderr)
+	}
+}
+
+// TestALegacyInstallIsReportedWhateverKindTheRegistrationLacks: a registration written by hand, or
+// by an older tool, may have no "skills" or no "agents" at all; the report still runs and says what
+// it finds.
+func TestALegacyInstallIsReportedWhateverKindTheRegistrationLacks(t *testing.T) {
+	for _, tc := range []struct {
+		name, registration string
+		reported           bool
+	}{
+		{"no agents", `{"skills": {".codex/skills/dockergento-environment": {"checksum": "x"}}}`, true},
+		{"no skills", `{"agents": {}}`, false},
+		{"neither", `{}`, false},
+		{"skills not an object", `{"skills": "nothing", "agents": []}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := legacyCodex(t)
+			plantFile(t, f.path(core.AIRegistrationFile), tc.registration, 0o644)
+
+			stdout, stderr, code := f.run(t, "", "--no-json", "ai-init", "--platforms=codex", "--resources=skills")
+			if code != exitOK {
+				t.Fatalf("ai-init = %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
+			}
+
+			if got := strings.Contains(stdout, legacyReport); got != tc.reported {
+				t.Errorf("legacy reported = %v, want %v:\n%s", got, tc.reported, stdout)
+			}
+		})
 	}
 }
 
