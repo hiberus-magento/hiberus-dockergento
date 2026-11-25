@@ -12,11 +12,13 @@ on:
 permissions:
   contents: read
 
-# A newer push to the same branch or pull request makes the run in progress pointless: it is
-# cancelled, so the queue holds the commit that matters and not three stale ones before it.
+# A newer push to a pull request makes the run in progress pointless: it is cancelled, so the queue
+# holds the commit that matters and not three stale ones before it. On main and release branches
+# every commit keeps its run, and with it a verdict to bisect by: the group is the commit itself,
+# because a shared group keeps only one waiting run and drops the others even without cancelling.
 concurrency:
-  group: go-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: go-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:

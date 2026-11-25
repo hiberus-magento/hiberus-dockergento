@@ -72,10 +72,10 @@ jobs:
 
     runs-on: macos-15
 
-    # A build takes about ten minutes; the limit only stops a hang from holding the runner for six
-    # hours. A job GitHub cannot give a runner to is cancelled on its side, and is re-run with
-    # `gh run rerun <id> --failed`: the tag stays, nothing was published.
-    timeout-minutes: 30
+    # Tests and build take about fifteen minutes; the limit only stops a hang from holding the
+    # runner for six hours. A job GitHub cannot give a runner to is cancelled on its side, and is
+    # re-run with `gh run rerun <id> --failed`: the tag stays, nothing was published.
+    timeout-minutes: 45
 
     permissions:
       contents: write
@@ -88,6 +88,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: "1.25"
+
+      # The test job ran on Linux; the code that only runs on macOS is tested here, on the machine
+      # that builds the darwin binaries, before they are published
+      - name: go test (macOS)
+        run: go test ./...
 
       - name: Both platforms build before anything is published
         run: |
