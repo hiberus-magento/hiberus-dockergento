@@ -79,6 +79,10 @@ func (a *AITools) Init(options AIInitOptions, interactive bool) int {
 		return 1
 	}
 
+	if !a.placed(platforms, resources, !asked) {
+		return 2
+	}
+
 	a.Console.Say(AIInfo, "Saving configuration...\n", AIDecorated)
 
 	if a.writeJSON(core.AIPropertiesFile, config) != nil {
@@ -115,6 +119,54 @@ func (a *AITools) Init(options AIInitOptions, interactive bool) int {
 	a.Console.Say(AIInfo, "Run 'hm ai-pull' to update tools in the future.\n", AIDecorated)
 
 	return 0
+}
+
+// placed says on stderr which platform has no directory for a resource asked for (generic has none
+// for agents), since nothing is installed there. When every platform is known and none has a
+// directory for anything asked for, nothing at all would be installed: from the command line that
+// is a usage error, refused before anything is written, and false is returned. A platform the
+// catalog does not know is left alone, as it always was.
+func (a *AITools) placed(platforms, resources string, fromOptions bool) bool {
+	if !a.hasData("ai-platforms.json") {
+		return true
+	}
+
+	catalog := a.catalog()
+
+	var missing []string
+
+	somewhere, unknown := false, false
+
+	for _, platform := range split(platforms) {
+		if !catalog.Knows(platform) {
+			unknown = true
+
+			continue
+		}
+
+		for _, kind := range split(resources) {
+			if catalog.Directory(platform, kind) != "" {
+				somewhere = true
+
+				continue
+			}
+
+			missing = append(missing, platform+" has no "+kind+" directory")
+		}
+	}
+
+	if fromOptions && !somewhere && !unknown && len(missing) > 0 {
+		a.Console.Fail(2, "invalid_argument", "Nothing to install: "+strings.Join(missing, ", "),
+			a.Binary+" ai-init --platforms=<list> --resources=skills,agents")
+
+		return false
+	}
+
+	for _, note := range missing {
+		a.Console.Say(AIWarning, note+": nothing of that kind is installed for it", AILine)
+	}
+
+	return true
 }
 
 func (a *AITools) createDirectories(platforms, resources string) {

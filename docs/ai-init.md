@@ -17,6 +17,11 @@ from — see [skills](skills.md#where-each-platform-reads-them). `hm ai-pull` in
 If an earlier hm installed skills where a platform no longer reads them — Codex in
 `.codex/skills` — `ai-init` lists them with the command that cleans them up. It deletes nothing.
 
+A platform with no directory for a resource asked for is said on stderr: `generic` has no agents
+directory, so `--platforms=generic` installs the skills and says so. When nothing asked for has a
+directory on any platform given, as `--platforms=generic --resources=agents`, it is a usage error
+(exit 2) and nothing is written. See [skills](skills.md#where-each-platform-reads-them).
+
 ## A Claude Code plugin
 
 `--plugin` writes a [Claude Code plugin](https://code.claude.com/docs/en/plugins-reference.md) and

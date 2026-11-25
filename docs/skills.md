@@ -81,6 +81,13 @@ top. OpenCode reads `.agents/skills` as well as its own `.opencode/skills`
 ([OpenCode skills](https://opencode.ai/docs/skills)), and so do other agents: `generic` is for
 them. `codex` and `generic` share the directory, so either one is enough.
 
+`generic` has skills only: there is no common directory for agents. `hm ai-init
+--platforms=generic` installs the skills and says on stderr that generic has no agents directory,
+whether agents came from the default resources or were asked for beside skills.
+`--platforms=generic --resources=agents` asks for nothing that can be installed, so it is a usage
+error (exit 2) and nothing is written; next to a platform that has agents, such as
+`--platforms=claude,generic --resources=agents`, that platform's agents are installed.
+
 ### What an earlier hm left in `.codex/skills`
 
 It is reported, never deleted. `hm ai-init`, `hm ai-pull` and `hm ai-doctor` list every skill the

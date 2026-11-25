@@ -199,6 +199,13 @@ func ReadAIPlatformCatalog(contents []byte) AIPlatformCatalog {
 	return AIPlatformCatalog{platforms: catalog.Platforms}
 }
 
+// Knows is whether the catalog has a platform of that name.
+func (c AIPlatformCatalog) Knows(platform string) bool {
+	_, known := c.platforms[platform]
+
+	return known
+}
+
 // Directory is where a platform keeps a kind ("skills" or "agents"), relative to the project, or ""
 // when it keeps none.
 func (c AIPlatformCatalog) Directory(platform, kind string) string {
