@@ -235,7 +235,7 @@ func TestDatabaseQueryRunsWhatOnlyReads(t *testing.T) {
 		text, isError := answer(t, serving(mcpServer{capture: capture},
 			toolCall("database_query", `{"sql":"SELECT 42 AS respuesta"}`)))
 
-		want := []ranCall{{args: []string{"--no-json", "mysql", "-q", "SELECT 42 AS respuesta"}, combined: true}}
+		want := []ranCall{{args: []string{"--no-json", "mysql", "-q", mcpReadOnly + "SELECT 42 AS respuesta"}, combined: true}}
 		if diff := cmp.Diff(want, *calls, cmp.AllowUnexported(ranCall{})); diff != "" {
 			t.Fatalf("runs (-want +got):\n%s", diff)
 		}
@@ -251,7 +251,7 @@ func TestDatabaseQueryRunsWhatOnlyReads(t *testing.T) {
 
 		serving(mcpServer{capture: capture}, toolCall("database_query", `{"sql":"show tables -- todas\n"}`))
 
-		if len(*calls) != 1 || (*calls)[0].args[3] != "show tables -- todas" {
+		if len(*calls) != 1 || (*calls)[0].args[3] != mcpReadOnly+"show tables -- todas" {
 			t.Fatalf("runs = %v, want the statement as given, its trailing newline gone", *calls)
 		}
 	})
@@ -287,6 +287,49 @@ func TestDatabaseQueryRunsWhatOnlyReads(t *testing.T) {
 		if !strings.HasSuffix(text, "fila\n... truncated at 200 rows. Narrow the query with a WHERE or a LIMIT.") ||
 			strings.Count(text, "fila") != 200 {
 			t.Fatalf("= %q", text)
+		}
+	})
+}
+
+// TestDatabaseQueryRunsInsideAReadOnlyTransaction: the text guard reads the statement, not what
+// it does. A SELECT that calls a stored function which inserts a row passes it, and so does a
+// locking read; the database itself has to refuse those, and it can only refuse them when the
+// session and the transaction around the statement are read-only.
+func TestDatabaseQueryRunsInsideAReadOnlyTransaction(t *testing.T) {
+	for _, c := range []struct{ name, sql, statement string }{
+		{"a plain select", "SELECT 1", "SELECT 1"},
+		{"a function that writes, which the guard cannot see", "SELECT writes_a_row()", "SELECT writes_a_row()"},
+		{"a locking read", "SELECT * FROM sales_order FOR UPDATE", "SELECT * FROM sales_order FOR UPDATE"},
+		{"a trailing semicolon stays the last thing sent", "SELECT 1;", "SELECT 1;"},
+		{"a trailing comment cannot swallow the wrapper", "show tables -- todas\n", "show tables -- todas"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			quiet(t)
+
+			if refusal := mcpQueryRefusal(c.sql); refusal != "" {
+				t.Fatalf("the guard refused %q (%s); this test is about what it lets through", c.sql, refusal)
+			}
+
+			calls, capture := recording("1")
+
+			serving(mcpServer{capture: capture}, toolCall("database_query", `{"sql":`+jqText(c.sql).compact()+`}`))
+
+			want := []ranCall{{args: []string{"--no-json", "mysql", "-q",
+				"SET SESSION TRANSACTION READ ONLY;\nSTART TRANSACTION READ ONLY;\n" + c.statement}, combined: true}}
+			if diff := cmp.Diff(want, *calls, cmp.AllowUnexported(ranCall{})); diff != "" {
+				t.Fatalf("runs (-want +got):\n%s", diff)
+			}
+		})
+	}
+
+	t.Run("the text guard still answers first, and nothing runs", func(t *testing.T) {
+		quiet(t)
+
+		text, isError := answer(t, serving(mcpServer{capture: refusing(t)},
+			toolCall("database_query", `{"sql":"DELETE FROM core_config_data"}`)))
+
+		if !isError || text != "Only SELECT, SHOW, DESCRIBE and EXPLAIN can be run here" {
+			t.Fatalf("= %q, %v; want the guard's refusal", text, isError)
 		}
 	})
 }

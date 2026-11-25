@@ -62,6 +62,14 @@ So no reading is trusted, and the refusal says how to write the query without on
 It errs towards refusing. A model that cannot run its query gets a sentence explaining why; a
 model that can run `SELECT ... INTO OUTFILE` gets a file.
 
+The check reads the statement, not what it does: a `SELECT` that calls a stored function which
+inserts a row passes it. So a statement that passes is sent after
+`SET SESSION TRANSACTION READ ONLY; START TRANSACTION READ ONLY;`, and the database itself refuses
+the writes the text could not show. The session setting is there as well as the transaction
+because a statement that commits implicitly starts a new transaction in the session's mode. This
+is a second layer behind the check, not a replacement for it: the check still answers first, and
+a refused statement never reaches the database.
+
 Results are capped at 200 rows, because a `SELECT * FROM sales_order` would otherwise be answered
 with the whole context window.
 

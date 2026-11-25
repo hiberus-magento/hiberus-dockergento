@@ -132,6 +132,18 @@ func (s mcpServer) serviceLogs(arguments jqValue) jqValue {
 	return mcpContent(output, false)
 }
 
+// mcpReadOnly goes before every statement database_query runs: the second layer, for what the
+// text guard lets through and the statement still does — a SELECT calling a stored function that
+// writes, a locking read. The database refuses those itself inside a read-only transaction.
+//
+// The session setting as well as the transaction: a statement that commits implicitly ends the
+// transaction, and what runs after it starts another in the session's mode, which is read-only too.
+// The statement goes last and on its own line, with no ROLLBACK after it, because a trailing
+// `-- comment` would swallow anything put after it on that line and a trailing ';' would leave an
+// empty statement, which the client reports as an error. The client closes the connection when it
+// is done, and a transaction that could not write has nothing to roll back.
+const mcpReadOnly = "SET SESSION TRANSACTION READ ONLY;\nSTART TRANSACTION READ ONLY;\n"
+
 func (s mcpServer) databaseQuery(arguments jqValue) jqValue {
 	sql := rawField(arguments, "sql", "")
 
@@ -139,7 +151,7 @@ func (s mcpServer) databaseQuery(arguments jqValue) jqValue {
 		return mcpContent(refusal, true)
 	}
 
-	output := s.run(true, "--no-json", "mysql", "-q", sql)
+	output := s.run(true, "--no-json", "mysql", "-q", mcpReadOnly+sql)
 	if output == "" {
 		return mcpContent("(no rows)", false)
 	}
