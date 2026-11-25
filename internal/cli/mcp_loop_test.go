@@ -63,6 +63,24 @@ func structured(t *testing.T, out string) (map[string]any, bool) {
 	return content, isError
 }
 
+// pestProbe is the question run_tests asks before it runs anything: is there a Pest in the
+// project? Answered with withoutPest, it is a PHPUnit project, as every one was before Pest counted.
+var pestProbe = []string{"--no-json", "exec", "test", "-x", "./vendor/bin/pest"}
+
+func isPestProbe(args []string) bool {
+	return strings.Join(args, " ") == strings.Join(pestProbe, " ")
+}
+
+func withoutPest(answer func(args []string) (string, int)) func(args []string) (string, int) {
+	return func(args []string) (string, int) {
+		if isPestProbe(args) {
+			return "", 1
+		}
+
+		return answer(args)
+	}
+}
+
 const junitPassing = `<testsuites><testsuite name="Unit"><testcase name="testA" class="A" time="0.5"/><testcase name="testB" class="A" time="0.5"/></testsuite></testsuites>`
 
 const junitFailing = `<testsuites><testsuite name="Unit"><testcase name="testA" class="A" time="0.5"/>` +
@@ -74,7 +92,7 @@ func TestRunTestsReadsPHPUnitsReport(t *testing.T) {
 
 		var junit string
 
-		calls, server := looping(true, func(args []string) (string, int) {
+		calls, server := looping(true, withoutPest(func(args []string) (string, int) {
 			switch {
 			case len(args) > 1 && args[1] == "test-unit":
 				junit = args[3]
@@ -85,7 +103,7 @@ func TestRunTestsReadsPHPUnitsReport(t *testing.T) {
 			}
 
 			return "", 0
-		})
+		}))
 
 		content, isError := structured(t, serving(server, toolCall("run_tests", `{"path":"app/code/Acme/Shop/Test/Unit"}`)))
 
@@ -94,6 +112,7 @@ func TestRunTestsReadsPHPUnitsReport(t *testing.T) {
 		}
 
 		want := [][]string{
+			pestProbe,
 			{"--no-json", "test-unit", "--log-junit", junit, "app/code/Acme/Shop/Test/Unit"},
 			{"--no-json", "exec", "cat", junit},
 			{"--no-json", "exec", "rm", "-f", junit},
@@ -103,7 +122,8 @@ func TestRunTestsReadsPHPUnitsReport(t *testing.T) {
 		}
 
 		if isError || content["passed"] != false || content["source"] != "junit" || content["exit_code"] != float64(1) ||
-			content["tests"] != float64(2) || content["failures"] != float64(1) || content["suite"] != "unit" {
+			content["tests"] != float64(2) || content["failures"] != float64(1) || content["suite"] != "unit" ||
+			content["runner"] != "phpunit" {
 			t.Fatalf("content = %v, want a failed run read from the report", content)
 		}
 
@@ -120,13 +140,13 @@ func TestRunTestsReadsPHPUnitsReport(t *testing.T) {
 	t.Run("a passing run passes", func(t *testing.T) {
 		quiet(t)
 
-		_, server := looping(true, func(args []string) (string, int) {
+		_, server := looping(true, withoutPest(func(args []string) (string, int) {
 			if len(args) > 2 && args[2] == "cat" {
 				return junitPassing, 0
 			}
 
 			return "OK (2 tests)\n", 0
-		})
+		}))
 
 		content, _ := structured(t, serving(server, toolCall("run_tests", `{"suite":"integration"}`)))
 
@@ -137,11 +157,11 @@ func TestRunTestsReadsPHPUnitsReport(t *testing.T) {
 
 	t.Run("the integration suite runs test-integration", func(t *testing.T) {
 		quiet(t)
-		calls, server := looping(true, func([]string) (string, int) { return "", 0 })
+		calls, server := looping(true, withoutPest(func([]string) (string, int) { return "", 0 }))
 
 		serving(server, toolCall("run_tests", `{"suite":"integration"}`))
 
-		if got := (*calls)[0].args[1]; got != "test-integration" {
+		if got := (*calls)[1].args[1]; got != "test-integration" {
 			t.Fatalf("ran %v, want test-integration", (*calls)[0].args)
 		}
 	})
@@ -157,14 +177,14 @@ func TestRunTestsWithoutAReportSaysTheExitCodeAndTheTail(t *testing.T) {
 
 	output.WriteString("PHP Fatal error: bootstrap failed\n")
 
-	_, server := looping(true, func(args []string) (string, int) {
+	_, server := looping(true, withoutPest(func(args []string) (string, int) {
 		if len(args) > 1 && args[1] == "test-unit" {
 			return output.String(), 255
 		}
 
 		// No report was written: cat fails and prints nothing on stdout
 		return "", 1
-	})
+	}))
 
 	content, isError := structured(t, serving(server, toolCall("run_tests", `{}`)))
 
@@ -179,6 +199,69 @@ func TestRunTestsWithoutAReportSaysTheExitCodeAndTheTail(t *testing.T) {
 
 	if _, there := content["tests"]; there {
 		t.Errorf("tests = %v, want no count invented without a report", content["tests"])
+	}
+}
+
+// TestRunTestsRunsPestWhenTheProjectHasIt: a project whose tests are written for Pest cannot run
+// them with PHPUnit, which stops with "Please run ./vendor/bin/pest instead". With a
+// ./vendor/bin/pest in the container's workdir, the suite runs with it: the same configuration
+// test-unit and test-integration give PHPUnit, the same JUnit report (Pest takes --log-junit),
+// read the same way. The path is an argument of the script, never part of it.
+func TestRunTestsRunsPestWhenTheProjectHasIt(t *testing.T) {
+	cases := []struct {
+		name, arguments, suite, script string
+		path                           []string
+	}{
+		{"the unit suite", `{"path":"app/code/Acme/Shop/Test/Unit"}`, "unit",
+			`./vendor/bin/pest --configuration ./dev/tests/unit/phpunit.xml.dist --log-junit "$1" ${2:+"$2"}`,
+			[]string{"app/code/Acme/Shop/Test/Unit"}},
+		{"the integration suite, from its own directory", `{"suite":"integration"}`, "integration",
+			`cd ./dev/tests/integration && ../../../vendor/bin/pest --configuration phpunit.xml --log-junit "$1" ${2:+"$2"}`,
+			nil},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			quiet(t)
+
+			var junit string
+
+			calls, server := looping(true, func(args []string) (string, int) {
+				switch {
+				case isPestProbe(args):
+					return "", 0
+				case len(args) > 6 && args[2] == "sh":
+					junit = args[6]
+
+					return "FAILED  Tests\\Unit\\ATest > b\n", 1
+				case len(args) > 2 && args[2] == "cat":
+					return junitFailing, 0
+				}
+
+				return "", 0
+			})
+
+			content, isError := structured(t, serving(server, toolCall("run_tests", tt.arguments)))
+
+			if !strings.HasPrefix(junit, "/tmp/hm-mcp-junit-") {
+				t.Fatalf("report path = %q, want one in the container's /tmp", junit)
+			}
+
+			want := [][]string{
+				pestProbe,
+				append([]string{"--no-json", "exec", "sh", "-c", tt.script, "sh", junit}, tt.path...),
+				{"--no-json", "exec", "cat", junit},
+				{"--no-json", "exec", "rm", "-f", junit},
+			}
+			if diff := cmp.Diff(want, called(*calls)); diff != "" {
+				t.Fatalf("runs (-want +got):\n%s", diff)
+			}
+
+			if isError || content["runner"] != "pest" || content["source"] != "junit" || content["suite"] != tt.suite ||
+				content["passed"] != false || content["failures"] != float64(1) {
+				t.Fatalf("content = %v, want Pest's failed run read from its report", content)
+			}
+		})
 	}
 }
 

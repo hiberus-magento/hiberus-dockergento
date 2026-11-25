@@ -221,7 +221,7 @@ const mcpWriteTools = `
   },
   {
     "name": "run_tests",
-    "description": "Run the project's PHPUnit tests, unit or integration, optionally only those under a path, and say whether they passed: how many ran, failed, errored and were skipped, and each failure with its message, read from PHPUnit's JUnit report. When there is no report, the exit code and the last lines of the output. It runs the project's code, and the integration suite installs into and empties its own test database.",
+    "description": "Run the project's tests, unit or integration, with Pest when the project has vendor/bin/pest and PHPUnit otherwise, optionally only those under a path, and say whether they passed: how many ran, failed, errored and were skipped, and each failure with its message, read from the runner's JUnit report. When there is no report, the exit code and the last lines of the output. It runs the project's code, and the integration suite installs into and empties its own test database.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -235,9 +235,10 @@ const mcpWriteTools = `
       "type": "object",
       "properties": {
         "suite": { "type": "string" },
+        "runner": { "type": "string", "enum": ["pest", "phpunit"], "description": "Which ran: pest when the project has vendor/bin/pest, phpunit otherwise" },
         "passed": { "type": "boolean" },
         "exit_code": { "type": "integer" },
-        "source": { "type": "string", "description": "junit when the counts come from PHPUnit's report, exit code when there was none" },
+        "source": { "type": "string", "description": "junit when the counts come from the runner's report, exit code when there was none" },
         "tests": { "type": "integer" },
         "failures": { "type": "integer" },
         "errors": { "type": "integer" },

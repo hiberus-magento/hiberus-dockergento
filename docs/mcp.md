@@ -59,6 +59,16 @@ accepted, never one with `..`. Running tests takes `--write`: it runs the projec
 the integration suite installs into and empties a database of its own, so its annotations say it
 is destructive and not idempotent.
 
+When the container's workdir — where `hm test-unit` finds PHPUnit — has an executable
+`./vendor/bin/pest`, the suite runs with [Pest](https://pestphp.com) instead: a project whose
+tests are written for Pest cannot run them with PHPUnit, which stops with "Please run
+./vendor/bin/pest instead". Pest is given the configuration `hm test-unit` and
+`hm test-integration` give PHPUnit (`dev/tests/unit/phpunit.xml.dist`; `phpunit.xml` from
+`dev/tests/integration`), and PHPUnit's own `--log-junit`, which Pest accepts
+([CLI reference](https://pestphp.com/docs/cli-api-reference), Logging), so the report is read the
+same way and the path is checked the same way. The answer's `runner` says which ran: `pest` or
+`phpunit`. Pest is looked for at `./vendor/bin`, not at a custom `BIN_DIR`.
+
 **`xdebug`** says whether xdebug is `on`, `off` or `unknown`, as `hm describe` reads it. With
 `--write` it also takes `state: "on" | "off"` and runs `hm debug-on` or `hm debug-off`, which
 restart the php container. A command that fails is a tool error (`isError`) with its exit status

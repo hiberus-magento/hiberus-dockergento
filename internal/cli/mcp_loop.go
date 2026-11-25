@@ -63,10 +63,14 @@ func refusedWithoutWrite(what string) jqValue {
 // the container.
 var testPath = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_./-]*$`)
 
-// testRun is run_tests' answer. The counts are there only when PHPUnit wrote its report: without
+// testRun is run_tests' answer. The counts are there only when the runner wrote its report: without
 // one there is nothing to count, and a 0 would read as "no tests failed".
 type testRun struct {
-	Suite    string `json:"suite"`
+	Suite string `json:"suite"`
+
+	// Runner is "pest" or "phpunit": which of the two ran, so that a failure is read against the
+	// right one's output
+	Runner   string `json:"runner"`
 	Passed   bool   `json:"passed"`
 	ExitCode int    `json:"exit_code"`
 	Source   string `json:"source"`
@@ -74,8 +78,21 @@ type testRun struct {
 	Tail string `json:"tail,omitempty"`
 }
 
-// runTests runs a suite with PHPUnit writing its JUnit report into the container's /tmp, reads it
-// back through `exec` — which works whether the code is mounted or in a volume — and removes it.
+// pestScripts are how run_tests runs a suite with Pest, for a project that has it: the
+// configuration and directory test-unit and test-integration give PHPUnit, the other binary. A
+// project written for Pest cannot run its tests with PHPUnit, which stops with "Please run
+// ./vendor/bin/pest instead". Pest takes PHPUnit's --log-junit (pestphp.com/docs/cli-api-reference,
+// Logging), so the report is read the same way. The report and the path are the script's
+// arguments, never part of its text.
+var pestScripts = map[string]string{
+	"unit":        `./vendor/bin/pest --configuration ./dev/tests/unit/phpunit.xml.dist --log-junit "$1" ${2:+"$2"}`,
+	"integration": `cd ./dev/tests/integration && ../../../vendor/bin/pest --configuration phpunit.xml --log-junit "$1" ${2:+"$2"}`,
+}
+
+// runTests runs a suite with its runner writing its JUnit report into the container's /tmp, reads
+// it back through `exec` — which works whether the code is mounted or in a volume — and removes it.
+// The runner is Pest when the container's workdir, where test-unit finds PHPUnit, has a
+// ./vendor/bin/pest, and PHPUnit through test-unit or test-integration otherwise.
 func (s mcpServer) runTests(arguments jqValue) jqValue {
 	suite := rawField(arguments, "suite", "unit")
 	if suite != "unit" && suite != "integration" {
@@ -90,7 +107,14 @@ func (s mcpServer) runTests(arguments jqValue) jqValue {
 
 	junit := fmt.Sprintf("/tmp/hm-mcp-junit-%d.xml", time.Now().UnixNano())
 
+	runner := "phpunit"
 	args := []string{"--no-json", "test-" + suite, "--log-junit", junit}
+
+	if _, found := s.statusOf(false, "--no-json", "exec", "test", "-x", "./vendor/bin/pest"); found == 0 {
+		runner = "pest"
+		args = []string{"--no-json", "exec", "sh", "-c", pestScripts[suite], "sh", junit}
+	}
+
 	if path != "" {
 		args = append(args, path)
 	}
@@ -100,7 +124,7 @@ func (s mcpServer) runTests(arguments jqValue) jqValue {
 	report, _ := s.statusOf(false, "--no-json", "exec", "cat", junit)
 	s.statusOf(false, "--no-json", "exec", "rm", "-f", junit)
 
-	run := testRun{Suite: suite, ExitCode: status}
+	run := testRun{Suite: suite, Runner: runner, ExitCode: status}
 
 	if parsed, err := core.ParseJUnit([]byte(report)); err == nil {
 		run.Source, run.TestReport = "junit", &parsed
