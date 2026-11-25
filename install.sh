@@ -401,7 +401,7 @@ as_needed() {
         fi
         sudo "$@"
     else
-        die "$dir is not writable and sudo is not available. Choose a directory of your own: --dir ~/.local/bin"
+        die "$dir is not writable and sudo is not available. Nothing was changed. Choose a directory of your own: --dir ~/.local/bin"
     fi
 }
 
@@ -436,20 +436,27 @@ place_link() {
 }
 
 # place_layout <source>: the binary at ~/.hm/bin/hm and LINK a link to it, sudo for the link only.
-# Fails when the link cannot be made — no sudo, or sudo refused — leaving LINK as it was and no
-# ~/.hm/bin/hm that was not there before.
+# Fails when the link cannot be made — no sudo, or sudo refused — leaving LINK as it was and
+# ~/.hm/bin/hm as it was: absent, or the hm that was there, put back.
 place_layout() {
-    local source="$1" existed=false
+    local source="$1" previous=""
     if [ ! -w "$(dirname "$LINK")" ] && ! command -v sudo >/dev/null 2>&1; then return 1; fi
 
-    { [ -e "$HOME_BINARY" ] || [ -L "$HOME_BINARY" ]; } && existed=true
+    # Copied with its mode into WORK, which goes away whatever happens, so no copy is left behind
+    if [ -e "$HOME_BINARY" ] || [ -L "$HOME_BINARY" ]; then
+        previous="$WORK/previous-hm"
+        cp -p "$HOME_BINARY" "$previous" || die "Could not keep a copy of $HOME_BINARY. Nothing was changed."
+    fi
     mkdir -p "$HOME_BIN"
     place "$source" "$HOME_BINARY"
     place_link "$LINK" && return 0
 
-    if ! $existed; then
+    if [ -z "$previous" ]; then
         rm -f "$HOME_BINARY"
         rmdir "$HOME_BIN" 2>/dev/null || true
+    elif ! { cp -p "$previous" "$HOME_BIN/.hm.restore.$$" && mv -f "$HOME_BIN/.hm.restore.$$" "$HOME_BINARY"; }; then
+        rm -f "$HOME_BIN/.hm.restore.$$"
+        die "Linking $LINK needs root, sudo is not available or was refused, and the hm that was in $HOME_BINARY could not be put back: it now holds the downloaded one."
     fi
     return 1
 }
@@ -831,8 +838,9 @@ choose_target() {
         die "$COMMAND exists and is not an hm this installer can replace; it was left as it is. Remove it, or install elsewhere: --dir <directory>"
     fi
 
-    # A directory that is not the user's gets the link, and the binary goes where updates reach it
-    if [ -z "$LINK" ] && ! writable_dir "$dir"; then
+    # A directory that is not the user's gets the link, and the binary goes where updates reach it.
+    # One named with --dir or HM_INSTALL_DIR gets the binary itself, written with sudo, as asked.
+    if [ -z "$LINK" ] && [ -z "$INSTALL_DIR" ] && ! writable_dir "$dir"; then
         TARGET="$HOME_BINARY" LINK="$COMMAND" MAKE_LINK=1
     fi
 
@@ -847,7 +855,8 @@ choose_target() {
 }
 
 install_hm() {
-    local version current="" dir source="" kept=""
+    # kept: the binary in use stays, nothing is downloaded; newer: it is newer than the latest release
+    local version current="" dir source="" kept=false newer=false
     CHANGES=()
     header
 
@@ -869,11 +878,11 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
     # directory is not the user's, so that the next update needs no root
     if [ -n "$current" ] && [ "$current" == "$version" ]; then
         say "${green}hm $version is already installed at $COMMAND; it is up to date.${reset}"
-        source="$CURRENT_BINARY" kept="receipt"
+        source="$CURRENT_BINARY" kept=true
     elif [ -n "$current" ] && [ -z "$VERSION" ] && version_gt "$current" "$version"; then
         say "${green}hm $current at $COMMAND is newer than the latest release ($version); it was left as it is.${reset}"
         version="$current"
-        source="$CURRENT_BINARY" kept="as-is"
+        source="$CURRENT_BINARY" kept=true newer=true
     else
         download "$version"
         if [ -n "$FANCY" ]; then
@@ -885,7 +894,11 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
         fi
 
         if [ ! -d "$dir" ]; then
-            if [[ "$dir" == "$HOME"/* ]]; then mkdir -p "$dir"; else as_needed "$(dirname "$dir")" mkdir -p "$dir"; fi
+            if [[ "$dir" == "$HOME"/* ]]; then
+                mkdir -p "$dir"
+            else
+                as_needed "$(dirname "$dir")" mkdir -p "$dir" || die "Could not create $dir. Nothing was changed."
+            fi
         fi
 
         local replacement="the binary"
@@ -901,8 +914,13 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
     fi
 
     if [ -n "$MAKE_LINK" ]; then
-        [ "$REPLACING" != "hm2" ] || CHANGES+=("moved the binary from $COMMAND to $HOME_BINARY")
-        if ! place_layout "$source"; then
+        if place_layout "$source"; then
+            [ "$REPLACING" != "hm2" ] || CHANGES+=("moved the binary from $COMMAND to $HOME_BINARY")
+        elif $kept; then
+            # It was to move only so that updates need no root; where it is, it still works
+            warn "Moving $COMMAND to $HOME_BINARY needs root, and sudo is not available or was refused; it was left where it is, so updates will still need sudo until this installer is run again with sudo."
+            TARGET="$COMMAND" LINK="" MAKE_LINK=""
+        else
             # Only a fresh install has somewhere else to go; anything already there stays as it was
             [ -z "$REPLACING" ] ||
                 die "Could not write $COMMAND: it needs root, and sudo is not available or was refused. Nothing was changed. To install where you can write: --dir ~/.local/bin"
@@ -915,15 +933,17 @@ To run a branch, build it from source (Go needed): git clone -b $VERSION https:/
             mkdir -p "$dir"
             place "$source" "$TARGET"
         fi
-    elif [ "$source" == "$WORK/hm" ]; then
+    elif ! $kept; then
         [ "$TARGET" != "$HOME_BINARY" ] || mkdir -p "$HOME_BIN"
         place "$source" "$TARGET"
     fi
 
-    if [ "$source" == "$WORK/hm" ] || [ -n "$MAKE_LINK" ] || [ "$kept" == "receipt" ]; then
+    # A newer binary left as it is was not installed by this installer, and gets no receipt unless
+    # it was just moved behind a link
+    if ! $newer || [ -n "$MAKE_LINK" ]; then
         write_receipt "$TARGET" "$version" "$LINK"
     fi
-    if [ "$source" == "$WORK/hm" ]; then
+    if ! $kept; then
         if [ -n "$FANCY" ]; then step "Installed at $TARGET"; else say "${green}${bold}hm $version installed at $TARGET${reset}"; fi
     fi
     [ -z "$LINK" ] || CHANGES+=("the binary lives in $HOME_BINARY; $LINK links to it, so updates need no sudo")

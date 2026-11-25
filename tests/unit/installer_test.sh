@@ -146,6 +146,16 @@ run_install() {
     OUT=$(cat "$CASE/out" "$CASE/err")
 }
 
+# run_install_refusing_sudo [args...]: run_install with a sudo that is there and always refuses
+run_install_refusing_sudo() {
+    mkdir -p "$CASE/no-sudo"
+    printf '#!/bin/sh\necho "sudo $*" >>"$FAKE_SUDO_LOG"\nexit 1\n' >"$CASE/no-sudo/sudo"
+    chmod +x "$CASE/no-sudo/sudo"
+    (PATH="$CASE/no-sudo:$TOOLS:$BASE_PATH" bash "$INSTALL_SH" "$@" >"$CASE/out" 2>"$CASE/err" </dev/null)
+    STATUS=$?
+    OUT=$(cat "$CASE/out" "$CASE/err")
+}
+
 exists() { [ -e "$1" ] || [ -L "$1" ] && echo yes || echo no; }
 
 # sudo_outside_system: each sudo command whose last argument, the file it writes, is not in the
@@ -384,6 +394,68 @@ assert_equals "yes" "$([ -s "$FAKE_SUDO_LOG" ] && echo yes || echo no)"
 assert_equals "" "$(sudo_outside_system)"
 assert_equals "$HM_SYSTEM_BIN/hm" "$(sed -n 's/^link=//p' "$HOME/.hm/install-receipt")"
 
+# An earlier binary the installer would move, and a sudo that refuses: up to date, or newer than
+# the latest release, it is left where it is and still works, as before the link layout existed
+for kept_case in up-to-date newer; do
+    new_case "rc-binary-sudo-refused-$kept_case"
+    publish 2.0.0
+    publish 2.1.0
+    api_releases 2.0.0
+    if [ "$kept_case" == "newer" ]; then run_install --version 2.1.0; kept_version=2.1.0; else run_install; kept_version=2.0.0; fi
+    rm -f "$HOME/.hm/completion/hm.zsh"
+    chmod u-w "$HM_SYSTEM_BIN"
+    run_install_refusing_sudo
+    chmod u+w "$HM_SYSTEM_BIN"
+
+    test_case "an earlier binary ($kept_case) whose move sudo refuses stays where it is: a warning, exit 0"
+    if [ "$(id -u)" -eq 0 ]; then
+        echo "  - skipped: running as root, a read-only folder does not need sudo"
+        continue
+    fi
+    assert_equals "0" "$STATUS"
+    assert_equals "no" "$([ -L "$HM_SYSTEM_BIN/hm" ] && echo yes || echo no)"
+    assert_equals "hm $kept_version" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
+    assert_equals "no" "$(exists "$HOME/.hm/bin/hm")"
+    assert_equals "no" "$(exists "$HOME/.local/bin/hm")"
+    assert_contains "$OUT" "updates will still need sudo until this installer is run again with sudo"
+    assert_not_contains "$OUT" "moved the binary"
+    assert_not_contains "$OUT" "links to it"
+
+    test_case "and the receipt, the completion and the PATH check still happen ($kept_case)"
+    assert_equals "$HM_SYSTEM_BIN/hm" "$(sed -n 's/^path=//p' "$HOME/.hm/install-receipt")"
+    assert_equals "" "$(sed -n 's/^link=//p' "$HOME/.hm/install-receipt")"
+    assert_equals "# hm zsh completion of $kept_version" "$(cat "$HOME/.hm/completion/hm.zsh")"
+    assert_contains "$OUT" "$HM_SYSTEM_BIN is not in your PATH"
+done
+
+new_case rc-binary-home-binary-restored
+publish 2.0.0
+publish 2.1.0
+api_releases 2.0.0
+run_install
+# A ~/.hm/bin/hm already there: an earlier hm 2 that is not the one in the system directory
+mkdir -p "$HOME/.hm/bin"
+{ cat "$FAKE_RELEASES/2.0.0/hm_linux_amd64"; echo "# mine"; } >"$HOME/.hm/bin/hm"
+chmod 755 "$HOME/.hm/bin/hm"
+home_binary_before=$(sha256_of "$HOME/.hm/bin/hm")
+chmod u-w "$HM_SYSTEM_BIN"
+api_releases 2.1.0 2.0.0
+run_install_refusing_sudo
+chmod u+w "$HM_SYSTEM_BIN"
+
+test_case "a refused sudo puts back the ~/.hm/bin/hm that was there, so nothing was changed"
+if [ "$(id -u)" -eq 0 ]; then
+    echo "  - skipped: running as root, a read-only folder does not need sudo"
+else
+    assert_equals "1" "$STATUS"
+    assert_contains "$OUT" "Nothing was changed"
+    assert_equals "$home_binary_before" "$(sha256_of "$HOME/.hm/bin/hm")"
+    assert_equals "-rwxr-xr-x" "$(ls -l "$HOME/.hm/bin/hm" | cut -c1-10)"
+    assert_equals "hm" "$(ls -A "$HOME/.hm/bin")"
+    assert_equals "no" "$([ -L "$HM_SYSTEM_BIN/hm" ] && echo yes || echo no)"
+    assert_equals "hm 2.0.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
+fi
+
 new_case receipt-without-link
 publish 2.0.0
 api_releases 2.0.0
@@ -444,6 +516,41 @@ test_case "a directory of the user's own gets the binary itself: no link, no ~/.
 assert_equals "no" "$([ -L "$CASE/opt/bin/hm" ] && echo yes || echo no)"
 assert_equals "no" "$(exists "$HOME/.hm/bin")"
 assert_equals "" "$(sed -n 's/^link=//p' "$HOME/.hm/install-receipt")"
+
+new_case explicit-dir-not-writable
+publish 2.0.0
+api_releases 2.0.0
+chmod u-w "$HM_SYSTEM_BIN"
+run_install --dir "$HM_SYSTEM_BIN"
+chmod u+w "$HM_SYSTEM_BIN"
+
+test_case "a --dir that is not writable gets the binary itself, written with sudo: no link, no ~/.hm/bin"
+assert_equals "0" "$STATUS"
+assert_equals "no" "$([ -L "$HM_SYSTEM_BIN/hm" ] && echo yes || echo no)"
+assert_equals "hm 2.0.0" "$("$HM_SYSTEM_BIN/hm" --version | head -n 1)"
+assert_equals "no" "$(exists "$HOME/.hm/bin")"
+assert_contains "$(cat "$FAKE_SUDO_LOG")" "cp "
+assert_equals "$HM_SYSTEM_BIN/hm" "$(sed -n 's/^path=//p' "$HOME/.hm/install-receipt")"
+assert_equals "" "$(sed -n 's/^link=//p' "$HOME/.hm/install-receipt")"
+
+new_case explicit-dir-sudo-refused
+publish 2.0.0
+api_releases 2.0.0
+chmod u-w "$HM_SYSTEM_BIN"
+HM_INSTALL_DIR="$HM_SYSTEM_BIN" run_install_refusing_sudo
+chmod u+w "$HM_SYSTEM_BIN"
+
+test_case "an HM_INSTALL_DIR whose sudo is refused is refused too: nothing changed, no fallback to ~/.local/bin"
+if [ "$(id -u)" -eq 0 ]; then
+    echo "  - skipped: running as root, a read-only folder does not need sudo"
+else
+    assert_equals "1" "$STATUS"
+    assert_contains "$OUT" "Nothing was changed"
+    assert_equals "" "$(ls -A "$HM_SYSTEM_BIN")"
+    assert_equals "no" "$(exists "$HOME/.local/bin/hm")"
+    assert_equals "no" "$(exists "$HOME/.hm/bin")"
+    assert_equals "no" "$(exists "$HOME/.hm/install-receipt")"
+fi
 
 new_case foreign
 publish 2.0.0

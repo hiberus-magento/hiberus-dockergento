@@ -92,9 +92,25 @@ it:
 An `hm` that is already there is moved to this layout the next time the installer runs, even when
 it is up to date: the binary of an earlier hm 2 (2.0.0-rc.1 to rc.3 put it straight in
 `/usr/local/bin`) or the 1.x link. If `sudo` is not available or you refuse it, a fresh install
-goes to `~/.local/bin/hm` instead, and an existing `hm` is left exactly as it was.
+goes to `~/.local/bin/hm` instead, and an existing `hm` is left exactly as it was (a `~/.hm/bin/hm`
+that was there included). An earlier hm 2 that is already up to date, or newer than the latest
+release, still works where it is: the installer warns that updates will still need `sudo` until it
+is run again with `sudo`, and finishes normally.
+
+All of this is for the default directory only. A directory you name with `--dir` or
+`HM_INSTALL_DIR` gets the binary itself, as you asked, written with `sudo` when it is not yours,
+and no link. If `sudo` is not available or you refuse it, the installer stops and changes nothing;
+it does not fall back to `~/.local/bin`.
 
 The receipt `~/.hm/install-receipt` records where the binary is (`path=`) and the link (`link=`).
+
+#### On a machine several people use
+
+The link in `/usr/local/bin` points at a binary you own. Anyone who can act as your user can then
+change what every other account runs as `/usr/local/bin/hm`. On a shared host, install per user
+(`HM_INSTALL_DIR=$HOME/.local/bin`), or keep a binary only root can change by passing the system
+directory explicitly, `--dir /usr/local/bin`, on every run of the installer: without it, the next
+run moves the binary to `~/.hm/bin`, and so does `hm update` at a terminal.
 
 A file called `hm` that is not hm is never overwritten — in the chosen directory or at
 `~/.hm/bin/hm`: the installer stops and asks you to remove it or to choose another directory.
