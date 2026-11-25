@@ -204,6 +204,85 @@ func TestAIInitPluginReplacesItsOwnBundle(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "notes.txt")); err != nil {
 		t.Error("a file somebody added was removed")
 	}
+
+	if entries, err := os.ReadDir(filepath.Dir(dir)); err != nil || len(entries) != 1 {
+		t.Errorf("beside the plugin there is %v (%v), want nothing left of building it", entries, err)
+	}
+}
+
+// TestAIInitPluginLeavesThePreviousBundleWhenAWriteFails: the new bundle is built beside the old
+// one and swapped in only once all of it is written, so a failure halfway leaves the plugin that
+// was there whole, and nothing of the attempt behind.
+func TestAIInitPluginLeavesThePreviousBundleWhenAWriteFails(t *testing.T) {
+	f := pluginTooling(t)
+	parent := t.TempDir()
+	dir := filepath.Join(parent, "plugin")
+
+	if _, stderr, code := f.run(t, "", "--no-json", "ai-init", "--plugin="+dir); code != exitOK {
+		t.Fatalf("first ai-init --plugin = %d\nstderr: %s", code, stderr)
+	}
+
+	before := map[string]string{}
+
+	for _, name := range []string{
+		".claude-plugin/plugin.json", ".mcp.json", "hooks/hooks.json",
+		"skills/dockergento-environment/SKILL.md", "skills/dockergento-database/SKILL.md",
+	} {
+		contents, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		before[name] = string(contents)
+	}
+
+	// A skill of the tool's that cannot be read: the copy fails after others were written
+	unreadable := filepath.Join(f.tool, "skills", "dockergento-environment", "SKILL.md")
+	if err := os.Chmod(unreadable, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { os.Chmod(unreadable, 0o644) }) //nolint:errcheck
+
+	if _, err := os.ReadFile(unreadable); err == nil {
+		t.Skip("the file can still be read (running as root?): no failure to provoke")
+	}
+
+	stdout, stderr, code := f.run(t, "", "--no-json", "ai-init", "--plugin="+dir)
+	if code != exitError {
+		t.Fatalf("ai-init --plugin with an unreadable skill = %d, want exitError\nstdout: %s\nstderr: %s", code, stdout, stderr)
+	}
+
+	if !strings.Contains(stdout+stderr, "Failed to write the plugin") {
+		t.Errorf("the failure is not reported:\nstdout: %s\nstderr: %s", stdout, stderr)
+	}
+
+	for name, want := range before {
+		contents, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Errorf("%s of the previous plugin is gone: %v", name, err)
+
+			continue
+		}
+
+		if string(contents) != want {
+			t.Errorf("%s of the previous plugin changed:\n%s", name, contents)
+		}
+	}
+
+	entries, err := os.ReadDir(parent)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(entries) != 1 || entries[0].Name() != "plugin" {
+		var names []string
+		for _, entry := range entries {
+			names = append(names, entry.Name())
+		}
+
+		t.Errorf("beside the plugin there is %v, want nothing left of the attempt", names)
+	}
 }
 
 func TestAIInitPluginTakesNoOtherOption(t *testing.T) {

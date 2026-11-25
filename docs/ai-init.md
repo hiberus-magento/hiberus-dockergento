@@ -49,6 +49,9 @@ plugin's servers. `hm` has to be on the `PATH`. For the write tools, add your ow
 
 **It is regenerated, not merged.** Run it again after `hm update` and the skills, hook and server
 match the new version: the plugin's own parts are replaced, a file you added beside them stays.
+The new plugin is built in a hidden directory beside the old one and swapped in only once all of
+it is written, so a failure halfway (a disk full, a file that cannot be read) leaves the previous
+plugin as it was.
 A directory that is not empty and holds no plugin hm wrote is refused, and nothing is written.
 
 It is opt-in on purpose. A plugin is loaded into every session that enables it; installing one is

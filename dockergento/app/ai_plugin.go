@@ -88,13 +88,98 @@ func (a *AITools) pluginDirectory(dir string) bool {
 	return err == nil && json.Unmarshal(contents, &manifest) == nil && manifest.Name == core.ClaudePluginName
 }
 
+// writePlugin builds the whole bundle in a directory beside dir, on the same filesystem so that a
+// part moves in with a rename, and only then swaps it in: a failure while writing leaves the plugin
+// that was there untouched, and nothing of the attempt behind.
 func (a *AITools) writePlugin(dir, version string, permissions core.AgentPermissions) error {
+	parent, base := filepath.Dir(dir), filepath.Base(dir)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return err
+	}
+
+	built, err := os.MkdirTemp(parent, "."+base+".new-")
+	if err != nil {
+		return err
+	}
+
+	defer os.RemoveAll(built) //nolint:errcheck
+
+	if err := a.buildPlugin(built, version, permissions); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+
+	return swapPluginParts(built, dir)
+}
+
+// swapPluginParts moves each part of the bundle built into dir. The part it replaces is set aside
+// until every new one is in place, so a rename that fails puts back what was there; only when that
+// too fails is what was set aside kept, and its place said.
+func swapPluginParts(built, dir string) error {
+	aside, err := os.MkdirTemp(filepath.Dir(dir), "."+filepath.Base(dir)+".old-")
+	if err != nil {
+		return err
+	}
+
+	var swapped []string
+
+	restore := func(cause error) error {
+		failed := false
+
+		for i := len(swapped) - 1; i >= 0; i-- {
+			part := swapped[i]
+
+			if err := os.RemoveAll(filepath.Join(dir, part)); err != nil {
+				failed = true
+
+				continue
+			}
+
+			if _, err := os.Lstat(filepath.Join(aside, part)); err == nil {
+				if err := os.Rename(filepath.Join(aside, part), filepath.Join(dir, part)); err != nil {
+					failed = true
+				}
+			}
+		}
+
+		if failed {
+			return fmt.Errorf("%w; the previous plugin could not be put back whole, its parts are in %s", cause, aside)
+		}
+
+		os.RemoveAll(aside) //nolint:errcheck
+
+		return cause
+	}
+
 	for _, part := range pluginParts {
-		if err := os.RemoveAll(filepath.Join(dir, part)); err != nil {
-			return err
+		current := filepath.Join(dir, part)
+
+		swapped = append(swapped, part)
+
+		if _, err := os.Lstat(current); err == nil {
+			if err := os.Rename(current, filepath.Join(aside, part)); err != nil {
+				return restore(err)
+			}
+		}
+
+		// A part the tool has nothing for this time (no skills) is just gone
+		if _, err := os.Lstat(filepath.Join(built, part)); err != nil {
+			continue
+		}
+
+		if err := os.Rename(filepath.Join(built, part), current); err != nil {
+			return restore(err)
 		}
 	}
 
+	return os.RemoveAll(aside)
+}
+
+// buildPlugin writes every part of the bundle into dir, which is empty.
+func (a *AITools) buildPlugin(dir, version string, permissions core.AgentPermissions) error {
 	if err := extractAssets(a.Tool, dir, "skills"); err != nil {
 		return err
 	}
