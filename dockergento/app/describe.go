@@ -114,7 +114,7 @@ func (d Describer) Describe(project core.Project, files core.ComposeFiles, withS
 	}
 
 	description.Magento.Version = version
-	description.Magento.Mode = mode
+	description.Magento.Mode = modeOf(version, mode)
 
 	for _, service := range configuration.Services {
 		described := core.DescribedService{
@@ -162,6 +162,18 @@ func (d Describer) Describe(project core.Project, files core.ComposeFiles, withS
 	}
 
 	return description, nil
+}
+
+// modeOf is the deploy mode Magento runs in. An installed Magento whose env.php sets no MAGE_MODE
+// is in "default", which is what Magento's own State answers then; reporting it as unknown sent an
+// agent looking for a mode that was never going to be written down. Without a Magento — no version
+// in composer.lock — there is no mode to be in, and it stays unsaid.
+func modeOf(version, mode string) string {
+	if mode == "" && version != "" {
+		return "default"
+	}
+
+	return mode
 }
 
 // urlsOf builds the addresses of a project.

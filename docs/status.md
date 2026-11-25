@@ -19,7 +19,7 @@ options. The [MCP server](mcp.md) offers the same answer as the `environment_sta
 |---|---|
 | `project`, `root`, `worktree` | Which environment |
 | `state` | `running`, `partial` or `stopped`, as `describe` reports it |
-| `mode` | Magento's deploy mode |
+| `mode` | Magento's deploy mode, as `describe` reports it: `default` when `env.php` sets no `MAGE_MODE` |
 | `xdebug` | `on`, `off`, or `unknown` when the php container is not running |
 | `anonymised`, `anonymised_at` | `yes` and when, or `unknown`: unknown is never treated as safe, and anything that replaces the database clears it |
 | `services` | Each service with Docker's state, `running`, and `last_error`: the last line of its recent log that reports an error |

@@ -25,7 +25,7 @@ Readable output when stdout is a terminal, JSON when it is piped or redirected. 
 | Block | Contents |
 |---|---|
 | `project` | Name, root directory, worktree, domain, status (`running`, `stopped`, `partial`) and URLs |
-| `magento` | Version and deploy mode |
+| `magento` | Version and deploy mode: `MAGE_MODE` from `app/etc/env.php`, `default` when an installed Magento sets none (Magento's own default), and empty when no Magento is found |
 | `services` | Every service with its image, state and published ports |
 | `paths` | Magento directory, workdir inside the container, mount strategy and compose files |
 | `tooling` | Platform, `hm` version, Docker Compose version and Xdebug state |

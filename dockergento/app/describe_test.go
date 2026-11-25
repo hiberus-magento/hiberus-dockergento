@@ -7,6 +7,42 @@ import (
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
+// The deploy mode is env.php's MAGE_MODE, and a Magento whose env.php does not set it runs in
+// "default" — Magento's own State answers that — so that is what is said, not "unknown". Only
+// where there is no Magento to be in a mode is the mode left unsaid.
+func TestTheModeOfAMagentoThatSetsNoneIsDefault(t *testing.T) {
+	cases := []struct {
+		name             string
+		version, written string
+		want             string
+	}{
+		{"the mode env.php sets", "2.4.8-p3", "production", "production"},
+		{"no MAGE_MODE in env.php", "2.4.8-p3", "", "default"},
+		{"no Magento found at all", "", "", ""},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			describer := Describer{
+				Engine:  &engine{},
+				Compose: compose{},
+				Magento: magento{version: tt.version, mode: tt.written},
+				Tooling: tools{},
+				State:   state{},
+			}
+
+			description, err := describer.Describe(core.Project{Name: "shop", Root: "/code/shop"}, core.ComposeFiles{}, false)
+			if err != nil {
+				t.Fatalf("Describe = %v", err)
+			}
+
+			if description.Magento.Mode != tt.want {
+				t.Fatalf("mode = %q, want %q", description.Magento.Mode, tt.want)
+			}
+		})
+	}
+}
+
 // What Describe answers when there is nothing to describe: a directory whose configuration cannot
 // be read is refused as not configured, with the reason and the binary the hint names; a daemon
 // that cannot be reached is not a refusal, and stays the error it is.
