@@ -12,6 +12,10 @@ import (
 // Init is ai-init: the configuration, from the options or from the wizard when there are none,
 // the platforms' directories, and a first installation.
 func (a *AITools) Init(options AIInitOptions, interactive bool) int {
+	if options.Plugin != "" {
+		return a.Plugin(options.Plugin)
+	}
+
 	asked := options.Platforms == "" && options.Types == "" && options.Resources == "" && options.Repository == ""
 
 	existing, _, err := a.readJSON(core.AIPropertiesFile)

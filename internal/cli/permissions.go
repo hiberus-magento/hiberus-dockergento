@@ -4,7 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
+
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
+
+// permissionsFormats is the agents whose configuration permissions prints, the default first.
+var permissionsFormats = []string{"claude", "codex", "opencode"}
 
 // permissions prints the permissions an agent using this tool should be given, for its settings
 // file. Nothing is written: the configuration file is the person's, and may have rules that matter
@@ -12,16 +18,26 @@ import (
 //
 // Under --json the configuration itself is printed, not wrapped in the contract's envelope: it is
 // what gets pasted into the agent's settings, and that is how the shell implementation printed it.
+// Codex's is not JSON, so under --json it comes as the file it goes in and what that file holds.
 func permissions(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
-	strict := false
+	strict, format := false, "claude"
+	usage := binaryName() + " permissions [--strict] [--format=" + strings.Join(permissionsFormats, "|") + "]"
 
 	for _, argument := range args {
-		if argument != "--strict" {
-			return failure(stderr, jsonOutput, "permissions", exitUsage, "invalid_argument",
-				fmt.Sprintf("Unknown option: %s", argument), binaryName()+" permissions [--strict]")
-		}
+		value, isFormat := strings.CutPrefix(argument, "--format=")
 
-		strict = true
+		switch {
+		case argument == "--strict":
+			strict = true
+		case isFormat && known(value, permissionsFormats):
+			format = value
+		case isFormat:
+			return failure(stderr, jsonOutput, "permissions", exitUsage, "invalid_argument",
+				fmt.Sprintf("Unknown format: %q", value), usage)
+		default:
+			return failure(stderr, jsonOutput, "permissions", exitUsage, "invalid_argument",
+				fmt.Sprintf("Unknown option: %s", argument), usage)
+		}
 	}
 
 	configuration, err := newEngine(stdout, stderr, jsonOutput).AgentPermissions(strict)
@@ -29,7 +45,27 @@ func permissions(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return report(stderr, jsonOutput, "permissions", err)
 	}
 
-	body, err := json.MarshalIndent(configuration, "", "  ")
+	var body []byte
+
+	switch format {
+	case "codex":
+		rules := core.CodexRules(configuration, binaryName())
+		if !jsonOutput {
+			body = []byte(strings.TrimSuffix(rules, "\n"))
+
+			break
+		}
+
+		body, err = json.MarshalIndent(struct {
+			File  string `json:"file"`
+			Rules string `json:"rules"`
+		}{core.CodexRulesFile, rules}, "", "  ")
+	case "opencode":
+		body, err = json.MarshalIndent(core.OpenCodePermissions(configuration), "", "  ")
+	default:
+		body, err = json.MarshalIndent(configuration, "", "  ")
+	}
+
 	if err != nil {
 		return report(stderr, jsonOutput, "permissions", err)
 	}
@@ -51,11 +87,37 @@ func permissions(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		fmt.Fprintf(stdout, "  %d command(s) allowed, %d asking for confirmation.\n\n", allowed, asked)
 	}
 
-	fmt.Fprintf(stdout, "  %d path(s) denied outright: secrets, customer data, and what is\n", denied)
-	fmt.Fprint(stdout, "  generated rather than written. See docs/ai-context.md.\n\n")
+	if format == "codex" {
+		fmt.Fprintf(stdout, "  %d path(s) an agent should not read, as comments: Codex has no rule for\n", denied)
+		fmt.Fprint(stdout, "  paths. See docs/ai-context.md.\n\n")
+	} else {
+		fmt.Fprintf(stdout, "  %d path(s) denied outright: secrets, customer data, and what is\n", denied)
+		fmt.Fprint(stdout, "  generated rather than written. See docs/ai-context.md.\n\n")
+	}
+
 	fmt.Fprintf(stdout, "%s\n\n", body)
-	fmt.Fprint(stdout, "  Copy this into your agent's settings. Nothing was written for you: your\n")
-	fmt.Fprint(stdout, "  configuration file is yours, and may have rules that matter to you.\n\n")
+
+	switch format {
+	case "codex":
+		fmt.Fprint(stdout, "  Save this as "+core.CodexRulesFile+", or in ~/.codex/rules/. Nothing was\n")
+		fmt.Fprint(stdout, "  written for you: Codex reads a project's rules only when you trust it.\n\n")
+	case "opencode":
+		fmt.Fprint(stdout, "  Copy this into your opencode.json. Nothing was written for you: your\n")
+		fmt.Fprint(stdout, "  configuration file is yours, and may have rules that matter to you.\n\n")
+	default:
+		fmt.Fprint(stdout, "  Copy this into your agent's settings. Nothing was written for you: your\n")
+		fmt.Fprint(stdout, "  configuration file is yours, and may have rules that matter to you.\n\n")
+	}
 
 	return exitOK
+}
+
+func known(value string, among []string) bool {
+	for _, candidate := range among {
+		if value == candidate {
+			return true
+		}
+	}
+
+	return false
 }

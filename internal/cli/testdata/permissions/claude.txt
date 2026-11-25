@@ -1,0 +1,96 @@
+
+Permissions for an agent using hm
+
+  53 command(s) allowed, 13 asking for confirmation.
+
+  8 path(s) denied outright: secrets, customer data, and what is
+  generated rather than written. See docs/ai-context.md.
+
+{
+  "permissions": {
+    "allow": [
+      "Bash(hm ai-context:*)",
+      "Bash(hm ai-doctor:*)",
+      "Bash(hm ai-init:*)",
+      "Bash(hm ai-pull:*)",
+      "Bash(hm ai-reset:*)",
+      "Bash(hm cloud-login:*)",
+      "Bash(hm cloud:*)",
+      "Bash(hm compatibility:*)",
+      "Bash(hm completion:*)",
+      "Bash(hm composer:*)",
+      "Bash(hm config-env:*)",
+      "Bash(hm copy-from-container:*)",
+      "Bash(hm copy-to-container:*)",
+      "Bash(hm create-project:*)",
+      "Bash(hm dbeaver:*)",
+      "Bash(hm debug-off:*)",
+      "Bash(hm debug-on:*)",
+      "Bash(hm describe:*)",
+      "Bash(hm doctor:*)",
+      "Bash(hm grunt:*)",
+      "Bash(hm install:*)",
+      "Bash(hm launch:*)",
+      "Bash(hm list:*)",
+      "Bash(hm logs:*)",
+      "Bash(hm magento:*)",
+      "Bash(hm mcp:*)",
+      "Bash(hm mysqldump:*)",
+      "Bash(hm n98-magerun:*)",
+      "Bash(hm npm:*)",
+      "Bash(hm permissions:*)",
+      "Bash(hm post-start:*)",
+      "Bash(hm proxy:*)",
+      "Bash(hm rebuild:*)",
+      "Bash(hm restart:*)",
+      "Bash(hm sequelace:*)",
+      "Bash(hm set-host:*)",
+      "Bash(hm setup:*)",
+      "Bash(hm ssl:*)",
+      "Bash(hm start:*)",
+      "Bash(hm stop:*)",
+      "Bash(hm switch:*)",
+      "Bash(hm tableplus:*)",
+      "Bash(hm test-integration:*)",
+      "Bash(hm test-unit:*)",
+      "Bash(hm transfer-db:*)",
+      "Bash(hm transfer-media:*)",
+      "Bash(hm tui:*)",
+      "Bash(hm tunnel:*)",
+      "Bash(hm varnish-off:*)",
+      "Bash(hm varnish-on:*)",
+      "Bash(hm verify:*)",
+      "Bash(hm version:*)",
+      "Bash(hm web:*)"
+    ],
+    "ask": [
+      "Bash(hm bash:*)",
+      "Bash(hm clean:*)",
+      "Bash(hm db:*)",
+      "Bash(hm docker-compose:*)",
+      "Bash(hm docker-stop-all:*)",
+      "Bash(hm down:*)",
+      "Bash(hm exec:*)",
+      "Bash(hm masquerade:*)",
+      "Bash(hm mysql:*)",
+      "Bash(hm purge:*)",
+      "Bash(hm share:*)",
+      "Bash(hm update:*)",
+      "Bash(hm worktree:*)"
+    ],
+    "deny": [
+      "Read(./app/etc/env.php)",
+      "Read(./generated/**)",
+      "Read(./pub/media/customer/**)",
+      "Read(./pub/static/**)",
+      "Read(./var/cache/**)",
+      "Read(./var/log/**)",
+      "Read(./var/report/**)",
+      "Read(./vendor/**)"
+    ]
+  }
+}
+
+  Copy this into your agent's settings. Nothing was written for you: your
+  configuration file is yours, and may have rules that matter to you.
+

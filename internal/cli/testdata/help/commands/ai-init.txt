@@ -1,4 +1,4 @@
-Usage: hm ai-init [-|--platforms] [-|--types] [-|--resources] [-|--repository] [-|--branch] 
+Usage: hm ai-init [-|--platforms] [-|--types] [-|--resources] [-|--repository] [-|--branch] [-|--plugin] 
 Example: hm ai-init
 	 hm ai-init --platforms=claude,cursor --types=hyva,magento --resources=skills,agents
 Description: Initialize AI tools configuration (skills/agents) via interactive wizard
@@ -8,4 +8,5 @@ Options:
    [-|--resources]  Resource types to download (skills, agents, or both)
    [-|--repository] Custom repository URL to include
    [-|--branch]     Branch name for custom repository (default: main)
+   [-|--plugin]     Only write a Claude Code plugin (default: ~/.hm/claude-plugin)
 

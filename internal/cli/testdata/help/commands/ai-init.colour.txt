@@ -1,4 +1,4 @@
-[0;32mUsage: [0m[0;33mhm ai-init [-|--platforms] [-|--types] [-|--resources] [-|--repository] [-|--branch] 
+[0;32mUsage: [0m[0;33mhm ai-init [-|--platforms] [-|--types] [-|--resources] [-|--repository] [-|--branch] [-|--plugin] 
 [0m[0;32mExample: [0m[0;33mhm ai-init
 	 hm ai-init --platforms=claude,cursor --types=hyva,magento --resources=skills,agents
 [0m[0;32mDescription:[0m Initialize AI tools configuration (skills/agents) via interactive wizard
@@ -8,4 +8,5 @@
    [0;33m[-|--resources] [0m Resource types to download (skills, agents, or both)
    [0;33m[-|--repository][0m Custom repository URL to include
    [0;33m[-|--branch]    [0m Branch name for custom repository (default: main)
+   [0;33m[-|--plugin]    [0m Only write a Claude Code plugin (default: ~/.hm/claude-plugin)
 

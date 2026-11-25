@@ -1,5 +1,6 @@
-Usage: hm permissions [--strict]
+Usage: hm permissions [--strict] [--format=claude|codex|opencode]
 Description: Print the permission configuration an agent should be given
 Options:
    [-|--strict]     Allow only commands with no side effects
+   [-|--format]     The agent to print it for: claude (default), codex or opencode
 

@@ -110,6 +110,10 @@ type AIInitOptions struct {
 	Resources  string
 	Repository string
 	Branch     string
+
+	// Plugin is where to write a Claude Code plugin instead of configuring the project: when it
+	// is set, nothing else is done.
+	Plugin string
 }
 
 const (

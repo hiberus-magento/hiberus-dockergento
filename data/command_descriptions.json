@@ -32,6 +32,12 @@
                     "long": "branch"
                 },
                 "description": "Branch name for custom repository (default: main)"
+            },
+            {
+                "name": {
+                    "long": "plugin"
+                },
+                "description": "Only write a Claude Code plugin (default: ~/.hm/claude-plugin)"
             }
         ],
         "group": "ai",
@@ -540,7 +546,7 @@
     },
     "permissions": {
         "description": "Print the permission configuration an agent should be given",
-        "usage": "permissions [--strict]",
+        "usage": "permissions [--strict] [--format=claude|codex|opencode]",
         "opts": [
             {
                 "name": {
@@ -548,6 +554,13 @@
                     "long": "strict"
                 },
                 "description": "Allow only commands with no side effects"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "format"
+                },
+                "description": "The agent to print it for: claude (default), codex or opencode"
             }
         ],
         "group": "ai",

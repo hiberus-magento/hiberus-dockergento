@@ -3,8 +3,10 @@
 Prints the permission configuration an agent should be given.
 
 ```bash
-hm permissions           # what an agent needs to work
-hm permissions --strict  # what an agent needs to only look
+hm permissions                    # what an agent needs to work, for Claude Code
+hm permissions --strict           # what an agent needs to only look
+hm permissions --format=codex     # the same, as a Codex rules file
+hm permissions --format=opencode  # the same, as OpenCode permissions
 ```
 
 ## The problem
@@ -47,6 +49,36 @@ The honest exception is `hm magento` and `hm composer`. They can also run destru
 (`setup:upgrade`, `composer update`), and they are classified `caution` anyway, because an agent
 that cannot run `hm magento cache:clean` cannot do its job. That is a judgement call and this is
 where it is written down.
+
+## For each agent
+
+One classification, printed in the configuration each agent reads. `--strict` applies to all of
+them; an unknown `--format` is a usage error (exit 2).
+
+| `--format=` | What it prints | Where it goes |
+|---|---|---|
+| `claude` (default) | `permissions.allow`, `ask` and `deny` rules, exactly as before `--format` existed | Claude Code's `settings.json` |
+| `codex` | One `prefix_rule()` per command, `allow` or `prompt` | `.codex/rules/hm.rules`, or `~/.codex/rules/` |
+| `opencode` | A `permissions` list of `shell` rules (`allow`, `ask`) and `read` rules (`deny`) | `opencode.json` |
+
+What each one can say differs, and the output says so rather than pretending:
+
+- **Codex** ([rules](https://learn.chatgpt.com/docs/agent-configuration/rules)) controls commands
+  only. It has no rule for a path an agent must not read, so the denied paths are listed as
+  comments in the file. `allow` there means *run outside the sandbox without prompting*; project
+  rules load only once you trust the project. Under
+  `--json` the output is `{"file": ".codex/rules/hm.rules", "rules": "..."}`, since a rules file is
+  not JSON.
+- **OpenCode** ([permissions](https://opencode.ai/docs/permissions)) takes an ordered list where
+  the last match wins and `hm down *` also matches a bare `hm down`. The denied paths come last so
+  nothing after them can undo them. This is the `permissions` list of OpenCode's current
+  configuration; its V1 configuration called it `permission`, with `bash` for `shell`.
+
+### A Claude Code plugin
+
+`hm ai-init --plugin` writes a plugin with the tool's skills, its MCP server and a `PreToolUse`
+hook that asks before every command classified `dangerous` — the same rules `hm permissions` puts
+under `ask`. See [ai-init](ai-init.md#a-claude-code-plugin).
 
 ## It writes nothing
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/app"
@@ -98,11 +99,14 @@ Options:
   --resources=<list>    Resource types to download (skills,agents,both)
   --repository=<url>    Custom repository URL (HTTPS only)
   --branch=<name>       Branch name for custom repository (default: main)
+  --plugin[=<dir>]      Only write a Claude Code plugin with the skills, the MCP server and a
+                        confirmation before dangerous commands (default: ~/.hm/claude-plugin)
 
 Examples:
   hm ai-init
   hm ai-init --platforms=claude,cursor --types=hyva,magento --resources=skills,agents
   hm ai-init --repository=https://github.com/org/repo --branch=main
+  hm ai-init --plugin && claude --plugin-dir ~/.hm/claude-plugin
 
 Interactive mode:
   Run without options for an interactive wizard that guides you through configuration.
@@ -180,7 +184,17 @@ func aiInit(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			name = ""
 		}
 
+		if argument == "--plugin" {
+			name, value = "--plugin", defaultPluginDir()
+		}
+
 		switch name {
+		case "--plugin":
+			options.Plugin = value
+			if value == "" {
+				return failure(stderr, jsonOutput, "ai-init", exitUsage, "invalid_argument",
+					"--plugin needs a directory", binaryName()+" ai-init --plugin[=<dir>]")
+			}
 		case "--platforms":
 			options.Platforms = value
 		case "--types":
@@ -199,7 +213,25 @@ func aiInit(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 	}
 
+	// The bundle is written and nothing else is done, so an option that would configure the
+	// project alongside it is a mistake to say, not to ignore
+	if options.Plugin != "" && len(args) > 1 {
+		return failure(stderr, jsonOutput, "ai-init", exitUsage, "invalid_argument",
+			"--plugin takes no other option", binaryName()+" ai-init --plugin[=<dir>]")
+	}
+
 	return newEngine(stdout, stderr, jsonOutput).AIInit(here(), options, interactive(), console)
+}
+
+// defaultPluginDir is where ai-init --plugin writes when it is given no directory: beside the
+// tool's other state in ~/.hm, since nothing in the bundle belongs to one project.
+func defaultPluginDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(home, ".hm", "claude-plugin")
 }
 
 // aiPull installs again everything the configuration asks for.

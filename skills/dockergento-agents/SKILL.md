@@ -97,6 +97,9 @@ context has gone stale.
 ```bash
 hm permissions          # what an agent needs to work
 hm permissions --strict # what an agent needs to only look
+hm permissions --format=codex     # the same, as Codex rules
+hm permissions --format=opencode  # the same, as OpenCode permissions
+hm ai-init --plugin     # a Claude Code plugin: skills, MCP, a confirmation before dangerous commands
 ```
 
 Every command declares whether it is `safe`, `caution` or `dangerous`, and this turns that into
