@@ -235,6 +235,27 @@ func TestAProjectWithNoConfiguredNameIsKnownByItsDirectory(t *testing.T) {
 	}
 }
 
+// A project whose directory leaves nothing a name can be made of is refused for that reason, with
+// what fixes it, rather than taken for a directory that is no project at all.
+func TestAProjectWhoseDirectoryLeavesNoNameIsRefused(t *testing.T) {
+	resolver := Resolver{
+		Properties: properties{"/code/___": {"MAGENTO_DIR": "."}},
+		VCS:        vcs{},
+		Registry:   registry{},
+	}
+
+	_, err := resolver.Resolve("/code/___")
+
+	want := core.Refusal{Kind: "no_project_name", Code: 4,
+		Message: "No project name can be derived from ___",
+		Hint:    "Rename the directory, or set COMPOSE_PROJECT_NAME in config/docker/properties.json"}
+
+	var refusal core.Refusal
+	if !errors.As(err, &refusal) || refusal != want {
+		t.Fatalf("Resolve = %v, want %+v", err, want)
+	}
+}
+
 // A configured name always wins: deriving over it would attach the project's volumes to a name
 // nobody asks for.
 func TestAConfiguredNameIsNeverDerived(t *testing.T) {

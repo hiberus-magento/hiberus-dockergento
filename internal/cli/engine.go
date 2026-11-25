@@ -132,6 +132,13 @@ func projectOr(stderr io.Writer, jsonOutput bool, command string) (core.Project,
 	}
 
 	project, err := newEngine(nil, nil, jsonOutput).Resolve(directory)
+
+	// A refusal already says why and what to do, which the generic answer below would hide
+	var refusal core.Refusal
+	if asRefusal(err, &refusal) {
+		return core.Project{}, report(stderr, jsonOutput, command, err)
+	}
+
 	if err != nil || project.Name == "" {
 		return core.Project{}, failure(stderr, jsonOutput, command, exitProject, "project_not_configured",
 			"This directory is not a configured Hiberus Dockergento project, or its Docker configuration is invalid",

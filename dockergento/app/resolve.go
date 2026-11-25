@@ -3,6 +3,9 @@
 package app
 
 import (
+	"path/filepath"
+
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
 )
@@ -46,6 +49,14 @@ func (r Resolver) Resolve(dir string) (core.Project, error) {
 
 	project := projectFrom(root, properties)
 	project.InWorktree = isWorktree
+
+	// Checked here and not in projectFrom: a registered worktree's name comes from its
+	// registration, so a worktree directory that leaves nothing to derive is still well named.
+	if project.Name == "" && len(properties) > 0 {
+		return core.Project{}, core.Refusal{Kind: "no_project_name", Code: contract.ExitProject,
+			Message: "No project name can be derived from " + filepath.Base(root),
+			Hint:    "Rename the directory, or set COMPOSE_PROJECT_NAME in config/docker/properties.json"}
+	}
 
 	if !isWorktree {
 		return project, nil
