@@ -46,7 +46,9 @@ jobs:
         if: steps.guard.outputs.go == 'true'
         with:
           go-version: "1.25"
-          cache: true
+          # No cache: a tag run can only restore caches of its own ref or of the default branch,
+          # so every tag missed and saved ~1 GB nobody read again, filling the 10 GB quota
+          cache: false
 
       - name: go vet
         if: steps.guard.outputs.go == 'true'
@@ -88,6 +90,8 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: "1.25"
+          # setup-go caches by default; off for the same reason as in the test job
+          cache: false
 
       # The test job ran on Linux; the code that only runs on macOS is tested here, on the machine
       # that builds the darwin binaries, before they are published
