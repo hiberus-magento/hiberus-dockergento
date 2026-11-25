@@ -51,7 +51,7 @@ execute	* If you use `-i` option, during setup process the CLI will execute the 
 
 		* Before executing this command you will be asked for basic configurations.
 			`hm setup -i`
-		* You can put `-u` to enable the usage of your stored settings.
+		* You can put `-u` to enable the usage of your stored settings: the installation runs as `hm install -u`, which takes the store and admin settings from `~/.hm/config.json` instead of asking.
 			`hm setup -u -i`
 	* If you use `-q` option, during setup process the CLI will not execute installation of Magento and will import the referenced dump
 		  `hm setup -q="/path-to-folder/dump.sql"`

@@ -50,8 +50,8 @@ type Decided struct {
 	Install    bool
 
 	// InstallDefaults is whether Magento's own installation takes its defaults rather than asking.
-	// Only create-project's -u decides it: the shell implementation passed its -u on to `install`,
-	// and setup never did.
+	// The -u of setup and of create-project decides it: a setup told not to ask must not leave
+	// `install` asking.
 	InstallDefaults bool
 }
 
@@ -69,6 +69,8 @@ func (s Setup) Decide(dir string, options core.SetupOptions, interactive bool) (
 		Mail:       first(options.Mail, existing["MAIL_SERVICE"], "mailhog"),
 		Dump:       options.Dump,
 		Install:    options.Install,
+
+		InstallDefaults: options.UseDefault,
 	}
 
 	derived := core.DeriveProjectName(dir)

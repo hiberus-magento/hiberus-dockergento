@@ -83,6 +83,41 @@ func TestTheInstallStepsRunInOneOrderThroughOneDoor(t *testing.T) {
 	})
 }
 
+// --use-default reaches Magento's own installation too: without it, `install` asked the questions
+// setup had just been told not to ask.
+func TestTheInstallStepTakesItsDefaultsWhenSetupWasToldTo(t *testing.T) {
+	tests := []struct {
+		name       string
+		useDefault bool
+		want       string
+	}{
+		{"with --use-default", true, "install -u"},
+		{"without it", false, "install"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			legacy := &shell{}
+			setup := Setup{Properties: fsprops.Reader{}, Legacy: legacy, Binary: "hm"}
+
+			decided, err := setup.Decide(projectDir(t, ""), core.SetupOptions{
+				ProjectName: "tienda", Domain: "tienda.test", Root: ".", Install: true, UseDefault: tt.useDefault,
+			}, false)
+			if err != nil {
+				t.Fatalf("Decide = %v, want no error", err)
+			}
+
+			if err := setup.install(decided); err != nil {
+				t.Fatalf("install = %v, want no error", err)
+			}
+
+			if got := strings.Join(legacy.ran[2], " "); got != tt.want {
+				t.Fatalf("third step = %q, want %q (steps: %v)", got, tt.want, legacy.ran)
+			}
+		})
+	}
+}
+
 //
 // What setup records about the project's name.
 //
