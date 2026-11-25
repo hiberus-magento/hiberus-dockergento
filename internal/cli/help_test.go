@@ -138,7 +138,9 @@ func TestTheListOfCommandsIsTheShells(t *testing.T) {
 }
 
 func TestNothingAtAllAndDashHAreTheListToo(t *testing.T) {
-	for _, args := range [][]string{{}, {"-h"}, {"-h", "describe"}, {"--json", "--help"}, {"--help", "--no-color"}} {
+	// Into a pipe with no format flag the help is still text: JSON is only for --json, which is the
+	// catalogue (help_catalogue_test.go)
+	for _, args := range [][]string{{}, {"-h"}, {"-h", "describe"}, {"--no-json", "--help"}, {"--help", "--no-color"}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			stdout, stderr, code := helpIn(t, t.TempDir(), false, args...)
 			assertGolden(t, "full.txt", stdout, stderr, code)
@@ -165,7 +167,7 @@ func TestEveryCommandsHelpIsTheShells(t *testing.T) {
 }
 
 func TestDashHAfterTheCommandAsksForItsHelpToo(t *testing.T) {
-	stdout, stderr, code := helpIn(t, t.TempDir(), false, "--json", "db", "-h")
+	stdout, stderr, code := helpIn(t, t.TempDir(), false, "--no-json", "db", "-h")
 	assertGolden(t, filepath.Join("commands", "db.txt"), stdout, stderr, code)
 }
 

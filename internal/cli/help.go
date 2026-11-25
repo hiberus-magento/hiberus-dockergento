@@ -21,8 +21,9 @@ import (
 // text through a print_* helper has its escapes expanded the way `printf %b` expands them, and a
 // width is counted in bytes. A difference of one escape sequence is a difference.
 //
-// The help has no JSON form, in either implementation: it is the output of the command, so all of
-// it goes to stdout whatever the format, and its colour follows the palette's one decision.
+// The page is the output of the command, so all of it goes to stdout, and its colour follows the
+// palette's one decision. Its JSON form is the catalogue (help_catalogue.go), and only --json asks
+// for it: into a pipe with no flag the help is still this page.
 //
 // Two things are deliberately not carried over. The shell listed any `console/commands/*.sh` it
 // found as a command of the tool; that directory is gone, and a script dropped there now would be
@@ -114,7 +115,15 @@ func readJSONObject(path string) (map[string]any, error) {
 }
 
 // help answers `hm`, `hm --help` and `hm <command> --help`. An empty name is the whole list.
-func help(name string, stdout, stderr io.Writer) int {
+//
+// asJSON is the catalogue instead of the page (help_catalogue.go). It is only ever --json itself:
+// the text help is what a pipe has always received, and a pager reading `hm | less` must not find
+// a document where the commands were.
+func help(name string, stdout, stderr io.Writer, asJSON bool) int {
+	if asJSON {
+		return catalogue(name, stdout, stderr)
+	}
+
 	data, err := loadHelpData(resolveHMRoot(here()).Root)
 	if err != nil {
 		return failure(stderr, false, "help", exitError, "help_unavailable", err.Error(), "")
@@ -386,25 +395,11 @@ func (d helpData) command(p *helpPage, name string) {
 	}
 
 	info, _ := entry.(map[string]any)
-	keys := make([]string, 0, len(info))
+	params := sections(info)
 
-	for key := range info {
-		keys = append(keys, key)
-	}
-
-	sort.Strings(keys)
-
-	params := "false"
-	if len(keys) > 0 {
-		params = strings.Join(keys, "\n")
-	}
-
-	if usage := chomp(jqRaw(info["usage"])); usage != "null" {
+	if usage, declared := usageOf(name, info); declared {
 		p.decorated(helpGreen, "Usage: ")
 		p.codeText(binaryName() + " " + usage + "\n")
-	} else if strings.Contains(params, "args") || strings.Contains(params, "opts") {
-		p.decorated(helpGreen, "Usage: ")
-		p.codeText(binaryName() + " " + name + " " + usageOptions(info["opts"]) + usageArguments(info["args"]) + "\n")
 	}
 
 	if strings.Contains(params, "example") {
@@ -434,6 +429,39 @@ func (d helpData) command(p *helpPage, name string) {
 	}
 
 	p.out.WriteString("\n")
+}
+
+// sections is a command's keys run together, sorted, which is what the shell looked for a
+// section's name in; "false" when there are none, as jq printed it.
+func sections(info map[string]any) string {
+	keys := make([]string, 0, len(info))
+
+	for key := range info {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	if len(keys) == 0 {
+		return "false"
+	}
+
+	return strings.Join(keys, "\n")
+}
+
+// usageOf is a command's usage line without the binary's name: the declared one, or one built from
+// the options and arguments. false when the declaration has neither, and the help prints no usage.
+// The catalogue reads it here too, so that the two can never disagree.
+func usageOf(name string, info map[string]any) (string, bool) {
+	if usage := chomp(jqRaw(info["usage"])); usage != "null" {
+		return usage, true
+	}
+
+	if params := sections(info); strings.Contains(params, "args") || strings.Contains(params, "opts") {
+		return name + " " + usageOptions(info["opts"]) + usageArguments(info["args"]), true
+	}
+
+	return "", false
 }
 
 // entries is print_opts and print_args: a heading when there is anything, then one line each.

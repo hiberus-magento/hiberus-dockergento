@@ -29,12 +29,14 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	// command's help, for every command and before the command runs — a handler handed it as an
 	// argument would answer "unknown subcommand" or "not a project" instead.
 	//
-	if len(rest) == 0 || isHelpFlag(rest[0]) {
-		return help("", stdout, stderr)
+	// `hm help --json` is the catalogue too; `hm help` in text is left to what it was, since a
+	// project may have a command of its own by that name
+	if len(rest) == 0 || isHelpFlag(rest[0]) || (rest[0] == "help" && format == "json") {
+		return help(helpTopic(rest), stdout, stderr, format == "json")
 	}
 
 	if len(rest) > 1 && isHelpFlag(rest[1]) {
-		return help(rest[0], stdout, stderr)
+		return help(rest[0], stdout, stderr, helpInJSON(format, rest[2:]))
 	}
 
 	jsonOutput := wanted(format, stdout)

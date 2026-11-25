@@ -38,6 +38,53 @@ on stdout:
 a project, 5 unknown service, 6 refused on purpose (for example from a git worktree). Branch on the
 exit code or on `error.type`, not on the message.
 
+## What the tool can do: the catalogue
+
+`hm --json` (or `hm help --json`) prints every command of the tool in one envelope, with
+`"command": "help"`:
+
+```json
+{
+  "schema_version": 1,
+  "command": "help",
+  "ok": true,
+  "data": {
+    "commands": [
+      {
+        "name": "start",
+        "description": "Start docker services",
+        "usage": "start [-s|--switch] <service-name>",
+        "example": "start phpfpm",
+        "options": [{ "short": "s", "long": "switch", "description": "..." }],
+        "arguments": [{ "name": "service-name", "description": "...", "multiple": false }],
+        "safety": "caution",
+        "passthrough": false,
+        "group": "environment",
+        "mac_only": false
+      }
+    ],
+    "groups": [{ "id": "environment", "title": "Environment" }],
+    "global_options": [{ "short": "", "long": "json", "description": "..." }]
+  }
+}
+```
+
+`hm <command> --help --json` (or `hm help <command> --json`) prints that command's entry alone as
+`data`. A command the tool does not declare is a failure: exit 2, `error.type` `command_not_found`.
+
+- Every field comes from the tool's own `data/command_descriptions.json`, the same declaration the
+  text help is printed from. Every field is always present; `example` is `""` and `options` or
+  `arguments` are `[]` when there are none.
+- `usage` is written without the binary's name: prefix it with `hm`.
+- `safety` is `safe`, `caution` or `dangerous`, the classification `hm permissions` uses.
+- `passthrough` is `true` for the commands whose output, and whose options after the command name,
+  belong to the program they run (`magento`, `composer`, `exec`...): they never print an envelope.
+- `mac_only` commands are listed on every machine; the text help shows them only on macOS.
+- The project's own commands (`config/hm/commands`) are not in the catalogue.
+
+Only `--json` asks for the catalogue. Without it, `hm` and `hm --help` print the text help even into
+a pipe, and `hm help` without `--json` is not a command of the tool.
+
 ## Commands that change something
 
 These commands print nothing of their own on stdout in text mode. With `--json`, when they succeed,
