@@ -73,6 +73,7 @@ type commands interface {
 	AIInit(dir string, options app.AIInitOptions, interactive bool, console app.AIConsole) int
 	AIPull(dir string, force bool, console app.AIConsole) int
 	AIReset(dir string, confirm, interactive bool, console app.AIConsole) int
+	Status(dir string) (core.Status, error)
 }
 
 var _ commands = (*dockergento.Engine)(nil)

@@ -754,6 +754,12 @@
         "group": "environment",
         "safety": "caution"
     },
+    "status": {
+        "description": "How the environment is doing: containers, URLs, xdebug, mode, data and last errors",
+        "usage": "status",
+        "group": "environment",
+        "safety": "safe"
+    },
     "stop": {
         "description": "Stop docker services",
         "args": [

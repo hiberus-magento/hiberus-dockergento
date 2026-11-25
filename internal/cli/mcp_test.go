@@ -21,8 +21,10 @@ import (
 //	DOCKER_HOST=unix:///nonexistent bin/run mcp         < read.jsonl  > read.golden
 //	DOCKER_HOST=unix:///nonexistent bin/run mcp --write < write.jsonl > write.golden
 //
-// One line has moved on from the shell's since: the tools/list answer, whose catalogue gained the
-// `environment` argument and the output schemas (mcp_protocol_test.go has what they do).
+// Two kinds of line have moved on from the shell's since: the tools/list answer, whose catalogue
+// gained the `environment` argument, the output schemas and the tools added after the port
+// (mcp_protocol_test.go has what the schemas do), and the answer to an unknown
+// tool, which lists the tools there are.
 //
 // The tool calls that do run a command are proved against a recorder standing in for this
 // binary, which is the seam the shell did not have.
@@ -138,9 +140,10 @@ func toolCall(name, arguments string) string {
 
 func TestTheReadToolsAskThisBinaryForJSON(t *testing.T) {
 	for tool, command := range map[string]string{
-		"describe_project":  "describe",
-		"list_environments": "list",
-		"check_environment": "doctor",
+		"describe_project":   "describe",
+		"list_environments":  "list",
+		"check_environment":  "doctor",
+		"environment_status": "status",
 	} {
 		t.Run(tool, func(t *testing.T) {
 			quiet(t)

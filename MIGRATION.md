@@ -42,7 +42,7 @@ Todo lo que sigue es la historia de la migración y se conserva como tal.
 |---|---|
 | Rama | `release/2.0.0` |
 | Fase | **2 · esqueleto y puente**, terminada · **3 · Docker por SDK**, en marcha |
-| Comandos en Go | 66 de 66 |
+| Comandos en Go | 67 de 67 |
 | El binario | `go build -o bin/hm ./cmd/hm` |
 | La suite | `go test ./...` y `./tests/run.sh` |
 
@@ -1106,6 +1106,7 @@ herramientas externas, que son los últimos por coste-beneficio y no por estar e
 | `share` | environment | 3 | go |
 | `ssl` | tools | 4 | go |
 | `start` | environment | 1 | go |
+| `status` | environment | 1 | go |
 | `stop` | environment | 1 | go |
 | `switch` | versions | 3 | go |
 | `tableplus` | database | 3 | go |

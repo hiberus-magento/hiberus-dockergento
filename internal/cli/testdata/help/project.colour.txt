@@ -15,6 +15,7 @@
   [0;32msetup                 [0mDockerize magento project
   [0;32mshare                 [0mGive this project a temporary public address
   [0;32mstart                 [0mStart docker services
+  [0;32mstatus                [0mHow the environment is doing: containers, URLs, xdebug, mode, data and last errors
   [0;32mstop                  [0mStop docker services
   [0;32mtui                   [0mOpen the dashboard: every environment on this machine, on one screen
   [0;32mtunnel                [0mOpen a temporary way in to a service that is not routed by name

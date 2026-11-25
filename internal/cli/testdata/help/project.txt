@@ -15,6 +15,7 @@ Environment
   setup                 Dockerize magento project
   share                 Give this project a temporary public address
   start                 Start docker services
+  status                How the environment is doing: containers, URLs, xdebug, mode, data and last errors
   stop                  Stop docker services
   tui                   Open the dashboard: every environment on this machine, on one screen
   tunnel                Open a temporary way in to a service that is not routed by name

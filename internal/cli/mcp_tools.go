@@ -33,6 +33,8 @@ func (s mcpServer) call(name string, arguments jqValue) jqValue {
 		return s.fromCommand("list")
 	case "check_environment":
 		return s.fromCommand("doctor")
+	case "environment_status":
+		return s.fromCommand("status")
 	case "service_logs":
 		return s.serviceLogs(arguments)
 	case "database_query":

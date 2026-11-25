@@ -1,0 +1,3 @@
+Usage: hm status
+Description: How the environment is doing: containers, URLs, xdebug, mode, data and last errors
+

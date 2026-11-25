@@ -71,6 +71,30 @@ const mcpReadTools = `
     "annotations": { "readOnlyHint": true }
   },
   {
+    "name": "environment_status",
+    "description": "How the environment is doing right now, in one call (hm status): each container's state and the last error its log reported, whether the URLs answer, xdebug on or off, the deploy mode and whether the database is anonymised. Use it after a change, to see whether something broke.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "project": { "type": "string" },
+        "state": { "type": "string", "description": "running, partial or stopped" },
+        "mode": { "type": "string", "description": "Magento's deploy mode" },
+        "xdebug": { "type": "string", "description": "on, off or unknown" },
+        "anonymised": { "type": "string", "description": "yes, or unknown: unknown is never safe" },
+        "services": { "type": "array", "description": "Each service with its state, whether it runs and the last error line of its log" },
+        "urls": { "type": "array", "description": "Each URL, whether it answers and with which HTTP code" }
+      }
+    },
+    "annotations": { "readOnlyHint": true }
+  },
+  {
     "name": "service_logs",
     "description": "The last lines of one service's log. Services are named as in the compose file: phpfpm, nginx, db, search, redis, varnish.",
     "inputSchema": {

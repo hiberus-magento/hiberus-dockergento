@@ -194,6 +194,9 @@ type fakeEngine struct {
 
 	// agentContext is what WriteAgentContext answers with, when its own outcome does not fail it.
 	agentContext core.AgentContextResult
+
+	// status is what Status answers with, when its own outcome does not fail it.
+	status core.Status
 }
 
 var _ commands = (*fakeEngine)(nil)
@@ -243,6 +246,17 @@ func (f *fakeEngine) Describe(dir string, withSecrets bool) (core.Description, e
 	}
 
 	return f.description, nil
+}
+
+func (f *fakeEngine) Status(dir string) (core.Status, error) {
+	number := len(f.calls)
+	f.calls = append(f.calls, call{Method: "Status", Dir: dir})
+
+	if out := f.outcomeFor(number); out.err != nil {
+		return core.Status{}, out.err
+	}
+
+	return f.status, nil
 }
 
 func (f *fakeEngine) Exec(dir, service string, command []string, options core.ExecOptions) (int, error) {

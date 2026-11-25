@@ -25,13 +25,14 @@ have.
 | `describe_project` | Versions, services, URLs, state, deploy mode |
 | `list_environments` | Every environment on the machine and what it belongs to |
 | `check_environment` | What `hm doctor` checks, with results |
+| `environment_status` | What [`hm status`](status.md) says: containers and their last error, whether the URLs answer, xdebug, mode, anonymisation |
 | `service_logs` | The last lines of one service's log |
 | `database_query` | One read-only SQL statement |
 
 Each one wraps a command that already answers in JSON, so there is a single implementation of
 "what is this project" — the one with tests behind it.
 
-`describe_project`, `list_environments` and `check_environment` answer with that JSON twice: as
+`describe_project`, `list_environments`, `check_environment` and `environment_status` answer with that JSON twice: as
 text, for clients that read only text, and as `structuredContent`, described by the tool's
 `outputSchema`, for clients that validate it and read fields without parsing. The schemas name the
 top-level fields and leave the rest open, because the commands grow a field now and then and a

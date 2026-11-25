@@ -54,6 +54,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return web(rest[1:], stdout, stderr, jsonOutput)
 	case "doctor":
 		return doctor(rest[1:], stdout, stderr, jsonOutput)
+	case "status":
+		return status(rest[1:], stdout, stderr, jsonOutput)
 	case "stop":
 		return stop(rest[1:], stdout, stderr, jsonOutput)
 	case "logs":

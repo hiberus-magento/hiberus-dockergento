@@ -13,12 +13,14 @@
 package dockergento
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -458,6 +460,90 @@ func (e *Engine) Logs(dir string, services []string, options core.LogOptions) er
 	}
 
 	return e.orchestrator(project).Logs(project, e.ComposeFiles(project), services, options)
+}
+
+// Status is how the environment is doing: its description, whether its URLs answer, and the last
+// error each running service logged.
+//
+// The logs are read through Compose into a buffer, never the engine's own output: the lines are
+// read for errors, not shown. Two hundred lines each, which is minutes of a busy nginx and enough
+// to say whether something is failing now.
+func (e *Engine) Status(dir string) (core.Status, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return core.Status{}, err
+	}
+
+	files := e.ComposeFiles(project)
+
+	return app.StatusReporter{
+		Describe: func() (core.Description, error) {
+			return e.describer(project).Describe(project, files, false)
+		},
+		Logs: func(service string) (string, error) {
+			// The orchestrator writes to files, so the buffer is the far end of a pipe
+			reader, writer, err := os.Pipe()
+			if err != nil {
+				return "", err
+			}
+
+			var log strings.Builder
+
+			copied := make(chan struct{})
+
+			go func() {
+				io.Copy(&log, reader) //nolint:errcheck
+				reader.Close()        //nolint:errcheck
+				close(copied)
+			}()
+
+			orchestrator := e.orchestrator(project)
+			orchestrator.Stdout, orchestrator.Stderr = writer, writer
+
+			err = orchestrator.Logs(project, files, []string{service},
+				core.LogOptions{Tail: "200", NoColor: true, NoPrefix: true})
+
+			writer.Close() //nolint:errcheck
+			<-copied
+
+			return log.String(), err
+		},
+		Probe: urlProbe{timeout: 3 * time.Second},
+	}.Status()
+}
+
+// urlProbe asks an address with a HEAD and says what answered.
+//
+// The certificate is not checked, and a redirect is not followed: the question is whether a
+// server answers at a development domain, whose certificate is the tool's own and may not be
+// trusted by this process, and a redirect is an answer. Nothing is sent but the request line.
+type urlProbe struct {
+	timeout time.Duration
+}
+
+func (p urlProbe) Answer(url string) (int, error) {
+	client := &http.Client{
+		Timeout: p.timeout,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // see the type
+			Proxy:           nil,
+		},
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+
+	request, err := http.NewRequest(http.MethodHead, url, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	response, err := client.Do(request)
+	if err != nil {
+		return 0, err
+	}
+
+	response.Body.Close() //nolint:errcheck
+
+	return response.StatusCode, nil
 }
 
 // Exec runs a command inside a service and returns that command's own exit code — flattening it

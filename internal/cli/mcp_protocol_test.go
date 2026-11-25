@@ -77,7 +77,7 @@ func tool(t *testing.T, write bool, name string) map[string]any {
 func TestTheDataToolsAnswerWithStructuredContent(t *testing.T) {
 	data := `{"project":{"name":"tienda"},"checks":[{"id":"a"}],"environments":[],"count":0}`
 
-	for _, name := range []string{"describe_project", "list_environments", "check_environment"} {
+	for _, name := range []string{"describe_project", "list_environments", "check_environment", "environment_status"} {
 		t.Run(name, func(t *testing.T) {
 			quiet(t)
 
@@ -170,8 +170,8 @@ func TestARequestInTheStatelessRevisionIsServedInIt(t *testing.T) {
 			t.Fatalf("result = %v, want resultType, ttlMs and cacheScope", result)
 		}
 
-		if tools, _ := result["tools"].([]any); len(tools) != 5 {
-			t.Fatalf("tools = %v, want the five read-only tools", result["tools"])
+		if tools, _ := result["tools"].([]any); len(tools) != len(mcpToolNames(false)) {
+			t.Fatalf("tools = %v, want the read-only tools", result["tools"])
 		}
 	})
 
