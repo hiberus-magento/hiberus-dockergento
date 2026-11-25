@@ -27,14 +27,27 @@ var copyTerminal = isTerminal
 
 // copyWatch is what the engine is handed to show copies, or nil when nobody is watching.
 func copyWatch(stderr io.Writer, jsonOutput bool) ports.CopyWatch {
+	colour, drawn := drawsOn(stderr, jsonOutput)
+	if !drawn {
+		return nil
+	}
+
+	return func(total int64) (ports.CopyMeter, func(bool)) {
+		return drawCopy(stderr, total, colour)
+	}
+}
+
+// drawsOn is whether a line redrawn in place may go to stderr, and whether in colour. It is the
+// copy line's decision and the one every other line drawn there follows.
+func drawsOn(stderr io.Writer, jsonOutput bool) (colour, drawn bool) {
 	// Under --progress=jsonl stderr is events, one per line, and a line redrawn in place is not one
 	if jsonOutput || !copyTerminal(stderr) || os.Getenv("HM_PROGRESS") == "jsonl" {
-		return nil
+		return false, false
 	}
 
 	for _, quiet := range []string{"CI", "HM_NO_PROGRESS", "HM_NON_INTERACTIVE"} {
 		if os.Getenv(quiet) != "" {
-			return nil
+			return false, false
 		}
 	}
 
@@ -42,15 +55,11 @@ func copyWatch(stderr io.Writer, jsonOutput bool) ports.CopyWatch {
 	// terminal anybody is looking at, which is the same reading the spinner makes
 	switch os.Getenv("TERM") {
 	case "", "dumb":
-		return nil
+		return false, false
 	}
 
 	// NO_COLOR asks for no colour, not for no progress: the bar is characters, not escapes
-	colour := os.Getenv("NO_COLOR") == "" && os.Getenv("HM_NO_COLOR") == ""
-
-	return func(total int64) (ports.CopyMeter, func(bool)) {
-		return drawCopy(stderr, total, colour)
-	}
+	return os.Getenv("NO_COLOR") == "" && os.Getenv("HM_NO_COLOR") == "", true
 }
 
 // copyRedraw is how often the line is drawn at most: often enough to look alive, seldom enough
@@ -62,6 +71,15 @@ const copyRedraw = 100 * time.Millisecond
 // The counts are kept in atomics and drawn by a ticker, never by the copy itself, so the meter
 // costs the copy two stores however often it is called.
 func drawCopy(out io.Writer, total int64, colour bool) (ports.CopyMeter, func(bool)) {
+	return drawMeter(out, total, colour, false)
+}
+
+// drawDownload is the same line for a download, which is one file and does not count it.
+func drawDownload(out io.Writer, total int64, colour bool) (ports.CopyMeter, func(bool)) {
+	return drawMeter(out, total, colour, true)
+}
+
+func drawMeter(out io.Writer, total int64, colour, download bool) (ports.CopyMeter, func(bool)) {
 	line := &copyLine{out: out}
 	started := time.Now()
 
@@ -70,7 +88,7 @@ func drawCopy(out io.Writer, total int64, colour bool) (ports.CopyMeter, func(bo
 	state := func(done, failed bool) copyState {
 		return copyState{
 			bytes: carried.Load(), files: files.Load(), total: total,
-			elapsed: time.Since(started), done: done, failed: failed,
+			elapsed: time.Since(started), done: done, failed: failed, download: download,
 		}
 	}
 
@@ -169,6 +187,9 @@ type copyState struct {
 
 	// failed is a copy that ended without finishing: left where it stopped, and said
 	failed bool
+
+	// download is one file coming over the network, whose count of one says nothing
+	download bool
 }
 
 const copyBar = 20
@@ -208,9 +229,11 @@ func formatCopy(state copyState, colour bool) string {
 		parts = append(parts, humanBytes(state.bytes))
 	}
 
-	if state.files == 1 {
+	switch {
+	case state.download:
+	case state.files == 1:
 		parts = append(parts, "1 file")
-	} else {
+	default:
 		parts = append(parts, fmt.Sprintf("%d files", state.files))
 	}
 

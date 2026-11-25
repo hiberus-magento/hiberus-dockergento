@@ -116,6 +116,9 @@ func engine(stdout, stderr io.Writer, jsonOutput bool) *dockergento.Engine {
 
 		// The line under each "Copying" goes to stderr, and only to a terminal
 		Copying: copyWatch(stderr, jsonOutput),
+
+		// And so do the steps of update and switch, under the same rules
+		Releasing: releaseWatch(stderr, jsonOutput),
 	})
 }
 

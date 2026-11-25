@@ -72,8 +72,17 @@ func (e *Engine) Switch(options core.SwitchOptions) (core.Switched, error) {
 
 	install := e.installer()
 
+	label := "Looking up release " + asked
+	if options.Stable {
+		label = "Looking up the latest final release"
+	}
+
+	looking := e.step(label)
+
 	found, err := e.releases(install.source, !options.Stable)
 	if err != nil {
+		looking("", true)
+
 		return core.Switched{}, err
 	}
 
@@ -87,6 +96,8 @@ func (e *Engine) Switch(options core.SwitchOptions) (core.Switched, error) {
 	}
 
 	if target == nil {
+		looking("", true)
+
 		if options.Stable {
 			return core.Switched{}, core.Refusal{
 				Kind:    "no_release",
@@ -105,10 +116,15 @@ func (e *Engine) Switch(options core.SwitchOptions) (core.Switched, error) {
 	}
 
 	if target.Tag == options.Running {
+		// "Already running" is the command's own answer: the step leaves nothing to repeat it
+		looking("", false)
+
 		path, _ := install.target()
 
 		return core.Switched{Reference: target.Tag, Version: target.Tag, From: options.Running, Path: path, Unchanged: true}, nil
 	}
+
+	looking(lookedUp(*target, options.Running, !options.Stable), false)
 
 	path, err := e.put(install, *target)
 	if err != nil {

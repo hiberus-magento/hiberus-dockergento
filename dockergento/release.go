@@ -25,6 +25,7 @@ import (
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/contract"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
 )
 
 //
@@ -78,8 +79,10 @@ type releaseSource interface {
 	// Releases lists every release published.
 	Releases() ([]release, error)
 
-	// Download returns the body of an asset's URL, or an error for anything but a whole 200.
-	Download(url string) ([]byte, error)
+	// Download returns the body of an asset's URL, or an error for anything but a whole 200. A
+	// watch, when there is one, is started once the answer is a 200, with the size the answer
+	// announces (0 when it announces none), is given the bytes as they arrive, and is always ended.
+	Download(url string, watch ports.CopyWatch) ([]byte, error)
 }
 
 // installer is how a release is put in place of the running executable.
@@ -182,7 +185,7 @@ func (g githubReleases) Releases() ([]release, error) {
 		address += "?per_page=100"
 	}
 
-	body, err := g.fetch(address, "application/vnd.github+json")
+	body, err := g.fetch(address, "application/vnd.github+json", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -214,18 +217,29 @@ func (g githubReleases) Releases() ([]release, error) {
 	return releases, nil
 }
 
-func (g githubReleases) Download(address string) ([]byte, error) {
-	return g.fetch(address, "application/octet-stream")
+func (g githubReleases) Download(address string, watch ports.CopyWatch) ([]byte, error) {
+	return g.fetch(address, "application/octet-stream", watch)
 }
 
-func (g githubReleases) fetch(address, accept string) ([]byte, error) {
+func (g githubReleases) fetch(address, accept string, watch ports.CopyWatch) ([]byte, error) {
 	parsed, err := url.Parse(address)
 	if err != nil {
 		return nil, err
 	}
 
 	if parsed.Scheme == "file" {
-		return os.ReadFile(parsed.Path)
+		file, err := os.Open(parsed.Path)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+
+		size := int64(0)
+		if info, err := file.Stat(); err == nil {
+			size = info.Size()
+		}
+
+		return metered(file, size, watch)
 	}
 
 	request, err := http.NewRequest(http.MethodGet, address, nil)
@@ -258,8 +272,42 @@ func (g githubReleases) fetch(address, accept string) ([]byte, error) {
 		return nil, fmt.Errorf("%s answered %s", address, response.Status)
 	}
 
+	// A length the server did not announce is -1, which the line shows as no total
+	total := max(response.ContentLength, 0)
+
 	// A binary is tens of megabytes; anything past this is not one
-	return io.ReadAll(io.LimitReader(response.Body, 512<<20))
+	return metered(io.LimitReader(response.Body, 512<<20), total, watch)
+}
+
+// metered reads body whole, telling watch, when there is one, how far it has got. A body that
+// breaks off ends the watch failed, so a download cut short is never shown finished.
+func metered(body io.Reader, total int64, watch ports.CopyWatch) ([]byte, error) {
+	if watch == nil {
+		return io.ReadAll(body)
+	}
+
+	meter, end := watch(total)
+	content, err := io.ReadAll(&counted{reader: body, meter: meter})
+	end(err != nil)
+
+	return content, err
+}
+
+// counted passes the bytes read so far to a meter: a download is one file.
+type counted struct {
+	reader  io.Reader
+	meter   ports.CopyMeter
+	carried int64
+}
+
+func (c *counted) Read(buffer []byte) (int, error) {
+	n, err := c.reader.Read(buffer)
+	if n > 0 {
+		c.carried += int64(n)
+		c.meter(c.carried, 1)
+	}
+
+	return n, err
 }
 
 // releaseAsset is the asset name of this platform, or "" when releases do not publish one for it.
@@ -485,7 +533,7 @@ func (e *Engine) put(install installer, item published) (string, error) {
 		}
 	}()
 
-	binary, err := verifiedAsset(install.source, item, asset)
+	binary, err := e.verifiedAsset(install.source, item, asset)
 	if err != nil {
 		return "", core.Refusal{
 			Kind:    "download_failed",
@@ -495,21 +543,55 @@ func (e *Engine) put(install installer, item published) (string, error) {
 		}
 	}
 
+	installing := e.step("Installing " + tag)
+
 	if err := os.WriteFile(path, binary, 0o755); err != nil {
+		installing("", true)
 		return "", e.notWritable(target, tag, err)
 	}
 
 	if err := os.Chmod(path, 0o755); err != nil {
+		installing("", true)
 		return "", e.notWritable(target, tag, err)
 	}
 
 	if err := os.Rename(path, target); err != nil {
+		installing("", true)
 		return "", e.notWritable(target, tag, err)
 	}
 
 	done = true
 
+	installing("Installed at "+target, false)
+
 	return target, nil
+}
+
+// step shows a step of the move to another release running, and returns what ends it: with the
+// line it leaves, "" for none, or failed. Nobody watching, it shows nothing.
+func (e *Engine) step(label string) func(done string, failed bool) {
+	if e.options.Releasing.Step == nil {
+		return func(string, bool) {}
+	}
+
+	return e.options.Releasing.Step(label)
+}
+
+// failedStep shows a step that failed before there was anything to show it running for.
+func (e *Engine) failedStep(label string) { e.step(label)("", true) }
+
+// lookedUp is what looking a release up leaves: which release, and the one it replaces.
+func lookedUp(item published, running string, asked bool) string {
+	kind := "Latest release"
+
+	switch {
+	case asked:
+		kind = "Release"
+	case item.PreRelease:
+		kind = "Latest pre-release"
+	}
+
+	return fmt.Sprintf("%s: %s (you have %s)", kind, item.Tag, running)
 }
 
 // installScript is the installer, which installs the newest release and moves a binary root
@@ -564,7 +646,7 @@ func (e *Engine) moveHome(install installer, item published, asset, target, move
 		previous = true
 	}
 
-	binary, err := verifiedAsset(install.source, item, asset)
+	binary, err := e.verifiedAsset(install.source, item, asset)
 	if err != nil {
 		return "", core.Refusal{
 			Kind:    "download_failed",
@@ -582,10 +664,16 @@ func (e *Engine) moveHome(install installer, item published, asset, target, move
 	fmt.Fprintf(notice, "%s is in %s, which only root can write: sudo is needed this once, to move hm to %s "+
 		"and leave a link to it in its place\n", target, dir, filepath.Dir(moved))
 
+	// No step runs from here until sudo is done: it may ask for the password on the terminal a
+	// spinner would be drawing on. The install is shown once it is settled, either way.
+	installing := "Installing " + tag
+
 	// An earlier hm there is kept aside until sudo has linked target, so a refusal loses nothing
 	kept := ""
 	if previous {
 		if kept, err = copyBeside(moved); err != nil {
+			e.failedStep(installing)
+
 			return "", core.Refusal{
 				Kind:    "install_failed",
 				Code:    contract.ExitError,
@@ -597,6 +685,8 @@ func (e *Engine) moveHome(install installer, item published, asset, target, move
 	}
 
 	if err := placeAt(moved, binary); err != nil {
+		e.failedStep(installing)
+
 		return "", core.Refusal{
 			Kind:    "install_failed",
 			Code:    contract.ExitError,
@@ -614,6 +704,8 @@ func (e *Engine) moveHome(install installer, item published, asset, target, move
 			}
 		}
 
+		e.failedStep(installing)
+
 		return "", core.Refusal{
 			Kind: "install_dir_not_writable",
 			Code: contract.ExitError,
@@ -624,6 +716,8 @@ func (e *Engine) moveHome(install installer, item published, asset, target, move
 	}
 
 	fmt.Fprintf(notice, "hm now lives in %s and %s links to it, so later updates need no sudo\n", moved, target)
+
+	e.step(installing)("Installed at "+moved, false)
 
 	return moved, nil
 }
@@ -750,21 +844,57 @@ func (e *Engine) notWritable(target, tag string, err error) error {
 	}
 }
 
-// verifiedAsset downloads asset of item and checks it against the release's checksums.txt.
-func verifiedAsset(source releaseSource, item published, asset string) ([]byte, error) {
+// verifiedAsset downloads asset of item and checks it against the release's checksums.txt, showing
+// the download and the check to whoever watches.
+func (e *Engine) verifiedAsset(source releaseSource, item published, asset string) ([]byte, error) {
 	tag := item.Tag
+	verifying := "Verifying the checksum"
 
 	manifestURL := item.Assets["checksums.txt"]
 	if manifestURL == "" {
+		e.failedStep(verifying)
+
 		return nil, fmt.Errorf("release %s publishes no checksums.txt to verify %s with", tag, asset)
 	}
 
-	binary, err := source.Download(item.Assets[asset])
+	// A download the server refused never started its line, so its failure is shown as a step
+	started := false
+
+	var watch ports.CopyWatch
+	if show := e.options.Releasing.Download; show != nil {
+		watch = func(total int64) (ports.CopyMeter, func(bool)) {
+			started = true
+
+			return show(total)
+		}
+	}
+
+	binary, err := source.Download(item.Assets[asset], watch)
 	if err != nil {
+		if !started {
+			e.failedStep("Downloading " + asset)
+		}
+
 		return nil, fmt.Errorf("downloading %s of %s failed: %v", asset, tag, err)
 	}
 
-	manifest, err := source.Download(manifestURL)
+	check := e.step(verifying)
+
+	binary, err = checked(source, binary, manifestURL, tag, asset)
+	if err != nil {
+		check("", true)
+
+		return nil, err
+	}
+
+	check("Checksum verified", false)
+
+	return binary, nil
+}
+
+// checked is binary when the release's checksums list asset with its digest.
+func checked(source releaseSource, binary []byte, manifestURL, tag, asset string) ([]byte, error) {
+	manifest, err := source.Download(manifestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("downloading the checksums of %s failed: %v", tag, err)
 	}

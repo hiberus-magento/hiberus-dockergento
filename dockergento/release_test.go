@@ -14,6 +14,7 @@ import (
 	"testing/fstest"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
 )
 
 //
@@ -49,12 +50,20 @@ func (f *fakeReleases) Releases() ([]release, error) {
 	return f.listed, f.err
 }
 
-func (f *fakeReleases) Download(url string) ([]byte, error) {
+func (f *fakeReleases) Download(url string, watch ports.CopyWatch) ([]byte, error) {
 	f.asked = append(f.asked, url)
 
 	content, ok := f.files[url]
 	if !ok {
 		return nil, fmt.Errorf("%s answered 404 Not Found", url)
+	}
+
+	// The way a server answers: the size first, then the body, in two halves
+	if watch != nil {
+		meter, end := watch(int64(len(content)))
+		meter(int64(len(content)/2), 1)
+		meter(int64(len(content)), 1)
+		end(false)
 	}
 
 	return []byte(content), nil
@@ -951,7 +960,7 @@ func TestReleasesAreReadFromAFileFixture(t *testing.T) {
 		t.Fatalf("releases = %+v, err = %v", releases, err)
 	}
 
-	if body, err := source.Download(releases[0].Assets["hm_linux_amd64"]); err != nil || string(body) != "binary" {
+	if body, err := source.Download(releases[0].Assets["hm_linux_amd64"], nil); err != nil || string(body) != "binary" {
 		t.Fatalf("body = %q, err = %v", body, err)
 	}
 }
@@ -1057,5 +1066,418 @@ func TestAPreReleaseStampIsStillARelease(t *testing.T) {
 	updated, err := engine.Update(core.UpdateOptions{Running: "2.0.0-rc.1"})
 	if err != nil || !updated.Updated || contentOf(t, target) == "old" {
 		t.Fatalf("updated = %+v, err = %v", updated, err)
+	}
+}
+
+// ------------------------------------------------------------------ what a move shows on its way
+
+// shown records what a move to another release shows, in order: its steps, the download, and the
+// notices of the move to ~/.hm/bin, which it receives as their writer.
+type shown struct{ events []string }
+
+func (s *shown) watch() ports.ReleaseWatch {
+	return ports.ReleaseWatch{
+		Step: func(label string) func(string, bool) {
+			s.events = append(s.events, "… "+label)
+
+			return func(done string, failed bool) {
+				switch {
+				case failed:
+					s.events = append(s.events, "✗ "+label)
+				case done == "":
+					s.events = append(s.events, "(nothing left)")
+				default:
+					s.events = append(s.events, "✓ "+done)
+				}
+			}
+		},
+		Download: func(total int64) (ports.CopyMeter, func(bool)) {
+			s.events = append(s.events, fmt.Sprintf("download of %d bytes", total))
+
+			carried := int64(0)
+
+			return func(bytes, _ int64) { carried = bytes }, func(failed bool) {
+				s.events = append(s.events, fmt.Sprintf("downloaded %d bytes, failed %v", carried, failed))
+			}
+		},
+	}
+}
+
+func (s *shown) Write(text []byte) (int, error) {
+	s.events = append(s.events, "notice: "+strings.TrimSpace(string(text)))
+
+	return len(text), nil
+}
+
+// watched is installed with something watching what the move shows.
+func watched(t *testing.T, source *fakeReleases) (*Engine, string, *shown) {
+	t.Helper()
+
+	engine, target := installed(t, source)
+	seen := &shown{}
+	engine.options.Releasing = seen.watch()
+
+	return engine, target, seen
+}
+
+func sameEvents(t *testing.T, got, want []string) {
+	t.Helper()
+
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("shown:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
+	}
+}
+
+// downloadOf is the two events of downloading the fake binary of tag, which is that many bytes.
+func downloadOf(tag string) []string {
+	size := len("#!/bin/sh\n# " + tag + "\n")
+
+	return []string{
+		fmt.Sprintf("download of %d bytes", size),
+		fmt.Sprintf("downloaded %d bytes, failed false", size),
+	}
+}
+
+func TestAnUpdateShowsEachStepAsItHappens(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	source.publish("2.0.0", false)
+	engine, target, seen := watched(t, source)
+
+	if _, err := engine.Update(core.UpdateOptions{Running: "2.0.0"}); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	want := append([]string{"… Looking up the latest release", "✓ Latest release: 2.1.0 (you have 2.0.0)"},
+		downloadOf("2.1.0")...)
+	want = append(want, "… Verifying the checksum", "✓ Checksum verified",
+		"… Installing 2.1.0", "✓ Installed at "+target)
+	sameEvents(t, seen.events, want)
+}
+
+func TestAnUpdateToAPreReleaseSaysItIsOne(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.0.0-rc.5", true)
+	source.publish("2.0.0-rc.4", true)
+	engine, _, seen := watched(t, source)
+
+	if _, err := engine.Update(core.UpdateOptions{Running: "2.0.0-rc.4", PreReleases: true}); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	if len(seen.events) < 2 || seen.events[1] != "✓ Latest pre-release: 2.0.0-rc.5 (you have 2.0.0-rc.4)" {
+		t.Fatalf("shown %q", seen.events)
+	}
+}
+
+// Up to date, the answer is the one the command prints: the step leaves nothing of its own.
+func TestAnUpToDateUpdateShowsOnlyTheLookUp(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	engine, _, seen := watched(t, source)
+
+	if _, err := engine.Update(core.UpdateOptions{Running: "2.1.0"}); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	sameEvents(t, seen.events, []string{"… Looking up the latest release", "(nothing left)"})
+}
+
+// A step that fails is shown failed, and the error that follows is the one it always was.
+func TestAFailedStepIsShownFailed(t *testing.T) {
+	cases := []struct {
+		name    string
+		prepare func(source *fakeReleases)
+		want    []string
+		kind    string
+	}{
+		{
+			name:    "the releases cannot be read",
+			prepare: func(source *fakeReleases) { source.err = errors.New("offline") },
+			want:    []string{"… Looking up the latest release", "✗ Looking up the latest release"},
+			kind:    "releases_unavailable",
+		},
+		{
+			name: "the binary cannot be downloaded",
+			prepare: func(source *fakeReleases) {
+				delete(source.files, "https://example.invalid/2.1.0/hm_linux_amd64")
+			},
+			want: []string{"… Looking up the latest release", "✓ Latest release: 2.1.0 (you have 2.0.0)",
+				"… Downloading hm_linux_amd64", "✗ Downloading hm_linux_amd64"},
+			kind: "download_failed",
+		},
+		{
+			name: "the checksum does not match",
+			prepare: func(source *fakeReleases) {
+				source.files["https://example.invalid/2.1.0/hm_linux_amd64"] = "tampered"
+			},
+			want: []string{"… Looking up the latest release", "✓ Latest release: 2.1.0 (you have 2.0.0)",
+				"download of 8 bytes", "downloaded 8 bytes, failed false",
+				"… Verifying the checksum", "✗ Verifying the checksum"},
+			kind: "download_failed",
+		},
+		{
+			name:    "the release publishes no checksums",
+			prepare: func(source *fakeReleases) { delete(source.listed[0].Assets, "checksums.txt") },
+			want: []string{"… Looking up the latest release", "✓ Latest release: 2.1.0 (you have 2.0.0)",
+				"… Verifying the checksum", "✗ Verifying the checksum"},
+			kind: "download_failed",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			source := &fakeReleases{}
+			source.publish("2.1.0", false)
+			c.prepare(source)
+			engine, target, seen := watched(t, source)
+
+			_, err := engine.Update(core.UpdateOptions{Running: "2.0.0"})
+
+			if refusal := refusalOf(t, err); refusal.Kind != c.kind {
+				t.Fatalf("refusal = %+v, want %s", refusal, c.kind)
+			}
+
+			sameEvents(t, seen.events, c.want)
+
+			if contentOf(t, target) != "old" {
+				t.Fatal("the old binary was replaced")
+			}
+		})
+	}
+}
+
+func TestAnInstallThatCannotRenameIsShownFailed(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	engine, target, seen := watched(t, source)
+
+	// A directory where the executable was: the rename over it fails after the download
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(target, "inside"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := engine.Update(core.UpdateOptions{Running: "2.0.0"})
+
+	if refusal := refusalOf(t, err); refusal.Kind != "install_failed" {
+		t.Fatalf("refusal = %+v", refusal)
+	}
+
+	if last := seen.events[len(seen.events)-2:]; last[0] != "… Installing 2.1.0" || last[1] != "✗ Installing 2.1.0" {
+		t.Fatalf("shown %q, want the install shown failed", seen.events)
+	}
+}
+
+// The move to ~/.hm/bin says what it does on lines of its own, with no step running while sudo may
+// ask for the password.
+func TestTheMoveHomeNoticesStandBetweenTheSteps(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	engine, target, seen := watched(t, source)
+	rootOwned(t, target)
+	_, home, _ := atTerminal(t, engine)
+	engine.install.notice = seen
+	moved := filepath.Join(home, ".hm", "bin", "hm")
+
+	if _, err := engine.Update(core.UpdateOptions{Running: "2.0.0"}); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	want := append([]string{"… Looking up the latest release", "✓ Latest release: 2.1.0 (you have 2.0.0)"},
+		downloadOf("2.1.0")...)
+	want = append(want, "… Verifying the checksum", "✓ Checksum verified",
+		"notice: "+target+" is in "+filepath.Dir(target)+", which only root can write: sudo is needed this "+
+			"once, to move hm to "+filepath.Dir(moved)+" and leave a link to it in its place",
+		"notice: hm now lives in "+moved+" and "+target+" links to it, so later updates need no sudo",
+		"… Installing 2.1.0", "✓ Installed at "+moved)
+	sameEvents(t, seen.events, want)
+}
+
+func TestAMoveHomeSudoRefusedIsShownFailed(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.1.0", false)
+	engine, target, seen := watched(t, source)
+	rootOwned(t, target)
+	sudo, _, _ := atTerminal(t, engine)
+	sudo.err = errors.New("no password")
+	engine.install.notice = seen
+
+	if _, err := engine.Update(core.UpdateOptions{Running: "2.0.0"}); err == nil {
+		t.Fatal("Update succeeded without sudo")
+	}
+
+	if last := seen.events[len(seen.events)-2:]; last[0] != "… Installing 2.1.0" || last[1] != "✗ Installing 2.1.0" {
+		t.Fatalf("shown %q, want the install shown failed after the notice", seen.events)
+	}
+}
+
+func TestASwitchShowsTheReleaseAskedFor(t *testing.T) {
+	cases := []struct {
+		name    string
+		options core.SwitchOptions
+		want    []string
+	}{
+		{
+			name:    "a version",
+			options: core.SwitchOptions{Running: "2.1.0", Version: "2.0.0"},
+			want:    []string{"… Looking up release 2.0.0", "✓ Release: 2.0.0 (you have 2.1.0)"},
+		},
+		{
+			name:    "the newest final release",
+			options: core.SwitchOptions{Running: "2.0.0", Stable: true},
+			want:    []string{"… Looking up the latest final release", "✓ Latest release: 2.1.0 (you have 2.0.0)"},
+		},
+		{
+			name:    "the one running",
+			options: core.SwitchOptions{Running: "2.1.0", Version: "2.1.0"},
+			want:    []string{"… Looking up release 2.1.0", "(nothing left)"},
+		},
+		{
+			name:    "a release that does not exist",
+			options: core.SwitchOptions{Running: "2.1.0", Version: "2.9.0"},
+			want:    []string{"… Looking up release 2.9.0", "✗ Looking up release 2.9.0"},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			source := &fakeReleases{}
+			source.publish("2.1.0", false)
+			source.publish("2.0.0", false)
+			engine, _, seen := watched(t, source)
+
+			_, _ = engine.Switch(c.options)
+
+			if len(seen.events) < 2 {
+				t.Fatalf("shown %q", seen.events)
+			}
+
+			sameEvents(t, seen.events[:2], c.want)
+		})
+	}
+}
+
+// What is refused before anything is read shows nothing: there was no step.
+func TestASwitchRefusedBeforeLookingShowsNothing(t *testing.T) {
+	engine, _, seen := watched(t, &fakeReleases{})
+
+	if _, err := engine.Switch(core.SwitchOptions{Running: "2.1.0", Version: "main"}); err == nil {
+		t.Fatal("a branch was accepted")
+	}
+
+	if len(seen.events) != 0 {
+		t.Fatalf("shown %q, want nothing", seen.events)
+	}
+}
+
+// ------------------------------------------------------------------ the download's progress
+
+// downloadSeen records what a download showed: the total announced, the bytes reached and how it
+// ended.
+type downloadSeen struct {
+	started bool
+	total   int64
+	bytes   int64
+	ended   int
+	failed  bool
+}
+
+func (d *downloadSeen) watch(total int64) (ports.CopyMeter, func(bool)) {
+	d.started, d.total = true, total
+
+	return func(bytes, _ int64) { d.bytes = bytes }, func(failed bool) { d.ended++; d.failed = failed }
+}
+
+func TestADownloadsTotalIsTheContentLength(t *testing.T) {
+	body := strings.Repeat("b", 64<<10)
+
+	cases := []struct {
+		name      string
+		handler   http.HandlerFunc
+		wantTotal int64
+	}{
+		{"announced", func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Length", fmt.Sprint(len(body)))
+			_, _ = w.Write([]byte(body))
+		}, int64(len(body))},
+		{"not announced", func(w http.ResponseWriter, _ *http.Request) {
+			// Flushed before the body is whole, so it goes chunked, with no length
+			_, _ = w.Write([]byte(body[:10]))
+			w.(http.Flusher).Flush()
+			_, _ = w.Write([]byte(body[10:]))
+		}, 0},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			server := httptest.NewServer(c.handler)
+			defer server.Close()
+
+			seen := &downloadSeen{}
+
+			got, err := (githubReleases{}).Download(server.URL+"/hm_linux_amd64", seen.watch)
+			if err != nil || string(got) != body {
+				t.Fatalf("Download: %d bytes, err = %v", len(got), err)
+			}
+
+			if seen.total != c.wantTotal || seen.bytes != int64(len(body)) || seen.ended != 1 || seen.failed {
+				t.Fatalf("shown %+v, want total %d, every byte and one good end", seen, c.wantTotal)
+			}
+		})
+	}
+}
+
+func TestADownloadCutShortEndsFailed(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", "1000")
+		_, _ = w.Write([]byte("only this"))
+	}))
+	defer server.Close()
+
+	seen := &downloadSeen{}
+
+	if _, err := (githubReleases{}).Download(server.URL+"/hm_linux_amd64", seen.watch); err == nil {
+		t.Fatal("a body cut short was taken whole")
+	}
+
+	if seen.total != 1000 || seen.ended != 1 || !seen.failed {
+		t.Fatalf("shown %+v, want the total announced and one failed end", seen)
+	}
+}
+
+// A server that refuses never starts the line: there is nothing being downloaded to show.
+func TestADownloadRefusedShowsNoLine(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+
+	seen := &downloadSeen{}
+
+	if _, err := (githubReleases{}).Download(server.URL+"/hm_linux_amd64", seen.watch); err == nil {
+		t.Fatal("a 404 was taken for a binary")
+	}
+
+	if seen.started {
+		t.Fatalf("shown %+v, want nothing", seen)
+	}
+}
+
+// The fixture HM_RELEASES_URL names is read from disk, and its size is the total.
+func TestADownloadFromAFileFixtureKnowsItsSize(t *testing.T) {
+	asset := filepath.Join(t.TempDir(), "hm_linux_amd64")
+	if err := os.WriteFile(asset, []byte("binary"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	seen := &downloadSeen{}
+
+	if got, err := (githubReleases{}).Download("file://"+asset, seen.watch); err != nil || string(got) != "binary" {
+		t.Fatalf("Download: %q, err = %v", got, err)
+	}
+
+	if seen.total != 6 || seen.bytes != 6 || seen.ended != 1 || seen.failed {
+		t.Fatalf("shown %+v", seen)
 	}
 }

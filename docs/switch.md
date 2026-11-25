@@ -23,6 +23,12 @@ on a terminal, with `sudo` once; anywhere else the switch is refused with how to
 
 Switching to the version already running changes nothing and says so.
 
+On a terminal, the steps are shown on stderr while they happen, as `update` shows them (see
+[What a terminal shows while it works](update.md#what-a-terminal-shows-while-it-works)): the
+release looked up (`✓ Release: 2.0.0 (you have 2.1.0)`, or `✓ Latest release: …` with
+`--stable`), the download's progress line, `✓ Checksum verified` and `✓ Installed at <path>`.
+The answer on stdout, and everything off a terminal or with `--json`, is unchanged.
+
 ## Only releases of 2.0 and later
 
 From 2.0 hm is a Go program with a binary for each platform; 1.x is the shell tool, which has

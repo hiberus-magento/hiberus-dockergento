@@ -114,6 +114,11 @@ type Options struct {
 	// what keeps a log, a pipe or --json byte for byte what it was.
 	Copying ports.CopyWatch
 
+	// Releasing shows `update` and `switch` moving the tool to another release, step by step and
+	// with the download's progress. The command line draws it on a terminal and leaves it zero
+	// everywhere else, for the same reason as Copying.
+	Releasing ports.ReleaseWatch
+
 	// Ask is how a value that cannot be worked out is obtained. The command line reads the
 	// terminal; anything else answers however it likes — which is the reason this is not a
 	// terminal read buried three layers down.

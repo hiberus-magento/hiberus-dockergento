@@ -20,13 +20,19 @@ func (e *Engine) Update(options core.UpdateOptions) (core.Updated, error) {
 	}
 
 	install := e.installer()
+	looking := e.step("Looking up the latest release")
 
 	found, err := e.releases(install.source, options.PreReleases)
 	if err != nil {
+		looking("", true)
+
 		return core.Updated{}, err
 	}
 
 	if len(found) == 0 || !running.less(found[0].version) {
+		// The answer is the command's own, up to date: the step leaves nothing to repeat it
+		looking("", false)
+
 		latest := ""
 		if len(found) > 0 {
 			latest = found[0].Tag
@@ -36,6 +42,8 @@ func (e *Engine) Update(options core.UpdateOptions) (core.Updated, error) {
 
 		return core.Updated{From: options.Running, To: options.Running, Latest: latest, Path: path}, nil
 	}
+
+	looking(lookedUp(found[0], options.Running, false), false)
 
 	path, err := e.put(install, found[0])
 	if err != nil {

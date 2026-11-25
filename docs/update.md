@@ -28,6 +28,30 @@ hm update --pre    # newest release, pre-releases included
    `~/.hm/bin/hm`, which is what the installer leaves, `~/.hm/bin/hm` is replaced and no `sudo`
    is needed.
 
+## What a terminal shows while it works
+
+On a terminal, each step is shown on stderr as it happens: a spinner while it runs, a green ✓
+once it is done, and the download as a progress line (bar, percentage, bytes of the total, rate
+and time left; a byte counter when the server announces no size):
+
+```
+✓ Latest pre-release: 2.0.0-rc.5 (you have 2.0.0-rc.4)
+  ████████████████████ 100%  26 MB / 26 MB · 8.7 MB/s · 3s
+✓ Checksum verified
+✓ Installed at /home/you/.hm/bin/hm
+Hiberus Dockergento updated from 2.0.0-rc.4 to 2.0.0-rc.5
+  installed    /home/you/.hm/bin/hm
+  what changed https://github.com/hiberus-magento/hiberus-dockergento/releases/tag/2.0.0-rc.5
+```
+
+Up to date, the spinner of the look-up goes and only the answer is left. A step that fails is
+shown with a red ✗ before the error. `NO_COLOR` keeps the marks and the bar, without colour.
+
+The last three lines are stdout, and they are the same everywhere. The steps are drawn only on a
+terminal that can draw: redirected, with `--json`, `--progress=jsonl`, `CI`, `HM_NO_PROGRESS`,
+`HM_NON_INTERACTIVE` or `TERM=dumb`, nothing is drawn and stderr is what it always was. The rules
+are those of the copy progress line.
+
 ## A binary root installed
 
 2.0.0-rc.1 to rc.3 put the binary itself in `/usr/local/bin`, which only root can write. On a

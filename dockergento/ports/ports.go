@@ -408,6 +408,18 @@ type CopyMeter func(bytes, files int64)
 // told whether the copy failed, so that a broken copy is never shown as a finished one.
 type CopyWatch func(total int64) (meter CopyMeter, end func(failed bool))
 
+// ReleaseWatch shows the move to another release of the tool while it happens: looking the release
+// up, downloading it, checking it and putting it in place. The zero value watches nothing, which is
+// what a caller with nobody looking at a terminal hands.
+type ReleaseWatch struct {
+	// Step shows a step running under label and returns what ends it: done is the line the step
+	// leaves behind, "" for none, and failed says it did not finish.
+	Step func(label string) (end func(done string, failed bool))
+
+	// Download shows the download of the binary, its total the bytes the server announced.
+	Download CopyWatch
+}
+
 // MeteredFileTransfer is a FileTransfer that can also say how far a copy has got as it goes.
 type MeteredFileTransfer interface {
 	IntoMetered(container, source, target string, meter CopyMeter) error
