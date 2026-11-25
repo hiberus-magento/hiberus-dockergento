@@ -37,6 +37,31 @@ const (
 
 var mcpKnownVersions = []string{"2025-06-18", "2025-03-26", "2024-11-05"}
 
+// instructions is what the client is told about this server. With --write, saying that nothing
+// changes the environment would be the opposite of what the write tools do, so they are named.
+func (s mcpServer) instructions() string {
+	if !s.write {
+		return mcpInstructions
+	}
+
+	read := map[string]bool{}
+	for _, name := range mcpToolNames(false) {
+		read[name] = true
+	}
+
+	var writing []string
+
+	for _, name := range mcpToolNames(true) {
+		if !read[name] {
+			writing = append(writing, name)
+		}
+	}
+
+	return "Tools for the Magento environment in the current directory. " +
+		strings.Join(writing, ", ") + " change the environment; the others only read it. " +
+		"Setup, Composer, database imports and anything that removes an environment are not offered: use the hm command line for those."
+}
+
 // mcpCapture runs this tool's binary with args, standard input closed, and returns what it
 // printed: standard output alone, or together with standard error when combined. It is what a
 // test replaces, so that no real command runs. A binary that cannot be started says so in the
@@ -215,7 +240,7 @@ func (s mcpServer) handle(line string) (string, bool) {
 			"protocolVersion", jqText(version),
 			"capabilities", jqObjectOf("tools", jqObjectOf()),
 			"serverInfo", jqObjectOf("name", jqText(name), "version", jqText(toolVersion)),
-			"instructions", jqText(mcpInstructions),
+			"instructions", jqText(s.instructions()),
 		)), true
 	case "tools/list":
 		return mcpResult(id, jqObjectOf("tools", mcpCatalogue(s.write))), true

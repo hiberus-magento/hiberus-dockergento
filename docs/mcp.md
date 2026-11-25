@@ -80,6 +80,9 @@ adds four tools, and only these four:
 | `reindex` | Rebuilds every index, or the one named |
 | `config_set` | Sets a configuration value at default scope |
 
+With the flag the server's instructions, sent to the client when it connects, name these four as
+the tools that change the environment; without it they say that nothing here changes anything.
+
 Without the flag they **do not exist** — they are absent from the tool list, not refused when
 called. A tool that exists and says no is worse than no tool: the model sees it, plans around it,
 reads the refusal and reaches for a shell.

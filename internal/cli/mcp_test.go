@@ -471,3 +471,51 @@ func TestACommandThatFailsSilentlyIsSaid(t *testing.T) {
 		t.Errorf("output = %q, want what the command printed, untouched", output)
 	}
 }
+
+// instructions is what initialize told the client about the server.
+func instructions(t *testing.T, server mcpServer) string {
+	t.Helper()
+
+	var response struct {
+		Result struct {
+			Instructions string `json:"instructions"`
+		} `json:"result"`
+	}
+
+	out := serving(server, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}`+"\n")
+	if err := json.Unmarshal([]byte(out), &response); err != nil {
+		t.Fatalf("json.Unmarshal(%q) = %v", out, err)
+	}
+
+	return response.Result.Instructions
+}
+
+// TestTheInstructionsSayWhatTheToolsCanDo: a server started with --write that tells the model
+// "nothing here changes the environment" is telling it the opposite of what four of its tools do.
+func TestTheInstructionsSayWhatTheToolsCanDo(t *testing.T) {
+	t.Run("without --write they are read-only, as they always said", func(t *testing.T) {
+		quiet(t)
+
+		want := "Read-only tools for the Magento environment in the current directory. " +
+			"Nothing here changes the environment; use the hm command line for that."
+		if got := instructions(t, mcpServer{capture: refusing(t)}); got != want {
+			t.Fatalf("instructions = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("with --write they name the tools that change it", func(t *testing.T) {
+		quiet(t)
+
+		got := instructions(t, mcpServer{write: true, capture: refusing(t)})
+
+		if strings.Contains(got, "Nothing here changes the environment") {
+			t.Errorf("instructions = %q, want no claim that nothing changes", got)
+		}
+
+		for _, want := range []string{"cache_flush", "cache_clean", "reindex", "config_set", "change the environment"} {
+			if !strings.Contains(got, want) {
+				t.Errorf("instructions = %q, want them to mention %q", got, want)
+			}
+		}
+	})
+}
