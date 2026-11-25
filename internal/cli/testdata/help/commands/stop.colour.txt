@@ -1,8 +1,9 @@
-[0;32mUsage: [0m[0;33mhm stop [options]
+[0;32mUsage: [0m[0;33mhm stop [-t seconds] [--snapshot] [service...]
 [0m[0;32mExample: [0m[0;33mhm stop phpfpm
 [0m[0;32mDescription:[0m Stop docker services
 [0;32mOptions:
-[0m   [0;33m[-|--snapshot]  [0m Save a database snapshot before stopping
+[0m   [0;33m[-t|--timeout]  [0m Seconds each container is given to stop before it is killed
+   [0;33m[-|--snapshot]  [0m Save a database snapshot before stopping
 [0;32mArguments:
 [0m   [0;33m<service-name>  [0mStop specific container of the service-name.
 

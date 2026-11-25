@@ -43,6 +43,10 @@ type call struct {
 	// Snapshot is whether stop was asked to save the database first.
 	Snapshot bool
 
+	// Timeout is the seconds stop or restart was asked to give each container (-t), nil for
+	// Compose's own default.
+	Timeout *int
+
 	// StopOthers is whether start was asked to stop every other environment first (-s).
 	StopOthers bool
 
@@ -363,17 +367,20 @@ func (f *fakeEngine) Start(dir string, options dockergento.StartOptions) error {
 	return f.outcomeFor(number).err
 }
 
-// Stop, like Restart, only ever answers with an error.
-func (f *fakeEngine) Stop(dir string, services []string, snapshot bool) error {
+// StopWith, like RestartWith, only ever answers with an error. Both record under the command's
+// own name, Stop and Restart: the options value is how they are asked, not what they do.
+func (f *fakeEngine) StopWith(dir string, options core.StopOptions) error {
 	number := len(f.calls)
-	f.calls = append(f.calls, call{Method: "Stop", Dir: dir, Services: services, Snapshot: snapshot})
+	f.calls = append(f.calls, call{Method: "Stop", Dir: dir, Services: options.Services,
+		Snapshot: options.Snapshot, Timeout: options.Timeout})
 
 	return f.outcomeFor(number).err
 }
 
-func (f *fakeEngine) Restart(dir string, services []string) error {
+func (f *fakeEngine) RestartWith(dir string, options core.RestartOptions) error {
 	number := len(f.calls)
-	f.calls = append(f.calls, call{Method: "Restart", Dir: dir, Services: services})
+	f.calls = append(f.calls, call{Method: "Restart", Dir: dir, Services: options.Services,
+		Timeout: options.Timeout})
 
 	return f.outcomeFor(number).err
 }

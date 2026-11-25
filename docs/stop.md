@@ -6,9 +6,24 @@ Stops the environment's services, keeping the containers and everything in them.
 hm stop
 hm stop phpfpm         # one service
 hm stop --snapshot     # save the database first
+hm stop -t 5           # give each container 5 seconds before killing it
 ```
 
 `hm start` brings it back exactly as it was.
+
+## `-t`, `--timeout`
+
+How many seconds each container is given to stop before it is killed. Without it, the wait is
+Compose's own default (the service's `stop_grace_period`, or 10 seconds). `0` kills at once.
+
+```bash
+hm stop -t 5
+hm stop --timeout=30 db
+```
+
+It is written `-t N`, `-t=N`, `--timeout N` or `--timeout=N`. A missing value, or one that is not
+a whole number of seconds, is a usage error (exit 2), and so is any other option: it is refused
+rather than taken for the name of a service.
 
 ## `--snapshot`
 

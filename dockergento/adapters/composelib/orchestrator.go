@@ -92,15 +92,31 @@ func (o Orchestrator) up(project core.Project, files core.ComposeFiles, services
 }
 
 func (o Orchestrator) Stop(project core.Project, files core.ComposeFiles, services []string) error {
+	return o.StopWithTimeout(project, files, services, nil)
+}
+
+// StopWithTimeout is `stop -t`: timeout is in seconds, and nil leaves Compose's own default.
+func (o Orchestrator) StopWithTimeout(project core.Project, files core.ComposeFiles, services []string, timeout *int) error {
 	service, loaded, err := o.open(project, files)
 	if err != nil {
 		return err
 	}
 
-	return service.Stop(context.Background(), loaded.Name, api.StopOptions{
+	return service.Stop(context.Background(), loaded.Name, stopOptions(loaded, services, timeout))
+}
+
+func stopOptions(loaded *types.Project, services []string, timeout *int) api.StopOptions {
+	stop := api.StopOptions{
 		Project:  loaded,
 		Services: services,
-	})
+	}
+
+	if timeout != nil {
+		grace := time.Duration(*timeout) * time.Second
+		stop.Timeout = &grace
+	}
+
+	return stop
 }
 
 // Down removes an environment: its containers, its networks and, when asked, its data.

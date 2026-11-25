@@ -1,7 +1,8 @@
-Usage: hm stop [options]
+Usage: hm stop [-t seconds] [--snapshot] [service...]
 Example: hm stop phpfpm
 Description: Stop docker services
 Options:
+   [-t|--timeout]   Seconds each container is given to stop before it is killed
    [-|--snapshot]   Save a database snapshot before stopping
 Arguments:
    <service-name>  Stop specific container of the service-name.

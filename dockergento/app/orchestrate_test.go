@@ -16,6 +16,9 @@ type orchestrator struct {
 	downCalls  []core.DownOptions
 	err        error
 
+	// stopTimeouts is the timeout each stop in stopCalls was given, nil for Compose's default.
+	stopTimeouts []*int
+
 	// stopErr fails only the stop, for the operations that go on to something else after it.
 	stopErr error
 
@@ -46,8 +49,15 @@ func (o *orchestrator) UpBuilding(_ core.Project, _ core.ComposeFiles, services 
 	return o.err
 }
 
-func (o *orchestrator) Stop(_ core.Project, _ core.ComposeFiles, services []string) error {
+func (o *orchestrator) Stop(project core.Project, files core.ComposeFiles, services []string) error {
+	return o.StopWithTimeout(project, files, services, nil)
+}
+
+// StopWithTimeout records the timeout of every stop in stopTimeouts, alongside its stopCalls
+// entry; Stop lands here with nil, the way the adapter's own does.
+func (o *orchestrator) StopWithTimeout(_ core.Project, _ core.ComposeFiles, services []string, timeout *int) error {
 	o.stopCalls = append(o.stopCalls, services)
+	o.stopTimeouts = append(o.stopTimeouts, timeout)
 	o.record("stop " + strings.Join(services, " "))
 
 	if o.stopErr != nil {
@@ -268,7 +278,7 @@ func TestAFailedSnapshotLeavesTheEnvironmentRunning(t *testing.T) {
 	snapshots, project := copias(t, dumper)
 	operator.Snapshots = &snapshots
 
-	refusal := refusalOf(t, operator.Stop(project, core.ComposeFiles{}, nil, true))
+	refusal := refusalOf(t, operator.Stop(project, core.ComposeFiles{}, core.StopOptions{Snapshot: true}))
 
 	if refusal.Kind != "snapshot_failed" {
 		t.Fatalf("refusal kind = %q, want the one for a copy that failed", refusal.Kind)
@@ -287,12 +297,54 @@ func TestStoppingWithoutACopyDoesNotAskForOne(t *testing.T) {
 	orchestration := &orchestrator{}
 	operator := operatorWith(nil, orchestration)
 
-	if err := operator.Stop(core.Project{Name: "shop"}, core.ComposeFiles{}, nil, false); err != nil {
+	if err := operator.Stop(core.Project{Name: "shop"}, core.ComposeFiles{}, core.StopOptions{}); err != nil {
 		t.Fatalf("Stop = %v, want no error", err)
 	}
 
 	if len(orchestration.stopCalls) != 1 {
 		t.Fatalf("stop calls = %v, want one", orchestration.stopCalls)
+	}
+
+	if orchestration.stopTimeouts[0] != nil {
+		t.Fatalf("stop timeout = %d, want none asked for: Compose's own default", *orchestration.stopTimeouts[0])
+	}
+}
+
+// The timeout asked of a stop, or of a restart, is the timeout its stop is given — and only the
+// stop's: a start has nothing to wait for.
+func TestATimeoutIsGivenToTheStop(t *testing.T) {
+	five := 5
+
+	cases := []struct {
+		name string
+		run  func(Operator) error
+	}{
+		{"stop", func(operator Operator) error {
+			return operator.Stop(core.Project{Name: "shop"}, core.ComposeFiles{},
+				core.StopOptions{Services: []string{"phpfpm"}, Timeout: &five})
+		}},
+		{"restart", func(operator Operator) error {
+			return operator.Restart(core.Project{Name: "shop"}, core.ComposeFiles{},
+				core.RestartOptions{Services: []string{"phpfpm"}, Timeout: &five}, false)
+		}},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			orchestration := &orchestrator{}
+
+			if err := tt.run(operatorWith(nil, orchestration)); err != nil {
+				t.Fatalf("%s = %v, want no error", tt.name, err)
+			}
+
+			if len(orchestration.stopCalls) != 1 || orchestration.stopCalls[0][0] != "phpfpm" {
+				t.Fatalf("stop calls = %v, want one, of the service asked for", orchestration.stopCalls)
+			}
+
+			if got := orchestration.stopTimeouts[0]; got == nil || *got != 5 {
+				t.Fatalf("stop timeout = %v, want 5 seconds", got)
+			}
+		})
 	}
 }
 
@@ -304,7 +356,8 @@ func TestRestartingIsAStopAndAStart(t *testing.T) {
 	orchestration := &orchestrator{}
 	operator := operatorWith(nil, orchestration)
 
-	if err := operator.Restart(core.Project{Name: "shop"}, core.ComposeFiles{}, []string{"phpfpm"}, false); err != nil {
+	if err := operator.Restart(core.Project{Name: "shop"}, core.ComposeFiles{},
+		core.RestartOptions{Services: []string{"phpfpm"}}, false); err != nil {
 		t.Fatalf("Restart = %v, want no error", err)
 	}
 
@@ -413,9 +466,9 @@ func TestNiPararloNiReiniciarlo(t *testing.T) {
 
 		switch hacer {
 		case "stop":
-			err = operator.Stop(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, nil, false)
+			err = operator.Stop(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, core.StopOptions{})
 		case "restart":
-			err = operator.Restart(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, nil, false)
+			err = operator.Restart(enUnWorktreeSinRegistrar(), core.ComposeFiles{}, core.RestartOptions{}, false)
 		}
 
 		if refusal := refusalOf(t, err); refusal.Code != 6 {

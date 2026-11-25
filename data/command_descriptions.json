@@ -573,6 +573,16 @@
         ],
         "example": "restart phpfpm",
         "group": "environment",
+        "usage": "restart [-t seconds] [service...]",
+        "opts": [
+            {
+                "name": {
+                    "short": "t",
+                    "long": "timeout"
+                },
+                "description": "Seconds each container is given to stop before it is killed"
+            }
+        ],
         "safety": "caution"
     },
     "set-host": {
@@ -741,8 +751,15 @@
         ],
         "example": "stop phpfpm",
         "group": "environment",
-        "usage": "stop [options]",
+        "usage": "stop [-t seconds] [--snapshot] [service...]",
         "opts": [
+            {
+                "name": {
+                    "short": "t",
+                    "long": "timeout"
+                },
+                "description": "Seconds each container is given to stop before it is killed"
+            },
             {
                 "name": {
                     "short": "",

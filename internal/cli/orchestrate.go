@@ -43,15 +43,18 @@ func start(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 func stop(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	snapshot := false
-	services := []string{}
 
-	for _, argument := range args {
-		switch argument {
-		case "--snapshot":
-			snapshot = true
-		default:
-			services = append(services, argument)
+	services, timeout, code := stopArguments("stop", args, stderr, jsonOutput, func(argument string) bool {
+		if argument != "--snapshot" {
+			return false
 		}
+
+		snapshot = true
+
+		return true
+	})
+	if code != 0 {
+		return code
 	}
 
 	if _, code := projectOr(stderr, jsonOutput, "stop"); code != 0 {
@@ -59,19 +62,13 @@ func stop(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	return report(stderr, jsonOutput, "stop", newEngine(stdout, stderr, jsonOutput).
-		Stop(here(), services, snapshot))
+		StopWith(here(), core.StopOptions{Services: services, Snapshot: snapshot, Timeout: timeout}))
 }
 
 func restart(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
-	services := []string{}
-
-	for _, argument := range args {
-		if strings.HasPrefix(argument, "-") {
-			return failure(stderr, jsonOutput, "restart", exitUsage, "invalid_argument",
-				fmt.Sprintf("Unknown option: %s", argument), binaryName()+" restart [service...]")
-		}
-
-		services = append(services, argument)
+	services, timeout, code := stopArguments("restart", args, stderr, jsonOutput, func(string) bool { return false })
+	if code != 0 {
+		return code
 	}
 
 	if _, code := projectOr(stderr, jsonOutput, "restart"); code != 0 {
@@ -79,7 +76,54 @@ func restart(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	return report(stderr, jsonOutput, "restart", newEngine(stdout, stderr, jsonOutput).
-		Restart(here(), services))
+		RestartWith(here(), core.RestartOptions{Services: services, Timeout: timeout}))
+}
+
+// stopArguments reads what stop and restart share: the services, and -t/--timeout in the four
+// spellings Compose's own flag accepts (-t 5, -t=5, --timeout 5, --timeout=5). own answers for the
+// options a command has beyond those; any other argument that starts with a dash is refused, so
+// that it never reaches Compose as a service name. The code is 0 unless the arguments were
+// refused, and then it is what was answered.
+func stopArguments(command string, args []string, stderr io.Writer, jsonOutput bool,
+	own func(string) bool) ([]string, *int, int) {
+	usage := binaryName() + " " + command + " [-t seconds] [service...]"
+	services := []string{}
+
+	var timeout *int
+
+	for at := 0; at < len(args); at++ {
+		argument := args[at]
+		name, value, inline := strings.Cut(argument, "=")
+
+		switch {
+		case name == "-t" || name == "--timeout":
+			if !inline && at+1 < len(args) {
+				at++
+				value = args[at]
+			}
+
+			if value == "" {
+				return nil, nil, failure(stderr, jsonOutput, command, exitUsage, "invalid_argument",
+					name+" needs a number of seconds", usage)
+			}
+
+			seconds, err := strconv.Atoi(value)
+			if err != nil || seconds < 0 {
+				return nil, nil, failure(stderr, jsonOutput, command, exitUsage, "invalid_argument",
+					"The timeout is a number of seconds: "+value, usage)
+			}
+
+			timeout = &seconds
+		case own(argument):
+		case strings.HasPrefix(argument, "-"):
+			return nil, nil, failure(stderr, jsonOutput, command, exitUsage, "invalid_argument",
+				fmt.Sprintf("Unknown option: %s", argument), usage)
+		default:
+			services = append(services, argument)
+		}
+	}
+
+	return services, timeout, 0
 }
 
 // postStart runs what the platform needs once the environment is up: on Linux, the host's ids for

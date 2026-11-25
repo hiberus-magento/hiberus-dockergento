@@ -233,6 +233,10 @@ type Orchestrator interface {
 	// Stop stops without removing: an everyday operation that has to be quick and keep the data.
 	Stop(project core.Project, files core.ComposeFiles, services []string) error
 
+	// StopWithTimeout is Stop giving each container timeout seconds to stop before it is killed;
+	// nil is Compose's own default, which is what Stop waits.
+	StopWithTimeout(project core.Project, files core.ComposeFiles, services []string, timeout *int) error
+
 	// Logs writes the logs of the services named, or of all of them, until it is interrupted or
 	// they end.
 	Logs(project core.Project, files core.ComposeFiles, services []string, options core.LogOptions) error

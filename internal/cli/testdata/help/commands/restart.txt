@@ -1,6 +1,8 @@
-Usage: hm restart <service-name>
+Usage: hm restart [-t seconds] [service...]
 Example: hm restart phpfpm
 Description: Restart docker services
+Options:
+   [-t|--timeout]   Seconds each container is given to stop before it is killed
 Arguments:
    <service-name>  Restart specific container of the service-name.
 

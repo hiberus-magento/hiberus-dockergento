@@ -267,12 +267,12 @@ func (o Operator) checkDependenciesAreNotBound(project core.Project) error {
 //
 // Stopping is an everyday, quick operation, so the copy is asked for rather than taken: a `stop`
 // that sometimes takes a minute because it is dumping a database would be an unpleasant surprise.
-func (o Operator) Stop(project core.Project, files core.ComposeFiles, services []string, snapshot bool) error {
+func (o Operator) Stop(project core.Project, files core.ComposeFiles, options core.StopOptions) error {
 	if err := o.refuseFromAnUnregisteredWorktree(project, "stop"); err != nil {
 		return err
 	}
 
-	if snapshot {
+	if options.Snapshot {
 		err := o.snapshot(project)
 
 		// Not stopping on failure is the point: a stopped environment and no copy, after asking
@@ -287,7 +287,7 @@ func (o Operator) Stop(project core.Project, files core.ComposeFiles, services [
 		}
 	}
 
-	return o.Orchestrator.Stop(project, files, services)
+	return o.Orchestrator.StopWithTimeout(project, files, options.Services, options.Timeout)
 }
 
 // Restart is a stop followed by a start, and deliberately not Compose's own `restart`.
@@ -296,16 +296,17 @@ func (o Operator) Stop(project core.Project, files core.ComposeFiles, services [
 // file is not picked up. Somebody who edits the configuration and runs `restart` expects the
 // change to be running afterwards, and the shell implementation gave them that by running its own
 // stop and its own start. Being faster at the wrong thing is not an improvement.
-func (o Operator) Restart(project core.Project, files core.ComposeFiles, services []string, usesProxy bool) error {
+func (o Operator) Restart(project core.Project, files core.ComposeFiles, options core.RestartOptions, usesProxy bool) error {
 	if err := o.refuseFromAnUnregisteredWorktree(project, "restart"); err != nil {
 		return err
 	}
 
-	if err := o.Stop(project, files, services, false); err != nil {
+	stopping := core.StopOptions{Services: options.Services, Timeout: options.Timeout}
+	if err := o.Stop(project, files, stopping); err != nil {
 		return err
 	}
 
-	return o.Start(project, files, services, false, usesProxy, false)
+	return o.Start(project, files, options.Services, false, usesProxy, false)
 }
 
 // StopEverything stops every container found running on this machine, machine-wide and with no

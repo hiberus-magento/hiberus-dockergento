@@ -5,6 +5,8 @@ import (
 	"io"
 	"runtime"
 	"strings"
+
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
 //
@@ -161,7 +163,7 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 		return report(stderr, jsonOutput, command, err)
 	}
 
-	if err := engine.Restart(project.Root, []string{varnishService}); err != nil {
+	if err := engine.RestartWith(project.Root, core.RestartOptions{Services: []string{varnishService}}); err != nil {
 		return report(stderr, jsonOutput, command, err)
 	}
 
@@ -342,7 +344,7 @@ func debugOn(stdout, stderr io.Writer, jsonOutput bool) int {
 	// restart.sh is a faithful stop-then-start and Operator.Restart is what reproduces that,
 	// worktree refusal included (proposal Decision 5, disclosed): hm debug-on has never refused
 	// from an unregistered worktree before this port.
-	if err := engine.Restart(project.Root, []string{phpService}); err != nil {
+	if err := engine.RestartWith(project.Root, core.RestartOptions{Services: []string{phpService}}); err != nil {
 		return report(stderr, jsonOutput, "debug-on", err)
 	}
 

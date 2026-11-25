@@ -57,6 +57,26 @@ type DownOptions struct {
 	Timeout *int
 }
 
+// StopOptions is what stopping an environment was asked for.
+type StopOptions struct {
+	// Services names what to stop. Empty is the whole environment.
+	Services []string
+
+	// Snapshot saves the database before anything is stopped.
+	Snapshot bool
+
+	// Timeout is how long a container is given to stop before it is killed, in seconds. Nil means
+	// Compose's own default, which is what a stop always waited before the option existed.
+	Timeout *int
+}
+
+// RestartOptions is what restarting an environment was asked for. A restart is a stop and then a
+// start, and Timeout is its stop's, as in StopOptions; there is no snapshot, as there never was.
+type RestartOptions struct {
+	Services []string
+	Timeout  *int
+}
+
 // MachineStop is what a machine-wide stop actually did.
 type MachineStop struct {
 	// Total is every running container found, and Others is how many of them do not belong to
