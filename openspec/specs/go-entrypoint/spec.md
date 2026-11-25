@@ -143,8 +143,8 @@ tree. A command fully wired in Go but still tabled `shell` passed the suite unde
 
 #### Scenario: A command is fully wired but still tabled as shell
 
-- **GIVEN** a `case "<command>":` label in `internal/cli/run.go`'s `Run()` switch, other than the
-  `_registry` label
+- **GIVEN** a `case "<command>":` label in `internal/cli/run.go`'s `Run()` switch, other than a
+  label starting with an underscore, which is not a command
 - **WHEN** the document tables that command as `shell`
 - **THEN** the suite fails and names the command
 

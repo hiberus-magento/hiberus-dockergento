@@ -134,7 +134,7 @@ export BIN_DIR="./vendor/bin"
 # etc.
 ```
 
-The shell implementation also converted the pre-JSON `config/docker/properties` file into `properties.json` on every invocation; that conversion was not carried over to the binary.
+The shell implementation also converted the pre-JSON `config/docker/properties` file into `properties.json` on every invocation. The binary converts it once, when `properties.json` is missing (see 5.9.1).
 
 #### 5.3.2 Operating System Detection
 
@@ -365,14 +365,15 @@ project has `config/docker/masquerade`, those rules mounted at `/app/masquerade`
 #### 5.9.1 Old Format Refactoring
 
 Before 2.0 every invocation converted the old `config/docker/properties` (`KEY=value` lines) into
-`config/docker/properties.json`. The binary does not: a project that only has the old file is seen
-as not being a project (exit 4). Converting it by hand is one JSON object with the same keys:
+`config/docker/properties.json`, and deleted the old file. The binary's properties reader
+(`dockergento/adapters/fsprops`, which every command loads through) converts it **once**: only
+when `properties.json` does not exist, so a project that has both is read exactly as before.
 
-```json
-{
-    "MAGENTO_DIR": "./src",
-    "DOMAIN": "myproject.local"
-}
-```
+- Blank lines and `#` comments are skipped, leading spaces trimmed, the key is what comes before
+  the first `=` and the value is the rest (it may contain more `=`), with double quotes removed.
+- `properties.json` is written beside it and moved into place.
+- The old file is kept, never deleted: renamed `properties.bak`, or the first free
+  `properties.bak.N` when that name is taken, so an earlier backup is never overwritten.
+- The conversion is announced on stderr; stdout (and a `--json` document) is untouched.
 
-Whether the binary should convert it again is an open decision, tracked in `ROADMAP.md` (Pista C).
+A directory with no old file gets nothing written into it.
