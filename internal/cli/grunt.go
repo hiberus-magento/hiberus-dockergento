@@ -3,8 +3,16 @@ package cli
 import (
 	"fmt"
 	"io"
-	"strings"
+	"regexp"
 )
+
+// gruntTheme is Vendor/theme: Magento's vendor and theme names are letters, digits and
+// underscores, and a theme's may carry hyphens too.
+var gruntTheme = regexp.MustCompile(`^[A-Za-z0-9_]+/[A-Za-z0-9_-]+$`)
+
+// gruntLocale is xx_YY, with the script some of Magento's own locales name between the two
+// (zh_Hans_CN, sr_Latn_RS).
+var gruntLocale = regexp.MustCompile(`^[a-z]{2,3}(_[A-Z][a-z]{3})?_[A-Z]{2}$`)
 
 // grunt prepares a theme's front-end tooling in the php container and compiles its styles.
 //
@@ -12,9 +20,23 @@ import (
 // first that fails stops the rest, as its `set -e` did. grunt's watch never returns on its own:
 // the command holds the terminal until it is interrupted, as before.
 func grunt(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
-	if len(args) != 2 || !strings.Contains(args[0], "/") {
+	usage := binaryName() + " grunt <Vendor/theme> <locale_LOCALE>"
+
+	if len(args) != 2 {
 		return failure(stderr, jsonOutput, "grunt", exitUsage, "invalid_argument",
-			"grunt needs a Magento theme and a locale", binaryName()+" grunt <Vendor/theme> <locale_LOCALE>")
+			"grunt needs a Magento theme and a locale", usage)
+	}
+
+	// Both end up inside a `bash -c` in the container, so their shape is checked rather than
+	// quoted: anything a theme or a locale can be is safe there, and anything else is a mistake
+	if !gruntTheme.MatchString(args[0]) {
+		return failure(stderr, jsonOutput, "grunt", exitUsage, "invalid_argument",
+			"Not a Magento theme: "+args[0], usage)
+	}
+
+	if !gruntLocale.MatchString(args[1]) {
+		return failure(stderr, jsonOutput, "grunt", exitUsage, "invalid_argument",
+			"Not a locale: "+args[1], usage)
 	}
 
 	project, code := codeProjectOr(stderr, jsonOutput, "grunt")

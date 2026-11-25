@@ -94,6 +94,67 @@ func TestGruntNeedsAThemeAndALocale(t *testing.T) {
 	}
 }
 
+// TestGruntRefusesAThemeOrLocaleOfAnotherShape: both are written into a `bash -c` in the
+// container, so anything not shaped like a Magento theme or locale is a usage error before
+// anything runs, whatever it would have done to that shell.
+func TestGruntRefusesAThemeOrLocaleOfAnotherShape(t *testing.T) {
+	cases := []struct {
+		name    string
+		args    []string
+		message string
+	}{
+		{"a quote in the theme", []string{"Vendor/th'eme", "es_ES"}, "Not a Magento theme: Vendor/th'eme"},
+		{"a command in the theme", []string{"Vendor/theme;id", "es_ES"}, "Not a Magento theme: Vendor/theme;id"},
+		{"a theme with two slashes", []string{"Vendor/theme/x", "es_ES"}, "Not a Magento theme: Vendor/theme/x"},
+		{"a theme with no vendor", []string{"/theme", "es_ES"}, "Not a Magento theme: /theme"},
+		{"a command in the locale", []string{"Vendor/theme", "es_ES'; id; '"}, "Not a locale: es_ES'; id; '"},
+		{"a language with no country", []string{"Vendor/theme", "es"}, "Not a locale: es"},
+		{"a locale in the wrong case", []string{"Vendor/theme", "ES_es"}, "Not a locale: ES_es"},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := answering(t)
+			fake.project = core.Project{Name: "shop", Root: "/code/shop"}
+			t.Setenv("COMMAND_BIN_NAME", "hm")
+
+			var stdout, stderr strings.Builder
+			args := append([]string{"--json", "grunt"}, tt.args...)
+
+			if code := Run(args, &stdout, &stderr); code != exitUsage {
+				t.Fatalf("grunt %v = %d, want exitUsage", tt.args, code)
+			}
+
+			if stdout.Len() != 0 {
+				t.Errorf("stdout = %q, want nothing", stdout.String())
+			}
+
+			assertError(t, stderr.String(), "invalid_argument", tt.message, "hm grunt <Vendor/theme> <locale_LOCALE>")
+
+			if len(fake.calls) != 0 {
+				t.Errorf("grunt %v asked the engine %v, want nothing", tt.args, fake.calls)
+			}
+		})
+	}
+}
+
+// TestGruntAcceptsTheShapesMagentoUses: a theme name with a hyphen or an underscore, and a locale
+// that names its script, are Magento's own and run as before.
+func TestGruntAcceptsTheShapesMagentoUses(t *testing.T) {
+	for _, args := range [][]string{{"Magento/luma", "en_US"}, {"My_Vendor/my-theme_2", "zh_Hans_CN"}} {
+		fake := answering(t)
+		fake.project = core.Project{Name: "shop", Root: "/code/shop"}
+
+		if code := grunt(args, io.Discard, io.Discard, false); code != exitOK {
+			t.Fatalf("grunt %v = %d, want exitOK", args, code)
+		}
+
+		if got, want := execCommands(fake.calls), gruntSteps(args[0], args[1]); strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Fatalf("grunt %v ran:\n%s\nwant:\n%s", args, strings.Join(got, "\n"), strings.Join(want, "\n"))
+		}
+	}
+}
+
 // TestTheRouterAnswersForGruntAndUpdate: both reach their handlers instead of the shell.
 func TestTheRouterAnswersForGruntAndUpdate(t *testing.T) {
 	for _, args := range [][]string{{"grunt", "Vendor/theme", "es_ES"}, {"update"}} {
