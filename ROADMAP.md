@@ -5,27 +5,31 @@ reglas no se negocian**. El detalle histórico vive en `MIGRATION.md` y en
 `openspec/changes/archive/`; este fichero no lo repite. Los principios que sigue todo cambio están
 en `.specify/memory/constitution.md` (2.0.0).
 
-> **La migración a Go está completada.** El binario responde los 66 comandos, la ayuda,
+> **La migración a Go está completada.** El binario responde los 67 comandos, la ayuda,
 > `--version` y los comandos del proyecto; `bin/run` y el árbol `console/` ya no existen.
-> Publicadas `2.0.0-rc.1` y `2.0.0-rc.2`: lo que queda es validarlas, publicar 2.0.0, fusionar en
-> `main` y los defectos conocidos de la pista C.
+> Publicadas de `2.0.0-rc.1` a `2.0.0-rc.4`, y se seguirán publicando candidatas hasta ganar
+> confianza: la 2.0.0 final y la fusión en `main` esperan a esa decisión. La pista C queda en los
+> aplazados de abajo, y la evolución para agentes (MCP 2026-07-28, `hm status`, catálogo
+> `hm --json`, envelopes de éxito, `--dry-run`, `--progress=jsonl`, permisos para Codex y
+> OpenCode, plugin de Claude Code) está hecha: `odd/tasks/agentic.md` en la sesión que la hizo.
 >
-> Estado medido el **2026-11-25** sobre `release/2.0.0` en `f02de97`.
+> Estado medido el **2026-11-25** sobre `release/2.0.0`.
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
 
 | Medida | Valor | Cómo comprobarlo |
 |---|---|---|
-| Comandos respondidos por el binario | **66 de 66** | `rg -n "Comandos en Go" MIGRATION.md` |
+| Comandos respondidos por el binario | **67 de 67** | `rg -n "Comandos en Go" MIGRATION.md` |
 | Comandos aún en shell | **0** | `rg -c "\| shell \|" MIGRATION.md` |
 | Ficheros de shell en `console/` | **0** (el autocompletado lo imprime `hm completion`) | `git ls-files console` |
 | `bin/run` | **borrado** | `test -e bin/run` falla |
 | Tests Go | todos pasan | `DOCKER_HOST=unix:///nonexistent go test ./...` · `./tests/run.sh unit` |
-| Binarios publicados por CI | sólo para etiquetas `>= 2.0`, sin `v`, y sólo si sus tests pasan | `.github/workflows/release.yml` |
+| Binarios publicados por CI | sólo para etiquetas `>= 2.0`, sin `v`, y sólo si sus tests pasan (Linux y macOS) |
+| Dónde vive el binario | `~/.hm/bin/hm`, con un enlace en `/usr/local/bin`: `hm update` no pide `sudo` | `docs/installation.md` | `.github/workflows/release.yml` |
 | Imágenes de Docker Hub | se construyen y publican en local, sin CI | `build-publish.sh` |
 | `hm switch` y el instalador ante una 1.x | la rechazan | `docs/switch.md`, `installer.sh` |
-| Etiqueta `2.0.0` | **sin crear**; la última es `2.0.0-rc.2` | `git tag --sort=-creatordate \| head -1` |
+| Etiqueta `2.0.0` | **sin crear**; la última es `2.0.0-rc.4` | `git tag --sort=-creatordate \| head -1` |
 
 ## Qué hacer después, en orden
 
