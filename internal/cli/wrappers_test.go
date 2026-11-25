@@ -669,8 +669,8 @@ func TestADebugOffRestartErrorIsReported(t *testing.T) {
 //
 
 // macCopyCalls is what debug-on's macOS-only branch adds to the call log between the uncomment
-// edit and the restart: a Resolve and a CopyFrom, both through copyFrom's own here()
-// (TestWhatCopyingOutOfTheContainerAsks is the precedent for that shape). debug-on branches on
+// edit and the restart: one CopyFrom, asked about the working directory as copy-from-container
+// asks it (TestWhatCopyingOutOfTheContainerAsks is the precedent for that shape). debug-on branches on
 // the real runtime.GOOS (php.go:100's own check, no override), so a test whose call log spans
 // that branch has to account for whatever platform the test binary itself runs on — a genuine
 // Linux scenario, written and run on a macOS development machine, would otherwise see calls a
@@ -681,7 +681,6 @@ func macCopyCalls(cwd string) []call {
 	}
 
 	return []call{
-		{Method: "Resolve", Dir: cwd},
 		{Method: "CopyFrom", Dir: cwd, Paths: []string{"generated"}},
 	}
 }
@@ -694,7 +693,7 @@ func macCopyOutcomes() []outcome {
 		return nil
 	}
 
-	return []outcome{{}, {}}
+	return []outcome{{}}
 }
 
 // TestDebugOnReportsAnUnresolvableHost is debug-on-host-detection's Decision 2 (renumbered
@@ -893,6 +892,54 @@ func TestADebugOnRestartErrorIsReported(t *testing.T) {
 
 	if diff := cmp.Diff(want, fake.calls, cmpopts.IgnoreFields(core.ExecOptions{}, "Tty")); diff != "" {
 		t.Fatalf("asked of the engine after a restart error (-want +got):\n%s", diff)
+	}
+}
+
+// TestADebugOnCopyErrorIsReportedAsDebugOn: on macOS the generated code is copied out of the
+// container, and when that fails the failure is debug-on's own — one document on stderr under
+// --json, the plain sentence otherwise — and nothing after it runs.
+func TestADebugOnCopyErrorIsReportedAsDebugOn(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("the copy out of the container only happens on macOS")
+	}
+
+	for _, jsonOutput := range []bool{true, false} {
+		t.Run(map[bool]string{true: "json", false: "text"}[jsonOutput], func(t *testing.T) {
+			root := "/code/shop"
+
+			fake := answering(t)
+			fake.project = core.Project{Name: "shop", Root: root}
+			padding := macCopyOutcomes()
+			outcomes := []outcome{{}, {}, {}}
+			outcomes = append(outcomes, padding[:len(padding)-1]...)
+			outcomes = append(outcomes, outcome{err: errors.New("copy failed")})
+			fake.outcomes = outcomes
+			stdout, stderr := &strings.Builder{}, &strings.Builder{}
+
+			code := debugOn(stdout, stderr, jsonOutput)
+
+			if code != exitDocker {
+				t.Fatalf("debug-on with a failed copy = %d, want exitDocker", code)
+			}
+
+			if last := fake.calls[len(fake.calls)-1]; last.Method != "CopyFrom" {
+				t.Fatalf("the last call was %s, want CopyFrom: nothing runs after a failed copy", last.Method)
+			}
+
+			if jsonOutput {
+				if stdout.String() != "" {
+					t.Errorf("stdout = %q, want nothing", stdout.String())
+				}
+
+				assertError(t, stderr.String(), "docker_failed", "copy failed", "")
+
+				return
+			}
+
+			if !strings.Contains(stderr.String(), "copy failed") || strings.Contains(stderr.String(), "{") {
+				t.Errorf("stderr = %q, want the plain sentence", stderr.String())
+			}
+		})
 	}
 }
 
@@ -1212,7 +1259,7 @@ func TestWhatDebugOnAsksOnMac(t *testing.T) {
 	cwd := here()
 	fake.outcomes = []outcome{
 		{}, {captured: ""}, {},
-		{}, {},
+		{},
 		{}, {captured: phpVWithXdebugV3}, {captured: phpIWithBothVersionFamilies},
 	}
 
@@ -1231,7 +1278,6 @@ func TestWhatDebugOnAsksOnMac(t *testing.T) {
 			Command: []string{"sed", "-i", "-e", "s/^;zend_extension/zend_extension/g",
 				"/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"},
 			Options: terminalOptions("")},
-		{Method: "Resolve", Dir: cwd},
 		{Method: "CopyFrom", Dir: cwd, Paths: []string{"generated"}},
 		{Method: "Restart", Dir: root, Services: []string{phpService}},
 		{Method: "Capture", Dir: root, Service: phpService, Command: []string{"php", "-v"}},

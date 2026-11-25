@@ -324,20 +324,17 @@ func debugOn(stdout, stderr io.Writer, jsonOutput bool) int {
 	// own document — it is skipped under --json. The same runtime.GOOS check php.go:100 already
 	// uses — no new mechanism.
 	//
-	// copyFrom is always called in its own text mode here, regardless of debug-on's own
-	// jsonOutput: unlike varnish's sibling calls (purge, magento), which never print a document
-	// of their own, copyFrom does — under --json it would otherwise write its own
-	// "copy-from-container" envelope onto stdout ahead of debug-on's, leaving two concatenated
-	// top-level JSON values where a consumer expects exactly one. A failure here is rarer than
-	// the edits' or the restart's own and has no covering spec scenario; it still reports through
-	// copyFrom's own text-mode failure() rather than silently continuing.
+	// The engine is asked directly rather than through the copy-from-container handler: that
+	// handler prints a document of its own under --json, which would leave two top-level JSON
+	// values where a consumer expects one, and in text mode its failure was the only one of
+	// debug-on's that ignored --json. A failure here is debug-on's, reported like the others.
 	if runtime.GOOS == "darwin" {
 		if !jsonOutput {
 			fmt.Fprint(stdout, warning("Copying generated code into host\n"))
 		}
 
-		if code := copyFrom([]string{"generated"}, stdout, stderr, false); code != 0 {
-			return code
+		if err := engine.CopyFrom(here(), []string{"generated"}); err != nil {
+			return report(stderr, jsonOutput, "debug-on", err)
 		}
 	}
 
