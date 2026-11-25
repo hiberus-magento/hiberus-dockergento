@@ -4,6 +4,7 @@ Options:
    [-|--name=<name>] Name for the snapshot or template (default: the date, or 'base')
    [-|--force]      Overwrite what already exists, or skip the confirmation
    [-|--all]        With clear: every project's snapshots, not just this one's
+   [-|--dry-run]    With restore: say which database would be replaced, and by which copy, and restore nothing
 Arguments:
    <<subcommand>>  snapshot, list, restore, remove or clear for dumps; freeze, templates, clone or drop for data directory templates
    <<name>>        The snapshot, or the template as [<project>/]<name>

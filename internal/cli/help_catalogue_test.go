@@ -193,7 +193,10 @@ func TestTheUsageIsTheOneTheTextHelpPrints(t *testing.T) {
 	for name, usage := range map[string]string{
 		"stop":  "stop [-t seconds] [--snapshot] [service...]",
 		"start": "start [-s|--switch] <service-name>",
-		"purge": "purge",
+		// Declared, now that purge has an option (--dry-run)
+		"purge": "purge [--dry-run]",
+		// Nothing declared and nothing to take: the bare name
+		"debug-off": "debug-off",
 	} {
 		if usages[name] != usage {
 			t.Errorf("%s usage = %q, want %q", name, usages[name], usage)

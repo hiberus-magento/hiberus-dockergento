@@ -87,7 +87,7 @@
     },
     "clean": {
         "description": "Collect what environments that no longer exist left behind",
-        "usage": "clean [--force]",
+        "usage": "clean [--force] [--dry-run]",
         "opts": [
             {
                 "name": {
@@ -95,6 +95,13 @@
                     "long": "force"
                 },
                 "description": "Actually delete; without it nothing is removed"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "dry-run"
+                },
+                "description": "Only list what would be collected, even with --force"
             }
         ],
         "group": "environment",
@@ -249,6 +256,13 @@
                     "long": "all"
                 },
                 "description": "With clear: every project's snapshots, not just this one's"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "dry-run"
+                },
+                "description": "With restore: say which database would be replaced, and by which copy, and restore nothing"
             }
         ],
         "group": "database",
@@ -322,9 +336,16 @@
                     "long": "volumes"
                 },
                 "description": "Also delete the volumes, and the database with them"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "dry-run"
+                },
+                "description": "Say which containers and volumes would be removed, and remove nothing"
             }
         ],
-        "usage": "down [-v]"
+        "usage": "down [-v] [--dry-run]"
     },
     "exec": {
         "description": "Execute a command in a running container [Default container: php]",
@@ -568,6 +589,16 @@
     },
     "purge": {
         "description": "Remove all magento generated code (caches, generated, static, view_preprocessed)",
+        "usage": "purge [--dry-run]",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "dry-run"
+                },
+                "description": "List what is there to remove, and remove nothing"
+            }
+        ],
         "group": "magento",
         "safety": "dangerous"
     },

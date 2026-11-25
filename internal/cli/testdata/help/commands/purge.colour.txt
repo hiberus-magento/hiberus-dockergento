@@ -1,2 +1,5 @@
-[0;32mDescription:[0m Remove all magento generated code (caches, generated, static, view_preprocessed)
+[0;32mUsage: [0m[0;33mhm purge [--dry-run]
+[0m[0;32mDescription:[0m Remove all magento generated code (caches, generated, static, view_preprocessed)
+[0;32mOptions:
+[0m   [0;33m[-|--dry-run]   [0m List what is there to remove, and remove nothing
 

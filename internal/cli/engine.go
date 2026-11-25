@@ -25,6 +25,8 @@ type commands interface {
 	StopWith(dir string, options core.StopOptions) error
 	Start(dir string, options dockergento.StartOptions) error
 	Down(dir string, options core.DownOptions, interactive bool) (string, error)
+	DownPreview(dir string, options core.DownOptions) (core.DownPreview, error)
+	RestorePreview(dir, name string) (core.Project, core.RestorePreview, error)
 	Query(dir, statement string, out io.Writer) (int, error)
 	Import(dir string, options app.ImportOptions) error
 	Feed(dir string) (int, error)

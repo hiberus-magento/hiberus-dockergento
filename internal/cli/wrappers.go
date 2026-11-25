@@ -41,6 +41,63 @@ func purge(stdout, stderr io.Writer, jsonOutput bool) int {
 	})
 }
 
+// purgeArguments is purge as the command line reaches it. --dry-run is the only option; anything
+// else is ignored, as purge has always ignored its arguments.
+func purgeArguments(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	for _, argument := range args {
+		if argument == "--dry-run" {
+			return purgePreview(stdout, stderr, jsonOutput)
+		}
+	}
+
+	return purge(stdout, stderr, jsonOutput)
+}
+
+// purgePreview lists what purge would remove, asked of the container, and removes nothing.
+func purgePreview(stdout, stderr io.Writer, jsonOutput bool) int {
+	project, code := projectOr(stderr, jsonOutput, "purge")
+	if code != 0 {
+		return code
+	}
+
+	listed, status, err := newEngine(stdout, stderr, jsonOutput).
+		Capture(project.Root, phpService, []string{"sh", "-c", purgeListing()})
+	if err != nil {
+		return report(stderr, jsonOutput, "purge", err)
+	}
+
+	if status != 0 {
+		return failure(stderr, jsonOutput, "purge", status, "command_failed",
+			"Listing the generated files failed in the phpfpm container", "")
+	}
+
+	files := strings.Fields(listed)
+
+	if jsonOutput {
+		return dryRunDocument(stdout, stderr, "purge", project.Name, removal{files: files}, nil)
+	}
+
+	if len(files) == 0 {
+		fmt.Fprintf(stdout, "\n%s purge would remove nothing in '%s': there is nothing generated.\n",
+			binaryName(), project.Name)
+
+		return exitOK
+	}
+
+	fmt.Fprintf(stdout, "\n%s purge would remove, in '%s':\n\n", binaryName(), project.Name)
+	removal{files: files}.print(stdout)
+	fmt.Fprint(stdout, good("\nNothing was removed.\n"))
+
+	return exitOK
+}
+
+// purgeListing prints, one per line, what the rm of removeGenerated would take: the same
+// patterns, expanded by the same shell, each kept only when it names something that is there.
+func purgeListing() string {
+	return "for p in " + strings.Join(generated, " ") +
+		`; do if [ -e "$p" ] || [ -L "$p" ]; then echo "$p"; fi; done`
+}
+
 // removeGenerated is purge without its document: varnish-off clears the same directories on the
 // way, and prints one document of its own.
 func removeGenerated(stdout, stderr io.Writer, jsonOutput bool) (core.Project, int) {

@@ -338,13 +338,23 @@ func snapshots(stdout, stderr io.Writer, jsonOutput bool) int {
 }
 
 func restore(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
-	name := ""
-	if len(args) > 0 {
-		name = args[0]
+	name, dryRun := "", false
+
+	for _, argument := range args {
+		switch {
+		case argument == "--dry-run":
+			dryRun = true
+		case name == "":
+			name = argument
+		}
 	}
 
 	if _, code := projectOr(stderr, jsonOutput, "db"); code != 0 {
 		return code
+	}
+
+	if dryRun {
+		return restorePreview(name, stdout, stderr, jsonOutput)
 	}
 
 	interactive := os.Getenv("HM_NON_INTERACTIVE") == ""
@@ -370,6 +380,29 @@ func restore(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	fmt.Fprint(stdout, good("Restored. Flush the cache with "))
 	fmt.Fprint(stdout, warning(binaryName()+" magento cache:flush"))
 	fmt.Fprintf(stdout, "\n")
+
+	return exitOK
+}
+
+// restorePreview says what restoring would replace, and with which copy, and restores nothing.
+func restorePreview(name string, stdout, stderr io.Writer, jsonOutput bool) int {
+	project, preview, err := newEngine(stdout, stderr, jsonOutput).RestorePreview(here(), name)
+	if err != nil {
+		return report(stderr, jsonOutput, "db", err)
+	}
+
+	removed := removal{databases: []string{preview.Database}}
+
+	if jsonOutput {
+		return dryRunDocument(stdout, stderr, "db", project.Name, removed,
+			map[string]any{"snapshot": preview.Snapshot})
+	}
+
+	fmt.Fprintf(stdout, "\n%s db restore %s would replace, in '%s':\n\n", binaryName(), name, project.Name)
+	removed.print(stdout)
+	fmt.Fprintf(stdout, "\n  with %s (%s, taken %s): everything in it since then would be lost.\n",
+		preview.Snapshot.Name, preview.Snapshot.Size, preview.Snapshot.TakenAt)
+	fmt.Fprint(stdout, good("\nNothing was restored.\n"))
 
 	return exitOK
 }

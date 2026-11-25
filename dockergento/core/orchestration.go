@@ -57,6 +57,20 @@ type DownOptions struct {
 	Timeout *int
 }
 
+// DownPreview is what a down would remove, worked out without removing anything: the project's
+// containers, and with Volumes its volumes that are actually there, the database's among them.
+type DownPreview struct {
+	Containers []string `json:"containers"`
+	Volumes    []string `json:"volumes"`
+}
+
+// RestorePreview is what a restore would replace: the database, named as the container names it,
+// and the copy that would take its place.
+type RestorePreview struct {
+	Snapshot Snapshot `json:"snapshot"`
+	Database string   `json:"database"`
+}
+
 // StopOptions is what stopping an environment was asked for.
 type StopOptions struct {
 	// Services names what to stop. Empty is the whole environment.

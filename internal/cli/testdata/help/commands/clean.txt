@@ -1,5 +1,6 @@
-Usage: hm clean [--force]
+Usage: hm clean [--force] [--dry-run]
 Description: Collect what environments that no longer exist left behind
 Options:
    [-|--force]      Actually delete; without it nothing is removed
+   [-|--dry-run]    Only list what would be collected, even with --force
 

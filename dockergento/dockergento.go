@@ -353,6 +353,16 @@ func (e *Engine) Down(dir string, options core.DownOptions, interactive bool) (s
 		e.presentVolumes(project), interactive)
 }
 
+// DownPreview is what Down would remove, asked of Docker and changing nothing.
+func (e *Engine) DownPreview(dir string, options core.DownOptions) (core.DownPreview, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return core.DownPreview{}, err
+	}
+
+	return e.operator(project).DownPreview(project, options, e.presentVolumes(project))
+}
+
 // presentVolumes is the project's own volumes that are actually there.
 //
 // Asked of Docker rather than of the file: naming a volume that was already removed would make
@@ -1163,6 +1173,18 @@ func (e *Engine) RestoreSnapshot(dir, name string, interactive bool) (core.Proje
 	done, err := e.snapshots(project).Restore(project, name, interactive)
 
 	return project, done, err
+}
+
+// RestorePreview is what RestoreSnapshot would replace, and with what, changing nothing.
+func (e *Engine) RestorePreview(dir, name string) (core.Project, core.RestorePreview, error) {
+	project, err := e.Resolve(dir)
+	if err != nil {
+		return project, core.RestorePreview{}, err
+	}
+
+	preview, err := e.snapshots(project).Preview(project, name)
+
+	return project, preview, err
 }
 
 // RemoveSnapshot deletes one copy by name.

@@ -127,7 +127,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "version":
 		return version(rest[1:], stdout, stderr, jsonOutput)
 	case "purge":
-		return purge(stdout, stderr, jsonOutput)
+		return purgeArguments(rest[1:], stdout, stderr, jsonOutput)
 	case "npm":
 		return npm(rest[1:], stdout, stderr, jsonOutput)
 	case "n98-magerun":

@@ -1,5 +1,6 @@
-[0;32mUsage: [0m[0;33mhm clean [--force]
+[0;32mUsage: [0m[0;33mhm clean [--force] [--dry-run]
 [0m[0;32mDescription:[0m Collect what environments that no longer exist left behind
 [0;32mOptions:
 [0m   [0;33m[-|--force]     [0m Actually delete; without it nothing is removed
+   [0;33m[-|--dry-run]   [0m Only list what would be collected, even with --force
 

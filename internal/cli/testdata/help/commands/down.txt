@@ -1,6 +1,7 @@
-Usage: hm down [-v]
+Usage: hm down [-v] [--dry-run]
 Example: hm down -v
 Description: Stop and remove containers, networks, images, and volumes (-v)
 Options:
    [-v|--volumes]   Also delete the volumes, and the database with them
+   [-|--dry-run]    Say which containers and volumes would be removed, and remove nothing
 

@@ -14,18 +14,23 @@ import (
 // Looking is the default and deleting is asked for, that way round on purpose: a dry run somebody
 // has to remember to type protects the people who were already being careful.
 func clean(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
-	remove := os.Getenv("HM_FORCE") == "1"
+	remove, dryRun := os.Getenv("HM_FORCE") == "1", false
 
 	for _, argument := range args {
-		if argument == "--force" {
+		switch argument {
+		case "--force":
 			remove = true
-
-			continue
+		case "--dry-run":
+			dryRun = true
+		default:
+			return failure(stderr, jsonOutput, "clean", exitUsage, "invalid_argument",
+				"Unknown option: "+argument, binaryName()+" clean [--force] [--dry-run]")
 		}
-
-		return failure(stderr, jsonOutput, "clean", exitUsage, "invalid_argument",
-			"Unknown option: "+argument, binaryName()+" clean [--force]")
 	}
+
+	// --dry-run is the preview clean already gives without --force, and it wins over --force:
+	// asking for a dry run and getting a deletion is the one outcome that must not happen
+	remove = remove && !dryRun
 
 	collection, err := newEngine(stdout, stderr, jsonOutput).Survey()
 	if err != nil {

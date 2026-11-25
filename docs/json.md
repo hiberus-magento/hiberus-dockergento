@@ -122,3 +122,25 @@ envelope on success.
 (setup, rebuild, `db snapshot`, `db restore`...) into one JSON object per line on **stderr**:
 `{"phase","step","pct","elapsed"}`, with `pct` `null` when unknown. stdout is untouched. See
 [progress](progress.md#for-a-program---progressjsonl).
+
+## Previews with `--dry-run`
+
+`down`, `purge` and `db restore` take `--dry-run`: they print what would be removed and change
+nothing — nothing is asked either. Under `--json` every one of them answers with the same shape:
+
+```json
+{
+  "schema_version": 1,
+  "command": "down",
+  "ok": true,
+  "data": {
+    "dry_run": true,
+    "project": "my-project",
+    "would_remove": { "containers": [], "volumes": [], "databases": [], "files": [] }
+  }
+}
+```
+
+Every list is always present, empty when the command touches nothing of that kind; `db restore`
+adds `snapshot`, the copy that would be restored. `clean` already previews without `--force`: its
+`--dry-run` is that preview, with its own document (`"removed": false`), even next to `--force`.

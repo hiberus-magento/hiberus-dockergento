@@ -62,6 +62,45 @@ With `--json`, stdout holds one envelope (see [JSON output](json.md)):
 "cancel", nothing is destroyed and `destroyed` is `false`; in text mode that is the line
 `Nothing was destroyed.`
 
+## Looking first: `--dry-run`
+
+`hm down --dry-run` (with `-v` or without) says what would go and removes nothing: the project's
+containers, and with `-v` its volumes that are there, the database's among them. Nothing is asked.
+It is refused where the real `down` would be, from a git worktree with no environment of its own.
+
+```console
+$ hm down -v --dry-run
+
+hm down -v would remove, in 'my-project':
+
+  container  my-project-db-1
+  container  my-project-phpfpm-1
+  volume     my-project_dbdata
+
+Nothing was removed.
+```
+
+With `--json`, one envelope with the shape every `--dry-run` shares (see
+[JSON output](json.md#previews-with---dry-run)):
+
+```json
+{
+  "schema_version": 1,
+  "command": "down",
+  "ok": true,
+  "data": {
+    "dry_run": true,
+    "project": "my-project",
+    "would_remove": {
+      "containers": ["my-project-db-1", "my-project-phpfpm-1"],
+      "volumes": ["my-project_dbdata"],
+      "databases": [],
+      "files": []
+    }
+  }
+}
+```
+
 ## `docker-stop-all`
 
 [`hm docker-stop-all`](docker-stop-all.md) stops **every container on the machine**, including

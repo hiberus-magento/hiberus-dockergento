@@ -254,6 +254,29 @@ func (s Snapshots) Restore(project core.Project, name string, interactive bool) 
 	return true, s.State.Clear(project.Name)
 }
 
+// Preview is what Restore would replace, and replaces nothing: the copy, refused the way Restore
+// refuses one that is not there, and the database it would be poured into, as the container names
+// it — the same $MYSQL_DATABASE that empty drops.
+func (s Snapshots) Preview(project core.Project, name string) (core.RestorePreview, error) {
+	source, err := s.find(project, name, "restored")
+	if err != nil {
+		return core.RestorePreview{}, err
+	}
+
+	var database strings.Builder
+
+	status, err := s.Database.Capture(project, `printf '%s' "$MYSQL_DATABASE"`, &database, s.Errors)
+	if err != nil {
+		return core.RestorePreview{}, err
+	}
+
+	if status != 0 {
+		return core.RestorePreview{}, fmt.Errorf("reading the database's name failed with status %d", status)
+	}
+
+	return core.RestorePreview{Snapshot: s.describe(source, name), Database: database.String()}, nil
+}
+
 // empty drops the database and creates it again, which is what makes a restore a replacement.
 const empty = `client=$(command -v mariadb || command -v mysql); ` +
 	`"$client" -u"root" -p"$MYSQL_ROOT_PASSWORD" ` +

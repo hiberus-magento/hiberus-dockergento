@@ -65,6 +65,15 @@ afterwards.
 You are asked to type the project's name to confirm. A blind `y` is a reflex; typing the name means
 the sentence was read. In a script, `hm --yes db restore <name>` skips the question.
 
+`hm db restore <name> --dry-run` says which database would be replaced and by which copy (its size
+and when it was taken), asks nothing and restores nothing. It refuses a copy that is not there
+exactly as the restore would, and reads the database's name from the running `db` container. With
+`--json` the database is `would_remove.databases` and the copy is `snapshot`, in the envelope every
+`--dry-run` shares (see [JSON output](json.md#previews-with---dry-run)).
+
+With [`--progress=jsonl`](progress.md#for-a-program---progressjsonl) a restore or a snapshot reports
+its step as JSON lines on stderr.
+
 The site stays up while it runs, but its database is being rewritten underneath it — expect
 strange behaviour for those seconds, and flush the cache afterwards:
 

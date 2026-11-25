@@ -1,6 +1,7 @@
-[0;32mUsage: [0m[0;33mhm down [-v]
+[0;32mUsage: [0m[0;33mhm down [-v] [--dry-run]
 [0m[0;32mExample: [0m[0;33mhm down -v
 [0m[0;32mDescription:[0m Stop and remove containers, networks, images, and volumes (-v)
 [0;32mOptions:
 [0m   [0;33m[-v|--volumes]  [0m Also delete the volumes, and the database with them
+   [0;33m[-|--dry-run]   [0m Say which containers and volumes would be removed, and remove nothing
 

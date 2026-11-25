@@ -4,8 +4,13 @@ Collects what environments that no longer exist left behind.
 
 ```bash
 hm clean            # shows what could be collected, deletes nothing
+hm clean --dry-run  # the same, and it wins over --force
 hm clean --force    # deletes it, after listing it and asking
 ```
+
+`--dry-run` exists for the scripts and agents that pass it to every destroying command: on
+`clean` it is exactly the default preview, `--json` document included (`"removed": false`), even
+next to `--force`.
 
 Does not need to run inside a project.
 

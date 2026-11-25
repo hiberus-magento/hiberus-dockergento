@@ -19,11 +19,14 @@ import (
 
 func down(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	options := core.DownOptions{}
+	dryRun := false
 
 	for at := 0; at < len(args); at++ {
 		argument := args[at]
 
 		switch argument {
+		case "--dry-run":
+			dryRun = true
 		case "-v", "--volumes":
 			options.Volumes = true
 		case "--remove-orphans":
@@ -54,12 +57,17 @@ func down(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			options.Timeout = &seconds
 		default:
 			return failure(stderr, jsonOutput, "down", exitUsage, "invalid_argument",
-				"Unknown option: "+argument, binaryName()+" down [-v]")
+				"Unknown option: "+argument, binaryName()+" down [-v] [--dry-run]")
 		}
 	}
 
-	if _, code := projectOr(stderr, jsonOutput, "down"); code != 0 {
+	project, code := projectOr(stderr, jsonOutput, "down")
+	if code != 0 {
 		return code
+	}
+
+	if dryRun {
+		return downPreview(project.Name, options, stdout, stderr, jsonOutput)
 	}
 
 	interactive := os.Getenv("HM_NON_INTERACTIVE") == ""
@@ -82,6 +90,37 @@ func down(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			"destroyed": what != "", "volumes": options.Volumes, "snapshot": what == "saved",
 		})
 	}
+
+	return exitOK
+}
+
+// downPreview says what down would remove, and asks nothing: there is no question to put when
+// nothing is going to happen.
+func downPreview(project string, options core.DownOptions, stdout, stderr io.Writer, jsonOutput bool) int {
+	preview, err := newEngine(stdout, stderr, jsonOutput).DownPreview(here(), options)
+	if err != nil {
+		return report(stderr, jsonOutput, "down", err)
+	}
+
+	removed := removal{containers: preview.Containers, volumes: preview.Volumes}
+
+	if jsonOutput {
+		return dryRunDocument(stdout, stderr, "down", project, removed, nil)
+	}
+
+	asked := binaryName() + " down"
+	if options.Volumes {
+		asked += " -v"
+	}
+
+	fmt.Fprintf(stdout, "\n%s would remove, in '%s':\n\n", asked, project)
+
+	if removed.empty() {
+		fmt.Fprint(stdout, "  nothing: none of its containers or volumes is there\n")
+	}
+
+	removed.print(stdout)
+	fmt.Fprint(stdout, good("\nNothing was removed.\n"))
 
 	return exitOK
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -546,6 +547,36 @@ func (o Operator) Down(project core.Project, files core.ComposeFiles, options co
 	}
 
 	return "", nil
+}
+
+// DownPreview is what Down would remove, and removes nothing: the project's containers, by the
+// name Docker gives them, and with Volumes the ones of its volumes that are there. Refused where
+// Down would be, so that a preview never lists what the real thing would not touch.
+func (o Operator) DownPreview(project core.Project, options core.DownOptions, volumes []string) (core.DownPreview, error) {
+	if err := o.refuseFromAnUnregisteredWorktree(project, "down"); err != nil {
+		return core.DownPreview{}, err
+	}
+
+	containers, err := o.Engine.Containers()
+	if err != nil {
+		return core.DownPreview{}, err
+	}
+
+	preview := core.DownPreview{Containers: []string{}, Volumes: []string{}}
+
+	for _, container := range containers {
+		if container.Key() == project.Name {
+			preview.Containers = append(preview.Containers, container.Name)
+		}
+	}
+
+	sort.Strings(preview.Containers)
+
+	if options.Volumes {
+		preview.Volumes = append(preview.Volumes, volumes...)
+	}
+
+	return preview, nil
 }
 
 // snapshot takes the copy the caller asked for.

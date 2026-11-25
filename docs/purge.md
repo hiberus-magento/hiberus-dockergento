@@ -40,3 +40,11 @@ the paths it removed inside the container:
 
 When the removal fails inside the container, its exit code is returned and nothing is printed on
 stdout.
+
+## Looking first: `--dry-run`
+
+`hm purge --dry-run` lists what is there to remove, asked of the php container with the same
+patterns, and removes nothing: `generated/code`, `pub/static/frontend` and so on, one line each.
+With `--json` the entries are `would_remove.files` in the envelope every `--dry-run` shares (see
+[JSON output](json.md#previews-with---dry-run)). Like the removal, the listing needs the container
+running.
