@@ -69,8 +69,9 @@ func down(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return report(stderr, jsonOutput, "down", err)
 	}
 
-	// Nothing happened, because somebody said so
-	if what == "" {
+	// Nothing happened, because somebody said so; under --json that is said in the document, since
+	// a sentence on stdout is not one
+	if what == "" && !jsonOutput {
 		fmt.Fprint(stdout, good("Nothing was destroyed.\n"))
 
 		return exitOK
@@ -78,7 +79,7 @@ func down(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	if jsonOutput {
 		return document(stdout, stderr, "down", map[string]any{
-			"destroyed": true, "volumes": options.Volumes, "snapshot": what == "saved",
+			"destroyed": what != "", "volumes": options.Volumes, "snapshot": what == "saved",
 		})
 	}
 

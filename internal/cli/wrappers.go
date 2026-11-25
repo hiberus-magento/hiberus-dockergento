@@ -5,6 +5,7 @@ import (
 	"io"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -28,12 +29,27 @@ var generated = []string{
 }
 
 func purge(stdout, stderr io.Writer, jsonOutput bool) int {
-	project, code := projectOr(stderr, jsonOutput, "purge")
-	if code != 0 {
+	started := time.Now()
+
+	project, code := removeGenerated(stdout, stderr, jsonOutput)
+	if code != exitOK || !jsonOutput {
 		return code
 	}
 
-	return inside(project, []string{"sh", "-c", "rm -rf " + strings.Join(generated, " ")},
+	return changed(stdout, stderr, jsonOutput, "purge", nil, started, map[string]any{
+		"project": project.Name, "removed": generated,
+	})
+}
+
+// removeGenerated is purge without its document: varnish-off clears the same directories on the
+// way, and prints one document of its own.
+func removeGenerated(stdout, stderr io.Writer, jsonOutput bool) (core.Project, int) {
+	project, code := projectOr(stderr, jsonOutput, "purge")
+	if code != 0 {
+		return project, code
+	}
+
+	return project, inside(project, []string{"sh", "-c", "rm -rf " + strings.Join(generated, " ")},
 		"", stdout, stderr, jsonOutput, "purge")
 }
 
@@ -182,7 +198,7 @@ func varnish(on bool, stdout, stderr io.Writer, jsonOutput bool) int {
 	// what it generated goes with it.
 	//
 	if !on {
-		if code := purge(stdout, stderr, jsonOutput); code != 0 {
+		if _, code := removeGenerated(stdout, stderr, jsonOutput); code != 0 {
 			return code
 		}
 

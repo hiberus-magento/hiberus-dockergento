@@ -45,6 +45,23 @@ would end up with a pile of them that nobody looks at.
 In a script, in CI, or with `--yes`, nothing is asked and `-v` destroys as it always did. Somebody
 who automates `hm down -v` wrote it on purpose.
 
+## JSON output
+
+With `--json`, stdout holds one envelope (see [JSON output](json.md)):
+
+```json
+{
+  "schema_version": 1,
+  "command": "down",
+  "ok": true,
+  "data": { "destroyed": true, "snapshot": true, "volumes": true }
+}
+```
+
+`snapshot` is whether a copy of the database was saved first. When the question was answered
+"cancel", nothing is destroyed and `destroyed` is `false`; in text mode that is the line
+`Nothing was destroyed.`
+
 ## `docker-stop-all`
 
 [`hm docker-stop-all`](docker-stop-all.md) stops **every container on the machine**, including

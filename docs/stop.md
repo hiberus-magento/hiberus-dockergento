@@ -40,6 +40,28 @@ that sometimes takes a minute because it is dumping a database would be an unple
 **If the snapshot fails, the environment is left running.** A stopped environment and no copy,
 after asking for one, is the worst of the three possible outcomes.
 
+## JSON output
+
+With `--json`, a successful stop prints one envelope on stdout (see [JSON output](json.md)):
+
+```json
+{
+  "schema_version": 1,
+  "command": "stop",
+  "ok": true,
+  "data": {
+    "elapsed_ms": 3120,
+    "project": "my-project",
+    "services": [],
+    "snapshot": true,
+    "timeout": 5,
+    "whole_environment": true
+  }
+}
+```
+
+`timeout` is `null` when `-t` was not given. An empty `services` list means the whole environment.
+
 ## What it does not do
 
 It does not remove containers or volumes — that is [`hm down`](down.md). It does not free disk

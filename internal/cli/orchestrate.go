@@ -7,12 +7,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
 func start(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	started := time.Now()
 	stopOthers := false
 	services := []string{}
 
@@ -30,18 +32,24 @@ func start(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 	}
 
-	if _, code := projectOr(stderr, jsonOutput, "start"); code != 0 {
+	project, code := projectOr(stderr, jsonOutput, "start")
+	if code != 0 {
 		return code
 	}
 
-	return report(stderr, jsonOutput, "start", newEngine(stdout, stderr, jsonOutput).
+	err := newEngine(stdout, stderr, jsonOutput).
 		Start(here(), dockergento.StartOptions{
 			Services: services, StopOthers: stopOthers,
 			Interactive: os.Getenv("HM_NON_INTERACTIVE") == "",
-		}))
+		})
+
+	return changed(stdout, stderr, jsonOutput, "start", err, started, touching(project, services, map[string]any{
+		"stopped_others": stopOthers, "url": baseURL(project.Domain),
+	}))
 }
 
 func stop(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	started := time.Now()
 	snapshot := false
 
 	services, timeout, code := stopArguments("stop", args, stderr, jsonOutput, func(argument string) bool {
@@ -57,26 +65,37 @@ func stop(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return code
 	}
 
-	if _, code := projectOr(stderr, jsonOutput, "stop"); code != 0 {
+	project, code := projectOr(stderr, jsonOutput, "stop")
+	if code != 0 {
 		return code
 	}
 
-	return report(stderr, jsonOutput, "stop", newEngine(stdout, stderr, jsonOutput).
-		StopWith(here(), core.StopOptions{Services: services, Snapshot: snapshot, Timeout: timeout}))
+	err := newEngine(stdout, stderr, jsonOutput).
+		StopWith(here(), core.StopOptions{Services: services, Snapshot: snapshot, Timeout: timeout})
+
+	return changed(stdout, stderr, jsonOutput, "stop", err, started, touching(project, services, map[string]any{
+		"snapshot": snapshot, "timeout": timeout,
+	}))
 }
 
 func restart(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	started := time.Now()
+
 	services, timeout, code := stopArguments("restart", args, stderr, jsonOutput, func(string) bool { return false })
 	if code != 0 {
 		return code
 	}
 
-	if _, code := projectOr(stderr, jsonOutput, "restart"); code != 0 {
+	project, code := projectOr(stderr, jsonOutput, "restart")
+	if code != 0 {
 		return code
 	}
 
-	return report(stderr, jsonOutput, "restart", newEngine(stdout, stderr, jsonOutput).
-		RestartWith(here(), core.RestartOptions{Services: services, Timeout: timeout}))
+	err := newEngine(stdout, stderr, jsonOutput).
+		RestartWith(here(), core.RestartOptions{Services: services, Timeout: timeout})
+
+	return changed(stdout, stderr, jsonOutput, "restart", err, started,
+		touching(project, services, map[string]any{"timeout": timeout}))
 }
 
 // stopArguments reads what stop and restart share: the services, and -t/--timeout in the four
@@ -130,18 +149,22 @@ func stopArguments(command string, args []string, stderr io.Writer, jsonOutput b
 // PHP's user and group and the self-routing entries; on macOS nothing, and it exits 0. What it is
 // given after the command is ignored, as post-start.sh ignored it.
 func postStart(stdout, stderr io.Writer, jsonOutput bool) int {
-	if _, code := projectOr(stderr, jsonOutput, "post-start"); code != 0 {
+	started := time.Now()
+
+	project, code := projectOr(stderr, jsonOutput, "post-start")
+	if code != 0 {
 		return code
 	}
 
-	return report(stderr, jsonOutput, "post-start", newEngine(stdout, stderr, jsonOutput).
-		AfterStart(here()))
+	return changed(stdout, stderr, jsonOutput, "post-start", newEngine(stdout, stderr, jsonOutput).
+		AfterStart(here()), started, map[string]any{"project": project.Name})
 }
 
 // rebuild stops the services named, or the whole environment, and brings them back up with their
 // images built. Anything that looks like an option is a usage error rather than a service name
 // handed to Compose.
 func rebuild(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	started := time.Now()
 	services := []string{}
 
 	for _, argument := range args {
@@ -153,12 +176,13 @@ func rebuild(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		services = append(services, argument)
 	}
 
-	if _, code := projectOr(stderr, jsonOutput, "rebuild"); code != 0 {
+	project, code := projectOr(stderr, jsonOutput, "rebuild")
+	if code != 0 {
 		return code
 	}
 
-	return report(stderr, jsonOutput, "rebuild", newEngine(stdout, stderr, jsonOutput).
-		Rebuild(here(), services))
+	return changed(stdout, stderr, jsonOutput, "rebuild", newEngine(stdout, stderr, jsonOutput).
+		Rebuild(here(), services), started, touching(project, services, map[string]any{}))
 }
 
 // logs writes what the services are saying.
@@ -305,6 +329,45 @@ func checkServices(project core.Project, wanted []string,
 	}
 
 	return 0
+}
+
+// changed answers an operation that changed something and printed nothing of its own on stdout:
+// under --json a success envelope with what was done, so that a program reading stdout is not left
+// with nothing at all; in text, and on any failure, exactly what report answers.
+//
+// Only for operations whose stdout is quiet on success. A command that hands stdout to a container
+// (magento, composer, exec, logs) would put the envelope after the container's output, and a
+// reader expecting one document would find two things.
+func changed(stdout, stderr io.Writer, jsonOutput bool, command string, err error,
+	started time.Time, data map[string]any) int {
+	if err != nil || !jsonOutput {
+		return report(stderr, jsonOutput, command, err)
+	}
+
+	data["elapsed_ms"] = time.Since(started).Milliseconds()
+
+	return document(stdout, stderr, command, data)
+}
+
+// touching is the part of the data the service operations share: the project, the services named,
+// and whether none were, which means the whole environment.
+func touching(project core.Project, services []string, data map[string]any) map[string]any {
+	data["project"] = project.Name
+	data["services"] = services
+	data["whole_environment"] = len(services) == 0
+
+	return data
+}
+
+// baseURL is the storefront's address as describe reports it (app.urlsOf), or null when the
+// project has no domain. Built from what Resolve already read, so start asks the daemon nothing
+// more for it.
+func baseURL(domain string) any {
+	if domain == "" {
+		return nil
+	}
+
+	return "https://" + domain + "/"
 }
 
 // report turns what an operation returned into the exit code its caller branches on.
