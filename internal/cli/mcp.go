@@ -2,12 +2,9 @@ package cli
 
 import (
 	"bufio"
-	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -78,17 +75,7 @@ func (s mcpServer) instructions() string {
 //
 // dir is the directory it runs in, a branch environment's, or empty for the server's own.
 var mcpCapture = func(executable, dir string, args []string, combined bool) []byte {
-	var (
-		output []byte
-		status int
-		err    error
-	)
-
-	if dir == "" {
-		output, status, err = selfrun.Runner{Executable: executable}.CaptureStatus(args, combined)
-	} else {
-		output, status, err = captureIn(executable, dir, args, combined)
-	}
+	output, status, err := selfrun.Runner{Executable: executable, Dir: dir}.CaptureStatus(args, combined)
 
 	switch {
 	case err != nil:
@@ -99,30 +86,6 @@ var mcpCapture = func(executable, dir string, args []string, combined bool) []by
 	}
 
 	return output
-}
-
-// captureIn is selfrun's CaptureStatus run in another directory, which the runner has no way to
-// say: every command of this binary answers about the directory it runs in, and a branch
-// environment is a directory.
-func captureIn(executable, dir string, args []string, combined bool) ([]byte, int, error) {
-	var output bytes.Buffer
-
-	command := exec.Command(executable, args...)
-	command.Dir = dir
-	command.Stdout = &output
-
-	if combined {
-		command.Stderr = &output
-	}
-
-	err := command.Run()
-
-	var exit *exec.ExitError
-	if errors.As(err, &exit) {
-		return output.Bytes(), exit.ExitCode(), nil
-	}
-
-	return output.Bytes(), 0, err
 }
 
 // mcp is the command: --config prints the client configuration, anything else serves the

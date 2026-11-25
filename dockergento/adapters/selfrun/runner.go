@@ -17,6 +17,10 @@ type Runner struct {
 	// Executable, if set, is exactly what runs. This is what lets a test — or a caller — pin the
 	// binary without touching the environment.
 	Executable string
+
+	// Dir is the directory it runs in, empty for this process's own. Every command of this binary
+	// answers about the directory it runs in, and a branch environment is a directory.
+	Dir string
 }
 
 // Run executes the resolved executable with these arguments, wired to this process's terminal, and
@@ -31,6 +35,7 @@ func (r Runner) Run(args []string) (int, error) {
 	}
 
 	command := exec.Command(executable, args...)
+	command.Dir = r.Dir
 	command.Stdin = os.Stdin
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
@@ -69,6 +74,7 @@ func (r Runner) CaptureStatus(args []string, combined bool) ([]byte, int, error)
 	var output bytes.Buffer
 
 	command := exec.Command(executable, args...)
+	command.Dir = r.Dir
 	command.Stdout = &output
 	if combined {
 		command.Stderr = &output

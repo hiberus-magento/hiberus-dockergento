@@ -109,3 +109,53 @@ func TestCaptureReturnsWhatTheExecutablePrinted(t *testing.T) {
 		}
 	})
 }
+
+// TestDirIsWhereItRuns: every command of this binary answers about the directory it runs in, and
+// a branch environment is a directory, so the MCP server runs its tools there.
+func TestDirIsWhereItRuns(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "where")
+	elsewhere := filepath.Join(root, "feature")
+
+	if err := os.Mkdir(elsewhere, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(path, []byte("#!/bin/sh\npwd -P\nexit 4\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	want, err := filepath.EvalSymlinks(elsewhere)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output, status, err := (Runner{Executable: path, Dir: elsewhere}).CaptureStatus(nil, false)
+	if err != nil {
+		t.Fatalf("= %v, want no error", err)
+	}
+
+	if string(output) != want+"\n" || status != 4 {
+		t.Fatalf("output, status = %q, %d, want %q, 4", output, status, want+"\n")
+	}
+
+	t.Run("left empty, this process's own", func(t *testing.T) {
+		here, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		here, _ = filepath.EvalSymlinks(here)
+
+		output, _, err := (Runner{Executable: path}).CaptureStatus(nil, false)
+		if err != nil || string(output) != here+"\n" {
+			t.Fatalf("output = %q, %v, want %q", output, err, here+"\n")
+		}
+	})
+
+	t.Run("one that is not there is an error", func(t *testing.T) {
+		if _, _, err := (Runner{Executable: path, Dir: filepath.Join(root, "gone")}).CaptureStatus(nil, false); err == nil {
+			t.Fatal("= nil, want it said")
+		}
+	})
+}
