@@ -147,6 +147,9 @@ func mcp(args []string, in io.Reader, stdout, stderr io.Writer, jsonOutput bool)
 		captureStatus: func(dir string, args []string, combined bool) ([]byte, int) {
 			return mcpCaptureStatus(executable, dir, args, combined)
 		},
+		stream: func(dir string, args []string, line func(string)) []byte {
+			return mcpStream(executable, dir, args, line)
+		},
 	}
 	server.serve(in, stdout)
 
@@ -186,6 +189,11 @@ type mcpServer struct {
 	// dir is where one tool call runs its commands: the branch environment its `environment`
 	// argument named, or empty for the directory the server was started in
 	dir string
+
+	// stream, out and progress are for the long tools: see mcp_progress.go
+	stream   func(dir string, args []string, line func(string)) []byte
+	out      io.Writer
+	progress func(message string)
 }
 
 // serve answers one line at a time until in ends.
@@ -194,6 +202,7 @@ type mcpServer struct {
 // which drops one, and an MCP client ends every message with a newline anyway.
 func (s mcpServer) serve(in io.Reader, out io.Writer) {
 	reader := bufio.NewReader(in)
+	s.out = out
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -320,7 +329,7 @@ func (s mcpServer) handle(line string) (string, bool) {
 			arguments = jqValue{kind: jqString}
 		}
 
-		return result(s.call(name, arguments))
+		return result(s.reporting(name, params).call(name, arguments))
 	case "ping":
 		return result(jqObjectOf())
 	case "":

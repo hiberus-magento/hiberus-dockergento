@@ -199,6 +199,29 @@ top of `apply`.
 not a boundary against a hostile model and does not pretend to be one — it stops a plausible
 mistake from becoming a command argument.
 
+## Progress
+
+`reindex` can take minutes. When a `tools/call` for it carries a `progressToken` in its `_meta`, the
+server sends `notifications/progress` while the indexer runs, as the
+[2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress) and
+[2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic/utilities/progress)
+revisions define them, then the response:
+
+```json
+{"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"abc","progress":0,"message":"Running hm magento indexer:reindex"}}
+{"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"abc","progress":1,"message":"Catalog Search index has been rebuilt successfully in 00:00:07"}}
+```
+
+- One notification when the command starts and one per line it prints: the indexer's own line per
+  index is the only measure of how far it has got, so `progress` counts lines and there is no
+  `total`.
+- The token is a string or an integer; anything else, or no token, means no notifications, and the
+  call is answered exactly as before.
+- The other tools answer in a moment and send none. `message` is part of the revisions from
+  `2025-03-26`; a `2024-11-05` client receives it as a field it does not know.
+
+From the command line the same idea is [`--progress=jsonl`](progress.md#for-a-program---progressjsonl).
+
 ## Wiring it up
 
 ```bash

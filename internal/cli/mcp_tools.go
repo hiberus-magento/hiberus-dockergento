@@ -277,7 +277,15 @@ func (s mcpServer) databaseQuery(arguments jqValue) jqValue {
 // magento is one Magento command with its arguments checked. Together the write tools are a
 // smaller permission than the shell an agent is given today to do the same four things.
 func (s mcpServer) magento(args ...string) jqValue {
-	output := s.run(true, append([]string{"--no-json", "magento"}, args...)...)
+	command := append([]string{"--no-json", "magento"}, args...)
+
+	var output string
+	if s.progress != nil {
+		output = s.followed(command...)
+	} else {
+		output = s.run(true, command...)
+	}
+
 	if output == "" {
 		output = "(done)"
 	}
