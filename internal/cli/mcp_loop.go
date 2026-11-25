@@ -139,7 +139,11 @@ func (s mcpServer) xdebug(arguments jqValue) jqValue {
 			return refusedWithoutWrite("Turning xdebug " + state)
 		}
 
-		output := s.run(true, "--no-json", "debug-"+state)
+		output, status := s.statusOf(true, "--no-json", "debug-"+state)
+		if status != 0 {
+			return mcpContent(fmt.Sprintf("%s debug-%s exited with status %d:\n%s", binaryName(), state, status, output), true)
+		}
+
 		if output == "" {
 			output = "(done)"
 		}
@@ -164,6 +168,10 @@ type changeAnswer struct {
 	Commands []string     `json:"commands"`
 	Ran      []changeStep `json:"ran,omitempty"`
 	Skipped  []string     `json:"skipped,omitempty"`
+
+	// Note says what of the arguments was not acted on, so that asking for setup:upgrade without
+	// apply never reads as setup:upgrade having run
+	Note string `json:"note,omitempty"`
 }
 
 // afterChange says what the changed files need (core.PlanAfterChange is the rule) and, with
@@ -225,6 +233,11 @@ func (s mcpServer) afterChange(arguments jqValue) jqValue {
 	}
 
 	if apply.kind != jqTrue {
+		if upgrade.kind == jqTrue {
+			answer.Note = "setup_upgrade was ignored: it only takes effect with apply, and nothing was run. " +
+				"Ask again with apply and setup_upgrade both true to run it."
+		}
+
 		return mcpData(answer, false)
 	}
 
@@ -250,6 +263,16 @@ func (s mcpServer) afterChange(arguments jqValue) jqValue {
 
 // exceptionLog is the file magento_exceptions reads, relative to the Magento root.
 const exceptionLog = "var/log/exception.log"
+
+// exceptionTail is how it is read: `tail` on its own fails for a log that is not there, which is
+// no failure — nothing has been logged — and would be indistinguishable from a container that is
+// not running. The file and the count are arguments, never part of the script.
+const exceptionTail = `test ! -e "$1" || tail -n "$2" "$1"`
+
+// anonymisationZone is the zone the anonymisation record is in: it is written with the local time
+// of the machine that ran masquerade (app.Importer), which is this one. A variable so that a test
+// can pin a zone far from UTC whatever the machine running it is in.
+var anonymisationZone = time.Local
 
 // magentoExceptions is the tail of exception.log, and only when the data in it cannot be about
 // real customers: the database is anonymised, and when data/ai-exclusions.json marks the log as
@@ -278,7 +301,7 @@ func (s mcpServer) magentoExceptions(arguments jqValue) jqValue {
 	var since time.Time
 
 	if sensitive {
-		recorded, err := time.ParseInLocation("2006-01-02 15:04", at, time.Local)
+		recorded, err := time.ParseInLocation("2006-01-02 15:04", at, anonymisationZone)
 		if err != nil {
 			return mcpContent("Refused: when the database was anonymised could not be read ('"+at+"').", true)
 		}
@@ -297,7 +320,12 @@ func (s mcpServer) magentoExceptions(arguments jqValue) jqValue {
 		file = strings.TrimSuffix(directory, "/") + "/" + exceptionLog
 	}
 
-	output, _ := s.statusOf(false, "--no-json", "exec", "tail", "-n", strconv.Itoa(lines), file)
+	output, status := s.statusOf(false, "--no-json", "exec", "sh", "-c", exceptionTail, "sh", file, strconv.Itoa(lines))
+	if status != 0 {
+		return mcpContent(strings.TrimRight(fmt.Sprintf("%s could not be read: %s exec exited with status %d. "+
+			"The environment may not be running: try environment_status.\n%s", file, binaryName(), status, output), "\n"), true)
+	}
+
 	if strings.TrimSpace(output) == "" {
 		return mcpContent("("+file+" is empty or not there)", false)
 	}
@@ -359,7 +387,8 @@ var logEntry = regexp.MustCompile(`^\[(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})
 // exceptionsSince keeps the entries of a log logged at or after since, each with the lines that
 // follow it (a stack trace), and counts the lines dropped. Lines before the first entry belong to
 // one that started earlier, which cannot be dated, so they are dropped. A time with no offset is
-// read as UTC, which is what Magento logs in.
+// read as UTC, which is what Magento logs in. Each is moved into since's zone — the record's —
+// before the two are compared, so neither is ever read as a wall clock in the other's zone.
 func exceptionsSince(log string, since time.Time) (string, int) {
 	var kept []string
 
@@ -373,7 +402,7 @@ func exceptionsSince(log string, since time.Time) (string, int) {
 			}
 
 			logged, err := time.Parse(time.RFC3339, found[1]+"T"+found[2]+zone)
-			keeping = err == nil && !logged.Before(since)
+			keeping = err == nil && !logged.In(since.Location()).Before(since)
 		}
 
 		if keeping {

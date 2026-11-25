@@ -125,35 +125,6 @@ const mcpReadTools = `
     "annotations": { "readOnlyHint": true }
   },
   {
-    "name": "run_tests",
-    "description": "Run the project's PHPUnit tests, unit or integration, optionally only those under a path, and say whether they passed: how many ran, failed, errored and were skipped, and each failure with its message, read from PHPUnit's JUnit report. When there is no report, the exit code and the last lines of the output.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "suite": { "type": "string", "enum": ["unit", "integration"], "description": "Which suite (default unit)" },
-        "path": { "type": "string", "description": "A test file or directory, relative to the Magento root (unit) or to dev/tests/integration (integration), for example app/code/Acme/Shop/Test/Unit" },
-        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
-      },
-      "additionalProperties": false
-    },
-    "outputSchema": {
-      "type": "object",
-      "properties": {
-        "suite": { "type": "string" },
-        "passed": { "type": "boolean" },
-        "exit_code": { "type": "integer" },
-        "source": { "type": "string", "description": "junit when the counts come from PHPUnit's report, exit code when there was none" },
-        "tests": { "type": "integer" },
-        "failures": { "type": "integer" },
-        "errors": { "type": "integer" },
-        "skipped": { "type": "integer" },
-        "failed": { "type": "array", "description": "Each failing test with its name, kind and message, up to twenty" },
-        "tail": { "type": "string", "description": "The last lines of the output, when the report does not say why" }
-      }
-    },
-    "annotations": { "readOnlyHint": true, "openWorldHint": false }
-  },
-  {
     "name": "xdebug",
     "description": "Whether xdebug is on or off in the php container.",
     "inputSchema": {
@@ -246,7 +217,36 @@ const mcpWriteTools = `
       "required": ["paths"],
       "additionalProperties": false
     },
-    "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true }
+    "annotations": { "readOnlyHint": false, "destructiveHint": true, "idempotentHint": false }
+  },
+  {
+    "name": "run_tests",
+    "description": "Run the project's PHPUnit tests, unit or integration, optionally only those under a path, and say whether they passed: how many ran, failed, errored and were skipped, and each failure with its message, read from PHPUnit's JUnit report. When there is no report, the exit code and the last lines of the output. It runs the project's code, and the integration suite installs into and empties its own test database.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "suite": { "type": "string", "enum": ["unit", "integration"], "description": "Which suite (default unit)" },
+        "path": { "type": "string", "description": "A test file or directory, relative to the Magento root (unit) or to dev/tests/integration (integration), for example app/code/Acme/Shop/Test/Unit" },
+        "environment": { "type": "string", "description": "A branch environment of this project, by the name hm worktree list gives it. Leave it out for the current directory." }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "suite": { "type": "string" },
+        "passed": { "type": "boolean" },
+        "exit_code": { "type": "integer" },
+        "source": { "type": "string", "description": "junit when the counts come from PHPUnit's report, exit code when there was none" },
+        "tests": { "type": "integer" },
+        "failures": { "type": "integer" },
+        "errors": { "type": "integer" },
+        "skipped": { "type": "integer" },
+        "failed": { "type": "array", "description": "Each failing test with its name, kind and message, up to twenty" },
+        "tail": { "type": "string", "description": "The last lines of the output, when the report does not say why" }
+      }
+    },
+    "annotations": { "readOnlyHint": false, "destructiveHint": true, "idempotentHint": false, "openWorldHint": false }
   },
   {
     "name": "cache_flush",

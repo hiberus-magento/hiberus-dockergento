@@ -35,8 +35,6 @@ func (s mcpServer) call(name string, arguments jqValue) jqValue {
 		return s.fromCommand("doctor")
 	case "environment_status":
 		return s.fromCommand("status")
-	case "run_tests":
-		return s.runTests(arguments)
 	case "xdebug":
 		return s.xdebug(arguments)
 	case "after_change":
@@ -55,6 +53,8 @@ func (s mcpServer) call(name string, arguments jqValue) jqValue {
 	//
 	if s.write {
 		switch name {
+		case "run_tests":
+			return s.runTests(arguments)
 		case "cache_flush":
 			return s.magento("cache:flush")
 		case "cache_clean":

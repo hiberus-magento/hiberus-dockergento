@@ -29,7 +29,6 @@ have.
 | `environment_status` | What [`hm status`](status.md) says: containers and their last error, whether the URLs answer, xdebug, mode, anonymisation |
 | `service_logs` | The last lines of one service's log |
 | `database_query` | One read-only SQL statement |
-| `run_tests` | Runs the unit or integration tests, optionally under a path, and says whether they passed |
 | `xdebug` | Whether xdebug is on |
 | `after_change` | Given the files changed, the caches to clean and whether `di:compile` or `setup:upgrade` is needed |
 | `magento_exceptions` | The tail of `var/log/exception.log`, only when the database is anonymised |
@@ -45,9 +44,10 @@ schema that pinned every one would turn that into an answer the client rejects.
 
 ### The Magento loop
 
-Four tools cover what an agent does between one edit and the next.
+Four tools cover what an agent does between one edit and the next. `run_tests` is one of the
+[write tools](#the-write-half-off-by-default); the other three answer without `--write`.
 
-**`run_tests`** runs `hm test-unit` or `hm test-integration` (`suite`, default `unit`) with PHPUnit
+**`run_tests`** (with `--write` only) runs `hm test-unit` or `hm test-integration` (`suite`, default `unit`) with PHPUnit
 writing its JUnit report into the container's `/tmp`, reads the report back through `hm exec` —
 which works whether the code is mounted or in a volume — and removes it. The answer has `passed`,
 `exit_code`, the counts (`tests`, `failures`, `errors`, `skipped`) and each failing test with its
@@ -55,13 +55,14 @@ message, up to twenty. When there is no report, a bootstrap that died before the
 example, the answer is the exit code and the last forty lines of output, with `source: "exit
 code"` and no counts invented. `path` is a test file or directory; it goes into a command line
 inside the container, so only a plain relative path of letters, digits, `_`, `-`, `.` and `/` is
-accepted, never one with `..`. Running tests is offered without `--write`: they write only their
-own scratch (the integration framework's own database and `dev/tests/integration/tmp`), not the
-store's.
+accepted, never one with `..`. Running tests takes `--write`: it runs the project's own code, and
+the integration suite installs into and empties a database of its own, so its annotations say it
+is destructive and not idempotent.
 
 **`xdebug`** says whether xdebug is `on`, `off` or `unknown`, as `hm describe` reads it. With
 `--write` it also takes `state: "on" | "off"` and runs `hm debug-on` or `hm debug-off`, which
-restart the php container.
+restart the php container. A command that fails is a tool error (`isError`) with its exit status
+and what it printed.
 
 **`after_change`** takes the changed files and says what Magento needs before it shows them. It
 only says; with `--write` and `apply: true` it also does it. The rule is by kind of file, the
@@ -90,7 +91,9 @@ what it needs, and the commands that would apply it, in the order they would run
 then `setup:di:compile`, then `cache:clean` with the types. Applying runs them in that order and
 stops at the first that fails, which makes the answer an error. **`setup:upgrade` is never run
 unless `setup_upgrade: true` is passed as well**, because it changes the database schema and
-data; when it is needed and not asked for, it is listed under `skipped`.
+data; when it is needed and not asked for, it is listed under `skipped`. `setup_upgrade: true`
+without `apply` runs nothing, and the answer's `note` says it was ignored. Because it can run
+`setup:upgrade`, the `--write` variant's annotations say it is destructive and not idempotent.
 
 **`magento_exceptions`** is the tail of `var/log/exception.log` (`lines`, default 50, at most 200),
 read inside the container under the Magento directory. It is refused unless `hm describe` reports
@@ -98,7 +101,10 @@ the database anonymised — the same state the agent context and [`hm status`](s
 cleared by anything that replaces the database. And because `data/ai-exclusions.json` marks
 `var/log` as holding real customers' data, only the entries logged after the anonymisation are
 shown (from the minute after it, since the record has minutes); the ones before are counted and
-left out, as are lines that cannot be dated.
+left out, as are lines that cannot be dated. The record is this machine's local time, and each
+entry's time (UTC, with its offset when Magento wrote one) is moved into that zone before the two
+are compared. A log that is not there is answered as empty; one that cannot be read — the
+container is not running, for example — is a tool error with the exit status.
 
 ### One server, several branch environments
 
@@ -160,10 +166,11 @@ with the whole context window.
 hm mcp --write
 ```
 
-adds four tools, and lets two of the read tools do what they describe:
+adds five tools, and lets two of the read tools do what they describe:
 
 | Tool | Does |
 |---|---|
+| `run_tests` | Runs the unit or integration tests, optionally under a path, and says whether they passed |
 | `cache_flush` | Flushes the whole cache |
 | `cache_clean` | Cleans the cache types named |
 | `reindex` | Rebuilds every index, or the one named |
@@ -177,7 +184,7 @@ here changes anything. Without it, `xdebug` and `after_change` are offered as th
 selves, with no `state` or `apply` in their schema, and asking them to change something anyway is
 refused with a sentence saying it takes `--write`.
 
-Without the flag the four **do not exist** — they are absent from the tool list, not refused when
+Without the flag the five **do not exist** — they are absent from the tool list, not refused when
 called. A tool that exists and says no is worse than no tool: the model sees it, plans around it,
 reads the refusal and reaches for a shell.
 

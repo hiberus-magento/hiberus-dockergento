@@ -74,7 +74,7 @@ func TestRunTestsReadsPHPUnitsReport(t *testing.T) {
 
 		var junit string
 
-		calls, server := looping(false, func(args []string) (string, int) {
+		calls, server := looping(true, func(args []string) (string, int) {
 			switch {
 			case len(args) > 1 && args[1] == "test-unit":
 				junit = args[3]
@@ -120,7 +120,7 @@ func TestRunTestsReadsPHPUnitsReport(t *testing.T) {
 	t.Run("a passing run passes", func(t *testing.T) {
 		quiet(t)
 
-		_, server := looping(false, func(args []string) (string, int) {
+		_, server := looping(true, func(args []string) (string, int) {
 			if len(args) > 2 && args[2] == "cat" {
 				return junitPassing, 0
 			}
@@ -137,7 +137,7 @@ func TestRunTestsReadsPHPUnitsReport(t *testing.T) {
 
 	t.Run("the integration suite runs test-integration", func(t *testing.T) {
 		quiet(t)
-		calls, server := looping(false, func([]string) (string, int) { return "", 0 })
+		calls, server := looping(true, func([]string) (string, int) { return "", 0 })
 
 		serving(server, toolCall("run_tests", `{"suite":"integration"}`))
 
@@ -157,7 +157,7 @@ func TestRunTestsWithoutAReportSaysTheExitCodeAndTheTail(t *testing.T) {
 
 	output.WriteString("PHP Fatal error: bootstrap failed\n")
 
-	_, server := looping(false, func(args []string) (string, int) {
+	_, server := looping(true, func(args []string) (string, int) {
 		if len(args) > 1 && args[1] == "test-unit" {
 			return output.String(), 255
 		}
@@ -197,7 +197,7 @@ func TestRunTestsRefusesAPathThatIsNotOne(t *testing.T) {
 		t.Run(arguments, func(t *testing.T) {
 			quiet(t)
 
-			text, isError := answer(t, serving(mcpServer{capture: refusing(t), captureStatus: refusingStatus(t)},
+			text, isError := answer(t, serving(mcpServer{write: true, capture: refusing(t), captureStatus: refusingStatus(t)},
 				toolCall("run_tests", arguments)))
 
 			if !isError || text == "" {
@@ -205,6 +205,43 @@ func TestRunTestsRefusesAPathThatIsNotOne(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestRunTestsIsAWriteTool: running the tests runs the project's own code, and the integration
+// suite installs into and empties a database of its own, so it is offered only with --write —
+// absent without it, like the other write tools, rather than refused.
+func TestRunTestsIsAWriteTool(t *testing.T) {
+	t.Run("without --write it is not offered, and asking for it runs nothing", func(t *testing.T) {
+		quiet(t)
+
+		for _, name := range mcpToolNames(false) {
+			if name == "run_tests" {
+				t.Fatal("run_tests is offered without --write")
+			}
+		}
+
+		text, isError := answer(t, serving(mcpServer{capture: refusing(t), captureStatus: refusingStatus(t)},
+			toolCall("run_tests", `{}`)))
+
+		if !isError || !strings.Contains(text, "There is no tool called 'run_tests'") {
+			t.Fatalf("= %q, %v; want it unknown without --write", text, isError)
+		}
+	})
+
+	t.Run("with --write it says it changes things, and keeps its output schema", func(t *testing.T) {
+		quiet(t)
+
+		entry := tool(t, true, "run_tests")
+		hints, _ := entry["annotations"].(map[string]any)
+
+		if hints["readOnlyHint"] != false || hints["destructiveHint"] != true || hints["idempotentHint"] != false {
+			t.Errorf("annotations = %v, want not read-only, destructive and not idempotent", hints)
+		}
+
+		if schema, _ := entry["outputSchema"].(map[string]any); schema["type"] != "object" {
+			t.Errorf("outputSchema = %v, want the test run's schema kept", entry["outputSchema"])
+		}
+	})
 }
 
 // TestTheStatusDoorSaysTheExitStatus: run_tests and after_change decide by it, so it is the
@@ -280,6 +317,17 @@ func TestXdebugTurnsItOnOrOffOnlyWithWrite(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("a command that fails is an error, with what it printed", func(t *testing.T) {
+		quiet(t)
+		_, server := looping(true, func([]string) (string, int) { return "phpfpm is not running\n", 1 })
+
+		text, isError := answer(t, serving(server, toolCall("xdebug", `{"state":"on"}`)))
+
+		if !isError || !strings.Contains(text, "phpfpm is not running") {
+			t.Fatalf("= %q, %v; want the failure flagged and said", text, isError)
+		}
+	})
 
 	t.Run("a state that is neither is refused", func(t *testing.T) {
 		quiet(t)
@@ -396,6 +444,29 @@ func TestAfterChangeAppliesWithWriteButNeverSetupUpgradeUnlessAsked(t *testing.T
 		}
 	})
 
+	t.Run("setup_upgrade without apply runs nothing and says it was ignored", func(t *testing.T) {
+		quiet(t)
+
+		content, isError := structured(t, serving(mcpServer{write: true, capture: refusing(t), captureStatus: refusingStatus(t)},
+			toolCall("after_change", `{"paths":`+paths+`,"setup_upgrade":true}`)))
+
+		note, _ := content["note"].(string)
+		if isError || !strings.Contains(note, "setup_upgrade") || !strings.Contains(note, "apply") {
+			t.Fatalf("content = %v, %v; want the plan, and setup_upgrade said to have been ignored without apply", content, isError)
+		}
+	})
+
+	t.Run("the plan alone carries no note", func(t *testing.T) {
+		quiet(t)
+
+		content, _ := structured(t, serving(mcpServer{write: true, capture: refusing(t), captureStatus: refusingStatus(t)},
+			toolCall("after_change", `{"paths":`+paths+`}`)))
+
+		if _, there := content["note"]; there {
+			t.Fatalf("note = %v, want none when nothing was ignored", content["note"])
+		}
+	})
+
 	t.Run("nothing needed runs nothing", func(t *testing.T) {
 		quiet(t)
 
@@ -462,7 +533,7 @@ func TestMagentoExceptionsShowsOnlyWhatWasLoggedAfterTheAnonymisation(t *testing
 		t.Fatalf("= %q, %v; want only the entry logged after the anonymisation, and the rest counted", text, isError)
 	}
 
-	want := [][]string{{"describe", "--json"}, {"--no-json", "exec", "tail", "-n", "30", "var/log/exception.log"}}
+	want := [][]string{{"describe", "--json"}, {"--no-json", "exec", "sh", "-c", exceptionTail, "sh", "var/log/exception.log", "30"}}
 	if diff := cmp.Diff(want, called(*calls)); diff != "" {
 		t.Fatalf("runs (-want +got):\n%s", diff)
 	}
@@ -476,7 +547,8 @@ func TestMagentoExceptionsReadsTheLogOfTheMagentoDirectory(t *testing.T) {
 			return strings.Replace(described("yes", "2026-11-15 10:00"), `"magento_dir":"."`, `"magento_dir":"src"`, 1), 0
 		}
 
-		return "", 1
+		// A log that is not there is no failure: the script answers nothing, and 0
+		return "", 0
 	})
 
 	text, isError := answer(t, serving(server, toolCall("magento_exceptions", `{"lines":5000}`)))
@@ -485,8 +557,66 @@ func TestMagentoExceptionsReadsTheLogOfTheMagentoDirectory(t *testing.T) {
 		t.Fatalf("= %q, %v; want a missing log said, not an error", text, isError)
 	}
 
-	if got := (*calls)[1].args; !cmp.Equal([]string{"--no-json", "exec", "tail", "-n", "200", "src/var/log/exception.log"}, got) {
+	want := []string{"--no-json", "exec", "sh", "-c", exceptionTail, "sh", "src/var/log/exception.log", "200"}
+	if got := (*calls)[1].args; !cmp.Equal(want, got) {
 		t.Fatalf("ran %v, want the capped tail of src/var/log/exception.log", got)
+	}
+}
+
+// TestMagentoExceptionsSaysWhenTheLogCouldNotBeRead: a container that is not running, or a log
+// nobody may read, is not an empty log, and a model told "(empty)" would conclude nothing failed.
+func TestMagentoExceptionsSaysWhenTheLogCouldNotBeRead(t *testing.T) {
+	quiet(t)
+
+	_, server := looping(false, func(args []string) (string, int) {
+		if args[0] == "describe" {
+			return described("yes", "2026-11-15 10:00"), 0
+		}
+
+		return "", 1
+	})
+
+	text, isError := answer(t, serving(server, toolCall("magento_exceptions", `{}`)))
+
+	if !isError || !strings.Contains(text, "var/log/exception.log could not be read") || !strings.Contains(text, "status 1") {
+		t.Fatalf("= %q, %v; want the failure flagged, with the exit status", text, isError)
+	}
+}
+
+// TestTheAnonymisationAndTheLogAreComparedInOneZone: the record is the local time of the machine
+// that ran masquerade, minutes only; Magento logs in UTC, with an offset since 2.4. Both are read
+// as instants in the record's zone before they are compared, so a zone far from UTC moves neither.
+func TestTheAnonymisationAndTheLogAreComparedInOneZone(t *testing.T) {
+	quiet(t)
+
+	kolkata, err := time.LoadLocation("Asia/Kolkata")
+	if err != nil {
+		t.Skipf("no time zone database: %v", err)
+	}
+
+	saved := anonymisationZone
+	anonymisationZone = kolkata
+	t.Cleanup(func() { anonymisationZone = saved })
+
+	// 15:30 in Kolkata (+05:30) is 10:00 UTC; the record has minutes, so the cutoff is 10:01 UTC
+	log := "[2026-11-15T10:00:30.000000+00:00] main.CRITICAL: within the minute of the record\n" +
+		"[2026-11-15 10:00:59] main.CRITICAL: 2.3's form, still in that minute\n" +
+		"[2026-11-15T15:31:00.000000+05:30] main.CRITICAL: at the cutoff, in the record's own zone\n" +
+		"[2026-11-15 10:02:00] main.CRITICAL: after, in 2.3's form\n"
+
+	_, server := looping(false, func(args []string) (string, int) {
+		if args[0] == "describe" {
+			return described("yes", "2026-11-15 15:30"), 0
+		}
+
+		return log, 0
+	})
+
+	text, isError := answer(t, serving(server, toolCall("magento_exceptions", `{}`)))
+
+	if isError || strings.Contains(text, "minute") || !strings.Contains(text, "at the cutoff") ||
+		!strings.Contains(text, "after, in 2.3's form") || !strings.Contains(text, "2 earlier lines") {
+		t.Fatalf("= %q, %v; want the two entries from 10:01 UTC on, and the two before counted", text, isError)
 	}
 }
 
@@ -521,13 +651,13 @@ func TestTheInstructionsNameTheToolsThatChangeTheEnvironment(t *testing.T) {
 
 	got := instructions(t, mcpServer{write: true, capture: refusing(t)})
 
-	for _, want := range []string{"xdebug", "after_change", "cache_flush", "config_set"} {
+	for _, want := range []string{"xdebug", "after_change", "run_tests", "cache_flush", "config_set"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("instructions = %q, want %s named", got, want)
 		}
 	}
 
-	for _, reads := range []string{"run_tests", "describe_project", "magento_exceptions", "environment_status"} {
+	for _, reads := range []string{"describe_project", "magento_exceptions", "environment_status"} {
 		if strings.Contains(got, reads) {
 			t.Errorf("instructions = %q, want %s left out: it only reads", got, reads)
 		}
@@ -546,6 +676,20 @@ func TestTheReadVariantsGiveWayToTheWriteOnes(t *testing.T) {
 		if readHints["readOnlyHint"] != true || writeHints["readOnlyHint"] != false {
 			t.Errorf("%s: read %v, write %v; want read-only without --write only", name, readHints, writeHints)
 		}
+	}
+
+	// With --write after_change can run setup:upgrade, which changes the schema and the data and
+	// is not the same the second time: a client that trusts the hints must not retry it freely
+	read, write := tool(t, false, "after_change"), tool(t, true, "after_change")
+	readHints, _ := read["annotations"].(map[string]any)
+	writeHints, _ := write["annotations"].(map[string]any)
+
+	if writeHints["destructiveHint"] != true || writeHints["idempotentHint"] != false {
+		t.Errorf("after_change with --write: %v, want destructive and not idempotent", writeHints)
+	}
+
+	if _, there := readHints["destructiveHint"]; there {
+		t.Errorf("after_change without --write: %v, want only read-only: it runs nothing", readHints)
 	}
 
 	seen := map[string]int{}
