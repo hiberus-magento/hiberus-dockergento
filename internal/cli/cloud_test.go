@@ -100,3 +100,50 @@ func TestTheRouterAnswersForTheCloudCommands(t *testing.T) {
 		}
 	}
 }
+
+// TestCloudLoginRefusesAnArgument: it takes none, and one that would silently do nothing is
+// refused before anything runs, as config-env refuses them.
+func TestCloudLoginRefusesAnArgument(t *testing.T) {
+	fake := answering(t)
+	fake.project = core.Project{Name: "shop", Root: "/code/shop"}
+	t.Setenv("COMMAND_BIN_NAME", "hm")
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--json", "cloud-login", "--token=abc"}, &stdout, &stderr); code != exitUsage {
+		t.Fatalf("cloud-login --token=abc = %d, want exitUsage", code)
+	}
+
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want nothing", stdout.String())
+	}
+
+	assertError(t, stderr.String(), "invalid_argument", "Unknown option: --token=abc", "hm cloud-login")
+
+	if len(fake.calls) != 0 {
+		t.Errorf("asked the engine %v, want nothing", fake.calls)
+	}
+}
+
+// TestCloudLoginKeepsStdoutCleanUnderJSON: the sentence saying where the token is generated is
+// for a person, so under --json it goes to stderr and stdout carries nothing of its own.
+func TestCloudLoginKeepsStdoutCleanUnderJSON(t *testing.T) {
+	fake := answering(t)
+	fake.project = core.Project{Name: "shop", Root: "/code/shop"}
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--json", "cloud-login"}, &stdout, &stderr); code != exitOK {
+		t.Fatalf("cloud-login --json = %d, want exitOK", code)
+	}
+
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want nothing", stdout.String())
+	}
+
+	if !strings.Contains(stderr.String(), "https://accounts.magento.cloud/user/api-tokens") {
+		t.Errorf("stderr = %q, want where to generate the token", stderr.String())
+	}
+
+	if len(fake.calls) != 2 || fake.calls[1].Method != "Exec" {
+		t.Errorf("asked the engine %v, want Resolve and the login", fake.calls)
+	}
+}

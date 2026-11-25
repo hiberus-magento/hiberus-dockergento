@@ -27,14 +27,29 @@ func cloud(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 }
 
 // cloudLogin says where an API token is generated and runs the CLI's own login, which asks for it.
-func cloudLogin(_ []string, stdout, stderr io.Writer, jsonOutput bool) int {
+//
+// It takes no options. The shell implementation ignored whatever it was given; an option that
+// silently does nothing is one somebody believes did something, so it is refused, as config-env
+// refuses them.
+func cloudLogin(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
+	if len(args) > 0 {
+		return failure(stderr, jsonOutput, "cloud-login", exitUsage, "invalid_argument",
+			fmt.Sprintf("Unknown option: %s", args[0]), binaryName()+" cloud-login")
+	}
+
 	project, code := projectOr(stderr, jsonOutput, "cloud-login")
 	if code != 0 {
 		return code
 	}
 
-	fmt.Fprint(stdout, "Access to following link and generate a new API Token for Magento Cloud CLI:\n")
-	fmt.Fprint(stdout, link("https://accounts.magento.cloud/user/api-tokens\n\n"))
+	// The sentence is for a person; under --json stdout is not where a person reads
+	where := stdout
+	if jsonOutput {
+		where = stderr
+	}
+
+	fmt.Fprint(where, "Access to following link and generate a new API Token for Magento Cloud CLI:\n")
+	fmt.Fprint(where, link("https://accounts.magento.cloud/user/api-tokens\n\n"))
 
 	return inside(project, []string{"bash", "-c", "magento-cloud auth:api-token-login"},
 		"", stdout, stderr, jsonOutput, "cloud-login")
