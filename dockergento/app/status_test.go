@@ -1,10 +1,14 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"sort"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
@@ -61,12 +65,17 @@ func TestStatusIsTheDescriptionWithWhatIsWrongAddedToIt(t *testing.T) {
 		refuse: errors.New("connection refused"),
 	}
 
-	var logsAsked []string
+	var (
+		logsAsked []string
+		asking    sync.Mutex
+	)
 
 	reporter := StatusReporter{
 		Describe: func() (core.Description, error) { return described(), nil },
-		Logs: func(service string) (string, error) {
+		Logs: func(_ context.Context, service string) (string, error) {
+			asking.Lock()
 			logsAsked = append(logsAsked, service)
+			asking.Unlock()
 
 			if service == "nginx" {
 				return "2026/11/25 [error] upstream timed out\n200 GET /\n", nil
@@ -102,6 +111,7 @@ func TestStatusIsTheDescriptionWithWhatIsWrongAddedToIt(t *testing.T) {
 	}
 
 	// A stopped container has no log worth reading: only the running ones are asked
+	sort.Strings(logsAsked)
 	if diff := cmp.Diff([]string{"db", "nginx"}, logsAsked); diff != "" {
 		t.Errorf("logs asked (-want +got):\n%s", diff)
 	}
@@ -116,7 +126,7 @@ func TestStatusIsTheDescriptionWithWhatIsWrongAddedToIt(t *testing.T) {
 func TestALogThatCannotBeReadIsSaidAndTheRestStillAnswers(t *testing.T) {
 	reporter := StatusReporter{
 		Describe: func() (core.Description, error) { return described(), nil },
-		Logs:     func(string) (string, error) { return "", errors.New("no such container") },
+		Logs:     func(context.Context, string) (string, error) { return "", errors.New("no such container") },
 		Probe:    &probing{refuse: errors.New("refused")},
 	}
 
@@ -135,7 +145,7 @@ func TestStatusFailsWhereDescribeFails(t *testing.T) {
 
 	reporter := StatusReporter{
 		Describe: func() (core.Description, error) { return core.Description{}, refusal },
-		Logs: func(string) (string, error) {
+		Logs: func(context.Context, string) (string, error) {
 			t.Fatal("a log was read for a project that could not be described")
 
 			return "", nil
@@ -145,5 +155,103 @@ func TestStatusFailsWhereDescribeFails(t *testing.T) {
 
 	if _, err := reporter.Status(); !errors.Is(err, refusal) {
 		t.Fatalf("Status() = %v, want the refusal passed on", err)
+	}
+}
+
+// TestTheLogsAreReadAllAtOnce: one round trip to Compose per running service, one after the other,
+// is a status that takes as long as all of them together. Each read here waits until every other
+// one has started, so read one at a time the first would wait out its timeout.
+func TestTheLogsAreReadAllAtOnce(t *testing.T) {
+	description := described()
+	description.Services = []core.DescribedService{
+		{Name: "db", State: "running"}, {Name: "nginx", State: "running"}, {Name: "phpfpm", State: "running"},
+	}
+
+	var started sync.WaitGroup
+
+	started.Add(len(description.Services))
+
+	everyone := make(chan struct{})
+	go func() { started.Wait(); close(everyone) }()
+
+	reporter := StatusReporter{
+		Describe: func() (core.Description, error) { return description, nil },
+		Logs: func(ctx context.Context, service string) (string, error) {
+			started.Done()
+
+			select {
+			case <-everyone:
+				return service + ": [error] seen\n", nil
+			case <-ctx.Done():
+				return "", ctx.Err()
+			}
+		},
+		Probe:      &probing{refuse: errors.New("refused")},
+		LogTimeout: 5 * time.Second,
+	}
+
+	got, err := reporter.Status()
+	if err != nil {
+		t.Fatalf("Status() = %v", err)
+	}
+
+	for _, service := range got.Services {
+		if service.LastError != service.Name+": [error] seen" {
+			t.Errorf("%s: LastError = %q, want its own log read while the others were being read", service.Name, service.LastError)
+		}
+	}
+}
+
+// TestALogThatDoesNotAnswerIsSaidAndHoldsNothingUp: a log read that hangs — a daemon under load, a
+// container stuck stopping — is given a deadline, its context is cancelled, and status answers with
+// the rest instead of waiting for it. Even a read that ignores its context is not waited for.
+func TestALogThatDoesNotAnswerIsSaidAndHoldsNothingUp(t *testing.T) {
+	stuck := make(chan struct{})
+	t.Cleanup(func() { close(stuck) })
+
+	var deadline atomic.Bool
+
+	reporter := StatusReporter{
+		Describe: func() (core.Description, error) { return described(), nil },
+		Logs: func(ctx context.Context, service string) (string, error) {
+			if service == "db" {
+				_, has := ctx.Deadline()
+				deadline.Store(has)
+				<-stuck
+
+				return "", nil
+			}
+
+			return "[error] nginx's own\n", nil
+		},
+		Probe:      &probing{refuse: errors.New("refused")},
+		LogTimeout: 50 * time.Millisecond,
+	}
+
+	answered := make(chan core.Status, 1)
+
+	go func() {
+		got, _ := reporter.Status()
+		answered <- got
+	}()
+
+	var got core.Status
+
+	select {
+	case got = <-answered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Status() waited for a log that never answered")
+	}
+
+	if !deadline.Load() {
+		t.Error("the log was read without a deadline on its context")
+	}
+
+	if db := got.Services[0].LastError; !strings.HasPrefix(db, "(the log could not be read:") || !strings.Contains(db, "50ms") {
+		t.Errorf("db: LastError = %q, want the read said to have timed out, with how long it was given", db)
+	}
+
+	if nginx := got.Services[1].LastError; nginx != "[error] nginx's own" {
+		t.Errorf("nginx: LastError = %q, want it read regardless", nginx)
 	}
 }

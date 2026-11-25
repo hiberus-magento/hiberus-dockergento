@@ -13,6 +13,7 @@
 package dockergento
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -476,8 +477,10 @@ func (e *Engine) Logs(dir string, services []string, options core.LogOptions) er
 // error each running service logged.
 //
 // The logs are read through Compose into a buffer, never the engine's own output: the lines are
-// read for errors, not shown. Two hundred lines each, which is minutes of a busy nginx and enough
-// to say whether something is failing now.
+// read for errors, not shown. Only what the containers wrote is read; Compose's own messages go
+// to the engine's stderr, never stdout, which under --json is the document's. Two hundred lines
+// each, which is minutes of a busy nginx and enough to say whether something is failing now, all
+// services at once, each with the reporter's deadline.
 func (e *Engine) Status(dir string) (core.Status, error) {
 	project, err := e.Resolve(dir)
 	if err != nil {
@@ -490,33 +493,15 @@ func (e *Engine) Status(dir string) (core.Status, error) {
 		Describe: func() (core.Description, error) {
 			return e.describer(project).Describe(project, files, false)
 		},
-		Logs: func(service string) (string, error) {
-			// The orchestrator writes to files, so the buffer is the far end of a pipe
-			reader, writer, err := os.Pipe()
-			if err != nil {
-				return "", err
+		Logs: func(ctx context.Context, service string) (string, error) {
+			orchestrator := e.orchestrator(project)
+			if orchestrator.Stderr == nil {
+				orchestrator.Stderr = os.Stderr
 			}
 
-			var log strings.Builder
+			orchestrator.Stdout = orchestrator.Stderr
 
-			copied := make(chan struct{})
-
-			go func() {
-				io.Copy(&log, reader) //nolint:errcheck
-				reader.Close()        //nolint:errcheck
-				close(copied)
-			}()
-
-			orchestrator := e.orchestrator(project)
-			orchestrator.Stdout, orchestrator.Stderr = writer, writer
-
-			err = orchestrator.Logs(project, files, []string{service},
-				core.LogOptions{Tail: "200", NoColor: true, NoPrefix: true})
-
-			writer.Close() //nolint:errcheck
-			<-copied
-
-			return log.String(), err
+			return orchestrator.RecentLog(ctx, project, files, service, "200")
 		},
 		Probe: urlProbe{timeout: 3 * time.Second},
 	}.Status()

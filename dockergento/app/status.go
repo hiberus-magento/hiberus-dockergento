@@ -1,7 +1,10 @@
 package app
 
 import (
+	"context"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
@@ -20,13 +23,21 @@ type StatusReporter struct {
 	// Describe is the project's description, the one `hm describe` prints
 	Describe func() (core.Description, error)
 
-	// Logs is the recent log of one service
-	Logs func(service string) (string, error)
+	// Logs is the recent log of one service. The context carries the deadline LogTimeout sets,
+	// which a reader that talks to Docker passes on so that the request itself is abandoned.
+	Logs func(ctx context.Context, service string) (string, error)
 
 	Probe URLProbe
+
+	// LogTimeout is how long one service's log is waited for; zero is defaultLogTimeout.
+	LogTimeout time.Duration
 }
 
-// Status asks the description once, then the logs and the URLs, the URLs all at once.
+// defaultLogTimeout is long enough for a busy daemon to answer two hundred lines, and short
+// enough that a status asked after every change never stalls on one container that does not.
+const defaultLogTimeout = 5 * time.Second
+
+// Status asks the description once, then the logs and the URLs, all at once.
 func (r StatusReporter) Status() (core.Status, error) {
 	description, err := r.Describe()
 	if err != nil {
@@ -81,23 +92,67 @@ func (r StatusReporter) Status() (core.Status, error) {
 	}
 
 	for _, service := range description.Services {
-		one := core.ServiceStatus{Name: service.Name, State: service.State, Running: service.State == "running"}
+		status.Services = append(status.Services,
+			core.ServiceStatus{Name: service.Name, State: service.State, Running: service.State == "running"})
+	}
 
+	for at := range status.Services {
 		// A container that is not running has nothing recent to say, and asking Compose for its
 		// log is a round trip per service for nothing
-		if one.Running {
-			log, err := r.Logs(service.Name)
-			if err != nil {
-				one.LastError = "(the log could not be read: " + err.Error() + ")"
-			} else {
-				one.LastError = core.LastErrorLine(log)
-			}
+		if !status.Services[at].Running {
+			continue
 		}
 
-		status.Services = append(status.Services, one)
+		probing.Add(1)
+
+		go func(one *core.ServiceStatus) {
+			defer probing.Done()
+
+			log, err := r.recentLog(one.Name)
+			if err != nil {
+				one.LastError = "(the log could not be read: " + err.Error() + ")"
+
+				return
+			}
+
+			one.LastError = core.LastErrorLine(log)
+		}(&status.Services[at])
 	}
 
 	probing.Wait()
 
 	return status, nil
+}
+
+// recentLog is one service's log, or an error once LogTimeout has passed. The read is not waited
+// for after that even when it ignores its context: a status that hangs is worse than one that says
+// which log it could not read.
+func (r StatusReporter) recentLog(service string) (string, error) {
+	timeout := r.LogTimeout
+	if timeout <= 0 {
+		timeout = defaultLogTimeout
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	type read struct {
+		log string
+		err error
+	}
+
+	// Buffered, so that a read finishing after the deadline does not block on nobody listening
+	done := make(chan read, 1)
+
+	go func() {
+		log, err := r.Logs(ctx, service)
+		done <- read{log, err}
+	}()
+
+	select {
+	case answer := <-done:
+		return answer.log, answer.err
+	case <-ctx.Done():
+		return "", fmt.Errorf("it did not answer within %s", timeout)
+	}
 }

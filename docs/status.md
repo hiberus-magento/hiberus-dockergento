@@ -46,7 +46,11 @@ real front name), the mode, Xdebug and the anonymisation. On top of that it asks
 - **The last error.** The last 200 lines of each *running* service's log are read and the last
   line that says `error`, `fatal`, `critical`, `emergency`, `alert` or `panic` — as a whole word,
   so `error_reporting` in a configuration dump is not one, and a warning is not one either — is
-  reported, cut at 300 characters. A stopped container is not asked.
+  reported, cut at 300 characters. A stopped container is not asked. Only what the container
+  wrote, on its stdout or its stderr, is read; Compose's own messages are not part of it. All
+  running services are read at once, each with a five-second deadline: a log that does not
+  arrive in time is reported as `(the log could not be read: it did not answer within 5s)`, and
+  the rest of the answer does not wait for it.
 - **Whether the URLs answer.** A `HEAD` request to each, all at once, with a three-second timeout.
   Any HTTP answer counts, a `500` or a redirect included: the question is whether a server is
   there, and the code says the rest. The certificate is not checked, because a development

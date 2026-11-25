@@ -22,6 +22,7 @@ import (
 	"os"
 	"runtime/debug"
 	"strings"
+	"sync"
 
 	"github.com/compose-spec/compose-go/v2/cli"
 	"github.com/compose-spec/compose-go/v2/types"
@@ -171,6 +172,56 @@ func (o Orchestrator) Logs(project core.Project, files core.ComposeFiles, servic
 		Until:      options.Until,
 		Timestamps: options.Timestamps,
 	})
+}
+
+// RecentLog is the last lines of one service's log, as text to be read rather than shown.
+//
+// Not through Compose's consumer, which writes the container's stdout and stderr to the two
+// streams it was given, where Compose's own messages go too: read back from there, a warning of
+// Compose's is a line of the service's log. Here what the container wrote, on either of its
+// streams, is the log, and Compose's own streams stay the orchestrator's. The context bounds the
+// request to the daemon.
+func (o Orchestrator) RecentLog(ctx context.Context, project core.Project, files core.ComposeFiles,
+	service, tail string) (string, error) {
+	compose, loaded, err := o.open(project, files)
+	if err != nil {
+		return "", err
+	}
+
+	log := &logLines{}
+
+	err = compose.Logs(ctx, loaded.Name, log, api.LogOptions{
+		Project:  loaded,
+		Services: []string{service},
+		Tail:     tail,
+	})
+
+	return log.String(), err
+}
+
+// logLines is a LogConsumer that keeps what the containers wrote, on either stream, and nothing
+// of what Compose says about them.
+type logLines struct {
+	mu    sync.Mutex
+	lines strings.Builder
+}
+
+func (l *logLines) Log(_, message string) { l.add(message) }
+func (l *logLines) Err(_, message string) { l.add(message) }
+func (l *logLines) Status(_, _ string)    {}
+
+func (l *logLines) add(message string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.lines.WriteString(strings.TrimSuffix(message, "\n") + "\n")
+}
+
+func (l *logLines) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	return l.lines.String()
 }
 
 // Exec runs a command inside a running service and returns its exit code.

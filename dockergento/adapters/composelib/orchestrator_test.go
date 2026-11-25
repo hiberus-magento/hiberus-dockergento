@@ -64,3 +64,18 @@ func TestAStopTimeoutReachesCompose(t *testing.T) {
 func durationOf(d time.Duration) *time.Duration {
 	return &d
 }
+
+// TestARecentLogIsWhatTheContainerWroteOnEitherStream: nginx logs its errors on stderr and its
+// requests on stdout, and both are the service's log; what Compose says about the container — that
+// it exited, that it is attaching — is not.
+func TestARecentLogIsWhatTheContainerWroteOnEitherStream(t *testing.T) {
+	log := &logLines{}
+
+	log.Log("shop-nginx-1", "200 GET /")
+	log.Err("shop-nginx-1", "[error] upstream timed out\n")
+	log.Status("shop-nginx-1", "exited with code 1")
+
+	if got, want := log.String(), "200 GET /\n[error] upstream timed out\n"; got != want {
+		t.Fatalf("log = %q, want %q", got, want)
+	}
+}
