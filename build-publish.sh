@@ -154,7 +154,14 @@ if ! $DRY_RUN; then
     current_context="$(docker context show 2>/dev/null || true)"
     if [ "$builder_driver" = "docker" ] && [ -n "$builder_context" ] && [ "$builder_context" != "$current_context" ]; then
         err "builder '$BUILDER' builds on the Docker context '$builder_context', but the current context is '${current_context:-unknown}'."
-        err "Run it on that context: DOCKER_CONTEXT=$builder_context $0 ${ARGS[*]}"
+        # DOCKER_HOST wins over DOCKER_CONTEXT (the context is then always "default"), so it is
+        # left out of the command that switches context
+        if [ -n "${DOCKER_HOST:-}" ]; then
+            err "DOCKER_HOST is set, and it overrides any context: run it without it."
+            err "  env -u DOCKER_HOST DOCKER_CONTEXT=$builder_context $0 ${ARGS[*]}"
+        else
+            err "Run it on that context: DOCKER_CONTEXT=$builder_context $0 ${ARGS[*]}"
+        fi
         exit 1
     fi
 fi
