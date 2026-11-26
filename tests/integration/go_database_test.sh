@@ -67,6 +67,13 @@ test_case "with the database down, it refuses with the service code"
 assert_equals "5" "$GO_STATUS"
 assert_equals "false" "$(jq -r '.ok' < "$LAB/go.err")"
 
+# The kind, and not only the code: a connection error that happened to exit 5 would pass the two
+# above. No container at all is still a service that is not running (app.runningContainer)
+test_case "and the refusal is the service not running, naming the way out"
+assert_equals "service_not_running" "$(jq -r '.error.type' < "$LAB/go.err")"
+assert_equals "5" "$(jq -r '.error.code' < "$LAB/go.err")"
+assert_contains "$(jq -r '.error.hint' < "$LAB/go.err")" "start db"
+
 # ---------------------------------------------------------------- with it up
 
 if ! docker image inspect mariadb:10.6 >/dev/null 2>&1; then

@@ -41,14 +41,16 @@ en `.specify/memory/constitution.md` (2.0.0).
    etiqueta anotada sin `v`). CI pasa los tests y publica los binarios y la release de GitHub al
    empujar la etiqueta. Lo decide el humano.
 4. **Fusionar `release/2.0.0` en `main`** por pull request, cuando la candidata esté validada.
-5. **Pista C — defectos conocidos.** Ninguno bloquea la release; varios llevan cinco ciclos
-   aplazados.
+5. ~~**Pista C — defectos conocidos**~~: sin ninguno abierto.
 
 ## Pista C — defectos conocidos
 
-| Defecto | Dónde | Por qué importa |
-|---|---|---|
-| `go_database_test.sh` con la base de datos parada sólo mira el código y `ok: false` | `tests/integration/go_database_test.sh` | La comparación con el shell cubría también el tipo de error; afirmarlo exige ver la negativa con daemon |
+Ninguno abierto.
+
+Cerrados para la rc.7: `architecture/` tiene quien la vigile (`tests/unit/architecture_citations_test.sh`:
+toda ruta del repositorio y todo nombre de Go citado entre comillas invertidas existe), y
+`go_database_test.sh` con la base de datos parada afirma también el tipo de la negativa
+(`service_not_running`, con su pista).
 
 Cerrados el 2026-11-25 (revisión `review-19842cf4645a4d43`, aprobada): `docker-stop-all` con el
 daemon caído falla con `docker_failed`; `clean` recoge plantillas muertas solas; `___` responde
