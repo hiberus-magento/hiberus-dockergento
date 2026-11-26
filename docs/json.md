@@ -136,11 +136,12 @@ nothing — nothing is asked either. Under `--json` every one of them answers wi
   "data": {
     "dry_run": true,
     "project": "my-project",
-    "would_remove": { "containers": [], "volumes": [], "databases": [], "files": [] }
+    "would_remove": { "containers": [], "volumes": [], "networks": [], "databases": [], "files": [] }
   }
 }
 ```
 
-Every list is always present, empty when the command touches nothing of that kind; `db restore`
+Every list is always present, empty when the command touches nothing of that kind (`networks` is
+only ever filled by `down`, with the project's own networks that are there); `db restore`
 adds `snapshot`, the copy that would be restored. `clean` already previews without `--force`: its
 `--dry-run` is that preview, with its own document (`"removed": false`), even next to `--force`.

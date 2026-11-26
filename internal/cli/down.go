@@ -102,7 +102,7 @@ func downPreview(project string, options core.DownOptions, stdout, stderr io.Wri
 		return report(stderr, jsonOutput, "down", err)
 	}
 
-	removed := removal{containers: preview.Containers, volumes: preview.Volumes}
+	removed := removal{containers: preview.Containers, volumes: preview.Volumes, networks: preview.Networks}
 
 	if jsonOutput {
 		return dryRunDocument(stdout, stderr, "down", project, removed, nil)

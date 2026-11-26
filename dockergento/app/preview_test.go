@@ -21,24 +21,40 @@ func TestADownPreviewNamesThisProjectsContainersAndOnlyWithVolumesItsVolumes(t *
 	}}}
 	project := core.Project{Name: "tienda", Root: "/code/tienda"}
 	present := []string{"tienda_dbdata"}
+	networks := []string{"tienda_default", "tienda_back"}
 
-	got, err := operator.DownPreview(project, core.DownOptions{Volumes: true}, present)
+	got, err := operator.DownPreview(project, core.DownOptions{Volumes: true}, present, networks)
 	if err != nil {
 		t.Fatalf("DownPreview(-v) = %v, want no error", err)
 	}
 
-	want := core.DownPreview{Containers: []string{"tienda-db-1", "tienda-phpfpm-1"}, Volumes: []string{"tienda_dbdata"}}
+	want := core.DownPreview{Containers: []string{"tienda-db-1", "tienda-phpfpm-1"}, Volumes: []string{"tienda_dbdata"},
+		Networks: []string{"tienda_back", "tienda_default"}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("DownPreview(-v) (-want +got):\n%s", diff)
 	}
 
-	got, err = operator.DownPreview(project, core.DownOptions{}, present)
+	got, err = operator.DownPreview(project, core.DownOptions{}, present, networks)
 	if err != nil {
 		t.Fatalf("DownPreview() = %v, want no error", err)
 	}
 
 	if len(got.Volumes) != 0 || got.Volumes == nil {
 		t.Fatalf("DownPreview() volumes = %#v, want an empty list: without -v they stay", got.Volumes)
+	}
+
+	// The networks go with or without -v: a down always removes them
+	if strings.Join(got.Networks, " ") != "tienda_back tienda_default" {
+		t.Fatalf("DownPreview() networks = %#v, want both, sorted", got.Networks)
+	}
+}
+
+// With no network of its own there (nil from the caller), the list is still a list.
+func TestADownPreviewWithNoNetworksListsNone(t *testing.T) {
+	got, err := Operator{Engine: &engine{}}.DownPreview(core.Project{Name: "tienda", Root: "/code/tienda"},
+		core.DownOptions{}, nil, nil)
+	if err != nil || got.Networks == nil || len(got.Networks) != 0 {
+		t.Fatalf("DownPreview networks = %#v, %v, want an empty list", got.Networks, err)
 	}
 }
 
@@ -48,7 +64,7 @@ func TestADownPreviewIsRefusedWhereTheDownWouldBe(t *testing.T) {
 	operator := Operator{Engine: &engine{}, Binary: "hm"}
 
 	_, err := operator.DownPreview(core.Project{Name: "tienda", Root: "/code/tienda", InWorktree: true},
-		core.DownOptions{Volumes: true}, nil)
+		core.DownOptions{Volumes: true}, nil, nil)
 
 	var refusal core.Refusal
 	if !errors.As(err, &refusal) || refusal.Kind != "blocked_in_worktree" {

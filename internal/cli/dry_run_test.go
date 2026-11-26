@@ -112,6 +112,7 @@ func TestDownDryRunSaysWhatWouldGoAndRemovesNothing(t *testing.T) {
 	preview := core.DownPreview{
 		Containers: []string{"shop-db-1", "shop-phpfpm-1"},
 		Volumes:    []string{"shop_dbdata"},
+		Networks:   []string{"shop_back", "shop_default"},
 	}
 
 	t.Run("json", func(t *testing.T) {
@@ -133,7 +134,7 @@ func TestDownDryRunSaysWhatWouldGoAndRemovesNothing(t *testing.T) {
 
 		wantRemoved := map[string][]string{
 			"containers": {"shop-db-1", "shop-phpfpm-1"}, "volumes": {"shop_dbdata"},
-			"databases": {}, "files": {},
+			"networks": {"shop_back", "shop_default"}, "databases": {}, "files": {},
 		}
 		if diff := cmp.Diff(wantRemoved, envelope.Data.WouldRemove); diff != "" || envelope.Command != "down" ||
 			envelope.Data.Project != "shop" {
@@ -151,6 +152,8 @@ func TestDownDryRunSaysWhatWouldGoAndRemovesNothing(t *testing.T) {
 			"  container  shop-db-1\n" +
 			"  container  shop-phpfpm-1\n" +
 			"  volume     shop_dbdata\n" +
+			"  network    shop_back\n" +
+			"  network    shop_default\n" +
 			"\nNothing was removed.\n"
 		if stdout != want {
 			t.Fatalf("stdout = %q, want %q", stdout, want)
@@ -180,7 +183,7 @@ func TestRestoreDryRunNamesTheCopyAndTheDatabaseAndRestoresNothing(t *testing.T)
 		envelope := dryEnvelope(t, stdout)
 
 		wantRemoved := map[string][]string{
-			"containers": {}, "volumes": {}, "databases": {"magento"}, "files": {},
+			"containers": {}, "volumes": {}, "networks": {}, "databases": {"magento"}, "files": {},
 		}
 		if diff := cmp.Diff(wantRemoved, envelope.Data.WouldRemove); diff != "" || envelope.Command != "db" {
 			t.Fatalf("db restore --dry-run = %+v (-want +got would_remove):\n%s", envelope, diff)
@@ -226,7 +229,7 @@ func TestPurgeDryRunListsWhatIsThereAndDeletesNothing(t *testing.T) {
 		envelope := dryEnvelope(t, stdout)
 
 		wantRemoved := map[string][]string{
-			"containers": {}, "volumes": {}, "databases": {}, "files": {"generated/code", "pub/static/frontend"},
+			"containers": {}, "volumes": {}, "networks": {}, "databases": {}, "files": {"generated/code", "pub/static/frontend"},
 		}
 		if diff := cmp.Diff(wantRemoved, envelope.Data.WouldRemove); diff != "" || envelope.Command != "purge" {
 			t.Fatalf("purge --dry-run = %+v (-want +got would_remove):\n%s", envelope, diff)

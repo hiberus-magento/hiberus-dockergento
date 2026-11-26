@@ -65,9 +65,10 @@ With `--json`, stdout holds one envelope (see [JSON output](json.md)):
 ## Looking first: `--dry-run`
 
 `hm down --dry-run` (with `-v` or without) says what would go and removes nothing: the project's
-containers, and with `-v` its volumes that are there, the database's among them, each list in
-alphabetical order. Nothing is asked. The project's network is not listed: it holds nothing and
-the next `hm start` creates it again.
+containers, with `-v` its volumes that are there, the database's among them, and its own networks
+that are there (the ones its Compose files declare, Compose's default one included; an external
+network, such as the proxy's, is not the project's and stays), each list in alphabetical order.
+Nothing is asked.
 It is refused where the real `down` would be, from a git worktree with no environment of its own.
 
 ```console
@@ -78,6 +79,7 @@ hm down -v would remove, in 'my-project':
   container  my-project-db-1
   container  my-project-phpfpm-1
   volume     my-project_dbdata
+  network    my-project_default
 
 Nothing was removed.
 ```
@@ -96,6 +98,7 @@ With `--json`, one envelope with the shape every `--dry-run` shares (see
     "would_remove": {
       "containers": ["my-project-db-1", "my-project-phpfpm-1"],
       "volumes": ["my-project_dbdata"],
+      "networks": ["my-project_default"],
       "databases": [],
       "files": []
     }

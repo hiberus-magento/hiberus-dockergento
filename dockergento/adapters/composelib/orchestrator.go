@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"sync"
 
@@ -146,6 +147,28 @@ func (o Orchestrator) Down(project core.Project, files core.ComposeFiles, option
 	}
 
 	return service.Down(context.Background(), loaded.Name, down)
+}
+
+// Networks is the networks Down removes, by the name Docker gives them and sorted: the project's
+// own, the default one Compose adds included, and none it declares external — those belong to
+// whoever created them, the proxy's among them. Read from the files alone; Docker is not asked.
+func (o Orchestrator) Networks(project core.Project, files core.ComposeFiles) ([]string, error) {
+	loaded, err := o.load(project, files)
+	if err != nil {
+		return nil, err
+	}
+
+	networks := []string{}
+
+	for _, network := range loaded.Networks {
+		if !bool(network.External) {
+			networks = append(networks, network.Name)
+		}
+	}
+
+	sort.Strings(networks)
+
+	return networks, nil
 }
 
 // Logs writes the logs of the services named, with Compose's own consumer.

@@ -367,7 +367,27 @@ func (e *Engine) DownPreview(dir string, options core.DownOptions) (core.DownPre
 		return core.DownPreview{}, err
 	}
 
-	return e.operator(project).DownPreview(project, options, e.presentVolumes(project))
+	return e.operator(project).DownPreview(project, options, e.presentVolumes(project), e.presentNetworks(project))
+}
+
+// presentNetworks is the networks a down of the project removes — its own, from the Compose
+// configuration — that are actually there, for the reason presentVolumes asks Docker too.
+func (e *Engine) presentNetworks(project core.Project) []string {
+	declared, err := e.orchestrator(project).Networks(project, e.ComposeFiles(project))
+	if err != nil {
+		return nil
+	}
+
+	networks := dockerd.Networks{}
+	present := []string{}
+
+	for _, name := range declared {
+		if networks.Exists(name) {
+			present = append(present, name)
+		}
+	}
+
+	return present
 }
 
 // presentVolumes is the project's own volumes that are actually there.

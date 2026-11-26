@@ -1,10 +1,14 @@
 package composelib
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 )
 
 // TestBuildingFirstAppliesOnlyToServicesWithABuild: `up --build` is Compose setting the build pull
@@ -63,6 +67,38 @@ func TestAStopTimeoutReachesCompose(t *testing.T) {
 
 func durationOf(d time.Duration) *time.Duration {
 	return &d
+}
+
+// TestTheNetworksADownRemovesAreTheProjectsOwn: what Compose's down removes, by the name Docker
+// gives them, sorted — the default network Compose adds for a service that names none, and the
+// project's own declared ones. An external network, the proxy's, is somebody else's and stays.
+func TestTheNetworksADownRemovesAreTheProjectsOwn(t *testing.T) {
+	root := t.TempDir()
+	compose := `services:
+  db:
+    image: mariadb:10.6
+  nginx:
+    image: nginx:1.28
+    networks: [back, proxy]
+networks:
+  back: {}
+  proxy:
+    external: true
+    name: hm-proxy
+`
+	if err := os.WriteFile(filepath.Join(root, "docker-compose.yml"), []byte(compose), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := Orchestrator{}.Networks(core.Project{Name: "shop", Root: root},
+		core.ComposeFiles{Load: []string{"docker-compose.yml"}})
+	if err != nil {
+		t.Fatalf("Networks = %v", err)
+	}
+
+	if want := []string{"shop_back", "shop_default"}; strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Fatalf("Networks = %q, want %q", got, want)
+	}
 }
 
 // TestARecentLogIsWhatTheContainerWroteOnEitherStream: nginx logs its errors on stderr and its

@@ -11,7 +11,7 @@ import (
 // Every preview answers --json with the same shape, whichever command it is, so that a program
 // asks "what would go" once and reads the answer the same way for each:
 //
-//	{"dry_run": true, "project": "...", "would_remove": {"containers": [], "volumes": [],
+//	{"dry_run": true, "project": "...", "would_remove": {"containers": [], "volumes": [], "networks": [],
 //	 "databases": [], "files": []}}
 //
 // Every list is always there, empty when the command touches nothing of that kind. `clean` is the
@@ -21,7 +21,7 @@ import (
 
 // removal is what a command would remove, by kind.
 type removal struct {
-	containers, volumes, databases, files []string
+	containers, volumes, networks, databases, files []string
 }
 
 func dryRunDocument(stdout, stderr io.Writer, command, project string, removed removal,
@@ -32,6 +32,7 @@ func dryRunDocument(stdout, stderr io.Writer, command, project string, removed r
 		"would_remove": map[string][]string{
 			"containers": orEmpty(removed.containers),
 			"volumes":    orEmpty(removed.volumes),
+			"networks":   orEmpty(removed.networks),
 			"databases":  orEmpty(removed.databases),
 			"files":      orEmpty(removed.files),
 		},
@@ -50,7 +51,8 @@ func (r removal) print(stdout io.Writer) {
 		name   string
 		things []string
 	}{
-		{"container", r.containers}, {"volume", r.volumes}, {"database", r.databases}, {"file", r.files},
+		{"container", r.containers}, {"volume", r.volumes}, {"network", r.networks},
+		{"database", r.databases}, {"file", r.files},
 	} {
 		for _, thing := range kind.things {
 			fmt.Fprintf(stdout, "  %-10s %s\n", kind.name, thing)
@@ -59,7 +61,7 @@ func (r removal) print(stdout io.Writer) {
 }
 
 func (r removal) empty() bool {
-	return len(r.containers)+len(r.volumes)+len(r.databases)+len(r.files) == 0
+	return len(r.containers)+len(r.volumes)+len(r.networks)+len(r.databases)+len(r.files) == 0
 }
 
 func orEmpty(values []string) []string {

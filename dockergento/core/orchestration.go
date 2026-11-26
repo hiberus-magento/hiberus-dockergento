@@ -58,10 +58,12 @@ type DownOptions struct {
 }
 
 // DownPreview is what a down would remove, worked out without removing anything: the project's
-// containers, and with Volumes its volumes that are actually there, the database's among them.
+// containers, with Volumes its volumes that are actually there, the database's among them, and
+// its own networks that are there, which a down always removes.
 type DownPreview struct {
 	Containers []string `json:"containers"`
 	Volumes    []string `json:"volumes"`
+	Networks   []string `json:"networks"`
 }
 
 // RestorePreview is what a restore would replace: the database, named as the container names it,

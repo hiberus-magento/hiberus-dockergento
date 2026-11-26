@@ -550,9 +550,10 @@ func (o Operator) Down(project core.Project, files core.ComposeFiles, options co
 }
 
 // DownPreview is what Down would remove, and removes nothing: the project's containers, by the
-// name Docker gives them, and with Volumes the ones of its volumes that are there. Refused where
-// Down would be, so that a preview never lists what the real thing would not touch.
-func (o Operator) DownPreview(project core.Project, options core.DownOptions, volumes []string) (core.DownPreview, error) {
+// name Docker gives them, with Volumes the ones of its volumes that are there, and networks, its
+// own networks that are there, with or without Volumes. Refused where Down would be, so that a
+// preview never lists what the real thing would not touch.
+func (o Operator) DownPreview(project core.Project, options core.DownOptions, volumes, networks []string) (core.DownPreview, error) {
 	if err := o.refuseFromAnUnregisteredWorktree(project, "down"); err != nil {
 		return core.DownPreview{}, err
 	}
@@ -562,7 +563,7 @@ func (o Operator) DownPreview(project core.Project, options core.DownOptions, vo
 		return core.DownPreview{}, err
 	}
 
-	preview := core.DownPreview{Containers: []string{}, Volumes: []string{}}
+	preview := core.DownPreview{Containers: []string{}, Volumes: []string{}, Networks: []string{}}
 
 	for _, container := range containers {
 		if container.Key() == project.Name {
@@ -576,6 +577,9 @@ func (o Operator) DownPreview(project core.Project, options core.DownOptions, vo
 		preview.Volumes = append(preview.Volumes, volumes...)
 		sort.Strings(preview.Volumes)
 	}
+
+	preview.Networks = append(preview.Networks, networks...)
+	sort.Strings(preview.Networks)
 
 	return preview, nil
 }

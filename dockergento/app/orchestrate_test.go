@@ -937,7 +937,7 @@ func TestADownPreviewListsTheVolumesInOrder(t *testing.T) {
 	project := core.Project{Name: "tienda", Root: "/code/tienda"}
 
 	got, err := operator.DownPreview(project, core.DownOptions{Volumes: true},
-		[]string{"tienda_redisdata", "tienda_dbdata", "tienda_appdata"})
+		[]string{"tienda_redisdata", "tienda_dbdata", "tienda_appdata"}, nil)
 	if err != nil {
 		t.Fatalf("DownPreview(-v) = %v, want no error", err)
 	}
