@@ -42,27 +42,28 @@ The tool generates `docker-compose.yml` files from templates with placeholders:
 ```yaml
 services:
   phpfpm:
-    image: hiberusmagento/php:<php_version>
+    image: <php_version>
     environment:
       COMPOSER_VERSION: <composer_version>
   db:
-    image: hiberusmagento/mariadb:<mariadb_version>
+    image: <mariadb_version>
   search:
-    image: hiberusmagento/search:<search_version>
+    image: <search_version>
   redis:
-    image: hiberusmagento/redis:<redis_version>
+    image: <redis_version>
   varnish:
-    image: hiberusmagento/varnish:<varnish_version>
+    image: <varnish_version>
 ```
 
 **Generation process** (`core.RenderCompose` in `dockergento/core/setup.go`, called by `app.Setup` during `hm setup`):
 
 ```bash
 1. Read the requirements for the Magento version (data/requirements.json)
-2. Replace each <service_version> marker with the service's image tag:
-   <php_version>     → 8.2-buster
-   <mariadb_version> → 10.6
-   <search_version>  → 2.5-opensearch
+2. Replace each <service_version> marker with the service's image (core.ServiceImage):
+   a bare tag becomes hiberusmagento/<service>:<tag>, a full reference is used as it is
+   <php_version>     → hiberusmagento/php:8.2-buster
+   <mariadb_version> → hiberusmagento/mariadb:10.6, or mariadb:11.4
+   <redis_version>   → hiberusmagento/redis:7, or valkey/valkey:9-alpine
    and <mail_service>/<mail_version> with the chosen mail catcher (mailhog or mailpit)
 3. Write the result → docker-compose.yml
 4. Copy OS-specific overlays:
@@ -75,7 +76,7 @@ services:
 **macOS** (`docker-compose.dev.mac.yml`):
 - Uses **named volume** (`workspace`) for code
 - Applies **:cached** strategy on specific bind mounts
-- Selectively syncs: `app/`, `composer.json`, `composer.lock`, `.git/`, `config/`
+- Bind-mounts only `config/`, `app/`, `.git/`, `composer.json` and `composer.lock`; everything else (`vendor/` included) lives in the volume and is copied with `hm copy-to-container` / `hm copy-from-container`
 - **Reason**: Improves I/O performance on macOS where native bind mounts are slow
 
 ```yaml
@@ -98,15 +99,15 @@ volumes:
 
 **Automatic process** (`Platform()` in `dockergento/dockergento.go`):
 
-```bash
-uname -s
-  ↓
-"Linux" → MACHINE="linux", DOCKER_COMPOSE_FILE_MACHINE="docker-compose.dev.linux.yml"
-  ↓
-"Darwin" → MACHINE="mac", DOCKER_COMPOSE_FILE_MACHINE="docker-compose.dev.mac.yml"
-  ↓
-Other → ERROR: "Unsupported system type"
 ```
+runtime.GOOS
+  ↓
+"darwin" → "mac",   overlay DOCKER_COMPOSE_FILE_MAC   (docker-compose.dev.mac.yml)
+  ↓
+anything else → runtime.GOOS ("linux"), overlay DOCKER_COMPOSE_FILE_LINUX (docker-compose.dev.linux.yml)
+```
+
+Only macOS and Linux are supported; release binaries are built for those two.
 
 A project-defined command is handed:
 - `MACHINE`: "mac" or "linux"
@@ -220,8 +221,12 @@ volumes:
 1. Restart phpfpm
 2. Copy the host's vendor into the container
 3. Run Composer inside
-4. Copy the whole workdir back out over the host's
+4. Copy the project's root files (data/default_files_magento.json) back in
+5. Stop phpfpm, empty the host's vendor, copy vendor out, then the rest of the workdir
+6. Start phpfpm again, whatever failed in step 5
 ```
+
+The project's top-level `.git` is never part of either copy (section 4.5.2 has the failure cases).
 
 ### 3.8 Project Isolation
 
@@ -229,7 +234,7 @@ volumes:
 
 ```bash
 # If COMPOSE_PROJECT_NAME="myproject"
-# Containers are named: myproject_phpfpm_1, myproject_db_1, etc.
+# Containers are named: myproject-phpfpm-1, myproject-db-1, etc. (Compose v2)
 # Networks are named: myproject_default
 # Volumes are named: myproject_dbdata
 
@@ -238,4 +243,4 @@ volumes:
 
 **Configuration**:
 - Defined in project's `config/docker/properties.json`
-- Derived from project name during `hm setup`
+- When it is not, the name Compose derives from the project directory (`core.DeriveProjectName`, section 5.3.1)

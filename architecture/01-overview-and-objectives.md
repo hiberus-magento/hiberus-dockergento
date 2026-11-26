@@ -31,4 +31,4 @@ The tool supports:
 - **Dockerized Services**: PHP (7.2-8.5), MariaDB (10.2-12.3), Elasticsearch (5.6-7.17), OpenSearch (1.2-3), Redis (5.0-7.0) or Valkey 9, Varnish (6.0-7.1), RabbitMQ (3.9-4.3), Mailhog or Mailpit, Hitch; `data/requirements.json` is the authoritative matrix
 - **Operations**: Container management, Magento installation, database management and snapshots, xDebug debugging, asset compilation, test execution
 - **Several environments at once**: a global proxy (`hm proxy`), one environment per git branch (`hm worktree`), a fleet dashboard (`hm tui`), temporary public addresses (`hm share`, `hm tunnel`)
-- **Machine consumers**: JSON output and stable exit codes for scripts and CI, read-only MCP tools for AI agents (`hm mcp`), an HTTP API behind `hm web`
+- **Machine consumers**: JSON output and stable exit codes for scripts and CI (`hm --json` lists every command, `--dry-run` previews the destructive ones, `--progress=jsonl` streams the steps), MCP tools for AI agents, read-only unless `--write` (`hm mcp`), an HTTP API behind `hm web`

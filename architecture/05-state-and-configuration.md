@@ -5,7 +5,7 @@
 The tool uses a **multi-layered** configuration system that allows per-project customization:
 
 ```
-1. Global Configuration (~/hm/data/)
+1. The tool's defaults (data/, compiled into the binary)
    ↓ Overridden by...
 2. Project Configuration (config/docker/)
    ↓ Overridden by...
@@ -14,7 +14,10 @@ The tool uses a **multi-layered** configuration system that allows per-project c
 
 ### 5.2 Configuration Files
 
-#### 5.2.1 Global Configuration (`~/hm/data/`)
+#### 5.2.1 The tool's defaults (`data/`)
+
+`data/` is compiled into the binary with `go:embed` (`assets.go`); nothing is read from beside the
+executable. `HM_ASSETS_DIR` points it at a checkout instead, for contributors.
 
 **`data/properties.json`** - System default properties:
 ```json
@@ -28,20 +31,29 @@ The tool uses a **multi-layered** configuration system that allows per-project c
     "USER_PHP": "app",
     "GROUP_PHP": "app",
     "WORKDIR_PHP": "/var/www/html",
-    "COMPOSE_PROJECT_NAME": ""
+    "COMPOSE_PROJECT_NAME": "",
+    "MAIL_SERVICE": "mailhog",
+    "USE_PROXY": "false",
+    "TRANSFER_DB_STRUCTURE_ONLY": "@saas"
 }
 ```
 
-**`data/requirements.json`** - Magento → Services compatibility matrix:
+**`data/requirements.json`** - Magento → Services compatibility matrix (a bare tag is a
+`hiberusmagento/<service>` image, a full reference is used as it is):
 ```json
 {
     "2.4.7": {
         "php": "8.3-bookworm",
         "mariadb": "10.6",
-        "search": "2.12-opensearch",
-        "redis": "7.2",
+        "search": "2.5-opensearch",
+        "redis": "7",
         "varnish": "7.1",
-        "composer": "2.7"
+        "composer": "2.7",
+        "nginx": "hiberusmagento/nginx:1.18",
+        "mailhog": "hiberusmagento/mailhog:1",
+        "mailpit": "hiberusmagento/mailpit:1",
+        "rabbitmq": "hiberusmagento/rabbitmq:3.9",
+        "hitch": "hiberusmagento/hitch:1.7"
     }
 }
 ```
@@ -86,6 +98,10 @@ An empty `admin-password` makes `install` generate one and never write it down; 
 **`data/equivalent_versions.json`** - Mapping of equivalent versions for compatibility
 
 **`data/default_files_magento.json`** - List of files that must be copied between host and container
+
+**`data/table-groups.json`** - The `@groups` `TRANSFER_DB_STRUCTURE_ONLY` and `transfer-db --structure-only` accept
+
+**`data/ai-*.json`** - Platforms, repositories and skill types of the AI tooling (`hm ai-init`, `hm ai-doctor`), and the exclusions `hm ai-context` and `hm permissions` read
 
 #### 5.2.2 Project Configuration (`<project>/config/docker/`)
 
@@ -157,9 +173,9 @@ DOCKER_COMPOSE="docker compose -f docker-compose.yml -f docker-compose.dev.mac.y
 |----------|--------|---------|---------|
 | `COMMAND_BIN_NAME` | the binary, for a project command | CLI command name | "hm" |
 | `COMMAND_TOOLNAME` | the binary, for a project command | Full tool name | "Hiberus Dockergento" |
-| `COMMAND_BIN_DIR` | the binary, for a project command | Tool root directory | "~/hm" |
+| `COMMAND_BIN_DIR` | the binary, for a project command | The directory above the binary's, links resolved | "~/.hm" for `~/.hm/bin/hm` |
 | `COMMANDS_DIR` | the binary, for a project command | The project's commands directory | "<project>/config/hm/commands" |
-| `DATA_DIR` | the binary, for a project command | Data directory | "~/hm/data" |
+| `DATA_DIR` | the binary, for a project command | The embedded `data/` extracted once, or `$HM_ASSETS_DIR/data` | "~/.hm/cache/data-<digest>" |
 | `MAGENTO_DIR` | properties.json | Path to Magento code | "." or "./src" |
 | `DOMAIN` | properties.json | Local domain | "myproject.local" |
 | `COMPOSE_PROJECT_NAME` | properties.json, or derived from the directory | Docker project name | "myproject" |
@@ -167,11 +183,9 @@ DOCKER_COMPOSE="docker compose -f docker-compose.yml -f docker-compose.dev.mac.y
 | `DOCKER_COMPOSE` | the binary, for a project command | Full Docker Compose command: `docker compose`, or `docker-compose` when only the standalone v1 is installed | "docker compose -f docker-compose.yml -f docker-compose.dev.mac.yml" |
 | `WORKDIR_PHP` | properties.json | Working directory in container | "/var/www/html" |
 | `USER_PHP` | properties.json | User in PHP container | "app" |
-| `REQUIREMENTS` | `data/requirements.json`, read by the binary | JSON with service versions | '{"php":"8.2-buster",...}' |
-| `MAGENTO_VERSION` | the binary (`hm setup`, `hm create-project`) | Selected Magento version | "2.4.6" |
-| `MAGENTO_EDITION` | the binary (`hm create-project`) | Magento edition | "community" or "enterprise" |
-| `XDEBUG_HOST` | retired — see 5.8.1 | Host IP for xDebug, resolved in Go | empty on macOS; `docker0`'s inet address on Linux |
-| `USE_DEFAULT_SETTINGS` | Command arguments | Use default settings | true/false |
+| `HM_OUTPUT_FORMAT` | the binary, for a project command | The output decided for this run | "text" or "json" |
+| `HM_NON_INTERACTIVE` | `--yes`, or the environment | Never ask | "1" or empty |
+| `USE_DEFAULT_SETTINGS` | the binary, for a project command | Set to "true" when `HM_NON_INTERACTIVE` is | "true" or unset |
 
 #### 5.4.2 Color Variables (UI)
 

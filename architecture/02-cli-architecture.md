@@ -110,20 +110,27 @@ Command metadata is stored in `data/command_descriptions.json`:
   "magento": {
     "description": "Execute Magento console commands",
     "args": [{"name": "magento-subcommand", "description": "..."}],
-    "example": "magento cache:clean"
+    "example": "magento cache:clean",
+    "group": "magento",
+    "safety": "caution"
   }
 }
 ```
 
+`group` places the command under a heading of `hm --help` (the headings are `_groups`), and
+`safety` (`safe`, `caution` or `dangerous`) is what `hm permissions` and the `hm --json`
+catalogue classify it by.
+
 **Usage:**
 - `hm --help`: Lists all available commands
 - `hm <command> --help`: Shows command-specific help
+- `hm --json`: The same catalogue as JSON, every command with its options and safety level
 
 ### 2.4 Special Router Features
 
 1. **Custom Commands Support**: Projects can define additional commands in `config/hm/commands/` that integrate automatically
 
-2. **Global Options Processing**: Before routing, takes out `--help`, `-h`, `--version`, `-v`, `--json`, `--no-json`, `--yes`, `--no-color`
+2. **Global Options Processing**: Before routing, takes out `--help`, `-h`, `--version`, `-v`, `--json`, `--no-json`, `--yes`, `--force`, `--no-color`, `--progress=jsonl` (`globals` in `internal/cli/globals.go`)
 
 3. **Dynamic Docker Compose Configuration**: the compose files are chosen for the detected operating system (`Engine.ComposeFiles`), and a project command gets them as `DOCKER_COMPOSE`
 

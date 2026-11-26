@@ -42,11 +42,11 @@ The arguments are passed through untouched, so `hm magento setup:upgrade --keep-
 
 #### 4.2.2 Commands with a chosen container
 
-`hm exec` and `hm bash` default to `phpfpm`; `-r` runs as root.
+`hm exec` and `hm bash` always run in `phpfpm`; `-r`, as the first argument, runs as root.
 
 | Command | Target service | Why |
 |---|---|---|
-| `hm bash`, `hm exec` | **phpfpm** (or the one named) | PHP, Composer and the Magento CLI live there |
+| `hm bash`, `hm exec` | **phpfpm** | PHP, Composer and the Magento CLI live there |
 | `hm mysql`, `hm mysqldump` | **db** | The MariaDB server and its client |
 | `hm magento`, `hm composer`, `hm npm`, `hm grunt` | **phpfpm** | They need PHP, Node and the Magento filesystem |
 
@@ -85,13 +85,18 @@ otherwise, with the credentials of the db container's environment (`MYSQL_USER`,
 (Magento Cloud defaults offered), then:
 
 ```
-1. In db: dump the remote database (mariadb-dump/mysqldump through the SSH connection),
-   remove DEFINERs, gzip into /tmp/db.sql.gz
+1. Dump the remote database over SSH (or in db, without SSH): the tables named by
+   TRANSFER_DB_STRUCTURE_ONLY (default @saas, groups in data/table-groups.json) without
+   their rows, the rest with them; DEFINERs removed, gzipped. Error 1412 retries the dump,
+   up to three attempts; any other failure stops before anything is restored
 2. Optionally keep this environment's core_config_data, admin_user and tfa_user_config
-3. In db: import /tmp/db.sql.gz, then restore what was kept
+3. In db: restore the dump, then put back what was kept
 4. Optionally anonymise, then ask before each of app:config:import, indexer:reindex and
    cache:flush in phpfpm
 ```
+
+Every run is logged in `~/.hm/logs/transfer-db-<project>-<date>-<time>.log`, with the password
+hidden ([transfer-db](../docs/transfer-db.md)).
 
 **`hm transfer-media`** runs `rsync` over SSH on the host, copying a remote store's `pub/media`
 into `./pub`, keeping what is already here and leaving the caches behind.
@@ -126,8 +131,8 @@ feeds `hm <command> --help` and the shell completion, so they cannot drift from 
 
 #### 4.4.2 Global flags
 
-`globals` (`internal/cli/globals.go`) takes `--json`, `--no-json`, `--yes`, `--force` and
-`--no-color` out before routing. After the command name they are taken out too, except for the
+`globals` (`internal/cli/globals.go`) takes `--json`, `--no-json`, `--yes`, `--force`,
+`--no-color` and `--progress=jsonl` out before routing. After the command name they are taken out too, except for the
 commands that hand their arguments to another program (`exec`, `bash`, `magento`, `composer`,
 `npm`, `n98-magerun`, `grunt`, `test-*`, `cloud`, `cloud-login`, `masquerade`, `mysql`,
 `mysqldump`, `docker-compose`, `copy-to-container`, `copy-from-container`, `logs`), where they
@@ -141,7 +146,7 @@ belong to that program.
 |---|---|---|
 | `hm setup` | Renders `docker-compose.yml` and the overlays, writes properties | The files must exist before any container |
 | `hm create-project` | Creates the Magento project and its configuration | Initialisation before containers |
-| `hm update`, `hm switch` | Move the git checkout of the tool and get its binary | Updates the tool itself |
+| `hm update`, `hm switch` | Download a release binary from GitHub, check its sha256 and rename it over the running one | Updates the tool itself |
 | `hm compatibility` | Reads `data/requirements.json` | Local metadata |
 | `hm transfer-media` | `rsync` from the remote host | More efficient than through a container |
 | `hm list`, `hm tui` | Read every environment from container labels | Machine-wide, not a project |
@@ -155,10 +160,13 @@ belong to that program.
 1. Restart phpfpm
 2. Copy the host's vendor into the container
 3. Run Composer inside
-4. Copy the whole workdir back out over the host's
+4. Copy the project's root files back in
+5. Stop phpfpm, empty the host's vendor, copy vendor out, then the rest of the workdir
+6. Start phpfpm again
 ```
 
-A failing step stops the rest with its own code. From a git worktree with no environment of its
+A failing step stops the rest with its own code, except that phpfpm is started again once it was
+stopped; a host left with an empty vendor is told `hm copy-from-container vendor`. From a git worktree with no environment of its
 own it is refused (exit 6), because it would rewrite the main checkout's dependencies; on Linux
 and for every other subcommand it is a plain exec.
 
