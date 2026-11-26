@@ -79,8 +79,20 @@ func (o *orchestrator) Exec(_ core.Project, _ core.ComposeFiles, service string,
 		return 0, o.err
 	}
 
-	return o.exits[command[len(command)-1]], nil
+	// As the Compose library answers: a command that exits non-zero comes back as its code and an
+	// error that says nothing, besides it
+	if code := o.exits[command[len(command)-1]]; code != 0 {
+		return code, silentExit{code}
+	}
+
+	return 0, nil
 }
+
+// silentExit is the error the Compose library returns beside a non-zero exit code: a
+// cli.StatusError with only the code, whose message is empty.
+type silentExit struct{ code int }
+
+func (silentExit) Error() string { return "" }
 
 type shell struct {
 	ran  [][]string

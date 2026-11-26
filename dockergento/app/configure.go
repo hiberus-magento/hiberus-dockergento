@@ -86,8 +86,15 @@ func (d Importer) configure(project core.Project, files core.ComposeFiles) error
 			// opens it. So it is said, rather than passed on as whatever Docker happened to
 			// return.
 			//
-			if _, err := d.Orchestrator.Exec(project, files, "phpfpm", arguments,
-				core.ExecOptions{Interactive: true}); err != nil {
+			status, err := d.Orchestrator.Exec(project, files, "phpfpm", arguments,
+				core.ExecOptions{Interactive: true})
+
+			// The code first: beside a non-zero exit the Compose library's error has no message
+			if status != 0 {
+				err = fmt.Errorf("bin/magento %s exited with code %d", strings.Join(arguments[2:], " "), status)
+			}
+
+			if err != nil {
 				return core.Refusal{
 					Kind: "not_configured",
 					Code: 1,

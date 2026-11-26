@@ -23,13 +23,34 @@ import (
 type execRecorder struct {
 	orchestrator
 	ran [][]string
+
+	// code is the exit code every command answers with; 0 answers with err instead.
+	code int
 }
 
 func (e *execRecorder) Exec(_ core.Project, _ core.ComposeFiles, service string, command []string,
 	_ core.ExecOptions) (int, error) {
 	e.ran = append(e.ran, append([]string{service}, command...))
 
+	if e.code != 0 {
+		return e.code, silentExit{e.code}
+	}
+
 	return 0, e.err
+}
+
+// A bin/magento that exits non-zero comes back from the Compose library as its code and an error
+// with no message: the refusal names the command and the code, rather than ending in a colon.
+func TestAFailingMagentoCommandIsSaidWithItsExitCode(t *testing.T) {
+	root, shipped := settingsLab(t)
+	recorder := &execRecorder{code: 1}
+	importer := Importer{Orchestrator: recorder, Assets: shipped, Binary: "hm"}
+
+	refusal := refusalOf(t, importer.ConfigureForDevelopment(core.Project{Root: root, Domain: "shop.test"}, core.ComposeFiles{}))
+
+	if refusal.Kind != "not_configured" || !strings.HasSuffix(refusal.Message, "exited with code 1") {
+		t.Fatalf("refusal = %+v, want not_configured naming the exit code", refusal)
+	}
 }
 
 const shippedSettings = `{

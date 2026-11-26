@@ -282,8 +282,15 @@ func TestAFailingChangeStopsThere(t *testing.T) {
 	orchestration := &orchestrator{log: &log, exits: map[string]int{"usermod -u 1000 -o app": 1}}
 	operator := linuxOperator(&log, orchestration, "33", "33", nil)
 
-	if err := operator.AfterStart(linuxProject, core.ComposeFiles{}); err == nil {
+	err := operator.AfterStart(linuxProject, core.ComposeFiles{})
+	if err == nil {
 		t.Fatal("AfterStart with a failing usermod = nil, want the failure")
+	}
+
+	// Said: the library's own error beside a non-zero exit is empty, and passing it on printed
+	// a blank line where the failure should have been
+	if want := "'sh -c usermod -u 1000 -o app' failed in nginx with exit code 1"; err.Error() != want {
+		t.Fatalf("error = %q, want %q", err, want)
 	}
 
 	if last := log[len(log)-1]; last != execEntry("root", "nginx", "sh", "-c", "usermod -u 1000 -o app") {

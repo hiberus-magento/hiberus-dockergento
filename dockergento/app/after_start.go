@@ -337,24 +337,30 @@ func (o Operator) runAsRoot(project core.Project, files core.ComposeFiles, servi
 func (o Operator) succeedsAsRoot(project core.Project, files core.ComposeFiles, service, command string) (bool, error) {
 	status, err := o.Orchestrator.Exec(project, files, service, []string{"sh", "-c", command},
 		core.ExecOptions{User: "root"})
+
+	// The code before the error: the Compose library returns a non-zero exit as its code and an
+	// error beside it, and that error is the answer "no", not a container out of reach
+	if status != 0 {
+		return false, nil
+	}
+
 	if err != nil {
 		return false, err
 	}
 
-	return status == 0, nil
+	return true, nil
 }
 
 func (o Operator) mustSucceed(project core.Project, files core.ComposeFiles, service string, command []string) error {
 	status, err := o.Orchestrator.Exec(project, files, service, command, core.ExecOptions{User: "root"})
-	if err != nil {
-		return err
-	}
 
+	// The code before the error, for the same reason: the library's error beside a non-zero exit
+	// has no message, and passing it on printed a blank line where this failure should be
 	if status != 0 {
 		return fmt.Errorf("'%s' failed in %s with exit code %d", strings.Join(command, " "), service, status)
 	}
 
-	return nil
+	return err
 }
 
 func (o Operator) wait(duration time.Duration) {
