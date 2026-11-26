@@ -48,7 +48,6 @@ en `.specify/memory/constitution.md` (2.0.0).
 
 | Defecto | Dónde | Por qué importa |
 |---|---|---|
-| `architecture/` puede describir comportamiento que el código no tiene | `architecture/*.md` | Ningún test vigila la documentación; §5.8.1 estuvo mal tres ciclos. Reescrita para 2.0 el 2026-11-20 (sin fragmentos del shell), pero sigue sin nada que la compruebe |
 | `go_database_test.sh` con la base de datos parada sólo mira el código y `ok: false` | `tests/integration/go_database_test.sh` | La comparación con el shell cubría también el tipo de error; afirmarlo exige ver la negativa con daemon |
 
 Cerrados el 2026-11-25 (revisión `review-19842cf4645a4d43`, aprobada): `docker-stop-all` con el

@@ -46,17 +46,20 @@ The tool uses a **multi-layered** configuration system that allows per-project c
 }
 ```
 
-**`data/config.json`** - Magento installation configuration:
+**`~/.hm/config.json`** - Magento installation configuration, shared by every project. It is not in `data/`: `Engine.InstallSettings` creates it from `core.DefaultInstallSettings` the first time `install` asks for it (copying a 1.x `~/hm/data/config.json` once when there is one):
 ```json
 {
     "language": "es_ES",
     "currency": "EUR",
     "timezone": "Europe/Madrid",
     "admin-firstname": "hiberus",
+    "admin-lastname": "hiberus",
+    "admin-email": "noreply@hiberus.com",
     "admin-user": "hiberus",
-    "admin-password": "Hiberus123"
+    "admin-password": ""
 }
 ```
+An empty `admin-password` makes `install` generate one and never write it down; one set there is respected.
 
 **`data/local_settings.json`** - Magento configurations for development:
 ```json
