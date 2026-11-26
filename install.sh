@@ -318,16 +318,21 @@ fetch() {
         FETCH_STATUS="$(curl "${quiet[@]}" --retry 2 ${auth[@]+"${auth[@]}"} ${dumping[@]+"${dumping[@]}"} -o "$out" -w '%{http_code}' "$url")" || status=$?
     elif command -v wget >/dev/null 2>&1; then
         quiet=(-q)
-        if [ -n "$dump" ]; then
+        local -a config=()
+        if [ -n "$header" ]; then
+            # wget reads the header from a wgetrc of its own rather than from its arguments, watched
+            # or not: which URLs are watched is the callers' choice, not a promise about the API
+            (umask 077 && printf 'header = %s\n' "$(cat "$header")" >"$header.wgetrc") || status=$?
+            config=(--config="$header.wgetrc")
+        fi
+        if [ "$status" -ne 0 ]; then
+            :
+        elif [ -n "$dump" ]; then
             # -S writes the server's answer, headers and all, with wget's own log: both into the
-            # dump the watch reads, and nothing onto the terminal. Never the API, so no header here
-            wget -S -O "$out" "$url" 2>"$dump" || status=$?
-        elif [ -n "$header" ]; then
-            # wget reads the header from a wgetrc of its own rather than from its arguments
-            (umask 077 && printf 'header = %s\n' "$(cat "$header")" >"$header.wgetrc") &&
-                wget "${quiet[@]}" --config="$header.wgetrc" -O "$out" "$url" || status=$?
+            # dump the watch reads, and nothing onto the terminal
+            wget -S ${config[@]+"${config[@]}"} -O "$out" "$url" 2>"$dump" || status=$?
         else
-            wget "${quiet[@]}" -O "$out" "$url" || status=$?
+            wget "${quiet[@]}" ${config[@]+"${config[@]}"} -O "$out" "$url" || status=$?
         fi
     else
         die "Neither curl nor wget is installed; install one of them and run this again."

@@ -965,16 +965,18 @@ cat >"$WGET_TOOLS/wget" <<'EOF'
 echo "$*" >>"$FAKE_CURL_ARGV"
 # GNU wget 1.16 and later list --show-progress in their help; busybox's does not
 [ "$1" == "--help" ] && { echo "       --show-progress             display the progress bar in any verbosity mode"; exit 0; }
-out="" url="" headers=false
+out="" url="" headers=false sent=""
 for argument in "$@"; do
     case "$argument" in
         -S) headers=true ;;
+        # The header a wgetrc of its own carries is logged with the URL, as curl's -H is
+        --config=*) sent="$sent $(sed -n 's/^header = //p' "${argument#--config=}")" ;;
         -*) ;;
         *) [ "$previous" == "-O" ] && out="$argument" || url="$argument" ;;
     esac
     previous="$argument"
 done
-echo "$url" >>"$FAKE_CURL_LOG"
+echo "$url$sent" >>"$FAKE_CURL_LOG"
 case "$url" in
     https://github.com/*/releases/latest)
         if $headers && [ -n "${FAKE_LATEST:-}" ]; then
@@ -1308,6 +1310,42 @@ test_case "styled, a failed download stops its own bar, drawn failed, so what is
 assert_equals "left=" "$(cat "$CASE/out")"
 assert_contains "$(sed $'s/\033\\[[0-9;]*m//g' "$CASE/err")" "✗ Downloading hm_linux_amd64"
 assert_equals "more output" "$(tail -c 12 "$CASE/err")"
+
+# GITHUB_TOKEN reaches the API however fetch is asked to fetch it, its download watched or not:
+# today only the binary is watched, and it is no API URL, but that is no rule fetch can count on
+API_URL="https://api.github.com/repos/hiberus-magento/hiberus-dockergento/releases?per_page=100"
+ASSET_URL="https://github.com/hiberus-magento/hiberus-dockergento/releases/download/2.0.0/hm_linux_amd64"
+
+new_case styled-fetch-api-watched-wget
+export GITHUB_TOKEN=token-for-the-test
+(PATH="$WGET_TOOLS:$NO_CURL" CLICOLOR_FORCE=1 bash "$LAB/fetch-alone.sh" "$INSTALL_SH" "$API_URL" "$CASE/answer" progress \
+    >"$CASE/out" 2>"$CASE/err" </dev/null)
+
+test_case "styled, with wget only, a watched fetch of the API still carries GITHUB_TOKEN, never in wget's arguments"
+assert_equals "$API_URL Authorization: Bearer token-for-the-test" "$(cat "$FAKE_CURL_LOG")"
+assert_contains "$(cat "$FAKE_CURL_ARGV")" "-S"
+assert_not_contains "$(cat "$FAKE_CURL_ARGV")" "token-for-the-test"
+assert_equals "$(cat "$FAKE_API")" "$(cat "$CASE/answer")"
+
+new_case styled-fetch-asset-watched-wget
+publish 2.0.0
+export GITHUB_TOKEN=token-for-the-test
+(PATH="$WGET_TOOLS:$NO_CURL" CLICOLOR_FORCE=1 bash "$LAB/fetch-alone.sh" "$INSTALL_SH" "$ASSET_URL" "$CASE/hm" progress \
+    >"$CASE/out" 2>"$CASE/err" </dev/null)
+
+test_case "and a watched download that is not the API carries no token"
+assert_equals "$ASSET_URL" "$(cat "$FAKE_CURL_LOG")"
+assert_equals "$(cat "$FAKE_RELEASES/2.0.0/hm_linux_amd64")" "$(cat "$CASE/hm")"
+
+new_case styled-fetch-api-watched-curl
+export GITHUB_TOKEN=token-for-the-test
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 bash "$LAB/fetch-alone.sh" "$INSTALL_SH" "$API_URL" "$CASE/answer" progress \
+    >"$CASE/out" 2>"$CASE/err" </dev/null)
+
+test_case "styled, with curl, a watched fetch of the API carries GITHUB_TOKEN too, from a private file"
+assert_equals "$API_URL Authorization: Bearer token-for-the-test" "$(cat "$FAKE_CURL_LOG")"
+assert_equals "-rw-------" "$(cat "$FAKE_CURL_MODES")"
+assert_not_contains "$(cat "$FAKE_CURL_ARGV")" "token-for-the-test"
 
 # Interrupted mid-download: the bar's watcher is stopped by the same EXIT trap as the spinner
 new_case styled-download-interrupted
