@@ -35,10 +35,11 @@ What it does:
 6. Prints what it did: the version, the path and what changed.
 
 In a terminal, a spinner turns while the release is looked up (`✓ Latest release: X`, or
-`Latest pre-release` with `--pre`) and the binary's download draws a progress bar on stderr:
-curl's, or wget's when only wget is installed (wget 1.16 or later; older and busybox wget stay
-quiet). If the lookup fails, the spinner is drawn as a red `✗` before the reason. Without a
-terminal, or with `NO_COLOR`, none of this is drawn and the output is plain text.
+`Latest pre-release` with `--pre`) and the binary's download draws hm's own bar on stderr, the
+file's size so far against the length the server announced (`████████░░░░  61%  14 MB / 23 MB`),
+or a spinner and a counter when no length was announced; curl or wget download silently. If the
+lookup or the download fails, it is drawn as a red `✗` before the reason. Without a terminal, or
+with `NO_COLOR`, none of this is drawn and the output is plain text.
 
 Running it again upgrades to a newer release, or says the installed one is up to date.
 

@@ -25,13 +25,18 @@ mkdir -p "$TOOLS"
 # redirect to $FAKE_LATEST, assets from $FAKE_RELEASES/<tag>/<asset>, install.sh from the project;
 # every URL logged with its headers (a -H @file read, and its mode logged), the raw arguments logged
 # apart, anything missing a 404
+#
+# A download of a binary answers its headers (with -D) before its body, as a server does: its
+# Content-Length, or none under FAKE_NO_LENGTH. FAKE_DOWNLOAD_DELAY waits before the body,
+# FAKE_DOWNLOAD_HALVES writes half of it and waits before the rest, so that a watcher sees it grow.
 cat >"$TOOLS/curl" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >>"$FAKE_CURL_ARGV"
-out="" url="" headers="" write="" bar=false
+out="" url="" headers="" write="" bar=false dump=""
 while [ $# -gt 0 ]; do
     case "$1" in
         -o) out="$2"; shift ;;
+        -D) dump="$2"; shift ;;
         --progress-bar) bar=true ;;
         -H)
             header="$2"
@@ -63,6 +68,14 @@ case "$url" in
     *) status 404; exit 22 ;;
 esac
 [ -f "$source" ] || { status 404; exit 22; }
+size=$(wc -c <"$source" | tr -d ' ')
+if [ -n "$dump" ]; then
+    if [ -n "${FAKE_NO_LENGTH:-}" ]; then printf 'HTTP/1.1 200 OK\r\n\r\n' >"$dump"; else printf 'HTTP/1.1 302 Found\r\nContent-Length: 0\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: %s\r\n\r\n' "$size" >"$dump"; fi
+fi
+if [[ "$url" == */hm_* ]] && [ -n "$out" ]; then
+    [ -z "${FAKE_DOWNLOAD_DELAY:-}" ] || sleep "$FAKE_DOWNLOAD_DELAY"
+    if [ -n "${FAKE_DOWNLOAD_HALVES:-}" ]; then head -c $((size / 2)) "$source" >"$out"; sleep 0.6; fi
+fi
 if [ -n "$out" ]; then cp "$source" "$out"; else cat "$source"; fi
 ! $bar || printf '##################################################### 100.0%%\n' >&2
 status 200
@@ -101,7 +114,7 @@ new_case() {
     export FAKE_JQ_LOG="$LAB/jq.log"
     export TMPDIR="$CASE/tmp"
     export SHELL=/bin/zsh
-    unset HM_VERSION HM_PRE HM_INSTALL_DIR FAKE_OS GITHUB_TOKEN FAKE_LATEST FAKE_API_STATUS
+    unset HM_VERSION HM_PRE HM_INSTALL_DIR FAKE_OS GITHUB_TOKEN FAKE_LATEST FAKE_API_STATUS FAKE_NO_LENGTH FAKE_DOWNLOAD_DELAY FAKE_DOWNLOAD_HALVES
     mkdir -p "$HOME" "$HM_SYSTEM_BIN" "$FAKE_RELEASES" "$TMPDIR"
     : >"$FAKE_CURL_LOG"
     : >"$FAKE_CURL_ARGV"
@@ -1002,11 +1015,13 @@ export FAKE_LATEST=2.1.0
 STATUS=$?
 PLAIN=$(cat "$CASE/out" "$CASE/err" | sed $'s/\033\\[[0-9;]*m//g')
 
-test_case "styled, with wget only, the binary's download shows wget's progress bar, the checksums do not"
+test_case "styled, with wget only, the binary's download is hm's own, wget silent; the checksums draw nothing"
 assert_equals "0" "$STATUS"
 assert_contains "$PLAIN" "✓ Latest release: 2.1.0"
-assert_contains "$(grep hm_linux_amd64 "$FAKE_CURL_ARGV")" "--show-progress"
-assert_not_contains "$(grep checksums.txt "$FAKE_CURL_ARGV")" "progress"
+assert_not_contains "$(cat "$FAKE_CURL_ARGV")" "progress"
+assert_contains "$(grep hm_linux_amd64 "$FAKE_CURL_ARGV")" "-S"
+assert_not_contains "$(grep checksums.txt "$FAKE_CURL_ARGV")" "-S"
+assert_contains "$PLAIN" "Downloading hm_linux_amd64…  $(wc -c <"$FAKE_RELEASES/2.1.0/hm_linux_amd64" | tr -d ' ') B"
 assert_contains "$PLAIN" "✓ Downloaded hm 2.1.0 for linux/amd64, checksum verified"
 
 new_case rate-limited
@@ -1192,10 +1207,20 @@ assert_contains "$(cat "$CASE/err")" "Looking up the latest release…"
 assert_contains "$PLAIN" "✓ Latest release: 2.0.0"
 assert_not_contains "$(cat "$CASE/out")" "Looking up"
 
-test_case "the binary's download draws curl's progress bar on stderr; the checksums and the API stay silent"
-assert_contains "$(grep hm_linux_amd64 "$FAKE_CURL_ARGV")" "--progress-bar"
-assert_not_contains "$(grep -v hm_linux_amd64 "$FAKE_CURL_ARGV")" "progress"
-assert_contains "$(cat "$CASE/err")" "100.0%"
+ASSET_SIZE=$(wc -c <"$FAKE_RELEASES/2.0.0/hm_linux_amd64" | tr -d ' ')
+
+test_case "the binary's download is hm's own bar on stderr, curl silent; the checksums and the API draw nothing"
+assert_contains "$(grep hm_linux_amd64 "$FAKE_CURL_ARGV")" "-fsSL"
+assert_not_contains "$(cat "$FAKE_CURL_ARGV")" "progress"
+assert_not_contains "$(cat "$CASE/err")" "####"
+assert_not_contains "$(cat "$CASE/err")" "100.0%"
+assert_contains "$(sed $'s/\033\\[[0-9;]*m//g' "$CASE/err")" "████████████████████████  100%  $ASSET_SIZE B / $ASSET_SIZE B"
+assert_equals "1" "$(grep -c 'checksums.txt' "$FAKE_CURL_ARGV")"
+assert_not_contains "$(grep -v hm_linux_amd64 "$FAKE_CURL_ARGV")" " -D "
+
+test_case "and the bar leaves nothing behind: its last frame is cleared before the tick that follows"
+assert_contains "$(sed $'s/\033\\[[0-9;]*m//g' "$CASE/err")" "$ASSET_SIZE B / $ASSET_SIZE B"$'\033[K\r\033[K'
+assert_not_contains "$(cat "$CASE/out")" "████"
 
 # err_settles <file>: whether nothing writes to the file any more once the installer has exited,
 # which a spinner left running would
@@ -1208,6 +1233,68 @@ err_settles() {
 
 test_case "and the spinner is gone once the installer exits"
 assert_equals "yes" "$(err_settles "$CASE/err")"
+
+new_case styled-download-growing
+publish 2.0.0
+export FAKE_DOWNLOAD_HALVES=1
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 bash "$INSTALL_SH" --version 2.0.0 >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+HALF=$((ASSET_SIZE / 2))
+
+test_case "styled, the bar follows the file as it grows against the length the server announced"
+assert_equals "0" "$STATUS"
+assert_contains "$(sed $'s/\033\\[[0-9;]*m//g' "$CASE/err")" "$((HALF * 100 / ASSET_SIZE))%  $HALF B / $ASSET_SIZE B"
+assert_contains "$(sed $'s/\033\\[[0-9;]*m//g' "$CASE/err")" "100%  $ASSET_SIZE B / $ASSET_SIZE B"
+assert_equals "yes" "$(err_settles "$CASE/err")"
+
+new_case styled-download-no-length
+publish 2.0.0
+export FAKE_NO_LENGTH=1
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 bash "$INSTALL_SH" --version 2.0.0 >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+PLAIN=$(sed $'s/\033\\[[0-9;]*m//g' "$CASE/err")
+
+test_case "styled, with no length announced the download is a counter, not a bar"
+assert_equals "0" "$STATUS"
+assert_contains "$PLAIN" "Downloading hm_linux_amd64…  $ASSET_SIZE B"
+assert_not_contains "$PLAIN" "░"
+assert_not_contains "$PLAIN" "%"
+assert_contains "$(cat "$CASE/out")" "Downloaded hm 2.0.0 for linux/amd64, checksum verified"
+
+new_case styled-download-failed
+publish 2.0.0
+rm "$FAKE_RELEASES/2.0.0/hm_linux_amd64"
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 bash "$INSTALL_SH" --version 2.0.0 >"$CASE/out" 2>"$CASE/err" </dev/null)
+STATUS=$?
+PLAIN=$(sed $'s/\033\\[[0-9;]*m//g' "$CASE/err")
+
+test_case "styled, a failed download draws the download as failed, then the reason"
+assert_equals "1" "$STATUS"
+failed_line=$(printf '%s\n' "$PLAIN" | grep -n '✗ Downloading hm_linux_amd64' | head -n 1 | cut -d: -f1)
+reason_line=$(printf '%s\n' "$PLAIN" | grep -n 'Could not download hm_linux_amd64' | head -n 1 | cut -d: -f1)
+assert_equals "yes" "$([ -n "$failed_line" ] && [ -n "$reason_line" ] && [ "$failed_line" -lt "$reason_line" ] && echo yes || echo no)"
+assert_equals "yes" "$(err_settles "$CASE/err")"
+assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
+
+# Interrupted mid-download: the bar's watcher is stopped by the same EXIT trap as the spinner
+new_case styled-download-interrupted
+publish 2.0.0
+PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 FAKE_DOWNLOAD_DELAY=3 bash "$INSTALL_SH" --version 2.0.0 >"$CASE/out" 2>"$CASE/err" </dev/null &
+installer=$!
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    grep -q '░' "$CASE/err" 2>/dev/null && break
+    sleep 0.1
+done
+kill -TERM "$installer"
+wait "$installer" 2>/dev/null
+STATUS=$?
+
+test_case "styled, an interrupted download stops the bar and leaves nothing behind"
+assert_equals "yes" "$([ "$STATUS" -ne 0 ] && echo yes || echo no)"
+assert_contains "$(cat "$CASE/err")" "░"
+assert_equals "yes" "$(err_settles "$CASE/err")"
+assert_equals "" "$(ls -A "$TMPDIR")"
+assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
 
 new_case styled-pre
 publish 2.0.0

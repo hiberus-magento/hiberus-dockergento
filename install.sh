@@ -125,6 +125,81 @@ spinner_stop() {
     [ -z "${1:-}" ] || printf '  %s✗%s %s\n' "$red" "$reset" "$SPINNER_TEXT" >&2
 }
 
+# human_size <bytes>: in B, KB or MB, whole units
+human_size() {
+    if [ "$1" -ge 1048576 ]; then
+        printf '%d MB' $(($1 / 1048576))
+    elif [ "$1" -ge 1024 ]; then
+        printf '%d KB' $(($1 / 1024))
+    else
+        printf '%d B' "$1"
+    fi
+}
+
+# size_of <file>: its size in bytes so far, 0 while it is not there
+size_of() {
+    if [ -f "$1" ]; then wc -c <"$1" | tr -d ' '; else echo 0; fi
+}
+
+# announced_length <headers>: the Content-Length of the last response in a dump of headers — the
+# file's, after any redirect — or nothing while none is known
+announced_length() {
+    [ -f "$1" ] || return 0
+    tr -d '\r' <"$1" | sed -n 's/^[[:space:]]*[Cc][Oo][Nn][Tt][Ee][Nn][Tt]-[Ll][Ee][Nn][Gg][Tt][Hh]:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | tail -n 1
+}
+
+# draw_download <bytes> <total> <frame>: one frame of the download on stderr — a bar against the
+# total when it is known, a spinner and a counter when it is not
+draw_download() {
+    local got="$1" total="$2" width=24 percent filled full="" empty="" i=0
+    if [ -n "$total" ] && [ "$total" -gt 0 ]; then
+        percent=$((got * 100 / total))
+        [ "$percent" -le 100 ] || percent=100
+        filled=$((percent * width / 100))
+        while [ "$i" -lt "$width" ]; do
+            # Braced: bash 3.2 reads the first byte of █ as part of the variable's name
+            if [ "$i" -lt "$filled" ]; then full="${full}█"; else empty="${empty}░"; fi
+            i=$((i + 1))
+        done
+        printf '\r  %s%s%s%s%s  %3d%%  %s / %s\033[K' "$cyan" "$full" "$dim" "$empty" "$reset" "$percent" \
+            "$(human_size "$got")" "$(human_size "$total")" >&2
+    else
+        printf '\r  %s%s%s %s…  %s\033[K' "$cyan" "$3" "$reset" "$SPINNER_TEXT" "$(human_size "$got")" >&2
+    fi
+}
+
+# download_watch <file> <headers> <name>: the download of a file drawn on stderr while curl or wget
+# write it silently, in a terminal only — its size polled against the length the server announced
+# in the headers they dump. The spinner's discipline: it runs as SPINNER_PID, so warn, die and the
+# EXIT trap stop it, and a failed download is drawn as "✗ Downloading <name>".
+download_watch() {
+    [ -n "$FANCY" ] || return 0
+    SPINNER_TEXT="Downloading $3"
+    draw_download 0 "" ⠋
+    (
+        trap 'exit 0' TERM
+        frames=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
+        i=1
+        while :; do
+            sleep 0.1 2>/dev/null || sleep 1
+            draw_download "$(size_of "$1")" "$(announced_length "$2")" "${frames[i]}"
+            i=$(((i + 1) % ${#frames[@]}))
+        done
+    ) </dev/null >/dev/null &
+    SPINNER_PID=$!
+}
+
+# download_done <file> <headers>: the watch stopped, its last frame drawn whole whatever the poll
+# last saw, then cleared as the spinner leaves its line: the tick that follows says it is done
+download_done() {
+    [ -n "$SPINNER_PID" ] || return 0
+    kill "$SPINNER_PID" 2>/dev/null || true
+    wait "$SPINNER_PID" 2>/dev/null || true
+    SPINNER_PID=""
+    draw_download "$(size_of "$1")" "$(announced_length "$2")" ⠋
+    printf '\r\033[K' >&2
+}
+
 # warn stops a running spinner first, as die does: a line written while it turns would be drawn
 # onto its half-written frame and then overwritten by the next one
 warn() {
@@ -217,13 +292,21 @@ token_header() {
 
 # fetch <url> <file> [progress]: with curl, or wget when there is no curl. GITHUB_TOKEN goes to the
 # API only, through a 0600 file removed afterwards. FETCH_STATUS is the HTTP status when curl could
-# tell it. With progress, and in a terminal, a progress bar on stderr.
+# tell it. With progress, and in a terminal, hm's own download bar on stderr (download_watch), the
+# downloader silent.
 fetch() {
     local url="$1" out="$2" header="" status=0
-    local -a auth=() quiet=(-fsSL)
-    local progress=""
+    local -a auth=() quiet=(-fsSL) dumping=()
+    local dump=""
     FETCH_STATUS=""
-    [ -z "${3:-}" ] || progress="$FANCY"
+
+    if [ -n "${3:-}" ] && [ -n "$FANCY" ]; then
+        # The headers are dumped as they arrive, so the watch knows the length before the body
+        dump="$out.headers"
+        : >"$dump"
+        dumping=(-D "$dump")
+        download_watch "$out" "$dump" "${url##*/}"
+    fi
 
     if [ -n "${GITHUB_TOKEN:-}" ] && [[ "$url" == https://api.github.com/* ]]; then
         header="$(token_header)" || die "Could not write a private file for GITHUB_TOKEN in $WORK."
@@ -231,18 +314,14 @@ fetch() {
     fi
 
     if command -v curl >/dev/null 2>&1; then
-        # -s would hide the bar as well; -S only kept the errors under -s, and curl prints them
-        # without it
-        [ -z "$progress" ] || quiet=(-fL --progress-bar)
-        FETCH_STATUS="$(curl "${quiet[@]}" --retry 2 ${auth[@]+"${auth[@]}"} -o "$out" -w '%{http_code}' "$url")" || status=$?
+        FETCH_STATUS="$(curl "${quiet[@]}" --retry 2 ${auth[@]+"${auth[@]}"} ${dumping[@]+"${dumping[@]}"} -o "$out" -w '%{http_code}' "$url")" || status=$?
     elif command -v wget >/dev/null 2>&1; then
         quiet=(-q)
-        # --show-progress is GNU wget 1.16 and later; busybox's and older ones refuse it, and stay
-        # quiet. Its help is read whole rather than piped to grep -q, which pipefail would fail.
-        if [ -n "$progress" ]; then
-            case "$(wget --help 2>&1 || true)" in *--show-progress*) quiet=(-q --show-progress) ;; esac
-        fi
-        if [ -n "$header" ]; then
+        if [ -n "$dump" ]; then
+            # -S writes the server's answer, headers and all, with wget's own log: both into the
+            # dump the watch reads, and nothing onto the terminal. Never the API, so no header here
+            wget -S -O "$out" "$url" 2>"$dump" || status=$?
+        elif [ -n "$header" ]; then
             # wget reads the header from a wgetrc of its own rather than from its arguments
             (umask 077 && printf 'header = %s\n' "$(cat "$header")" >"$header.wgetrc") &&
                 wget "${quiet[@]}" --config="$header.wgetrc" -O "$out" "$url" || status=$?
@@ -254,6 +333,14 @@ fetch() {
     fi
 
     [ -z "$header" ] || rm -f "$header" "$header.wgetrc"
+
+    # A finished download is drawn whole and cleared; a failed one is left turning for die, which
+    # draws it failed before saying why
+    if [ -n "$dump" ]; then
+        [ "$status" -ne 0 ] || download_done "$out" "$dump"
+        rm -f "$dump"
+    fi
+
     return "$status"
 }
 
