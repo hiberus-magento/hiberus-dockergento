@@ -113,20 +113,46 @@ func composerMirroringVendor(project core.Project, args []string,
 		return fail(err)
 	}
 
-	// Stopped for the copy back out, so that nothing writes to the tree while it is being read
-	if err := tool.Stop(dir, core.StopOptions{Services: []string{phpService}}); err != nil {
-		return fail(err)
+	// Stopped for the copy back out, so that nothing writes to the tree while it is being read.
+	// From here on phpfpm is started again whatever fails: composer.sh's set -e left it stopped,
+	// and the next `hm exec` answered "service phpfpm is not running" on top of the real failure
+	err = tool.Stop(dir, core.StopOptions{Services: []string{phpService}})
+
+	if err == nil {
+		err = tool.ClearVendor(dir)
 	}
 
-	if err := tool.ClearVendor(dir); err != nil {
-		return fail(err)
+	if err == nil {
+		err = tool.CopyFrom(dir, []string{"."})
 	}
 
-	if err := tool.CopyFrom(dir, []string{"."}); err != nil {
-		return fail(err)
+	started := tool.Start(dir, dockergento.StartOptions{Services: []string{phpService}})
+	if err == nil {
+		return fail(started)
 	}
 
-	return fail(tool.Start(dir, dockergento.StartOptions{Services: []string{phpService}}))
+	// What failed first is what is reported; a start that failed too is said beside it
+	var hints []string
+	if started != nil {
+		hints = append(hints, fmt.Sprintf("phpfpm could not be started again: %v; run %s start", started, binaryName()))
+	}
+
+	return failHinted(stderr, jsonOutput, "composer", err, hints)
+}
+
+// failHinted reports err as report does, with hints added to whatever way out it already had.
+func failHinted(stderr io.Writer, jsonOutput bool, command string, err error, hints []string) int {
+	var refusal core.Refusal
+	if asRefusal(err, &refusal) {
+		if refusal.Hint != "" {
+			hints = append([]string{refusal.Hint}, hints...)
+		}
+
+		return failure(stderr, jsonOutput, command, refusal.Code, refusal.Kind, refusal.Message,
+			strings.Join(hints, ". "))
+	}
+
+	return failure(stderr, jsonOutput, command, exitDocker, "docker_failed", err.Error(), strings.Join(hints, ". "))
 }
 
 // inside runs a command in the php container and answers with that command's own exit code.

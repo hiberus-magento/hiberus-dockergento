@@ -125,22 +125,89 @@ func TestAFailedStepOfTheDanceStopsTheRest(t *testing.T) {
 		}
 	})
 
-	t.Run("the copy back out", func(t *testing.T) {
+}
+
+// Once phpfpm is stopped for the copy back out, it is started again whatever happens after: a
+// failed copy that also leaves `hm exec` answering "service phpfpm is not running" is two problems
+// where there was one.
+func TestPhpfpmIsStartedAgainWhateverFailsAfterItsStop(t *testing.T) {
+	onPlatform(t, "darwin")
+
+	cases := []struct {
+		name   string
+		failed int // the call that fails: 6 the stop, 7 the vendor clear, 8 the copy back out
+		err    error
+		code   int
+	}{
+		{"the stop", 6, errors.New("stop failed"), exitDocker},
+		{"the vendor clear", 7, core.Refusal{Kind: "unsafe_vendor_path", Code: 6, Message: "not cleared"}, 6},
+		{"the copy back out", 8, errors.New("copy failed"), exitDocker},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := answering(t)
+			fake.project = composerShop()
+			fake.outcomes = make([]outcome, tt.failed+1)
+			fake.outcomes[tt.failed] = outcome{err: tt.err}
+
+			var stderr bytes.Buffer
+			if code := composer([]string{"install"}, io.Discard, &stderr, false); code != tt.code {
+				t.Fatalf("composer install = %d, want the failed step's %d", code, tt.code)
+			}
+
+			if !strings.Contains(stderr.String(), tt.err.Error()) {
+				t.Fatalf("stderr = %q, want the failed step's own error", stderr.String())
+			}
+
+			full := dance(workingDirectory(t), fake.project, nil, "install")
+			want := append(append([]call{}, full[:tt.failed+1]...), full[len(full)-1])
+			if diff := cmp.Diff(want, fake.calls); diff != "" {
+				t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestAStartThatAlsoFailsDoesNotHideWhatFailedFirst(t *testing.T) {
+	onPlatform(t, "darwin")
+
+	for _, jsonOutput := range []bool{false, true} {
 		fake := answering(t)
 		fake.project = composerShop()
-		fake.outcomes = make([]outcome, 9)
+		fake.outcomes = make([]outcome, 10)
 		fake.outcomes[8] = outcome{err: errors.New("copy failed")}
+		fake.outcomes[9] = outcome{err: errors.New("start failed")}
 
-		if code := composer([]string{"install"}, io.Discard, io.Discard, false); code != exitDocker {
-			t.Fatalf("composer install = %d, want %d", code, exitDocker)
+		var stderr bytes.Buffer
+		if code := composer([]string{"install"}, io.Discard, &stderr, jsonOutput); code != exitDocker {
+			t.Fatalf("composer install (json %v) = %d, want %d", jsonOutput, code, exitDocker)
 		}
 
-		// phpfpm is left stopped, as set -e left it in composer.sh
-		want := dance(workingDirectory(t), fake.project, nil, "install")[:9]
-		if diff := cmp.Diff(want, fake.calls); diff != "" {
-			t.Fatalf("asked of the engine (-want +got):\n%s", diff)
+		for _, wanted := range []string{"copy failed", "phpfpm could not be started again: start failed", "hm start"} {
+			if !strings.Contains(stderr.String(), wanted) {
+				t.Errorf("stderr (json %v) = %q, want it to contain %q", jsonOutput, stderr.String(), wanted)
+			}
 		}
-	})
+	}
+}
+
+// After a dance that worked, a start that fails is the failure, as it always was.
+func TestAStartThatFailsAfterADanceThatWorkedIsTheFailure(t *testing.T) {
+	onPlatform(t, "darwin")
+	fake := answering(t)
+	fake.project = composerShop()
+	fake.outcomes = make([]outcome, 10)
+	fake.outcomes[9] = outcome{err: errors.New("start failed")}
+
+	var stderr bytes.Buffer
+	if code := composer([]string{"install"}, io.Discard, &stderr, false); code != exitDocker {
+		t.Fatalf("composer install = %d, want %d", code, exitDocker)
+	}
+
+	if !strings.Contains(stderr.String(), "start failed") {
+		t.Fatalf("stderr = %q, want the start's error", stderr.String())
+	}
 }
 
 func TestComposerRunsPlainlyWhereThereIsNoDance(t *testing.T) {
