@@ -425,8 +425,27 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	kept := "core_config_data, admin_user and tfa_user_config"
 
 	if exclude {
-		if code := inDBOr("Saving "+kept, keepConfigCommand); code != exitOK {
-			return code
+		saving := "Saving " + kept
+
+		said, status, err := inDB(saving, keepConfigCommand)
+		if err != nil {
+			return broke(saving, err)
+		}
+
+		if why, code, failed := stepFailed(said, status, ""); failed {
+			return fail(code, saving+" failed ("+why+")", said)
+		}
+
+		var missing []string
+
+		for _, line := range strings.Split(said, "\n") {
+			if table, found := strings.CutPrefix(line, "hm-transfer-db-not-kept: "); found {
+				missing = append(missing, strings.TrimSpace(table))
+			}
+		}
+
+		if len(missing) > 0 {
+			say("Not in the local database, so not kept: " + strings.Join(missing, ", ") + "\n")
 		}
 	}
 
@@ -542,12 +561,17 @@ const transferTailLines = 10
 // it: the core_config_data dump used to send its errors to /dev/null, and the restore to the
 // terminal, where nothing kept them.
 const (
-	keepConfigCommand = `dump=$(command -v mariadb-dump || command -v mysqldump); { "$dump" -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE core_config_data admin_user tfa_user_config > /tmp/ccd.sql; } 2>&1`
+	// Only the tables the local database has: one without the 2FA module has no tfa_user_config,
+	// and the dump tool aborts on a table it cannot find, keeping none of the others
+	keepConfigCommand = `dump=$(command -v mariadb-dump || command -v mysqldump); client=$(command -v mariadb || command -v mysql); ` +
+		`{ rm -f /tmp/ccd.sql; present=$("$client" -u$MYSQL_USER -p$MYSQL_PASSWORD -N -B -e "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('core_config_data','admin_user','tfa_user_config')" $MYSQL_DATABASE) || exit $?; ` +
+		`kept=""; for t in core_config_data admin_user tfa_user_config; do case " $(echo $present) " in *" $t "*) kept="$kept $t";; *) echo "hm-transfer-db-not-kept: $t";; esac; done; ` +
+		`if [ -n "$kept" ]; then "$dump" -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE $kept > /tmp/ccd.sql; fi; } 2>&1`
 
 	restoreCommand = `client=$(command -v mariadb || command -v mysql); { { zcat /tmp/db.sql.gz || echo "` + transferMarker + `zcat exited with status $?" >&2; } | ` +
 		`{ sed '/sandbox mode/d' || echo "` + transferMarker + `sed exited with status $?" >&2; } | "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE; } 2>&1`
 
-	putConfigBackCommand = `client=$(command -v mariadb || command -v mysql); { [ -f /tmp/ccd.sql ] && "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < /tmp/ccd.sql; } 2>&1`
+	putConfigBackCommand = `client=$(command -v mariadb || command -v mysql); { if [ -f /tmp/ccd.sql ]; then "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < /tmp/ccd.sql; fi; } 2>&1`
 )
 
 // skippedSQLError is how the client reports a statement it skipped under --force: with the line

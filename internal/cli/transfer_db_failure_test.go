@@ -541,3 +541,40 @@ func TestALogThatCannotBeWrittenDoesNotStopTheTransfer(t *testing.T) {
 	mustContain(t, "stdout", stdout.String(), " All done!\n")
 	mustNotContain(t, "stdout", stdout.String(), "logged in")
 }
+
+// A local database without one of the tables to keep (no 2FA module, so no tfa_user_config) keeps
+// the ones it has and says which it had not, instead of failing before the restore: the save
+// used to abort on the missing table and, with its errors in /dev/null, keep nothing at all.
+func TestATableToKeepThatTheLocalDatabaseLacksIsNamedAndSkipped(t *testing.T) {
+	fake, _ := dbLab(t)
+	fake.outcomes = make([]outcome, 5)
+	fake.outcomes[4] = outcome{captured: "hm-transfer-db-not-kept: tfa_user_config\n"}
+
+	var stdout bytes.Buffer
+
+	if code := transferDB([]string{"--ssh-user=abc", "--anonymise=false"}, &stdout, io.Discard, false); code != exitOK {
+		t.Fatalf("transfer-db = %d, want exitOK", code)
+	}
+
+	mustContain(t, "stdout", stdout.String(),
+		"Not in the local database, so not kept: tfa_user_config\n", "Restoring database dump into localhost...\n")
+}
+
+// The save keeps only the tables the local database has, found in one query before the dump, and
+// a put-back with nothing saved is not a failure.
+func TestTheSaveDumpsOnlyTheTablesThatExist(t *testing.T) {
+	for _, want := range []string{
+		"information_schema.TABLES",
+		"TABLE_NAME IN ('core_config_data','admin_user','tfa_user_config')",
+		"hm-transfer-db-not-kept: $t",
+		`"$dump" -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE $kept > /tmp/ccd.sql`,
+	} {
+		if !strings.Contains(keepConfigCommand, want) {
+			t.Errorf("keepConfigCommand lacks %q:\n%s", want, keepConfigCommand)
+		}
+	}
+
+	if !strings.Contains(putConfigBackCommand, "if [ -f /tmp/ccd.sql ]; then") {
+		t.Errorf("putConfigBackCommand fails without a saved file:\n%s", putConfigBackCommand)
+	}
+}

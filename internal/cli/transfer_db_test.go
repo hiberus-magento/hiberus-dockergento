@@ -29,9 +29,9 @@ import (
 const (
 	tunnelledDump = `dump=$(command -v mariadb-dump || command -v mysqldump); { "$dump" --single-transaction --quick --no-tablespaces --skip-comments -h'database.internal' -u'mysql' -P 3306 -p'pw' main || echo "hm-transfer-db: the dump exited with status $?" >&2; } | { sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' || echo "hm-transfer-db: sed exited with status $?" >&2; } | gzip -9`
 	directDump    = `{ ` + tunnelledDump + ` > /tmp/db.sql.gz; } 2>&1`
-	keepConfig    = `dump=$(command -v mariadb-dump || command -v mysqldump); { "$dump" -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE core_config_data admin_user tfa_user_config > /tmp/ccd.sql; } 2>&1`
+	keepConfig    = keepConfigCommand
 	restoreDump   = `client=$(command -v mariadb || command -v mysql); { { zcat /tmp/db.sql.gz || echo "hm-transfer-db: zcat exited with status $?" >&2; } | { sed '/sandbox mode/d' || echo "hm-transfer-db: sed exited with status $?" >&2; } | "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE; } 2>&1`
-	putConfigBack = `client=$(command -v mariadb || command -v mysql); { [ -f /tmp/ccd.sql ] && "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < /tmp/ccd.sql; } 2>&1`
+	putConfigBack = putConfigBackCommand
 )
 
 // sshRun is one ssh the command would have run: its arguments and where its output went.
