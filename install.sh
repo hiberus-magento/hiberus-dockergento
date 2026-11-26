@@ -170,8 +170,9 @@ draw_download() {
 
 # download_watch <file> <headers> <name>: the download of a file drawn on stderr while curl or wget
 # write it silently, in a terminal only — its size polled against the length the server announced
-# in the headers they dump. The spinner's discipline: it runs as SPINNER_PID, so warn, die and the
-# EXIT trap stop it, and a failed download is drawn as "✗ Downloading <name>".
+# in the headers they dump. The spinner's discipline: it runs as SPINNER_PID, so the EXIT trap stops
+# it if the installer is interrupted, and fetch stops it once the download ends: drawn whole when it
+# finished, as "✗ Downloading <name>" when it failed.
 download_watch() {
     [ -n "$FANCY" ] || return 0
     SPINNER_TEXT="Downloading $3"
@@ -334,10 +335,14 @@ fetch() {
 
     [ -z "$header" ] || rm -f "$header" "$header.wgetrc"
 
-    # A finished download is drawn whole and cleared; a failed one is left turning for die, which
-    # draws it failed before saying why
+    # A finished download is drawn whole and cleared; a failed one is stopped here and drawn
+    # failed, so no caller, whether it dies, warns or goes on, can leave it drawing over its output
     if [ -n "$dump" ]; then
-        [ "$status" -ne 0 ] || download_done "$out" "$dump"
+        if [ "$status" -eq 0 ]; then
+            download_done "$out" "$dump"
+        else
+            spinner_stop failed
+        fi
         rm -f "$dump"
     fi
 

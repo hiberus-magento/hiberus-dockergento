@@ -1275,6 +1275,39 @@ reason_line=$(printf '%s\n' "$PLAIN" | grep -n 'Could not download hm_linux_amd6
 assert_equals "yes" "$([ -n "$failed_line" ] && [ -n "$reason_line" ] && [ "$failed_line" -lt "$reason_line" ] && echo yes || echo no)"
 assert_equals "yes" "$(err_settles "$CASE/err")"
 assert_equals "no" "$(exists "$HM_SYSTEM_BIN/hm")"
+assert_equals "1" "$(printf '%s\n' "$PLAIN" | grep -c '✗ Downloading hm_linux_amd64')"
+
+# fetch-alone.sh <install.sh> <fetch arguments...>: install.sh's fetch on its own, called the way a
+# caller that goes on after a failure would — everything but main (the last line) sourced. Its
+# stdout is the watcher's PID left behind, if any; then a line on stderr, and a pause in which a
+# watcher left running would draw over it (killed after, so no case leaves one turning).
+cat >"$LAB/fetch-alone.sh" <<'EOF'
+#!/usr/bin/env bash
+functions="$(mktemp -d "${TMPDIR:-/tmp}/hm-fetch.XXXXXX")"
+# A file, not <(...): bash 3.2 sources nothing from a process substitution
+sed '$d' "$1" >"$functions/install.sh"
+source "$functions/install.sh"
+shift
+WORK="$functions/work"
+mkdir "$WORK"
+type fetch >/dev/null || exit 1
+fetch "$@" || true
+printf 'left=%s\n' "$SPINNER_PID"
+printf 'more output\n' >&2
+sleep 0.4
+[ -z "$SPINNER_PID" ] || kill "$SPINNER_PID" 2>/dev/null
+rm -rf "$functions"
+EOF
+
+new_case styled-fetch-failed-then-more
+(PATH="$TOOLS:$BASE_PATH" CLICOLOR_FORCE=1 bash "$LAB/fetch-alone.sh" "$INSTALL_SH" \
+    "https://github.com/hiberus-magento/hiberus-dockergento/releases/download/2.0.0/hm_linux_amd64" "$CASE/hm" progress \
+    >"$CASE/out" 2>"$CASE/err" </dev/null)
+
+test_case "styled, a failed download stops its own bar, drawn failed, so what is written next is never drawn over"
+assert_equals "left=" "$(cat "$CASE/out")"
+assert_contains "$(sed $'s/\033\\[[0-9;]*m//g' "$CASE/err")" "✗ Downloading hm_linux_amd64"
+assert_equals "more output" "$(tail -c 12 "$CASE/err")"
 
 # Interrupted mid-download: the bar's watcher is stopped by the same EXIT trap as the spinner
 new_case styled-download-interrupted
