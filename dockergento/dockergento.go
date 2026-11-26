@@ -342,12 +342,6 @@ func (e *Engine) Stop(dir string, options core.StopOptions) error {
 	return e.operator(project).Stop(project, e.ComposeFiles(project), options)
 }
 
-// StopWith is Stop under the name the command line's engine seam still calls it by
-// (internal/cli: php.go and wrappers.go).
-func (e *Engine) StopWith(dir string, options core.StopOptions) error {
-	return e.Stop(dir, options)
-}
-
 // Down removes the environment and answers what happened: it was destroyed, it was copied first
 // and then destroyed, or somebody said no and nothing was.
 func (e *Engine) Down(dir string, options core.DownOptions, interactive bool) (string, error) {
@@ -424,12 +418,6 @@ func (e *Engine) Restart(dir string, options core.RestartOptions) error {
 	}
 
 	return e.creating(project).Restart(project, e.ComposeFiles(project), options, e.UsesProxy(project))
-}
-
-// RestartWith is Restart under the name the command line's engine seam still calls it by
-// (internal/cli: php.go and wrappers.go).
-func (e *Engine) RestartWith(dir string, options core.RestartOptions) error {
-	return e.Restart(dir, options)
 }
 
 // InstallCertificate generates a certificate for domain with mkcert, installing mkcert first when

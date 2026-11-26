@@ -18,11 +18,11 @@ type commands interface {
 	Environments() ([]core.Environment, error)
 	Describe(dir string, withSecrets bool) (core.Description, error)
 	Exec(dir, service string, command []string, options core.ExecOptions) (int, error)
-	RestartWith(dir string, options core.RestartOptions) error
+	Restart(dir string, options core.RestartOptions) error
 	AfterStart(dir string) error
 	InstallCertificate(dir, domain string) error
 	Rebuild(dir string, services []string) error
-	StopWith(dir string, options core.StopOptions) error
+	Stop(dir string, options core.StopOptions) error
 	Start(dir string, options dockergento.StartOptions) error
 	Down(dir string, options core.DownOptions, interactive bool) (string, error)
 	DownPreview(dir string, options core.DownOptions) (core.DownPreview, error)

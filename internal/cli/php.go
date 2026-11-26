@@ -89,7 +89,7 @@ func composerMirroringVendor(project core.Project, args []string,
 	dir := here()
 	fail := func(err error) int { return report(stderr, jsonOutput, "composer", err) }
 
-	if err := tool.RestartWith(dir, core.RestartOptions{Services: []string{phpService}}); err != nil {
+	if err := tool.Restart(dir, core.RestartOptions{Services: []string{phpService}}); err != nil {
 		return fail(err)
 	}
 
@@ -114,7 +114,7 @@ func composerMirroringVendor(project core.Project, args []string,
 	}
 
 	// Stopped for the copy back out, so that nothing writes to the tree while it is being read
-	if err := tool.StopWith(dir, core.StopOptions{Services: []string{phpService}}); err != nil {
+	if err := tool.Stop(dir, core.StopOptions{Services: []string{phpService}}); err != nil {
 		return fail(err)
 	}
 

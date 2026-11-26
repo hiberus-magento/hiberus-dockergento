@@ -342,7 +342,7 @@
                     "short": "",
                     "long": "dry-run"
                 },
-                "description": "Say which containers and volumes would be removed, and remove nothing"
+                "description": "Say which containers, networks and volumes would be removed, and remove nothing"
             }
         ],
         "usage": "down [-v] [--dry-run]"

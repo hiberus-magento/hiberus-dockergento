@@ -71,7 +71,7 @@ func stop(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	err := newEngine(stdout, stderr, jsonOutput).
-		StopWith(here(), core.StopOptions{Services: services, Snapshot: snapshot, Timeout: timeout})
+		Stop(here(), core.StopOptions{Services: services, Snapshot: snapshot, Timeout: timeout})
 
 	return changed(stdout, stderr, jsonOutput, "stop", err, started, touching(project, services, map[string]any{
 		"snapshot": snapshot, "timeout": timeout,
@@ -92,7 +92,7 @@ func restart(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	err := newEngine(stdout, stderr, jsonOutput).
-		RestartWith(here(), core.RestartOptions{Services: services, Timeout: timeout})
+		Restart(here(), core.RestartOptions{Services: services, Timeout: timeout})
 
 	return changed(stdout, stderr, jsonOutput, "restart", err, started,
 		touching(project, services, map[string]any{"timeout": timeout}))

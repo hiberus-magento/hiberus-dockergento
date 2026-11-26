@@ -381,9 +381,9 @@ func (f *fakeEngine) Start(dir string, options dockergento.StartOptions) error {
 	return f.outcomeFor(number).err
 }
 
-// StopWith, like RestartWith, only ever answers with an error. Both record under the command's
+// Stop, like Restart, only ever answers with an error. Both record under the command's
 // own name, Stop and Restart: the options value is how they are asked, not what they do.
-func (f *fakeEngine) StopWith(dir string, options core.StopOptions) error {
+func (f *fakeEngine) Stop(dir string, options core.StopOptions) error {
 	number := len(f.calls)
 	f.calls = append(f.calls, call{Method: "Stop", Dir: dir, Services: options.Services,
 		Snapshot: options.Snapshot, Timeout: options.Timeout})
@@ -391,7 +391,7 @@ func (f *fakeEngine) StopWith(dir string, options core.StopOptions) error {
 	return f.outcomeFor(number).err
 }
 
-func (f *fakeEngine) RestartWith(dir string, options core.RestartOptions) error {
+func (f *fakeEngine) Restart(dir string, options core.RestartOptions) error {
 	number := len(f.calls)
 	f.calls = append(f.calls, call{Method: "Restart", Dir: dir, Services: options.Services,
 		Timeout: options.Timeout})
