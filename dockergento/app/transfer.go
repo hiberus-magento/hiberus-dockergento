@@ -140,11 +140,13 @@ func (t Transfer) From(project core.Project, paths []string) error {
 	for _, one := range paths {
 		one = strings.TrimSuffix(one, "/")
 
+		// Only what was copied whole at the top is left out: after app/code, the workdir still
+		// carries app, whose app/etc the first copy never brought
 		var skip []string
-		if path.Clean(one) == "." {
+		if clean := path.Clean(one); clean == "." {
 			skip = copied
-		} else {
-			copied = append(copied, strings.SplitN(path.Clean(one), "/", 2)[0])
+		} else if !strings.Contains(clean, "/") {
+			copied = append(copied, clean)
 		}
 
 		source := path.Join(t.workdir(), one)

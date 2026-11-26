@@ -98,3 +98,27 @@ func TestTheWorkdirCopiedOnItsOwnSkipsNothing(t *testing.T) {
 		t.Fatalf("copied %v skipping %v, want one plain copy", recorder.from, recorder.skipped)
 	}
 }
+
+// A nested path copied before the workdir (app/code, then .) leaves nothing out of the workdir:
+// skipping the whole top entry (app) would lose app/etc and the rest of app, which the first copy
+// never carried. Only a top entry copied whole is left out.
+func TestANestedPathCopiedFirstLeavesNothingOutOfTheWorkdir(t *testing.T) {
+	transfer, project := transferencia(t, &runner{}, &runner{})
+	recorder := &skippingFiles{}
+	transfer.Files = recorder
+
+	if err := transfer.From(project, []string{"app/code", "vendor/acme", "."}); err != nil {
+		t.Fatal(err)
+	}
+
+	// With nothing to leave out the copy goes plain, so no skipping copy is asked at all
+	for _, skip := range recorder.skipped {
+		if len(skip) != 0 {
+			t.Fatalf("skipped %v, want the workdir copied whole after nested paths", recorder.skipped)
+		}
+	}
+
+	if len(recorder.from) != 3 || recorder.from[2][0] != "/var/www/html/." {
+		t.Fatalf("copied %v, want the two nested paths and then the whole workdir", recorder.from)
+	}
+}
