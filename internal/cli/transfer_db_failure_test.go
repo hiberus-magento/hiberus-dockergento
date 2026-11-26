@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -239,4 +240,116 @@ func TestTheLocalDumpIsRetriedToo(t *testing.T) {
 		strings.Contains(got[2], "/tmp/db.sql.gz") {
 		t.Fatalf("steps = %v, want the dump twice and then the rest", got)
 	}
+}
+
+// TestEveryFailingStepSaysWhichAndWhy: each step after the dump stops the transfer with its
+// status, its name, and the end of what it said — where it used to stop with the status alone.
+func TestEveryFailingStepSaysWhichAndWhy(t *testing.T) {
+	cases := []struct {
+		name string
+
+		// at is the call that fails: Resolve, Describe, Copy, keep the config, restore, put the
+		// config back, Clear, Anonymise and the three bin/magento follow
+		at       int
+		outcome  outcome
+		code     int
+		headline string
+		said     string
+	}{
+		{
+			name: "copying the dump", at: 2, outcome: outcome{err: errors.New("no space left on device")},
+			code: exitDocker, headline: "Copying the dump into the db container failed: no space left on device",
+		},
+		{
+			name: "saving core_config_data", at: 3,
+			outcome: outcome{status: 2, captured: "mariadb-dump: Got error: 1045: \"Access denied for user 'magento'@'localhost'\"\n"},
+			code:    2, headline: "Saving core_config_data, admin_user and tfa_user_config failed (it exited with status 2)",
+			said: "Access denied for user 'magento'@'localhost'",
+		},
+		{
+			name: "restoring a truncated dump", at: 4,
+			outcome: outcome{status: 1, captured: "gzip: stdin: unexpected end of file\nhm-transfer-db: zcat exited with status 1\n"},
+			code:    1, headline: "Restoring the dump into the local database failed (zcat exited with status 1)",
+			said: "gzip: stdin: unexpected end of file",
+		},
+		{
+			name: "restoring with no server to restore into", at: 4,
+			outcome: outcome{status: 1, captured: "ERROR 2002 (HY000): Can't connect to local server through socket '/run/mysqld/mysqld.sock' (2)\n"},
+			code:    1, headline: "Restoring the dump into the local database failed (it exited with status 1)",
+			said: "ERROR 2002 (HY000): Can't connect to local server",
+		},
+		{
+			name: "putting core_config_data back", at: 5,
+			outcome: outcome{status: 1, captured: "ERROR 1062 (23000) at line 30: Duplicate entry '1' for key 'PRIMARY'\n"},
+			code:    1, headline: "Putting core_config_data, admin_user and tfa_user_config back failed (it exited with status 1)",
+			said: "Duplicate entry '1' for key 'PRIMARY'",
+		},
+		{
+			name: "clearing the anonymisation record", at: 6, outcome: outcome{err: errors.New("read-only file system")},
+			code: exitDocker, headline: "Recording that the database is no longer anonymised failed: read-only file system",
+		},
+		{
+			name: "reindexing", at: 9, outcome: outcome{status: 1},
+			code: 1, headline: "Running bin/magento indexer:reindex failed (it exited with status 1; its output is above)",
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			fake, _ := dbLab(t)
+			fake.outcomes = make([]outcome, tt.at+1)
+			fake.outcomes[tt.at] = tt.outcome
+
+			var stderr bytes.Buffer
+
+			if code := transferDB([]string{"--ssh-user=abc", "--anonymise=true"}, io.Discard, &stderr, true); code != tt.code {
+				t.Fatalf("transfer-db = %d, want %d\n%s", code, tt.code, stderr.String())
+			}
+
+			if got := steps(fake); len(got) != tt.at-1 {
+				t.Fatalf("went on after the failing step: %v", got)
+			}
+
+			_, message := failureIn(t, stderr.Bytes())
+			mustContain(t, "the failure", message, tt.headline, tt.said)
+		})
+	}
+}
+
+// TestSavingCoreConfigDataNoLongerHidesItsErrors: its stderr went to /dev/null.
+func TestSavingCoreConfigDataNoLongerHidesItsErrors(t *testing.T) {
+	fake, _ := dbLab(t)
+
+	transferDB([]string{"--ssh-user=abc"}, io.Discard, io.Discard, false)
+
+	for _, step := range steps(fake) {
+		if strings.Contains(step, "/dev/null") {
+			t.Fatalf("a step still throws its errors away: %s", step)
+		}
+	}
+}
+
+// TestErrorsTheForcedRestoreSkippedAreCounted: the restore keeps --force — a dump from another
+// server can carry a statement this one refuses, and stopping there would leave half a database
+// — but what it skipped is said at the end instead of vanishing.
+func TestErrorsTheForcedRestoreSkippedAreCounted(t *testing.T) {
+	fake, _ := dbLab(t)
+
+	// Resolve, Describe, Copy, keep the config, restore
+	fake.outcomes = []outcome{{}, {}, {}, {}, {status: 1, captured: "ERROR 1146 (42S02) at line 12: Table 'main.gone' doesn't exist\n" +
+		"ERROR 1064 (42000) at line 40: You have an error in your SQL syntax\n"}}
+
+	var stdout, stderr bytes.Buffer
+
+	if code := transferDB([]string{"--ssh-user=abc", "--anonymise=true"}, &stdout, &stderr, false); code != exitOK {
+		t.Fatalf("transfer-db with skipped errors = %d, want exitOK\n%s", code, stderr.String())
+	}
+
+	if !contains(steps(fake), "Exec phpfpm bin/magento | cache:flush") {
+		t.Fatalf("stopped at the skipped errors: %v", steps(fake))
+	}
+
+	mustContain(t, "stderr", stderr.String(),
+		"The restore skipped 2 SQL errors; the first: ERROR 1146 (42S02) at line 12: Table 'main.gone' doesn't exist")
+	mustContain(t, "stdout", stdout.String(), " All done!\n")
 }

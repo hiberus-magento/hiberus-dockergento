@@ -21,16 +21,17 @@ import (
 // runner and the questions are replaced, and what they were asked is what is checked.
 //
 
-// The commands transfer-db runs. The dump is transfer-db.sh's, except that each part of its
-// pipeline says on stderr when it failed: the remote login shell is not guaranteed to be bash,
-// so pipefail cannot be counted on there, and without it a failed dump left a truncated file
-// that was copied and restored as if nothing had happened.
+// The commands transfer-db runs. They are transfer-db.sh's, except that each part of a pipeline
+// says on stderr when it failed — the remote login shell is not guaranteed to be bash, so
+// pipefail cannot be counted on there, and without it a failed dump left a truncated file that
+// was copied and restored as if nothing had happened — and that the steps in the db container
+// keep what they say, which a failure quotes.
 const (
 	tunnelledDump = `dump=$(command -v mariadb-dump || command -v mysqldump); { "$dump" --single-transaction --quick --no-tablespaces --skip-comments -h'database.internal' -u'mysql' -P 3306 -p'pw' main || echo "hm-transfer-db: the dump exited with status $?" >&2; } | { sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' || echo "hm-transfer-db: sed exited with status $?" >&2; } | gzip -9`
 	directDump    = `{ ` + tunnelledDump + ` > /tmp/db.sql.gz; } 2>&1`
-	keepConfig    = `dump=$(command -v mariadb-dump || command -v mysqldump); "$dump" -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE core_config_data admin_user tfa_user_config > /tmp/ccd.sql 2> /dev/null`
-	restoreDump   = `client=$(command -v mariadb || command -v mysql); zcat /tmp/db.sql.gz | sed '/sandbox mode/d' | "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE`
-	putConfigBack = `client=$(command -v mariadb || command -v mysql); [ -f /tmp/ccd.sql ] && "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < /tmp/ccd.sql`
+	keepConfig    = `dump=$(command -v mariadb-dump || command -v mysqldump); { "$dump" -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE core_config_data admin_user tfa_user_config > /tmp/ccd.sql; } 2>&1`
+	restoreDump   = `client=$(command -v mariadb || command -v mysql); { { zcat /tmp/db.sql.gz || echo "hm-transfer-db: zcat exited with status $?" >&2; } | { sed '/sandbox mode/d' || echo "hm-transfer-db: sed exited with status $?" >&2; } | "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE; } 2>&1`
+	putConfigBack = `client=$(command -v mariadb || command -v mysql); { [ -f /tmp/ccd.sql ] && "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < /tmp/ccd.sql; } 2>&1`
 )
 
 // sshRun is one ssh the command would have run: its arguments and where its output went.
@@ -151,9 +152,9 @@ func TestTransferDBDumpsOverSSHAndRestoresIntoTheDbContainer(t *testing.T) {
 
 	want := append([]string{
 		"CopyIntoService db " + filepath.Join(here(), "db.sql.gz") + " /tmp",
-		"Exec db bash | -c | " + keepConfig,
-		"Exec db bash | -c | " + restoreDump,
-		"Exec db bash | -c | " + putConfigBack,
+		"Capture db bash | -o | pipefail | -c | " + keepConfig,
+		"Capture db bash | -o | pipefail | -c | " + restoreDump,
+		"Capture db bash | -o | pipefail | -c | " + putConfigBack,
 		"ClearAnonymisation",
 		"Anonymise",
 	}, magentoSteps()...)
@@ -203,9 +204,9 @@ func TestWithoutATunnelTheDumpIsTakenFromTheDbContainer(t *testing.T) {
 
 	want := append([]string{
 		"Capture db bash | -o | pipefail | -c | " + directDump,
-		"Exec db bash | -c | " + keepConfig,
-		"Exec db bash | -c | " + restoreDump,
-		"Exec db bash | -c | " + putConfigBack,
+		"Capture db bash | -o | pipefail | -c | " + keepConfig,
+		"Capture db bash | -o | pipefail | -c | " + restoreDump,
+		"Capture db bash | -o | pipefail | -c | " + putConfigBack,
 		"ClearAnonymisation",
 		"Anonymise",
 	}, magentoSteps()...)

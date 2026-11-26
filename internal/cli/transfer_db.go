@@ -7,9 +7,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 	"golang.org/x/term"
 )
 
@@ -216,14 +218,21 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return failure(stderr, jsonOutput, "transfer-db", code, "transfer_failed", message, "")
 	}
 
-	// inside runs one step in a container, and stops with its status as set -e did
-	inside := func(service string, command ...string) int {
-		status, err := engine.Exec(project.Root, service, command, terminalOptions(""))
-		if status != 0 {
-			return status
+	// broke stops the transfer at a step that could not even be run, keeping the refusal's kind
+	broke := func(step string, err error) int {
+		var refused core.Refusal
+		if asRefusal(err, &refused) {
+			return failure(stderr, jsonOutput, "transfer-db", refused.Code, refused.Kind,
+				step+" failed: "+refused.Message, refused.Hint)
 		}
 
-		return report(stderr, jsonOutput, "transfer-db", err)
+		return failure(stderr, jsonOutput, "transfer-db", exitDocker, "docker_failed", step+" failed: "+err.Error(), "")
+	}
+
+	// inDB runs one step in the db container, under bash with pipefail, both of its streams
+	// captured: what it said is what a failure quotes
+	inDB := func(command string) (string, int, error) {
+		return engine.Capture(project.Root, "db", []string{"bash", "-o", "pipefail", "-c", command})
 	}
 
 	step, runner := "Creating the database dump in the db container", ""
@@ -236,27 +245,28 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	// takeDump runs the dump once, and answers what it said and how it ended
 	takeDump := func() (string, int, error) {
 		if sshHost == "" {
-			return engine.Capture(project.Root, "db",
-				[]string{"bash", "-o", "pipefail", "-c", "{ " + dump + " > /tmp/db.sql.gz; } 2>&1"})
+			return inDB("{ " + dump + " > /tmp/db.sql.gz; } 2>&1")
 		}
 
 		var said strings.Builder
 
 		status, err := runSSH([]string{sshUser + "@" + sshHost, dump}, local, &said)
-		if err != nil {
-			err = refusal("transfer_failed", exitError, "The database dump could not be taken over SSH: "+err.Error(), "")
-		}
 
 		return said.String(), status, err
 	}
 
 	for attempt := 1; ; attempt++ {
 		said, status, err := takeDump()
-		if err != nil {
-			return report(stderr, jsonOutput, "transfer-db", err)
+
+		switch {
+		case err != nil && runner == "ssh":
+			return failure(stderr, jsonOutput, "transfer-db", exitError, "transfer_failed",
+				"The database dump could not be taken over SSH: "+err.Error(), "")
+		case err != nil:
+			return broke(step, err)
 		}
 
-		why, code, failed := dumpFailed(said, status, runner)
+		why, code, failed := stepFailed(said, status, runner)
 		if !failed {
 			break
 		}
@@ -279,32 +289,61 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	if sshHost != "" {
 		if err := engine.CopyIntoService(project.Root, "db", local, "/tmp"); err != nil {
-			return report(stderr, jsonOutput, "transfer-db", err)
+			return broke("Copying the dump into the db container", err)
 		}
 	}
 
 	say("Restoring database dump into localhost...\n")
 
+	// inDBOr runs a step in the db container and stops the transfer if it fails
+	inDBOr := func(step, command string) int {
+		said, status, err := inDB(command)
+		if err != nil {
+			return broke(step, err)
+		}
+
+		if why, code, failed := stepFailed(said, status, ""); failed {
+			return fail(code, step+" failed ("+why+")", said)
+		}
+
+		return exitOK
+	}
+
+	kept := "core_config_data, admin_user and tfa_user_config"
+
 	if exclude {
-		if status := inside("db", "bash", "-c", `dump=$(command -v mariadb-dump || command -v mysqldump); "$dump" -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE core_config_data admin_user tfa_user_config > /tmp/ccd.sql 2> /dev/null`); status != 0 {
-			return status
+		if code := inDBOr("Saving "+kept, keepConfigCommand); code != exitOK {
+			return code
 		}
 	}
 
-	if status := inside("db", "bash", "-c", `client=$(command -v mariadb || command -v mysql); zcat /tmp/db.sql.gz | sed '/sandbox mode/d' | "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE`); status != 0 {
-		return status
+	restoring := "Restoring the dump into the local database"
+
+	said, status, err := inDB(restoreCommand)
+	if err != nil {
+		return broke(restoring, err)
+	}
+
+	// --force goes on past a statement this server refuses, and the client then exits with a
+	// status; that is what was asked for. A status with nothing skipped, or a part of the pipeline
+	// that failed, is a restore that did not happen
+	skipped := skippedErrors(said)
+	forced := status != 0 && len(skipped) > 0 && !strings.Contains(said, transferMarker)
+
+	if why, code, failed := stepFailed(said, status, ""); failed && !forced {
+		return fail(code, restoring+" failed ("+why+")", said)
 	}
 
 	if exclude {
-		if status := inside("db", "bash", "-c", `client=$(command -v mariadb || command -v mysql); [ -f /tmp/ccd.sql ] && "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < /tmp/ccd.sql`); status != 0 {
-			return status
+		if code := inDBOr("Putting "+kept+" back", putConfigBackCommand); code != exitOK {
+			return code
 		}
 	}
 
 	// A database from another environment has just replaced this one: whatever was true about
 	// the old contents is not true about these
 	if err := engine.ClearAnonymisation(project.Root); err != nil {
-		return report(stderr, jsonOutput, "transfer-db", err)
+		return broke("Recording that the database is no longer anonymised", err)
 	}
 
 	switch {
@@ -327,9 +366,25 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			continue
 		}
 
-		if status := inside(phpService, "bin/magento", step.command); status != 0 {
-			return status
+		running := "Running bin/magento " + step.command
+
+		status, err := engine.Exec(project.Root, phpService, []string{"bin/magento", step.command}, terminalOptions(""))
+
+		switch {
+		case status != 0:
+			return fail(status, fmt.Sprintf("%s failed (it exited with status %d; its output is above)", running, status), "")
+		case err != nil:
+			return broke(running, err)
 		}
+	}
+
+	if len(skipped) > 0 {
+		noun := "errors"
+		if len(skipped) == 1 {
+			noun = "error"
+		}
+
+		fmt.Fprint(stderr, warning(fmt.Sprintf("The restore skipped %d SQL %s; the first: %s\n", len(skipped), noun, skipped[0])))
 	}
 
 	say(" All done!\n")
@@ -350,6 +405,35 @@ func anonymiseOrWarn(engine commands, dir string, stderr io.Writer) {
 // almost always the last line, and the few before it say where.
 const transferTailLines = 10
 
+// The steps in the db container. Each says what went wrong on its stdout, where Capture reads
+// it: the core_config_data dump used to send its errors to /dev/null, and the restore to the
+// terminal, where nothing kept them.
+const (
+	keepConfigCommand = `dump=$(command -v mariadb-dump || command -v mysqldump); { "$dump" -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE core_config_data admin_user tfa_user_config > /tmp/ccd.sql; } 2>&1`
+
+	restoreCommand = `client=$(command -v mariadb || command -v mysql); { { zcat /tmp/db.sql.gz || echo "` + transferMarker + `zcat exited with status $?" >&2; } | ` +
+		`{ sed '/sandbox mode/d' || echo "` + transferMarker + `sed exited with status $?" >&2; } | "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE; } 2>&1`
+
+	putConfigBackCommand = `client=$(command -v mariadb || command -v mysql); { [ -f /tmp/ccd.sql ] && "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < /tmp/ccd.sql; } 2>&1`
+)
+
+// skippedSQLError is how the client reports a statement it skipped under --force: with the line
+// of the dump it was on. A refused connection says ERROR too, but on no line.
+var skippedSQLError = regexp.MustCompile(`^ERROR \d+ \([0-9A-Z]+\) at line \d+`)
+
+// skippedErrors is the statements a forced restore went past, in order.
+func skippedErrors(said string) []string {
+	skipped := []string{}
+
+	for _, line := range strings.Split(said, "\n") {
+		if line = strings.TrimSpace(line); skippedSQLError.MatchString(line) {
+			skipped = append(skipped, line)
+		}
+	}
+
+	return skipped
+}
+
 // transferDumpAttempts is how many times a dump the database asks to retry is taken.
 const transferDumpAttempts = 3
 
@@ -368,10 +452,10 @@ func dumpPipeline(host, user, port, passwordFlag, database string) string {
 		insideQuotes(host), insideQuotes(user), port, passwordFlag, database, transferMarker, transferMarker)
 }
 
-// dumpFailed reads a pipeline's outcome: a part that said it failed, or a status that is not
+// stepFailed reads a pipeline's outcome: a part that said it failed, or a status that is not
 // zero. It answers why, in words, and the exit code to stop with — the failed part's own. runner
 // is what ran the pipeline when its status is its own and not the pipeline's, as ssh's 255 is.
-func dumpFailed(said string, status int, runner string) (string, int, bool) {
+func stepFailed(said string, status int, runner string) (string, int, bool) {
 	for _, line := range strings.Split(said, "\n") {
 		why, found := strings.CutPrefix(strings.TrimSpace(line), transferMarker)
 		if !found {
