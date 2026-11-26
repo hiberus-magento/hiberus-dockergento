@@ -12,6 +12,14 @@ on your PATH. There is no git clone.
 curl -fsSL https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/install.sh | bash
 ```
 
+> **Until 2.0.0 is released**, `install.sh` is only on the `release/2.0.0` branch (the `main` URL
+> above answers 404) and every 2.x release is a candidate, which the installer takes only with
+> `--pre`:
+>
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/release/2.0.0/install.sh | bash -s -- --pre
+> ```
+
 What it does:
 
 1. Detects the system (`darwin` or `linux`) and the architecture (`amd64` or `arm64`).

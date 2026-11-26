@@ -39,17 +39,18 @@ temporary public address (`hm share`) and read-only tools for AI agents over MCP
 
 - **Nginx**: `1.18`, `1.28`, `1.30`
 - **PHP**: `7.2`, `7.3`, `7.4`, `8.1`, `8.2`, `8.3`, `8.4`, `8.5`
-- **MariaDB**: `10.2`, `10.3`, `10.4`, `10.6`, `11.4`, `11.8`, `12.3`
+- **MariaDB**: `10.2`, `10.3`, `10.4`, `10.6`, `11.4`, `12.3`
 - **RabbitMQ**: `3.9`, `4.2`, `4.3`
 - **Redis**: `5.0`, `6.2`, `7.0`
 - **Valkey**: `9`
 - **ElasticSearch**: `5.6`, `6.5`, `7.17`
 - **OpenSearch**: `1.2`, `2.5`, `3`
 - **Mailhog**: `1.0`
+- **Mailpit**: `1.0` (`hm setup --mail=mailpit`)
 - **Varnish**: `6.0`, `7.1`
 - **Hitch**: `1.7`
 
-> MariaDB `11.4` / `11.8` / `12.3` use the official `mariadb:11.4` / `mariadb:11.8` / `mariadb:12.3` images directly (no Hiberus wrapper).
+> MariaDB `11.4` / `12.3` use the official `mariadb:11.4` / `mariadb:12.3` images directly (no Hiberus wrapper).
 > Valkey `9` uses the official `valkey/valkey:9-alpine` image directly (no Hiberus wrapper). It is a drop-in replacement for Redis and is wired through the same `redis` service slot, so no Magento configuration changes are required.
 
 ## Magento compatible versions
@@ -61,13 +62,14 @@ _(All patched versions are also compatible — run `hm compatibility` to see the
 
 ## Versions and release candidates
 
-The installation is a git checkout, so moving between versions is a command:
+`hm` is one binary downloaded from a GitHub release, so moving between versions is a command:
 
 ```bash
-hm --version              # exactly what you are running, including commits ahead of the tag
-hm switch --list          # what is available
-hm switch 2.0.0-rc.1      # try a release candidate
-hm switch --stable        # back to stable
+hm --version              # exactly what you are running
+hm switch --list          # the releases available, pre-releases labelled
+hm switch 2.0.0-rc.9      # try a release candidate
+hm switch --stable        # back to the newest final release
+hm update --pre           # the newest release, candidates included
 ```
 
 | Branch or tag | Meaning |
@@ -77,8 +79,9 @@ hm switch --stable        # back to stable
 | `release/X.Y.Z` | Freeze and validate |
 | `X.Y.Z-rc.N` | Release candidates, shared for internal validation |
 
-While pinned to a tag, `hm update` refuses to run so that it cannot take you off the version
-you are validating. See [switch](docs/switch.md).
+`hm update` never moves back: on a release candidate newer than the last final release it says
+you are up to date. `hm switch` only installs releases of 2.0 or later; a 1.x and a branch have no
+binary. See [switch](docs/switch.md) and [update](docs/update.md).
 
 <br>
 
@@ -90,10 +93,18 @@ hm is one binary. Install it with:
 curl -fsSL https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/main/install.sh | bash
 ```
 
-The installer downloads the latest release of 2.0 or later for your system (macOS or Linux, amd64
-or arm64), checks it against the release's `checksums.txt`, and installs it:
+> **Until 2.0.0 is released**, `install.sh` lives on the `release/2.0.0` branch and only release
+> candidates exist, so install one of them:
+>
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/hiberus-magento/hiberus-dockergento/release/2.0.0/install.sh | bash -s -- --pre
+> ```
 
-- at `/usr/local/bin/hm` when that directory is writable, otherwise at `~/.local/bin/hm`;
+The installer downloads the latest final release of 2.0 or later for your system (macOS or Linux,
+amd64 or arm64), checks it against the release's `checksums.txt`, and installs it:
+
+- at `/usr/local/bin/hm`. When that directory is not yours, the binary goes to `~/.hm/bin/hm` and
+  `/usr/local/bin/hm` is a link to it, made once with `sudo`, so updates never need `sudo`;
 - at the same path as an existing 1.x `hm` link, which it replaces, so there is only one `hm`;
 - or where you say: `--dir <directory>` (or `HM_INSTALL_DIR`).
 
@@ -112,8 +123,8 @@ building from source, is [docs/installation.md](docs/installation.md).
 
 ### Update
 
-Run `hm update`, which replaces the running binary with the latest release, or run the installer
-again: it upgrades the `hm` it installed last time, wherever that is (`--dir` included), or says it
+Run `hm update`, which replaces the running binary with the newest final release (`--pre` includes
+release candidates), or run the installer again: it upgrades the `hm` it installed last time, wherever that is (`--dir` included), or says it
 is already up to date.
 
 ### Uninstall
@@ -209,6 +220,7 @@ they belong to that program: `hm composer show --format=json` asks Composer for 
 | [logs](docs/logs.md) | Show the logs of the project or of the services named |
 | [launch](docs/launch.md) | Open the storefront, admin, mail catcher, RabbitMQ or search in the browser |
 | [describe](docs/describe.md) | Everything that defines the current project |
+| [status](docs/status.md) | How the environment is doing: containers, URLs, xdebug, mode, data and last errors |
 | [doctor](docs/doctor.md) | Diagnose the machine and the current project |
 | [list](docs/list.md) | Every Dockergento environment on this machine |
 | [tui](docs/tui.md) | The dashboard: every environment on one screen |
@@ -266,6 +278,7 @@ they belong to that program: `hm composer show --format=json` asks Composer for 
 | [docker-compose](docs/docker-compose.md) | Run `docker compose` with this project's configuration |
 | [docker-stop-all](docs/docker-stop-all.md) | Stop every running container |
 | [cloud](docs/cloud.md) / [cloud-login](docs/cloud-login.md) | Adobe Commerce Cloud CLI |
+| [completion](docs/completion.md) | Print the shell completion script for bash or zsh |
 | `web` | Bring up the web interface and print the link to open it |
 
 **Versions**
@@ -273,14 +286,14 @@ they belong to that program: `hm composer show --format=json` asks Composer for 
 | Command | What it does |
 |---|---|
 | [version](docs/version.md) | The version of hm, Docker and Compose |
-| [update](docs/update.md) | Update the installation and its binary |
-| [switch](docs/switch.md) | Move the installation to another version or branch |
+| [update](docs/update.md) | Replace this hm with the newest release, when there is a newer one |
+| [switch](docs/switch.md) | Install another release (2.0 or later) in place of this hm |
 
 **AI tools**
 
 | Command | What it does |
 |---|---|
-| [mcp](docs/mcp.md) | Read-only tools for agents over the Model Context Protocol |
+| [mcp](docs/mcp.md) | Tools for agents over the Model Context Protocol, read-only unless `--write` |
 | [ai-context](docs/ai-context.md) | Write the project context an agent reads before it starts |
 | [permissions](docs/permissions.md) | Print the permission configuration an agent should be given |
 | `ai-init` / `ai-pull` / `ai-reset` / `ai-doctor` | Configure, download, remove and check AI skills and agents ([skills](docs/skills.md)) |
@@ -449,12 +462,15 @@ them anyway, for that invocation only. See [worktree](docs/worktree.md).
   environments, run the diagnosis, read a service's log, run one read-only SQL statement.
   `hm mcp --config` prints the entry to add to your MCP client; `hm mcp --write` also offers a few
   bounded write tools. See [mcp](docs/mcp.md).
+- `hm status` says how the environment is doing in one call, and `hm --json` lists every command
+  with its options and safety level. See [status](docs/status.md) and [JSON output](docs/json.md).
 - `hm ai-context` writes the project context an agent reads before it starts, and
-  `hm permissions` prints the permission configuration an agent should be given. See
-  [ai-context](docs/ai-context.md) and [permissions](docs/permissions.md).
+  `hm permissions` prints the permission configuration an agent should be given, for Claude Code,
+  Codex or OpenCode (`--format=claude|codex|opencode`). See [ai-context](docs/ai-context.md) and
+  [permissions](docs/permissions.md).
 - `hm ai-init`, `hm ai-pull`, `hm ai-reset` and `hm ai-doctor` manage the AI skills and agents of
-  a project; the skills that teach an agent this tool live in `skills/`. See
-  [skills](docs/skills.md).
+  a project; `hm ai-init --plugin` writes a Claude Code plugin instead. The skills that teach an
+  agent this tool live in `skills/`. See [skills](docs/skills.md) and [ai-init](docs/ai-init.md).
 
 ## Shell completion
 
