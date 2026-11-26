@@ -95,18 +95,15 @@ func (o Orchestrator) up(project core.Project, files core.ComposeFiles, services
 	})
 }
 
-func (o Orchestrator) Stop(project core.Project, files core.ComposeFiles, services []string) error {
-	return o.StopWithTimeout(project, files, services, nil)
-}
-
-// StopWithTimeout is `stop -t`: timeout is in seconds, and nil leaves Compose's own default.
-func (o Orchestrator) StopWithTimeout(project core.Project, files core.ComposeFiles, services []string, timeout *int) error {
+// Stop is `stop [-t timeout] [services]`: the timeout is in seconds, and nil leaves Compose's own
+// default.
+func (o Orchestrator) Stop(project core.Project, files core.ComposeFiles, options core.StopOptions) error {
 	service, loaded, err := o.open(project, files)
 	if err != nil {
 		return err
 	}
 
-	return service.Stop(context.Background(), loaded.Name, stopOptions(loaded, services, timeout))
+	return service.Stop(context.Background(), loaded.Name, stopOptions(loaded, options.Services, options.Timeout))
 }
 
 func stopOptions(loaded *types.Project, services []string, timeout *int) api.StopOptions {

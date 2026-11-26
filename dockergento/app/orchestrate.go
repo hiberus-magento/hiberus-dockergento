@@ -158,7 +158,7 @@ func (o Operator) Rebuild(project core.Project, files core.ComposeFiles, service
 
 	o.announce("Rebuilding and starting containers in detached mode\n\n")
 
-	if err := o.Orchestrator.Stop(project, files, services); err != nil {
+	if err := o.Orchestrator.Stop(project, files, core.StopOptions{Services: services}); err != nil {
 		return err
 	}
 
@@ -288,7 +288,7 @@ func (o Operator) Stop(project core.Project, files core.ComposeFiles, options co
 		}
 	}
 
-	return o.Orchestrator.StopWithTimeout(project, files, options.Services, options.Timeout)
+	return o.Orchestrator.Stop(project, files, core.StopOptions{Services: options.Services, Timeout: options.Timeout})
 }
 
 // Restart is a stop followed by a start, and deliberately not Compose's own `restart`.

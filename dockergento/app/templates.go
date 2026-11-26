@@ -119,7 +119,7 @@ func (t Templates) Freeze(project core.Project, files core.ComposeFiles,
 	if running {
 		label = fmt.Sprintf("The database is stopped while it copies (%s)...", size)
 
-		if err := t.Orchestrator.Stop(project, files, []string{"db"}); err != nil {
+		if err := t.Orchestrator.Stop(project, files, core.StopOptions{Services: []string{"db"}}); err != nil {
 			return core.Template{}, err
 		}
 	}

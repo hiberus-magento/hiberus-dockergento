@@ -269,7 +269,7 @@ func (p Proxy) Certify(domain string) error {
 
 	p.say(fmt.Sprintf("Restarting the proxy so it serves the certificate for %s...\n", domain))
 
-	if err := p.Orchestrator.Stop(p.project(), p.files(), nil); err != nil {
+	if err := p.Orchestrator.Stop(p.project(), p.files(), core.StopOptions{}); err != nil {
 		return err
 	}
 

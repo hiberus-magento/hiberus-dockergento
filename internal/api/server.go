@@ -198,7 +198,7 @@ func (s Server) stop(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	err = s.Engine.Stop(asked.Root, asked.Services, asked.Snapshot)
+	err = s.Engine.Stop(asked.Root, core.StopOptions{Services: asked.Services, Snapshot: asked.Snapshot})
 
 	answer(writer, "stop", map[string]any{"root": asked.Root}, err)
 }
@@ -211,7 +211,7 @@ func (s Server) restart(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	err = s.Engine.Restart(asked.Root, asked.Services)
+	err = s.Engine.Restart(asked.Root, core.RestartOptions{Services: asked.Services})
 
 	answer(writer, "restart", map[string]any{"root": asked.Root}, err)
 }

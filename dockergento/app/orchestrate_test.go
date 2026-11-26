@@ -49,16 +49,11 @@ func (o *orchestrator) UpBuilding(_ core.Project, _ core.ComposeFiles, services 
 	return o.err
 }
 
-func (o *orchestrator) Stop(project core.Project, files core.ComposeFiles, services []string) error {
-	return o.StopWithTimeout(project, files, services, nil)
-}
-
-// StopWithTimeout records the timeout of every stop in stopTimeouts, alongside its stopCalls
-// entry; Stop lands here with nil, the way the adapter's own does.
-func (o *orchestrator) StopWithTimeout(_ core.Project, _ core.ComposeFiles, services []string, timeout *int) error {
-	o.stopCalls = append(o.stopCalls, services)
-	o.stopTimeouts = append(o.stopTimeouts, timeout)
-	o.record("stop " + strings.Join(services, " "))
+// Stop records the services of every stop in stopCalls and its timeout in stopTimeouts.
+func (o *orchestrator) Stop(_ core.Project, _ core.ComposeFiles, options core.StopOptions) error {
+	o.stopCalls = append(o.stopCalls, options.Services)
+	o.stopTimeouts = append(o.stopTimeouts, options.Timeout)
+	o.record("stop " + strings.Join(options.Services, " "))
 
 	if o.stopErr != nil {
 		return o.stopErr

@@ -333,18 +333,19 @@ func (e *Engine) StopEverything(dir string, interactive bool) (core.MachineStop,
 
 // Stop stops without removing, and only takes a copy of the database when asked. A stop that
 // sometimes took a minute because it was dumping a database would be an unpleasant surprise.
-func (e *Engine) Stop(dir string, services []string, snapshot bool) error {
-	return e.StopWith(dir, core.StopOptions{Services: services, Snapshot: snapshot})
-}
-
-// StopWith is Stop with everything a stop can be asked for, the timeout included.
-func (e *Engine) StopWith(dir string, options core.StopOptions) error {
+func (e *Engine) Stop(dir string, options core.StopOptions) error {
 	project, err := e.Resolve(dir)
 	if err != nil {
 		return err
 	}
 
 	return e.operator(project).Stop(project, e.ComposeFiles(project), options)
+}
+
+// StopWith is Stop under the name the command line's engine seam still calls it by
+// (internal/cli: php.go and wrappers.go).
+func (e *Engine) StopWith(dir string, options core.StopOptions) error {
+	return e.Stop(dir, options)
 }
 
 // Down removes the environment and answers what happened: it was destroyed, it was copied first
@@ -394,19 +395,21 @@ func (e *Engine) presentVolumes(project core.Project) []string {
 	return present
 }
 
-// Restart is a stop and a start, so that a change to the configuration is running afterwards.
-func (e *Engine) Restart(dir string, services []string) error {
-	return e.RestartWith(dir, core.RestartOptions{Services: services})
-}
-
-// RestartWith is Restart with everything a restart can be asked for: the timeout is its stop's.
-func (e *Engine) RestartWith(dir string, options core.RestartOptions) error {
+// Restart is a stop and a start, so that a change to the configuration is running afterwards. The
+// timeout is its stop's.
+func (e *Engine) Restart(dir string, options core.RestartOptions) error {
 	project, err := e.Resolve(dir)
 	if err != nil {
 		return err
 	}
 
 	return e.creating(project).Restart(project, e.ComposeFiles(project), options, e.UsesProxy(project))
+}
+
+// RestartWith is Restart under the name the command line's engine seam still calls it by
+// (internal/cli: php.go and wrappers.go).
+func (e *Engine) RestartWith(dir string, options core.RestartOptions) error {
+	return e.Restart(dir, options)
 }
 
 // InstallCertificate generates a certificate for domain with mkcert, installing mkcert first when
