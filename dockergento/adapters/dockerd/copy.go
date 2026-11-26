@@ -3,8 +3,10 @@ package dockerd
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -264,7 +266,7 @@ func restore(archive io.Reader, header *tar.Header, path string) error {
 			return err
 		}
 
-		file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(header.Mode))
+		file, err := create(path, os.FileMode(header.Mode))
 		if err != nil {
 			return err
 		}
@@ -282,6 +284,30 @@ func restore(archive io.Reader, header *tar.Header, path string) error {
 	// Anything else — a device, a socket — is not something a project's code contains, and
 	// recreating one is not something this should be doing
 	return nil
+}
+
+// create opens path to be written from scratch. A read-only file already there is removed and
+// written anew, as `docker cp` replaces it: git keeps its objects 0444, and a package installed
+// from source carries them under vendor. That needs only its directory to be writable; when even
+// that is not, the error names the file and why.
+func create(path string, mode os.FileMode) (*os.File, error) {
+	flags := os.O_CREATE | os.O_TRUNC | os.O_WRONLY
+
+	file, err := os.OpenFile(path, flags, mode)
+	if errors.Is(err, fs.ErrPermission) && os.Remove(path) == nil {
+		file, err = os.OpenFile(path, flags, mode)
+	}
+
+	if err != nil {
+		var failed *fs.PathError
+		if errors.As(err, &failed) {
+			err = failed.Err
+		}
+
+		return nil, fmt.Errorf("could not write %s: %w", path, err)
+	}
+
+	return file, nil
 }
 
 // tally counts what a copy carries, the contents of its files and how many there are, and tells

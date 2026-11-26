@@ -14,6 +14,8 @@ The `copy-from-container` command is used to copy files or folder to host from c
 
 The container's `.git` is never written onto the host: a `.git` directory or file at the top of a copied folder (`hm copy-from-container .` included) is skipped, so a stale repository left in the container cannot overwrite the host's. A `.git` deeper in the tree, such as a package Composer installed from source under `vendor`, is copied like any other file.
 
+A read-only file already on the host is replaced, as `docker cp` replaces it, as long as its directory can be written; when it cannot, the error names the file and the reason.
+
 ## Progress
 
 On a terminal, a line under each `Copying …` line shows how far the copy has got, redrawn in place:
