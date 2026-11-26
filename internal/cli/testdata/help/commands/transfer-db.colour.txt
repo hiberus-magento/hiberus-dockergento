@@ -1,2 +1,6 @@
-[0;32mDescription:[0m Transfer database form external source to this project
+[0;32mUsage: [0m[0;33mhm transfer-db [OPTIONS]
+[0m[0;32mDescription:[0m Transfer database form external source to this project
+[0;32mOptions:
+[0m   [0;33m[-|--structure-only][0m Also dump these tables without data: comma list of @groups, names and * patterns, added to TRANSFER_DB_STRUCTURE_ONLY (default @saas)
+   [0;33m[-|--full]      [0m Dump every table with its data, ignoring TRANSFER_DB_STRUCTURE_ONLY and --structure-only
 

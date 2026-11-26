@@ -82,6 +82,7 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	sshHost, sshUser := defaultDBSSHHost, ""
 	sqlHost, sqlPort, sqlUser, sqlDB, sqlPassword := defaultDBHost, defaultDBPort, defaultDBUser, defaultDBName, ""
 	anonymise := "prompt"
+	structureOnly, full := []string{}, false
 
 	// Anything else is ignored, as the shell's catch-all case ignored it
 	for _, argument := range args {
@@ -104,6 +105,10 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			sqlPassword = value
 		case "--anonymise":
 			anonymise = value
+		case "--structure-only":
+			structureOnly = append(structureOnly, core.SplitTableRules(value)...)
+		case "--full":
+			full = true
 		}
 	}
 
@@ -124,6 +129,16 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			return failure(stderr, jsonOutput, "transfer-db", exitService, "service_not_running",
 				fmt.Sprintf("Service '%s' is not running", service), binaryName()+" start "+service)
 		}
+	}
+
+	// A rule that cannot be resolved would dump with its data the very tables it names: refused
+	// before a single question is asked
+	rules := append(core.SplitTableRules(engine.Property(project, structureOnlyProperty)), structureOnly...)
+
+	patterns, err := structureOnlyPatterns(rules, full)
+	if err != nil {
+		return failure(stderr, jsonOutput, "transfer-db", exitUsage, "invalid_argument",
+			"TRANSFER_DB_STRUCTURE_ONLY or --structure-only: "+err.Error(), binaryName()+" transfer-db --help")
 	}
 
 	// log is nothing until the connection is known: it must know the password to hide it
@@ -222,9 +237,16 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	log.printf("Project %s in %s\nFrom %s, database %s@%s:%s/%s\n", project.Name, project.Root,
 		from, sqlUser, sqlHost, sqlPort, sqlDB)
 
+	switch {
+	case full:
+		say("Dumping every table with its data (--full)\n")
+	case len(patterns) > 0:
+		say("Tables to dump without data: " + strings.Join(rules, ", ") + " (--full dumps them with their data)\n")
+	}
+
 	say("Creating database dump from origin server...\n")
 
-	dump := dumpPipeline(sqlHost, sqlUser, sqlPort, passwordFlag, sqlDB)
+	dump := dumpPipeline(sqlHost, sqlUser, sqlPort, passwordFlag, sqlDB, patterns)
 
 	// fail stops the transfer with what failed and why, and the last of what the step said
 	fail := func(code int, headline, said string) int {
@@ -311,8 +333,11 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return said.String(), status, err
 	}
 
+	dumped := ""
+
 	for attempt := 1; ; attempt++ {
 		said, status, err := takeDump(fmt.Sprintf(" (attempt %d/%d)", attempt, transferDumpAttempts))
+		dumped = said
 
 		switch {
 		case err != nil && runner == "ssh":
@@ -343,6 +368,10 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 
 		return fail(code, headline, said)
+	}
+
+	if len(patterns) > 0 {
+		reportStructureOnly(dumpedWithoutData(dumped), log, say)
 	}
 
 	if sshHost != "" {
@@ -521,8 +550,12 @@ const transferMarker = "hm-transfer-db: "
 // would do it under bash, but the remote end is whatever login shell the server gives, which
 // may be a plain sh; `part || echo` works in every one of them. gzip, the last part, needs no
 // marker: its status is the pipeline's. A ' in a single-quoted value is escaped, where the shell
-// let it end the quoting.
-func dumpPipeline(host, user, port, passwordFlag, database string) string {
+// let it end the quoting. With structure-only patterns it is structureOnlyDump instead.
+func dumpPipeline(host, user, port, passwordFlag, database string, patterns []string) string {
+	if len(patterns) > 0 {
+		return structureOnlyDump(host, user, port, passwordFlag, database, patterns)
+	}
+
 	return fmt.Sprintf(`dump=$(command -v mariadb-dump || command -v mysqldump); `+
 		`{ "$dump" --single-transaction --quick --no-tablespaces --skip-comments -h'%s' -u'%s' -P %s %s %s || echo "%sthe dump exited with status $?" >&2; } | `+
 		`{ sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' || echo "%ssed exited with status $?" >&2; } | gzip -9`,
@@ -576,7 +609,8 @@ func stepTail(said string, count int) string {
 
 	for _, line := range strings.Split(said, "\n") {
 		line = strings.TrimRight(line, "\r ")
-		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), transferMarker) {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, transferMarker) || strings.HasPrefix(trimmed, structureOnlyMarker) {
 			continue
 		}
 

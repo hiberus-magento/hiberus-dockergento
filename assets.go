@@ -30,6 +30,7 @@ const AssetsDirVariable = "HM_ASSETS_DIR"
 //go:embed data/local_settings.json
 //go:embed data/properties.json
 //go:embed data/requirements.json
+//go:embed data/table-groups.json
 //go:embed docker-compose/*.yml
 //go:embed skills
 var embedded embed.FS

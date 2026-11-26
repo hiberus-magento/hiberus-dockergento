@@ -113,13 +113,14 @@ func answeringWith(t *testing.T, answers ...string) *[]string {
 	return asked
 }
 
-// steps is what the command asked of the engine after resolving and describing the project.
+// steps is what the command asked of the engine after resolving and describing the project and
+// reading its structure-only rules.
 func steps(fake *fakeEngine) []string {
 	out := []string{}
 
 	for _, one := range fake.calls {
 		switch one.Method {
-		case "Resolve", "Describe":
+		case "Resolve", "Describe", "Property":
 			continue
 		case "Exec", "Capture":
 			out = append(out, one.Method+" "+one.Service+" "+strings.Join(one.Command, " | "))
@@ -462,8 +463,8 @@ func TestAFailedSSHStopsWithItsStatus(t *testing.T) {
 // is not touched.
 func TestAFailedStepStopsWithItsStatus(t *testing.T) {
 	fake, _ := dbLab(t)
-	// Resolve, Describe, CopyIntoService, keep the config, restore
-	fake.outcomes = []outcome{{}, {}, {}, {}, {status: 1}}
+	// Resolve, Describe, the structure-only rules, CopyIntoService, keep the config, restore
+	fake.outcomes = []outcome{{}, {}, {}, {}, {}, {status: 1}}
 
 	if code := transferDB([]string{"--ssh-user=abc"}, io.Discard, io.Discard, false); code != 1 {
 		t.Fatalf("transfer-db with the restore failing = %d, want 1", code)
@@ -478,8 +479,8 @@ func TestAFailedStepStopsWithItsStatus(t *testing.T) {
 // never stopped the shell, and the rest of the steps still ran.
 func TestAFailedAnonymisationDoesNotStopTheTransfer(t *testing.T) {
 	fake, _ := dbLab(t)
-	// Resolve, Describe, Copy, three execs, Clear, Anonymise
-	fake.outcomes = []outcome{{}, {}, {}, {}, {}, {}, {}, {err: errors.New("masquerade failed")}}
+	// Resolve, Describe, the structure-only rules, Copy, three execs, Clear, Anonymise
+	fake.outcomes = []outcome{{}, {}, {}, {}, {}, {}, {}, {}, {err: errors.New("masquerade failed")}}
 
 	if code := transferDB([]string{"--ssh-user=abc"}, io.Discard, io.Discard, false); code != exitOK {
 		t.Fatalf("transfer-db with the anonymiser failing = %d, want exitOK", code)

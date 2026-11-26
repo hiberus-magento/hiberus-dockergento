@@ -854,7 +854,24 @@
     },
     "transfer-db": {
         "description": "Transfer database form external source to this project",
+        "usage": "transfer-db [OPTIONS]",
         "group": "database",
+        "opts": [
+            {
+                "name": {
+                    "short": "",
+                    "long": "structure-only"
+                },
+                "description": "Also dump these tables without data: comma list of @groups, names and * patterns, added to TRANSFER_DB_STRUCTURE_ONLY (default @saas)"
+            },
+            {
+                "name": {
+                    "short": "",
+                    "long": "full"
+                },
+                "description": "Dump every table with its data, ignoring TRANSFER_DB_STRUCTURE_ONLY and --structure-only"
+            }
+        ],
         "safety": "caution"
     },
     "transfer-media": {

@@ -139,8 +139,8 @@ func TestAFailedLocalDumpStopsBeforeTheRestore(t *testing.T) {
 	fake, _ := dbLab(t)
 	answeringWith(t, "n")
 
-	// Resolve, Describe, the dump
-	fake.outcomes = []outcome{{}, {}, {status: 2, captured: "mariadb-dump: Got error: 1045: \"Access denied for user 'mysql'@'%'\" when trying to connect\n" +
+	// Resolve, Describe, the structure-only rules, the dump
+	fake.outcomes = []outcome{{}, {}, {}, {status: 2, captured: "mariadb-dump: Got error: 1045: \"Access denied for user 'mysql'@'%'\" when trying to connect\n" +
 		"hm-transfer-db: the dump exited with status 2\n"}}
 
 	var stderr bytes.Buffer
@@ -230,8 +230,8 @@ func TestTheLocalDumpIsRetriedToo(t *testing.T) {
 	fake, _ := dbLab(t)
 	answeringWith(t, "n")
 
-	// Resolve, Describe, the first dump
-	fake.outcomes = []outcome{{}, {}, {captured: tableChanged}}
+	// Resolve, Describe, the structure-only rules, the first dump
+	fake.outcomes = []outcome{{}, {}, {}, {captured: tableChanged}}
 
 	if code := transferDB([]string{"--sql-password=pw"}, io.Discard, io.Discard, false); code != exitOK {
 		t.Fatalf("transfer-db = %d, want exitOK", code)
@@ -250,8 +250,8 @@ func TestEveryFailingStepSaysWhichAndWhy(t *testing.T) {
 	cases := []struct {
 		name string
 
-		// at is the call that fails: Resolve, Describe, Copy, keep the config, restore, put the
-		// config back, Clear, Anonymise and the three bin/magento follow
+		// at is the call that fails: Resolve, Describe, the structure-only rules, Copy, keep the
+		// config, restore, put the config back, Clear, Anonymise and the three bin/magento follow
 		at       int
 		outcome  outcome
 		code     int
@@ -259,39 +259,39 @@ func TestEveryFailingStepSaysWhichAndWhy(t *testing.T) {
 		said     string
 	}{
 		{
-			name: "copying the dump", at: 2, outcome: outcome{err: errors.New("no space left on device")},
+			name: "copying the dump", at: 3, outcome: outcome{err: errors.New("no space left on device")},
 			code: exitDocker, headline: "Copying the dump into the db container failed: no space left on device",
 		},
 		{
-			name: "saving core_config_data", at: 3,
+			name: "saving core_config_data", at: 4,
 			outcome: outcome{status: 2, captured: "mariadb-dump: Got error: 1045: \"Access denied for user 'magento'@'localhost'\"\n"},
 			code:    2, headline: "Saving core_config_data, admin_user and tfa_user_config failed (it exited with status 2)",
 			said: "Access denied for user 'magento'@'localhost'",
 		},
 		{
-			name: "restoring a truncated dump", at: 4,
+			name: "restoring a truncated dump", at: 5,
 			outcome: outcome{status: 1, captured: "gzip: stdin: unexpected end of file\nhm-transfer-db: zcat exited with status 1\n"},
 			code:    1, headline: "Restoring the dump into the local database failed (zcat exited with status 1)",
 			said: "gzip: stdin: unexpected end of file",
 		},
 		{
-			name: "restoring with no server to restore into", at: 4,
+			name: "restoring with no server to restore into", at: 5,
 			outcome: outcome{status: 1, captured: "ERROR 2002 (HY000): Can't connect to local server through socket '/run/mysqld/mysqld.sock' (2)\n"},
 			code:    1, headline: "Restoring the dump into the local database failed (it exited with status 1)",
 			said: "ERROR 2002 (HY000): Can't connect to local server",
 		},
 		{
-			name: "putting core_config_data back", at: 5,
+			name: "putting core_config_data back", at: 6,
 			outcome: outcome{status: 1, captured: "ERROR 1062 (23000) at line 30: Duplicate entry '1' for key 'PRIMARY'\n"},
 			code:    1, headline: "Putting core_config_data, admin_user and tfa_user_config back failed (it exited with status 1)",
 			said: "Duplicate entry '1' for key 'PRIMARY'",
 		},
 		{
-			name: "clearing the anonymisation record", at: 6, outcome: outcome{err: errors.New("read-only file system")},
+			name: "clearing the anonymisation record", at: 7, outcome: outcome{err: errors.New("read-only file system")},
 			code: exitDocker, headline: "Recording that the database is no longer anonymised failed: read-only file system",
 		},
 		{
-			name: "reindexing", at: 9, outcome: outcome{status: 1},
+			name: "reindexing", at: 10, outcome: outcome{status: 1},
 			code: 1, headline: "Running bin/magento indexer:reindex failed (it exited with status 1; its output is above)",
 		},
 	}
@@ -308,7 +308,7 @@ func TestEveryFailingStepSaysWhichAndWhy(t *testing.T) {
 				t.Fatalf("transfer-db = %d, want %d\n%s", code, tt.code, stderr.String())
 			}
 
-			if got := steps(fake); len(got) != tt.at-1 {
+			if got := steps(fake); len(got) != tt.at-2 {
 				t.Fatalf("went on after the failing step: %v", got)
 			}
 
@@ -337,8 +337,8 @@ func TestSavingCoreConfigDataNoLongerHidesItsErrors(t *testing.T) {
 func TestErrorsTheForcedRestoreSkippedAreCounted(t *testing.T) {
 	fake, _ := dbLab(t)
 
-	// Resolve, Describe, Copy, keep the config, restore
-	fake.outcomes = []outcome{{}, {}, {}, {}, {status: 1, captured: "ERROR 1146 (42S02) at line 12: Table 'main.gone' doesn't exist\n" +
+	// Resolve, Describe, the structure-only rules, Copy, keep the config, restore
+	fake.outcomes = []outcome{{}, {}, {}, {}, {}, {status: 1, captured: "ERROR 1146 (42S02) at line 12: Table 'main.gone' doesn't exist\n" +
 		"ERROR 1064 (42000) at line 40: You have an error in your SQL syntax\n"}}
 
 	var stdout, stderr bytes.Buffer
@@ -385,8 +385,8 @@ func transferLogText(t *testing.T) string {
 func TestTheTransferIsLogged(t *testing.T) {
 	fake, _ := dbLab(t)
 
-	// Resolve, Describe, Copy, keep the config, restore
-	fake.outcomes = []outcome{{}, {}, {}, {captured: "mariadb-dump: [Warning] Using a password on the command line interface can be insecure.\n"},
+	// Resolve, Describe, the structure-only rules, Copy, keep the config, restore
+	fake.outcomes = []outcome{{}, {}, {}, {}, {captured: "mariadb-dump: [Warning] Using a password on the command line interface can be insecure.\n"},
 		{status: 1, captured: "ERROR 1146 (42S02) at line 12: Table 'main.gone' doesn't exist\n"}}
 
 	if code := transferDB([]string{"--ssh-user=abc", "--sql-password=pw", "--anonymise=false"}, io.Discard, io.Discard, false); code != exitOK {
@@ -412,7 +412,7 @@ func TestTheTransferIsLogged(t *testing.T) {
 func TestEveryFailureEndsWithTheLog(t *testing.T) {
 	t.Run("json", func(t *testing.T) {
 		fake, _ := dbLab(t)
-		fake.outcomes = []outcome{{}, {}, {}, {}, {status: 1, captured: "gzip: stdin: unexpected end of file\nhm-transfer-db: zcat exited with status 1\n"}}
+		fake.outcomes = []outcome{{}, {}, {}, {}, {}, {status: 1, captured: "gzip: stdin: unexpected end of file\nhm-transfer-db: zcat exited with status 1\n"}}
 
 		var stderr bytes.Buffer
 

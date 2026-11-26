@@ -1,0 +1,136 @@
+{
+    "source": "Every group but saas is n98-magerun2's db:dump table group of the same name, copied from config.yaml at tag 10.1.0 (https://github.com/netz98/n98-magerun2/blob/10.1.0/config.yaml). saas is hm's own: the Adobe Commerce data exporter feeds (magento/commerce-data-export) and their batch and sync tables.",
+    "groups": [
+        {
+            "id": "admin",
+            "description": "Admin tables",
+            "tables": ["admin*", "magento_logging_event", "magento_logging_event_changes", "ui_bookmark", "authorization_role", "authorization_rule"]
+        },
+        {
+            "id": "oauth",
+            "description": "OAuth tables",
+            "tables": ["oauth_*"]
+        },
+        {
+            "id": "log",
+            "description": "Log tables",
+            "tables": ["log_url", "log_url_info", "log_visitor", "log_visitor_info", "log_visitor_online", "report_event", "report_compared_product_index", "report_viewed_*"]
+        },
+        {
+            "id": "sessions",
+            "description": "Database session tables",
+            "tables": ["session", "persistent_session"]
+        },
+        {
+            "id": "stripped",
+            "description": "Standard definition for a stripped dump (logs, sessions, dotmailer, indexer noise)",
+            "tables": ["@log", "@sessions", "@dotmailer", "@newrelic_reporting", "@temp", "@ee_changelog", "@indexer_batches", "system_config_snapshot"]
+        },
+        {
+            "id": "sales",
+            "description": "Sales data (orders, invoices, creditmemos etc)",
+            "tables": [
+                "sales_order", "sales_order_address", "sales_order_aggregated_created", "sales_order_aggregated_updated", "sales_order_grid", "sales_order_item", "sales_order_payment", "sales_order_status_history", "sales_order_tax", "sales_order_tax_item", "sequence_order_*",
+                "sales_invoice", "sales_invoice_*", "sales_invoiced_*", "sequence_invoice_*",
+                "sales_shipment", "sales_shipment_*", "sales_shipping_*", "sequence_shipment_*",
+                "sales_creditmemo", "sales_creditmemo_*", "sequence_creditmemo_*",
+                "sales_recurring_*", "sales_refunded_*", "sales_payment_*",
+                "enterprise_sales_*", "enterprise_customer_sales_*", "sales_bestsellers_*", "magento_customercustomattributes_sales_flat_*",
+                "inventory_reservation",
+                "paypal_billing_agreement*", "paypal_payment_transaction", "paypal_settlement_report*",
+                "magento_rma", "magento_rma_grid", "magento_rma_status_history", "magento_rma_shipping_label", "magento_rma_item_entity", "sequence_rma_item_*",
+                "magento_sales_order_grid_archive", "magento_sales_creditmemo_grid_archive", "magento_sales_invoice_grid_archive", "magento_sales_shipment_grid_archive"
+            ]
+        },
+        {
+            "id": "quotes",
+            "description": "Cart (quote) data",
+            "tables": ["negotiable_quote", "negotiable_quote_*", "quote", "quote_*"]
+        },
+        {
+            "id": "customers",
+            "description": "Customer data - Should not be used without @sales",
+            "tables": [
+                "customer_address*", "customer_entity", "customer_entity_*", "customer_grid_flat", "customer_log", "customer_visitor",
+                "newsletter_subscriber", "product_alert*", "vault_payment_token", "vault_payment_token_*", "wishlist", "wishlist_*",
+                "company", "company_*", "magento_giftcardaccount", "magento_customerbalance", "magento_customerbalance_history",
+                "magento_customersegment_customer", "magento_reward", "magento_reward_history"
+            ]
+        },
+        {
+            "id": "trade",
+            "description": "Current trade data (customers and orders). You usally do not want those in developer systems.",
+            "tables": ["@customers", "@sales", "@quotes", "@klarna", "@mailchimp"]
+        },
+        {
+            "id": "development",
+            "description": "Removes logs and trade data so developers do not have to work with real customer data",
+            "tables": ["@admin", "@oauth", "@trade", "@stripped", "@search", "@2fa", "@aggregated"]
+        },
+        {
+            "id": "ee_changelog",
+            "description": "Changelog tables of new indexer since EE 1.13",
+            "tables": ["*_cl"]
+        },
+        {
+            "id": "indexer_batches",
+            "description": "Indexer batch tables (data exporter, etc.) — regenerated on demand",
+            "tables": ["*_index_batches"]
+        },
+        {
+            "id": "search",
+            "description": "Search related tables",
+            "tables": ["catalogsearch_*", "search_query", "search_synonyms"]
+        },
+        {
+            "id": "idx",
+            "description": "Tables with _idx suffix",
+            "tables": ["*_idx"]
+        },
+        {
+            "id": "dotmailer",
+            "description": "Dotmailer tables",
+            "tables": ["email_abandoned_cart", "email_automation", "email_campaign", "email_catalog", "email_contact", "email_contact_consent", "email_coupon_attribute", "email_failed_auth", "email_importer", "email_order", "email_review", "email_rules", "email_wishlist"]
+        },
+        {
+            "id": "2fa",
+            "description": "Two Factor Auth tables",
+            "tables": ["msp_tfa_user_config", "msp_tfa_trusted"]
+        },
+        {
+            "id": "newrelic_reporting",
+            "description": "New Relic reporting tables",
+            "tables": ["reporting_*"]
+        },
+        {
+            "id": "aggregated",
+            "description": "Aggregated tables",
+            "tables": ["*_aggregated", "*_aggregated_updated", "*_aggregated_created", "*_aggregated_daily", "*_aggregated_monthly", "*_aggregated_yearly", "*_aggregated_order"]
+        },
+        {
+            "id": "replica",
+            "description": "Replica tables",
+            "tables": ["*_replica"]
+        },
+        {
+            "id": "klarna",
+            "description": "Klarna tables",
+            "tables": ["klarna_*"]
+        },
+        {
+            "id": "temp",
+            "description": "Temporary indexer tables",
+            "tables": ["*__temp*"]
+        },
+        {
+            "id": "mailchimp",
+            "description": "Mailchimp tables",
+            "tables": ["mailchimp_*"]
+        },
+        {
+            "id": "saas",
+            "description": "Adobe Commerce data exporter feeds and SaaS sync queues: rebuilt by the exporter, and altered while a live store is dumped",
+            "tables": ["cde_*", "*_data_exporter_*", "*_sync_batches", "*_index_batches"]
+        }
+    ]
+}

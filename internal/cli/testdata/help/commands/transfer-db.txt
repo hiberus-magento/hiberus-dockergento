@@ -1,2 +1,6 @@
+Usage: hm transfer-db [OPTIONS]
 Description: Transfer database form external source to this project
+Options:
+   [-|--structure-only] Also dump these tables without data: comma list of @groups, names and * patterns, added to TRANSFER_DB_STRUCTURE_ONLY (default @saas)
+   [-|--full]       Dump every table with its data, ignoring TRANSFER_DB_STRUCTURE_ONLY and --structure-only
 

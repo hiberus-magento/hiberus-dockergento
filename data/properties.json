@@ -10,5 +10,6 @@
     "WORKDIR_PHP": "/var/www/html",
     "COMPOSE_PROJECT_NAME": "",
     "MAIL_SERVICE": "mailhog",
-    "USE_PROXY": "false"
+    "USE_PROXY": "false",
+    "TRANSFER_DB_STRUCTURE_ONLY": "@saas"
 }
