@@ -29,6 +29,9 @@ type SwitchOptions struct {
 	Running string
 	Version string
 	Stable  bool
+	// Unattended is a switch nobody can answer a prompt for: the answer is read by a program
+	// (--json), so sudo is never asked for a password to move the binary.
+	Unattended bool
 }
 
 // Switched is where a switch left the tool: the version asked for, the version now installed, the
@@ -48,6 +51,8 @@ type UpdateOptions struct {
 	Running string
 	// PreReleases lets the update move to a pre-release when it is the newest release.
 	PreReleases bool
+	// Unattended is as SwitchOptions.Unattended.
+	Unattended bool
 }
 
 // Updated is what an update did: whether it replaced the executable, from which version to which.

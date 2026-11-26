@@ -19,7 +19,7 @@ func (e *Engine) Update(options core.UpdateOptions) (core.Updated, error) {
 		return core.Updated{}, err
 	}
 
-	install := e.installer()
+	install := e.installer().attended(options.Unattended)
 	looking := e.step("Looking up the latest release")
 
 	found, err := e.releases(install.source, options.PreReleases)

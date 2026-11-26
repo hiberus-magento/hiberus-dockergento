@@ -70,7 +70,7 @@ func (e *Engine) Switch(options core.SwitchOptions) (core.Switched, error) {
 		return core.Switched{}, err
 	}
 
-	install := e.installer()
+	install := e.installer().attended(options.Unattended)
 
 	label := "Looking up release " + asked
 	if options.Stable {

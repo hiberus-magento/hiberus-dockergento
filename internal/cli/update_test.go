@@ -126,26 +126,30 @@ func TestAnUpdateRefusalKeepsItsCode(t *testing.T) {
 	}
 }
 
-// promptsSeen is the fake engine, recording what HM_NON_INTERACTIVE was while it was asked to
-// replace the binary: what decides whether sudo may ask for a password.
+// promptsSeen is the fake engine, recording whether it was asked to replace the binary unattended
+// (what decides whether sudo may ask for a password) and what HM_NON_INTERACTIVE was meanwhile.
 type promptsSeen struct {
 	*fakeEngine
-	during []string
+	unattended []bool
+	during     []string
 }
 
 func (p *promptsSeen) Update(options core.UpdateOptions) (core.Updated, error) {
+	p.unattended = append(p.unattended, options.Unattended)
 	p.during = append(p.during, os.Getenv("HM_NON_INTERACTIVE"))
 
 	return p.fakeEngine.Update(options)
 }
 
 func (p *promptsSeen) Switch(options core.SwitchOptions) (core.Switched, error) {
+	p.unattended = append(p.unattended, options.Unattended)
 	p.during = append(p.during, os.Getenv("HM_NON_INTERACTIVE"))
 
 	return p.fakeEngine.Switch(options)
 }
 
-// watchingPrompts answers with a fake engine that records HM_NON_INTERACTIVE, starting unset.
+// watchingPrompts answers with a fake engine that records what it was asked, HM_NON_INTERACTIVE
+// starting unset.
 func watchingPrompts(t *testing.T) *promptsSeen {
 	t.Helper()
 
@@ -158,7 +162,8 @@ func watchingPrompts(t *testing.T) *promptsSeen {
 }
 
 // TestAJSONUpdateNeverAsksForAPassword: a program reads a JSON answer, and nobody is there to give
-// sudo a password, so the replacement runs as HM_NON_INTERACTIVE does, and only for its duration.
+// sudo a password, so the replacement is asked for unattended — said to the engine, not through
+// HM_NON_INTERACTIVE, which the command leaves as it found it.
 func TestAJSONUpdateNeverAsksForAPassword(t *testing.T) {
 	cases := []struct {
 		name string
@@ -178,12 +183,16 @@ func TestAJSONUpdateNeverAsksForAPassword(t *testing.T) {
 			c.run(false)
 			c.run(true)
 
-			if len(seen.during) != 2 || seen.during[0] != "" || seen.during[1] != "1" {
-				t.Fatalf("HM_NON_INTERACTIVE while replacing = %q, want [\"\" \"1\"] (text, then JSON)", seen.during)
+			if len(seen.unattended) != 2 || seen.unattended[0] || !seen.unattended[1] {
+				t.Fatalf("unattended = %v, want [false true] (text, then JSON)", seen.unattended)
+			}
+
+			if len(seen.during) != 2 || seen.during[0] != "" || seen.during[1] != "" {
+				t.Fatalf("HM_NON_INTERACTIVE while replacing = %q, want it never set", seen.during)
 			}
 
 			if value, set := os.LookupEnv("HM_NON_INTERACTIVE"); set {
-				t.Fatalf("HM_NON_INTERACTIVE is still %q after the command", value)
+				t.Fatalf("HM_NON_INTERACTIVE is %q after the command", value)
 			}
 		})
 	}

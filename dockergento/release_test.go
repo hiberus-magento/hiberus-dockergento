@@ -522,6 +522,47 @@ func TestWithoutATerminalADirectoryOnlyRootWritesIsRefusedAsBefore(t *testing.T)
 	}
 }
 
+// TestAnUnattendedReplacementNeverAsksSudo: a JSON answer is read by a program, with nobody to give
+// sudo a password, so even with a person's terminal and sudo there the move to ~/.hm/bin is not
+// tried, for update and for switch alike. The option says so; no variable of the process is read.
+func TestAnUnattendedReplacementNeverAsksSudo(t *testing.T) {
+	cases := map[string]func(*Engine) error{
+		"update": func(engine *Engine) error {
+			_, err := engine.Update(core.UpdateOptions{Running: "2.0.0", Unattended: true})
+			return err
+		},
+		"switch": func(engine *Engine) error {
+			_, err := engine.Switch(core.SwitchOptions{Running: "2.0.0", Version: "2.1.0", Unattended: true})
+			return err
+		},
+	}
+
+	for name, replace := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("HM_NON_INTERACTIVE", "")
+			source := &fakeReleases{}
+			source.publish("2.1.0", false)
+			engine, target := installed(t, source)
+			rootOwned(t, target)
+			sudo, home, notice := atTerminal(t, engine)
+
+			refusal := refusalOf(t, replace(engine))
+			if refusal.Kind != "install_dir_not_writable" ||
+				refusal.Message != "Cannot replace "+target+": "+filepath.Dir(target)+" is not writable by you, so 2.1.0 was not installed" {
+				t.Fatalf("refusal = %+v", refusal)
+			}
+
+			if len(sudo.asked) != 0 || notice.Len() != 0 || contentOf(t, target) != "old" {
+				t.Fatalf("sudo asked %v, notice %q", sudo.asked, notice.String())
+			}
+
+			if _, err := os.Stat(filepath.Join(home, ".hm")); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("~/.hm was written: %v", err)
+			}
+		})
+	}
+}
+
 func TestSudoRefusedLeavesTheOldBinaryRunning(t *testing.T) {
 	source := &fakeReleases{}
 	source.publish("2.1.0", false)

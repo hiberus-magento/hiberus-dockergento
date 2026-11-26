@@ -19,7 +19,8 @@ var releaseNotes = dockergento.ReleaseNotes
 // nothing to switch to, or with --list, which wins over a version named with it. A version named
 // twice is the last one.
 func switchVersion(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
-	options := core.SwitchOptions{Running: runningVersion()}
+	// Unattended as update is: nobody gives sudo a password for a JSON answer
+	options := core.SwitchOptions{Running: runningVersion(), Unattended: jsonOutput}
 	listOnly := false
 
 	for _, argument := range args {
@@ -57,8 +58,6 @@ func switchVersion(args []string, stdout, stderr io.Writer, jsonOutput bool) int
 
 		return exitOK
 	}
-
-	defer promptless(jsonOutput)()
 
 	switched, err := tool.Switch(options)
 	if err != nil {

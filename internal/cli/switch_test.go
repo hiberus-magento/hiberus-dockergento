@@ -48,7 +48,7 @@ func TestSwitchStableAsksForTheNewestFinalRelease(t *testing.T) {
 	switchVersion([]string{"--stable"}, io.Discard, io.Discard, true)
 
 	if len(fake.calls) != 1 || fake.calls[0].Method != "Switch" ||
-		fake.switchOptions != (core.SwitchOptions{Running: "2.0.0", Stable: true}) {
+		fake.switchOptions != (core.SwitchOptions{Running: "2.0.0", Stable: true, Unattended: true}) {
 		t.Fatalf("switch --stable asked %v %+v, want Switch stable", fake.calls, fake.switchOptions)
 	}
 }

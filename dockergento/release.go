@@ -157,6 +157,16 @@ func (e *Engine) installer() installer {
 	return newInstaller()
 }
 
+// attended is install as it may be used for this call: with nobody to answer a prompt (unattended),
+// there is no terminal for sudo to ask its password on, whatever the process is attached to.
+func (i installer) attended(unattended bool) installer {
+	if unattended {
+		i.interactive = nil
+	}
+
+	return i
+}
+
 // target is the file the running executable really is, links resolved: /usr/local/bin/hm linking
 // to ~/.hm/bin/hm is replaced at ~/.hm/bin/hm, and the link is kept.
 func (i installer) target() (string, error) {
