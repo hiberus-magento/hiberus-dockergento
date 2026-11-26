@@ -21,10 +21,13 @@ import (
 // runner and the questions are replaced, and what they were asked is what is checked.
 //
 
-// The commands transfer-db.sh ran, byte for byte.
+// The commands transfer-db runs. The dump is transfer-db.sh's, except that each part of its
+// pipeline says on stderr when it failed: the remote login shell is not guaranteed to be bash,
+// so pipefail cannot be counted on there, and without it a failed dump left a truncated file
+// that was copied and restored as if nothing had happened.
 const (
-	tunnelledDump = `dump=$(command -v mariadb-dump || command -v mysqldump); "$dump" --single-transaction --quick --no-tablespaces --skip-comments -h'database.internal' -u'mysql' -P 3306 -p'pw' main         | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/'         | gzip -9`
-	directDump    = `dump=$(command -v mariadb-dump || command -v mysqldump); "$dump" --single-transaction --quick --no-tablespaces --skip-comments -h'database.internal' -u'mysql' -P 3306 -p'pw' main | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' | gzip -9 > /tmp/db.sql.gz`
+	tunnelledDump = `dump=$(command -v mariadb-dump || command -v mysqldump); { "$dump" --single-transaction --quick --no-tablespaces --skip-comments -h'database.internal' -u'mysql' -P 3306 -p'pw' main || echo "hm-transfer-db: the dump exited with status $?" >&2; } | { sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' || echo "hm-transfer-db: sed exited with status $?" >&2; } | gzip -9`
+	directDump    = `{ ` + tunnelledDump + ` > /tmp/db.sql.gz; } 2>&1`
 	keepConfig    = `dump=$(command -v mariadb-dump || command -v mysqldump); "$dump" -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE core_config_data admin_user tfa_user_config > /tmp/ccd.sql 2> /dev/null`
 	restoreDump   = `client=$(command -v mariadb || command -v mysql); zcat /tmp/db.sql.gz | sed '/sandbox mode/d' | "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE`
 	putConfigBack = `client=$(command -v mariadb || command -v mysql); [ -f /tmp/ccd.sql ] && "$client" -f -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < /tmp/ccd.sql`
@@ -54,7 +57,7 @@ func dbLab(t *testing.T) (*fakeEngine, *[]sshRun) {
 	previous := runSSH
 	t.Cleanup(func() { runSSH = previous })
 
-	runSSH = func(args []string, output string) (int, error) {
+	runSSH = func(args []string, output string, _ io.Writer) (int, error) {
 		*ran = append(*ran, sshRun{Args: args, Output: output})
 
 		return 0, nil
@@ -112,8 +115,8 @@ func steps(fake *fakeEngine) []string {
 		switch one.Method {
 		case "Resolve", "Describe":
 			continue
-		case "Exec":
-			out = append(out, "Exec "+one.Service+" "+strings.Join(one.Command, " | "))
+		case "Exec", "Capture":
+			out = append(out, one.Method+" "+one.Service+" "+strings.Join(one.Command, " | "))
 		case "CopyIntoService":
 			out = append(out, "CopyIntoService "+one.Service+" "+strings.Join(one.Paths, " ")+" "+one.Path)
 		default:
@@ -167,7 +170,8 @@ func TestEveryOptionReachesTheCommandsItBuilds(t *testing.T) {
 		"--sql-port=3307", "--sql-user=shop", "--sql-db=live", "--sql-password=secret",
 		"--anonymise=false"}, io.Discard, io.Discard, false)
 
-	want := `dump=$(command -v mariadb-dump || command -v mysqldump); "$dump" --single-transaction --quick --no-tablespaces --skip-comments -h'db.remote' -u'shop' -P 3307 -p'secret' live         | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/'         | gzip -9`
+	want := strings.NewReplacer("'database.internal'", "'db.remote'", "'mysql'", "'shop'", "3306", "3307",
+		"'pw' main", "'secret' live").Replace(tunnelledDump)
 	if len(*ran) != 1 || (*ran)[0].Args[0] != "abc@ssh.example.cloud" || (*ran)[0].Args[1] != want {
 		t.Fatalf("ssh ran %v, want abc@ssh.example.cloud with %s", *ran, want)
 	}
@@ -198,7 +202,7 @@ func TestWithoutATunnelTheDumpIsTakenFromTheDbContainer(t *testing.T) {
 	}
 
 	want := append([]string{
-		"Exec db bash | -c | " + directDump,
+		"Capture db bash | -o | pipefail | -c | " + directDump,
 		"Exec db bash | -c | " + keepConfig,
 		"Exec db bash | -c | " + restoreDump,
 		"Exec db bash | -c | " + putConfigBack,
@@ -247,7 +251,8 @@ func TestTheAnswersReplaceTheDefaults(t *testing.T) {
 
 	transferDB([]string{"--sql-password=pw"}, io.Discard, io.Discard, false)
 
-	want := `dump=$(command -v mariadb-dump || command -v mysqldump); "$dump" --single-transaction --quick --no-tablespaces --skip-comments -h'db.other' -u'reader' -P 3310 -p'pw' shop         | sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/'         | gzip -9`
+	want := strings.NewReplacer("'database.internal'", "'db.other'", "'mysql'", "'reader'", "3306", "3310",
+		"'pw' main", "'pw' shop").Replace(tunnelledDump)
 	if len(*ran) != 1 || (*ran)[0].Args[0] != "me@ssh.other" || (*ran)[0].Args[1] != want {
 		t.Fatalf("ssh ran %v", *ran)
 	}
@@ -436,7 +441,7 @@ func TestTransferDBOutsideAProjectIsRefused(t *testing.T) {
 // code, before restoring anything.
 func TestAFailedSSHStopsWithItsStatus(t *testing.T) {
 	fake, _ := dbLab(t)
-	runSSH = func([]string, string) (int, error) { return 255, nil }
+	runSSH = func([]string, string, io.Writer) (int, error) { return 255, nil }
 
 	if code := transferDB([]string{"--ssh-user=abc"}, io.Discard, io.Discard, false); code != 255 {
 		t.Fatalf("transfer-db with ssh failing = %d, want 255", code)

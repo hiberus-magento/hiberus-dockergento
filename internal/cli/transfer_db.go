@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"golang.org/x/term"
@@ -21,10 +22,12 @@ const (
 	defaultDBName    = "main"
 )
 
-// runSSH runs ssh with its output into a file and the rest attached to this terminal, so that SSH
-// can ask for a passphrase. It answers ssh's own exit status. A package variable so that no test
-// ever connects anywhere.
-var runSSH = func(args []string, output string) (int, error) {
+// runSSH runs ssh with its output into a file, what it and the remote command complain about
+// into complaints, and stdin attached to this terminal. A passphrase, a host key or a second factor
+// is asked on /dev/tty, not on stderr, so capturing stderr keeps interactive authentication
+// working. It answers ssh's own exit status. A package variable so that no test ever connects
+// anywhere.
+var runSSH = func(args []string, output string, complaints io.Writer) (int, error) {
 	file, err := os.Create(output) //nolint:gosec
 	if err != nil {
 		return 0, err
@@ -32,7 +35,7 @@ var runSSH = func(args []string, output string) (int, error) {
 	defer file.Close()
 
 	command := exec.Command("ssh", args...)
-	command.Stdin, command.Stdout, command.Stderr = os.Stdin, file, os.Stderr
+	command.Stdin, command.Stdout, command.Stderr = os.Stdin, file, complaints
 
 	err = command.Run()
 
@@ -197,11 +200,21 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	say("Creating database dump from origin server...\n")
 
-	// What the shell ran, byte for byte, the spacing of its line continuations included — except
-	// that a ' in a single-quoted value is escaped, where the shell let it end the quoting
-	dump := fmt.Sprintf(`dump=$(command -v mariadb-dump || command -v mysqldump); "$dump" --single-transaction --quick --no-tablespaces --skip-comments -h'%s' -u'%s' -P %s %s %s`,
-		insideQuotes(sqlHost), insideQuotes(sqlUser), sqlPort, passwordFlag, sqlDB)
-	definers := `sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/'`
+	dump := dumpPipeline(sqlHost, sqlUser, sqlPort, passwordFlag, sqlDB)
+
+	// fail stops the transfer naming the step that failed, why, and the last of what it said
+	fail := func(code int, step, why, said string) int {
+		message := step + " failed (" + why + ")"
+		if tail := stepTail(said, transferTailLines); tail != "" {
+			message += ":\n" + tail
+		}
+
+		if code == 0 {
+			code = exitError
+		}
+
+		return failure(stderr, jsonOutput, "transfer-db", code, "transfer_failed", message, "")
+	}
 
 	// inside runs one step in a container, and stops with its status as set -e did
 	inside := func(service string, command ...string) int {
@@ -214,21 +227,31 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	if sshHost == "" {
-		if status := inside("db", "bash", "-c", dump+" | "+definers+" | gzip -9 > /tmp/db.sql.gz"); status != 0 {
-			return status
+		step := "Creating the database dump in the db container"
+
+		said, status, err := engine.Capture(project.Root, "db",
+			[]string{"bash", "-o", "pipefail", "-c", "{ " + dump + " > /tmp/db.sql.gz; } 2>&1"})
+		if err != nil {
+			return report(stderr, jsonOutput, "transfer-db", err)
+		}
+
+		if why, code, failed := dumpFailed(said, status, ""); failed {
+			return fail(code, step, why, said)
 		}
 	} else {
+		step := "Creating the database dump on " + sshHost
 		local := filepath.Join(here(), "db.sql.gz")
 
-		status, err := runSSH([]string{sshUser + "@" + sshHost,
-			dump + "         | " + definers + "         | gzip -9"}, local)
+		var said strings.Builder
+
+		status, err := runSSH([]string{sshUser + "@" + sshHost, dump}, local, &said)
 		if err != nil {
 			return failure(stderr, jsonOutput, "transfer-db", exitError, "transfer_failed",
 				"The database dump could not be taken over SSH: "+err.Error(), "")
 		}
 
-		if status != 0 {
-			return status
+		if why, code, failed := dumpFailed(said.String(), status, "ssh"); failed {
+			return fail(code, step, why, said.String())
 		}
 
 		if err := engine.CopyIntoService(project.Root, "db", local, "/tmp"); err != nil {
@@ -297,6 +320,78 @@ func anonymiseOrWarn(engine commands, dir string, stderr io.Writer) {
 	if err := engine.Anonymise(dir); err != nil {
 		fmt.Fprint(stderr, warning("The database was not anonymised: "+err.Error()+"\n"))
 	}
+}
+
+// transferTailLines is how much of a failed step's output a failure quotes: the reason is
+// almost always the last line, and the few before it say where.
+const transferTailLines = 10
+
+// transferMarker starts the line a part of a pipeline prints on stderr when it fails.
+const transferMarker = "hm-transfer-db: "
+
+// dumpPipeline is transfer-db.sh's dump, except that each part says when it failed. pipefail
+// would do it under bash, but the remote end is whatever login shell the server gives, which
+// may be a plain sh; `part || echo` works in every one of them. gzip, the last part, needs no
+// marker: its status is the pipeline's. A ' in a single-quoted value is escaped, where the shell
+// let it end the quoting.
+func dumpPipeline(host, user, port, passwordFlag, database string) string {
+	return fmt.Sprintf(`dump=$(command -v mariadb-dump || command -v mysqldump); `+
+		`{ "$dump" --single-transaction --quick --no-tablespaces --skip-comments -h'%s' -u'%s' -P %s %s %s || echo "%sthe dump exited with status $?" >&2; } | `+
+		`{ sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' || echo "%ssed exited with status $?" >&2; } | gzip -9`,
+		insideQuotes(host), insideQuotes(user), port, passwordFlag, database, transferMarker, transferMarker)
+}
+
+// dumpFailed reads a pipeline's outcome: a part that said it failed, or a status that is not
+// zero. It answers why, in words, and the exit code to stop with — the failed part's own. runner
+// is what ran the pipeline when its status is its own and not the pipeline's, as ssh's 255 is.
+func dumpFailed(said string, status int, runner string) (string, int, bool) {
+	for _, line := range strings.Split(said, "\n") {
+		why, found := strings.CutPrefix(strings.TrimSpace(line), transferMarker)
+		if !found {
+			continue
+		}
+
+		code := status
+		if _, number, ok := strings.Cut(why, "status "); ok {
+			if parsed, err := strconv.Atoi(number); err == nil && parsed != 0 {
+				code = parsed
+			}
+		}
+
+		return why, code, true
+	}
+
+	switch {
+	case status == 0:
+		return "", 0, false
+	case runner == "ssh" && status == 255:
+		return "ssh exited with status 255", status, true
+	case runner == "ssh":
+		return fmt.Sprintf("the remote command exited with status %d", status), status, true
+	}
+
+	return fmt.Sprintf("it exited with status %d", status), status, true
+}
+
+// stepTail is the end of what a step said, indented under the failure, without the markers:
+// the failure's first line already says what they said.
+func stepTail(said string, count int) string {
+	lines := []string{}
+
+	for _, line := range strings.Split(said, "\n") {
+		line = strings.TrimRight(line, "\r ")
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), transferMarker) {
+			continue
+		}
+
+		lines = append(lines, "  "+line)
+	}
+
+	if len(lines) > count {
+		lines = lines[len(lines)-count:]
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 // insideQuotes is a value ready to go between single quotes in a shell command: each quote is
