@@ -1179,6 +1179,28 @@ func downloadOf(tag string) []string {
 	}
 }
 
+// TestListingTheReleasesShowsTheLookUp: `switch --list` waits on GitHub as an update does, so the
+// look-up is a step too, which leaves nothing behind (the list is the answer) or fails.
+func TestListingTheReleasesShowsTheLookUp(t *testing.T) {
+	source := &fakeReleases{}
+	source.publish("2.0.0", false)
+	engine, _, seen := watched(t, source)
+
+	if _, err := engine.Versions("2.0.0"); err != nil {
+		t.Fatalf("Versions: %v", err)
+	}
+
+	sameEvents(t, seen.events, []string{"… Looking up the releases", "(nothing left)"})
+
+	offline, _, failed := watched(t, &fakeReleases{err: errors.New("offline")})
+
+	if _, err := offline.Versions("2.0.0"); err == nil {
+		t.Fatal("Versions offline answered no error")
+	}
+
+	sameEvents(t, failed.events, []string{"… Looking up the releases", "✗ Looking up the releases"})
+}
+
 func TestAnUpdateShowsEachStepAsItHappens(t *testing.T) {
 	source := &fakeReleases{}
 	source.publish("2.1.0", false)

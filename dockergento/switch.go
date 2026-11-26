@@ -16,9 +16,14 @@ import (
 //
 
 // Versions is what the tool can be switched to: every release of 2.0 or later, pre-releases
-// included and labelled, newest first, with the running one marked.
+// included and labelled, newest first, with the running one marked. The look-up is shown while it
+// waits on GitHub, and leaves nothing behind: the list is the answer.
 func (e *Engine) Versions(running string) (core.Versions, error) {
+	looking := e.step("Looking up the releases")
+
 	found, err := e.releases(e.installer().source, true)
+	looking("", err != nil)
+
 	if err != nil {
 		return core.Versions{}, err
 	}

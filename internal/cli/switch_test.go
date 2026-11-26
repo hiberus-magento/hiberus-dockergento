@@ -218,6 +218,42 @@ func TestASwitchRefusalKeepsItsCode(t *testing.T) {
 	}
 }
 
+// switch --list waits on GitHub: on a terminal the look-up is drawn on stderr and nothing is left
+// of it, the list on stdout unchanged; redirected, or as JSON, stderr stays empty. Through the real
+// engine, from a file:// fixture: listing replaces nothing.
+func TestListingTheReleasesShowsTheLookUpOnATerminalOnly(t *testing.T) {
+	for _, c := range []struct {
+		name     string
+		terminal bool
+		json     bool
+		drawn    bool
+	}{{"a terminal", true, false, true}, {"redirected", false, false, false}, {"json on a terminal", true, true, false}} {
+		t.Run(c.name, func(t *testing.T) {
+			onATerminal(t, false)
+			copyTerminal = func(any) bool { return c.terminal }
+			stamped(t, "2.1.0")
+			releasesFixture(t, "2.1.0")
+
+			var stdout, stderr bytes.Buffer
+
+			if code := switchVersion([]string{"--list"}, &stdout, &stderr, c.json); code != exitOK {
+				t.Fatalf("switch --list = %d, stderr %q", code, stderr.String())
+			}
+
+			if !bytes.Contains(stdout.Bytes(), []byte("2.1.0")) {
+				t.Fatalf("stdout = %q, want the list", stdout.String())
+			}
+
+			switch {
+			case c.drawn && (!bytes.Contains(stderr.Bytes(), []byte("Looking up the releases")) || len(screen(stderr.String())) != 0):
+				t.Fatalf("stderr = %q, want the look-up drawn and nothing left of it", stderr.String())
+			case !c.drawn && stderr.Len() != 0:
+				t.Fatalf("stderr = %q, want nothing", stderr.String())
+			}
+		})
+	}
+}
+
 func TestTheRouterAnswersForSwitch(t *testing.T) {
 	fake := answering(t)
 

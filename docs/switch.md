@@ -76,6 +76,10 @@ Running 2.0.0
 A pre-release is there to be tried on purpose. Labelling it is what keeps someone reading the
 list from the top from landing on one by accident.
 
+While the releases are asked of GitHub, a terminal shows `Looking up the releases` behind a
+spinner on stderr, gone once the list is printed (a `✗` when they cannot be read, before the
+error). Redirected, or with `--json`, nothing is drawn.
+
 In JSON, `current` is the running version (`devel` for a binary built from a checkout) and each
 version carries `name`, `pre_release` and `installed`.
 
