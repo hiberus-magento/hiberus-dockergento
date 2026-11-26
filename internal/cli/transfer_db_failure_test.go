@@ -408,6 +408,57 @@ func TestTheTransferIsLogged(t *testing.T) {
 	mustNotContain(t, "the log", log, "-p'pw'")
 }
 
+// TestARestoreThatLostTheServerFails: under --force the client goes on past a statement the
+// server refuses, and it reports a lost connection the same way, "at line N" — but a server that
+// went away mid-restore leaves half a database, which is a failure and not a skipped statement.
+func TestARestoreThatLostTheServerFails(t *testing.T) {
+	cases := []struct {
+		name, captured, line string
+		status               int
+	}{
+		{
+			name:     "lost connection after a skipped statement",
+			captured: "ERROR 1146 (42S02) at line 12: Table 'main.gone' doesn't exist\nERROR 2013 (HY000) at line 3456: Lost connection to server during query\n",
+			line:     "ERROR 2013 (HY000) at line 3456: Lost connection to server during query", status: 1,
+		},
+		{
+			name:     "server gone away, again on every line after",
+			captured: "ERROR 2006 (HY000) at line 3457: Server has gone away\nERROR 2006 (HY000) at line 3458: Server has gone away\n",
+			line:     "ERROR 2006 (HY000) at line 3457: Server has gone away", status: 1,
+		},
+		{
+			name:     "even with a status of zero",
+			captured: "ERROR 2013 (HY000) at line 9: Lost connection to MySQL server during query\n",
+			line:     "ERROR 2013 (HY000) at line 9: Lost connection to MySQL server during query",
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			fake, _ := dbLab(t)
+
+			// Resolve, Describe, the structure-only rules, Copy, keep the config, restore
+			fake.outcomes = []outcome{{}, {}, {}, {}, {}, {status: tt.status, captured: tt.captured}}
+
+			var stderr bytes.Buffer
+
+			code := transferDB([]string{"--ssh-user=abc", "--anonymise=false"}, io.Discard, &stderr, true)
+			if want := max(tt.status, exitError); code != want {
+				t.Fatalf("transfer-db = %d, want %d\n%s", code, want, stderr.String())
+			}
+
+			if contains(steps(fake), "ClearAnonymisation") {
+				t.Fatalf("went on after the server was lost: %v", steps(fake))
+			}
+
+			_, message := failureIn(t, stderr.Bytes())
+			mustContain(t, "the failure", message,
+				"Restoring the dump into the local database failed (the database server was lost: "+tt.line+")")
+			mustNotContain(t, "the failure", message, "skipped")
+		})
+	}
+}
+
 // TestEveryFailureEndsWithTheLog: the message is the start, the log is the rest of the story.
 func TestEveryFailureEndsWithTheLog(t *testing.T) {
 	t.Run("json", func(t *testing.T) {

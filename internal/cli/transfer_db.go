@@ -426,6 +426,10 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	// --force goes on past a statement this server refuses, and the client then exits with a
 	// status; that is what was asked for. A status with nothing skipped, or a part of the pipeline
 	// that failed, is a restore that did not happen
+	if lost := lostServer(said); lost != "" {
+		return fail(status, restoring+" failed (the database server was lost: "+lost+")", said)
+	}
+
 	skipped := skippedErrors(said)
 	forced := status != 0 && len(skipped) > 0 && !strings.Contains(said, transferMarker)
 
@@ -535,6 +539,22 @@ const (
 // skippedSQLError is how the client reports a statement it skipped under --force: with the line
 // of the dump it was on. A refused connection says ERROR too, but on no line.
 var skippedSQLError = regexp.MustCompile(`^ERROR \d+ \([0-9A-Z]+\) at line \d+`)
+
+// lostServerError is the client losing the server: 2006, "server has gone away", and 2013, "lost
+// connection during query". Under --force they too come "at line N", like a statement that was
+// skipped, but every statement after them is lost with them.
+var lostServerError = regexp.MustCompile(`^ERROR (2006|2013) \(`)
+
+// lostServer is the first line of a restore that says the server was lost, or nothing.
+func lostServer(said string) string {
+	for _, line := range strings.Split(said, "\n") {
+		if line = strings.TrimSpace(line); lostServerError.MatchString(line) {
+			return line
+		}
+	}
+
+	return ""
+}
 
 // skippedErrors is the statements a forced restore went past, in order.
 func skippedErrors(said string) []string {

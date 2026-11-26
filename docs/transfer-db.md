@@ -103,7 +103,7 @@ The exit code is the failed step's status, and under `--json` the same message i
   → To dump `vendor_import_queue` without its data from now on, set this in config/docker/properties.json:
   "TRANSFER_DB_STRUCTURE_ONLY": "@saas,vendor_import_queue"
   ```
-- **The restore.** The restore runs the client with `--force`, so a statement this server refuses does not leave half a database. The statements it skipped are counted and reported at the end (`The restore skipped 2 SQL errors; the first: ERROR 1146 (42S02) at line 12: ...`), and all of them are in the log. A dump that cannot be read to the end, or a client that cannot connect, stops the transfer.
+- **The restore.** The restore runs the client with `--force`, so a statement this server refuses does not leave half a database. The statements it skipped are counted and reported at the end (`The restore skipped 2 SQL errors; the first: ERROR 1146 (42S02) at line 12: ...`), and all of them are in the log. A dump that cannot be read to the end, or a client that cannot connect, stops the transfer. So does a client that loses the server mid-restore (`ERROR 2006`, server gone away, or `ERROR 2013`, lost connection): the failure says `the database server was lost` and quotes the line, since everything after it is missing, rather than counting it as a skipped statement.
 - **`bin/magento` steps** print on the terminal as they run; when one fails, the failure names it and its status.
 
 ### Log
