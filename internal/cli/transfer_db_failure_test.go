@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -352,4 +354,139 @@ func TestErrorsTheForcedRestoreSkippedAreCounted(t *testing.T) {
 	mustContain(t, "stderr", stderr.String(),
 		"The restore skipped 2 SQL errors; the first: ERROR 1146 (42S02) at line 12: Table 'main.gone' doesn't exist")
 	mustContain(t, "stdout", stdout.String(), " All done!\n")
+}
+
+// transferLogPath is the one log the transfer wrote: beside the rest of what hm keeps on this
+// machine, which a test's HM_STATE_DIR moves into its own directory.
+func transferLogPath(t *testing.T) string {
+	t.Helper()
+
+	found, err := filepath.Glob(filepath.Join(filepath.Dir(os.Getenv("HM_STATE_DIR")), "logs", "transfer-db-shop-*.log"))
+	if err != nil || len(found) != 1 {
+		t.Fatalf("transfer logs = %v (%v), want exactly one", found, err)
+	}
+
+	return found[0]
+}
+
+func transferLogText(t *testing.T) string {
+	t.Helper()
+
+	contents, err := os.ReadFile(transferLogPath(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return string(contents)
+}
+
+// TestTheTransferIsLogged: every step, its command and what it said, for whoever has to find out
+// afterwards what happened.
+func TestTheTransferIsLogged(t *testing.T) {
+	fake, _ := dbLab(t)
+
+	// Resolve, Describe, Copy, keep the config, restore
+	fake.outcomes = []outcome{{}, {}, {}, {captured: "mariadb-dump: [Warning] Using a password on the command line interface can be insecure.\n"},
+		{status: 1, captured: "ERROR 1146 (42S02) at line 12: Table 'main.gone' doesn't exist\n"}}
+
+	if code := transferDB([]string{"--ssh-user=abc", "--sql-password=pw", "--anonymise=false"}, io.Discard, io.Discard, false); code != exitOK {
+		t.Fatalf("transfer-db = %d, want exitOK", code)
+	}
+
+	log := transferLogText(t)
+	mustContain(t, "the log", log,
+		"Creating the database dump on ssh.eu-3.magento.cloud",
+		"abc@ssh.eu-3.magento.cloud",
+		"-p'***' main",
+		"Copying the dump into the db container",
+		"Saving core_config_data, admin_user and tfa_user_config",
+		"Using a password on the command line interface can be insecure.",
+		"Restoring the dump into the local database",
+		"ERROR 1146 (42S02) at line 12: Table 'main.gone' doesn't exist",
+		"Running bin/magento cache:flush",
+		" All done!")
+	mustNotContain(t, "the log", log, "-p'pw'")
+}
+
+// TestEveryFailureEndsWithTheLog: the message is the start, the log is the rest of the story.
+func TestEveryFailureEndsWithTheLog(t *testing.T) {
+	t.Run("json", func(t *testing.T) {
+		fake, _ := dbLab(t)
+		fake.outcomes = []outcome{{}, {}, {}, {}, {status: 1, captured: "gzip: stdin: unexpected end of file\nhm-transfer-db: zcat exited with status 1\n"}}
+
+		var stderr bytes.Buffer
+
+		transferDB([]string{"--ssh-user=abc"}, io.Discard, &stderr, true)
+
+		_, message := failureIn(t, stderr.Bytes())
+		if want := "\nThe whole transfer is logged in " + transferLogPath(t); !strings.HasSuffix(message, want) {
+			t.Fatalf("failure = %q, want it to end with %q", message, want)
+		}
+
+		mustContain(t, "the log", transferLogText(t), "Restoring the dump into the local database failed (zcat exited with status 1)")
+	})
+
+	t.Run("text", func(t *testing.T) {
+		_, ran := dbLab(t)
+		sshAnswering(t, ran, sshOutcome{said: "Connection closed by 1.2.3.4 port 22\n", status: 255})
+
+		var stderr bytes.Buffer
+
+		transferDB([]string{"--ssh-user=abc"}, io.Discard, &stderr, false)
+
+		mustContain(t, "stderr", stderr.String(), "Connection closed by 1.2.3.4 port 22\nThe whole transfer is logged in "+transferLogPath(t)+"\n")
+	})
+}
+
+// TestTheLogKeepsEveryAttempt: a retried dump leaves the reason of the attempt that failed.
+func TestTheLogKeepsEveryAttempt(t *testing.T) {
+	_, ran := dbLab(t)
+	sshAnswering(t, ran, sshOutcome{said: tableChanged}, sshOutcome{})
+
+	transferDB([]string{"--ssh-user=abc"}, io.Discard, io.Discard, false)
+
+	mustContain(t, "the log", transferLogText(t), "(attempt 1/3)", "Error 1412: Table definition has changed",
+		"retrying (2/3)...", "(attempt 2/3)")
+}
+
+// TestThePasswordIsNeverShownOrLogged, not even when the remote side repeats it.
+func TestThePasswordIsNeverShownOrLogged(t *testing.T) {
+	_, ran := dbLab(t)
+
+	const password = "S3cr3t'pw"
+
+	sshAnswering(t, ran, sshOutcome{said: "mariadb-dump: cannot connect with -p'S3cr3t'\\''pw' or S3cr3t'pw\nhm-transfer-db: the dump exited with status 2\n"})
+
+	var stdout, stderr bytes.Buffer
+
+	transferDB([]string{"--ssh-user=abc", "--sql-password=" + password}, &stdout, &stderr, false)
+
+	for what, text := range map[string]string{"stdout": stdout.String(), "stderr": stderr.String(), "the log": transferLogText(t)} {
+		mustNotContain(t, what, text, "S3cr3t")
+	}
+
+	mustContain(t, "the log", transferLogText(t), "-p'***' main")
+}
+
+// TestALogThatCannotBeWrittenDoesNotStopTheTransfer: it says so, and goes on.
+func TestALogThatCannotBeWrittenDoesNotStopTheTransfer(t *testing.T) {
+	dbLab(t)
+
+	blocked := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocked, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// The logs directory would be inside a file
+	t.Setenv("HM_STATE_DIR", filepath.Join(blocked, "logs", "state"))
+
+	var stdout, stderr bytes.Buffer
+
+	if code := transferDB([]string{"--ssh-user=abc", "--anonymise=false"}, &stdout, &stderr, false); code != exitOK {
+		t.Fatalf("transfer-db without a log = %d, want exitOK", code)
+	}
+
+	mustContain(t, "stderr", stderr.String(), "The transfer is not being logged:")
+	mustContain(t, "stdout", stdout.String(), " All done!\n")
+	mustNotContain(t, "stdout", stdout.String(), "logged in")
 }

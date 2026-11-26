@@ -124,8 +124,14 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 	}
 
+	// log is nothing until the connection is known: it must know the password to hide it
+	log := &transferLog{hide: strings.NewReplacer()}
+	defer func() { log.close() }()
+
 	// print_info: green on stdout, plain on stderr under --json, where stdout is the containers'
 	say := func(text string) {
+		log.printf("%s", text)
+
 		if jsonOutput {
 			fmt.Fprint(stderr, text)
 
@@ -200,6 +206,20 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			"Missing connection data for the remote database", binaryName()+" transfer-db --help")
 	}
 
+	opened, err := openTransferLog(project.Name, sqlPassword)
+	if err != nil {
+		fmt.Fprint(stderr, warning("The transfer is not being logged: "+err.Error()+"\n"))
+	}
+
+	from := "the db container"
+	if sshHost != "" {
+		from = "ssh " + sshUser + "@" + sshHost
+	}
+
+	log = opened
+	log.printf("Project %s in %s\nFrom %s, database %s@%s:%s/%s\n", project.Name, project.Root,
+		from, sqlUser, sqlHost, sqlPort, sqlDB)
+
 	say("Creating database dump from origin server...\n")
 
 	dump := dumpPipeline(sqlHost, sqlUser, sqlPort, passwordFlag, sqlDB)
@@ -215,24 +235,37 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			code = exitError
 		}
 
-		return failure(stderr, jsonOutput, "transfer-db", code, "transfer_failed", message, "")
+		log.printf("\nFAILED: %s\n", headline)
+
+		return failure(stderr, jsonOutput, "transfer-db", code, "transfer_failed", log.redact(message)+log.where(), "")
 	}
 
 	// broke stops the transfer at a step that could not even be run, keeping the refusal's kind
 	broke := func(step string, err error) int {
+		code, kind, message, hint := exitDocker, "docker_failed", err.Error(), ""
+
 		var refused core.Refusal
 		if asRefusal(err, &refused) {
-			return failure(stderr, jsonOutput, "transfer-db", refused.Code, refused.Kind,
-				step+" failed: "+refused.Message, refused.Hint)
+			code, kind, message, hint = refused.Code, refused.Kind, refused.Message, refused.Hint
 		}
 
-		return failure(stderr, jsonOutput, "transfer-db", exitDocker, "docker_failed", step+" failed: "+err.Error(), "")
+		message = log.redact(step + " failed: " + message)
+		log.printf("\nFAILED: %s\n", message)
+
+		return failure(stderr, jsonOutput, "transfer-db", code, kind, message+log.where(), hint)
 	}
 
 	// inDB runs one step in the db container, under bash with pipefail, both of its streams
 	// captured: what it said is what a failure quotes
-	inDB := func(command string) (string, int, error) {
-		return engine.Capture(project.Root, "db", []string{"bash", "-o", "pipefail", "-c", command})
+	inDB := func(step, command string) (string, int, error) {
+		log.step(step, "db: bash -o pipefail -c '"+command+"'")
+
+		said, status, err := engine.Capture(project.Root, "db", []string{"bash", "-o", "pipefail", "-c", command})
+		if err == nil {
+			log.ended(said, status)
+		}
+
+		return said, status, err
 	}
 
 	step, runner := "Creating the database dump in the db container", ""
@@ -243,25 +276,33 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	// takeDump runs the dump once, and answers what it said and how it ended
-	takeDump := func() (string, int, error) {
+	takeDump := func(attempt string) (string, int, error) {
 		if sshHost == "" {
-			return inDB("{ " + dump + " > /tmp/db.sql.gz; } 2>&1")
+			return inDB(step+attempt, "{ "+dump+" > /tmp/db.sql.gz; } 2>&1")
 		}
+
+		args := []string{sshUser + "@" + sshHost, dump}
+		log.step(step+attempt, "ssh "+strings.Join(args, " ")+" > "+local)
 
 		var said strings.Builder
 
-		status, err := runSSH([]string{sshUser + "@" + sshHost, dump}, local, &said)
+		status, err := runSSH(args, local, &said)
+		if err == nil {
+			log.ended(said.String(), status)
+		}
 
 		return said.String(), status, err
 	}
 
 	for attempt := 1; ; attempt++ {
-		said, status, err := takeDump()
+		said, status, err := takeDump(fmt.Sprintf(" (attempt %d/%d)", attempt, transferDumpAttempts))
 
 		switch {
 		case err != nil && runner == "ssh":
-			return failure(stderr, jsonOutput, "transfer-db", exitError, "transfer_failed",
-				"The database dump could not be taken over SSH: "+err.Error(), "")
+			message := log.redact("The database dump could not be taken over SSH: " + err.Error())
+			log.printf("\nFAILED: %s\n", message)
+
+			return failure(stderr, jsonOutput, "transfer-db", exitError, "transfer_failed", message+log.where(), "")
 		case err != nil:
 			return broke(step, err)
 		}
@@ -288,8 +329,11 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	}
 
 	if sshHost != "" {
+		copying := "Copying the dump into the db container"
+		log.step(copying, local+" -> db:/tmp")
+
 		if err := engine.CopyIntoService(project.Root, "db", local, "/tmp"); err != nil {
-			return broke("Copying the dump into the db container", err)
+			return broke(copying, err)
 		}
 	}
 
@@ -297,7 +341,7 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	// inDBOr runs a step in the db container and stops the transfer if it fails
 	inDBOr := func(step, command string) int {
-		said, status, err := inDB(command)
+		said, status, err := inDB(step, command)
 		if err != nil {
 			return broke(step, err)
 		}
@@ -319,7 +363,7 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	restoring := "Restoring the dump into the local database"
 
-	said, status, err := inDB(restoreCommand)
+	said, status, err := inDB(restoring, restoreCommand)
 	if err != nil {
 		return broke(restoring, err)
 	}
@@ -342,17 +386,20 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	// A database from another environment has just replaced this one: whatever was true about
 	// the old contents is not true about these
+	clearing := "Recording that the database is no longer anonymised"
+	log.step(clearing, "")
+
 	if err := engine.ClearAnonymisation(project.Root); err != nil {
-		return broke("Recording that the database is no longer anonymised", err)
+		return broke(clearing, err)
 	}
 
 	switch {
 	case anonymise == "true":
-		anonymiseOrWarn(engine, project.Root, stderr)
+		anonymiseOrWarn(engine, project.Root, stderr, log)
 	case anonymise == "false":
 		say("Skipping database anonymisation...\n")
 	case yes(question("Do you want to anonymise the database? [Y/n]:", "")):
-		anonymiseOrWarn(engine, project.Root, stderr)
+		anonymiseOrWarn(engine, project.Root, stderr, log)
 	default:
 		say("Skipping database anonymisation...\n")
 	}
@@ -367,8 +414,12 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		}
 
 		running := "Running bin/magento " + step.command
+		log.step(running, phpService+": bin/magento "+step.command)
 
 		status, err := engine.Exec(project.Root, phpService, []string{"bin/magento", step.command}, terminalOptions(""))
+		if err == nil {
+			log.printf("exit status %d (its output went to the terminal)\n", status)
+		}
 
 		switch {
 		case status != 0:
@@ -384,10 +435,16 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			noun = "error"
 		}
 
-		fmt.Fprint(stderr, warning(fmt.Sprintf("The restore skipped %d SQL %s; the first: %s\n", len(skipped), noun, skipped[0])))
+		skippedSummary := fmt.Sprintf("The restore skipped %d SQL %s; the first: %s\n", len(skipped), noun, skipped[0])
+		log.printf("\n%s", skippedSummary)
+		fmt.Fprint(stderr, warning(log.redact(skippedSummary)))
 	}
 
 	say(" All done!\n")
+
+	if log.path != "" {
+		say("The transfer was logged in " + log.path + "\n")
+	}
 
 	return exitOK
 }
@@ -395,8 +452,11 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 // anonymiseOrWarn anonymises, and says so when it could not without stopping: the shell's
 // `masquerade_run && hm_anonymisation_record` never stopped the transfer either. The engine
 // announces the anonymisation itself, and records it only when it worked.
-func anonymiseOrWarn(engine commands, dir string, stderr io.Writer) {
+func anonymiseOrWarn(engine commands, dir string, stderr io.Writer, log *transferLog) {
+	log.step("Anonymising the database", "")
+
 	if err := engine.Anonymise(dir); err != nil {
+		log.printf("The database was not anonymised: %s\n", err.Error())
 		fmt.Fprint(stderr, warning("The database was not anonymised: "+err.Error()+"\n"))
 	}
 }

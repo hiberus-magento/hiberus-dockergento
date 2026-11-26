@@ -346,7 +346,7 @@ func TestTheAnonymiseOptionDecidesWithoutAsking(t *testing.T) {
 }
 
 // TestTheMessagesAreTheShells: the same lines, on stdout, and on stderr under --json, where stdout
-// is nobody's but the containers'.
+// is nobody's but the containers' — and, after them, where the transfer was logged.
 func TestTheMessagesAreTheShells(t *testing.T) {
 	want := "Database transfer assistant: \n" +
 		"You are going to transfer database from [ssh.eu-3.magento.cloud:[database.internal:3306]] to [LOCALHOST].\n" +
@@ -360,7 +360,7 @@ func TestTheMessagesAreTheShells(t *testing.T) {
 
 		transferDB([]string{"--ssh-user=abc", "--anonymise=true"}, &stdout, &stderr, false)
 
-		if stdout.String() != want {
+		if want := want + "The transfer was logged in " + transferLogPath(t) + "\n"; stdout.String() != want {
 			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 		}
 	})
@@ -371,7 +371,7 @@ func TestTheMessagesAreTheShells(t *testing.T) {
 
 		transferDB([]string{"--ssh-user=abc", "--anonymise=true"}, &stdout, &stderr, true)
 
-		if stdout.Len() != 0 || stderr.String() != want {
+		if want := want + "The transfer was logged in " + transferLogPath(t) + "\n"; stdout.Len() != 0 || stderr.String() != want {
 			t.Fatalf("stdout = %q, stderr = %q, want everything on stderr", stdout.String(), stderr.String())
 		}
 	})
