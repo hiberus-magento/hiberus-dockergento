@@ -7,13 +7,14 @@ en `.specify/memory/constitution.md` (2.0.0).
 
 > **La migración a Go está completada.** El binario responde los 67 comandos, la ayuda,
 > `--version` y los comandos del proyecto; `bin/run` y el árbol `console/` ya no existen.
-> Publicadas de `2.0.0-rc.1` a `2.0.0-rc.4`, y se seguirán publicando candidatas hasta ganar
-> confianza: la 2.0.0 final y la fusión en `main` esperan a esa decisión. La pista C queda en los
+> Publicadas de `2.0.0-rc.1` a `2.0.0-rc.9` (la `rc.10` en preparación), validadas en proyectos
+> reales (sports-emotion en macOS, roca-market y otros en Ubuntu), y se seguirán publicando
+> candidatas hasta ganar confianza: la 2.0.0 final y la fusión en `main` esperan a esa decisión. La pista C queda en los
 > aplazados de abajo, y la evolución para agentes (MCP 2026-07-28, `hm status`, catálogo
 > `hm --json`, envelopes de éxito, `--dry-run`, `--progress=jsonl`, permisos para Codex y
 > OpenCode, plugin de Claude Code) está hecha: `odd/tasks/agentic.md` en la sesión que la hizo.
 >
-> Estado medido el **2026-11-25** sobre `release/2.0.0`.
+> Estado medido el **2026-11-26** sobre `release/2.0.0`.
 > Los números caducan: vuelve a medirlos con los comandos de abajo antes de fiarte de ellos.
 
 ## Estado en una tabla
@@ -29,23 +30,49 @@ en `.specify/memory/constitution.md` (2.0.0).
 | Dónde vive el binario | `~/.hm/bin/hm`, con un enlace en `/usr/local/bin`: `hm update` no pide `sudo` | `docs/installation.md` | `.github/workflows/release.yml` |
 | Imágenes de Docker Hub | se construyen y publican en local, sin CI | `build-publish.sh` |
 | `hm switch` y el instalador ante una 1.x | la rechazan | `docs/switch.md`, `installer.sh` |
-| Etiqueta `2.0.0` | **sin crear**; la última es `2.0.0-rc.4` | `git tag --sort=-creatordate \| head -1` |
+| Etiqueta `2.0.0` | **sin crear**; la última es `2.0.0-rc.9` | `git tag --sort=-creatordate \| head -1` |
 
 ## Qué hacer después, en orden
 
 1. ~~**Pista A** — retirar los gemelos de shell~~: cerrada, no queda ninguno.
 2. ~~**Pista B** — portar los comandos que seguían en shell~~: cerrada, el binario responde los 66
    y `bin/run` está borrado (`MIGRATION.md`, «Cierre»).
-3. **Etiquetar la release.** Candidatas publicadas: `2.0.0-rc.1` y `2.0.0-rc.2`. Falta validarlas y
-   publicar `2.0.0` con el ritual de siempre (commit de release con `changelogs/v2.0.0.md` y
+3. **Etiquetar la release.** Candidatas publicadas: de `2.0.0-rc.1` a `2.0.0-rc.9`, cada una con su
+   fila en `changelogs/v2.0.0.md`. Falta terminar de validarlas con el equipo y publicar `2.0.0` con el ritual de siempre (commit de release con `changelogs/v2.0.0.md` y
    etiqueta anotada sin `v`). CI pasa los tests y publica los binarios y la release de GitHub al
    empujar la etiqueta. Lo decide el humano.
-4. **Fusionar `release/2.0.0` en `main`** por pull request, cuando la candidata esté validada.
-5. ~~**Pista C — defectos conocidos**~~: sin ninguno abierto.
+4. **Fusionar `release/2.0.0` en `main`** por pull request, cuando la candidata esté validada. Hasta
+   entonces `main` no tiene `install.sh`: la URL del instalador de la 2.0 apunta a una etiqueta o a
+   `release/2.0.0`, nunca a `main`.
+5. **Pista C — defectos conocidos**: tres abiertos, salidos de la auditoría de la documentación
+   de la rc.10 (abajo).
 
 ## Pista C — defectos conocidos
 
-Ninguno abierto.
+Abiertos (auditoría de la documentación, 2026-11-26):
+- La ayuda declara opciones que el código rechaza: `mysql` anuncia `--definers`, `--import` y
+  `--query` pero el handler niega toda forma larga; `exec` y `bash` anuncian `--root` pero sólo
+  `-r` funciona, y sólo como primer argumento. Hay que decidir si se arreglan los parsers o las
+  declaraciones de `data/command_descriptions.json`.
+- `transfer-db` y `transfer-media` sólo leen `--opcion=valor`; `--opcion valor` se pierde en
+  silencio (salvo `--structure-only`, que ya acepta las dos formas).
+- Los mensajes de `dockergento/release.go` (`installScript`) apuntan a `main/install.sh`, que da
+  404 hasta fusionar `release/2.0.0` en `main`.
+
+Cerrados para la rc.10, salidos de la validación en proyectos reales (rc.8 y rc.9):
+- En Linux con un usuario distinto del 1000, el ajuste de permisos de `hm start` se paraba en
+  silencio: la librería de Compose devuelve un código distinto de cero **y** un error sin mensaje, y
+  se miraba el error primero (`1ca3b7e`). Regla: todo llamador de `Orchestrator.Exec` lee el código
+  antes que el error. Las imágenes de nginx traen ya `shadow`, y hay un e2e del ajuste en CI (el
+  runner de Ubuntu es el uid 1001).
+- `transfer-db` esperaba un segundo Enter tras cada paso de Magento: un `exec` con stdin deja la
+  copia del stdin del CLI de Docker leyendo la terminal (`0b93157`). Regla: un comando que no lee
+  del teclado se ejecuta sin stdin (`unattendedOptions`), sobre todo si después se pregunta algo.
+- `down -v` con la configuración ilegible destruía sin preguntar (`presentVolumes` se tragaba el
+  error): ahora falla antes de borrar nada.
+- `composer` en macOS copiaba el `.git` de vuelta, dejaba phpfpm parado y el vendor vacío;
+  `copy-to-container --all`/`.` caían en otro directorio; `transfer-db` fallaba con tablas que no
+  existen en local (`tfa_user_config`) — rc.8.
 
 Cerrados para la rc.7: `architecture/` tiene quien la vigile (`tests/unit/architecture_citations_test.sh`:
 toda ruta del repositorio y todo nombre de Go citado entre comillas invertidas existe), y
