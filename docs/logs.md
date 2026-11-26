@@ -53,4 +53,4 @@ hm logs --json db     # logs' flag, and it has none: a usage error
 ```
 
 The logs are never wrapped in the JSON envelope in either case. See
-[the output contract](../README.md#output-exit-codes-and-non-interactive-use).
+[the output contract](output.md).

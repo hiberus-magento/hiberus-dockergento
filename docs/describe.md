@@ -11,7 +11,7 @@ hm describe --with-secrets   # include database credentials
 ```
 
 Readable output when stdout is a terminal, JSON when it is piped or redirected. See
-[output, exit codes and non-interactive use](../README.md).
+[output, exit codes and non-interactive use](output.md).
 
 ## Options
 

@@ -6,6 +6,20 @@ on your PATH. There is no git clone.
 > This page is about installing the `hm` tool. `hm install`, the command that runs Magento's
 > `setup:install`, is documented in [install.md](install.md).
 
+## Requirements
+
+- macOS or Linux
+- [Docker](https://docs.docker.com/get-docker/) with the Compose v2 plugin, and the daemon running.
+  `hm` embeds Compose as a library; the plugin is used by `hm docker-compose` and by project
+  commands.
+- To install: `curl` (or `wget`) and a SHA-256 tool (`shasum` or `sha256sum`), which every macOS
+  and Linux has. `hm` is a single self-contained binary: no git checkout, `jq` or Go is needed,
+  except to build it from source as a contributor.
+- Optional, for the commands that use them: [mkcert](https://github.com/FiloSottile/mkcert)
+  (`hm ssl` tries to install it when it is missing: Homebrew on macOS, the release binary on
+  Linux), [fzf](https://github.com/junegunn/fzf) (picking from a list), `rsync` and `ssh`
+  (`hm transfer-media`, `hm transfer-db`).
+
 ## One line
 
 ```bash
@@ -34,7 +48,8 @@ What it does:
    (`/usr/local/bin` usually), the binary goes to `~/.hm/bin/hm` and the directory only gets a
    link to it, so updates never need `sudo`.
 5. Writes the shell completion (`hm completion zsh|bash`) to `~/.hm/completion/hm.<shell>` and adds
-   **one** line to your profile that loads it. Running the installer again never adds a second
+   **one** line to your profile (`~/.zshrc` for zsh; for bash, `~/.bash_profile` on macOS and
+   `~/.bashrc` on Linux) that loads it. Running the installer again never adds a second
    one. The profile is never rewritten in place: the new content goes to a temporary file beside
    it with the same permissions, is checked, and replaces it in one rename. A profile that is a
    link (managed dotfiles) stays a link and the file it points to is edited. The first edit keeps
@@ -151,6 +166,11 @@ It has local changes (2 changed files in git status): keep anything you need fro
 It was left in place. To delete it: rm -rf /Users/you/hm
 ```
 
+The store and admin settings `hm install` passes to `setup:install` live in `~/.hm/config.json`,
+outside the installation, shared by every project. A 1.x installation kept them in
+`~/hm/data/config.json`: when `~/.hm/config.json` does not exist yet, a valid 1.x file is copied
+there once (by the installer, or by the first `hm install`), and never over an existing one.
+
 The installer refuses a 1.x version (`--version 1.5.1` exits 2 and installs nothing): 1.x is the
 shell tool and has no binary. To use one, clone it in a directory of its own:
 
@@ -163,6 +183,11 @@ git clone -b 1.5.1 https://github.com/hiberus-magento/hiberus-dockergento.git ~/
 
 `hm update`, or run the installer again. Neither needs `sudo` once the binary is in a directory of
 yours, `~/.hm/bin` included.
+
+`hm update` replaces the running binary with the newest final release (`--pre` includes release
+candidates). The installer upgrades the `hm` it installed last time, wherever that is (`--dir`
+included), or says it is already up to date. To try a release candidate or go back to a final
+release, use `hm switch`: see [supported versions](versions.md#versions-of-hm-and-release-candidates).
 
 ## Uninstall
 
