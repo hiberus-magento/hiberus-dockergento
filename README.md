@@ -2,7 +2,7 @@
 
 <img alt="hiberus dockergento logo: a ship whose containers stack into an M" src="docs/assets/logo.svg" width="160">
 
-# Hiberus Dockergento
+# hiberus dockergento
 
 **Docker environments for Magento 2, driven by one command: `hm`.**
 
