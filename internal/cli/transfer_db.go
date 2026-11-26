@@ -508,7 +508,13 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		running := "Running bin/magento " + step.command
 		log.step(running, phpService+": bin/magento "+step.command)
 
-		status, err := engine.Exec(project.Root, phpService, []string{"bin/magento", step.command}, terminalOptions(""))
+		// Said before it starts: a reindex can be minutes of silence before Magento prints its
+		// first index
+		say(running + "...\n")
+
+		// Without stdin: these read nothing, and one that held it took the answer to the next
+		// question with it
+		status, err := engine.Exec(project.Root, phpService, []string{"bin/magento", step.command}, unattendedOptions(""))
 		if err == nil {
 			log.printf("exit status %d (its output went to the terminal)\n", status)
 		}

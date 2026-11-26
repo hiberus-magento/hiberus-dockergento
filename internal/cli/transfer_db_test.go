@@ -169,6 +169,42 @@ func TestTransferDBDumpsOverSSHAndRestoresIntoTheDbContainer(t *testing.T) {
 	}
 }
 
+// The Magento steps read nothing from the keyboard, and are run without stdin: an exec that holds
+// stdin leaves the docker CLI's copy of it reading the terminal after the command ends, and the
+// answer typed to the next question went to that copy — transfer-db waited at "Do you want to
+// reindex Magento?" with the Enter already pressed. Each step is said as it starts, since a
+// reindex can be minutes of silence before Magento prints its first index.
+func TestTheMagentoStepsRunWithoutStdinAndAreSaid(t *testing.T) {
+	fake, _ := dbLab(t)
+	var out bytes.Buffer
+
+	if code := transferDB([]string{"--ssh-user=abc", "--sql-password=pw"}, &out, io.Discard, false); code != exitOK {
+		t.Fatalf("transfer-db = %d, want exitOK", code)
+	}
+
+	ran := 0
+	for _, one := range fake.calls {
+		if one.Method != "Exec" {
+			continue
+		}
+
+		ran++
+		if one.Options.Interactive {
+			t.Errorf("%v ran with stdin attached, want it run without", one.Command)
+		}
+	}
+
+	if ran != 3 {
+		t.Fatalf("ran %d Magento steps, want 3", ran)
+	}
+
+	for _, step := range []string{"app:config:import", "indexer:reindex", "cache:flush"} {
+		if !strings.Contains(out.String(), "Running bin/magento "+step+"...\n") {
+			t.Errorf("output does not say it is running %s:\n%s", step, out.String())
+		}
+	}
+}
+
 // TestEveryOptionReachesTheCommandsItBuilds: the eight options of the shell, each in its place.
 func TestEveryOptionReachesTheCommandsItBuilds(t *testing.T) {
 	_, ran := dbLab(t)
@@ -358,6 +394,9 @@ func TestTheMessagesAreTheShells(t *testing.T) {
 		"You are going to transfer database from [ssh.eu-3.magento.cloud:[database.internal:3306]] to [LOCALHOST].\n" +
 		"Creating database dump from origin server...\n" +
 		"Restoring database dump into localhost...\n" +
+		"Running bin/magento app:config:import...\n" +
+		"Running bin/magento indexer:reindex...\n" +
+		"Running bin/magento cache:flush...\n" +
 		" All done!\n"
 
 	t.Run("text", func(t *testing.T) {

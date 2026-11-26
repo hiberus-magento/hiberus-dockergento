@@ -204,6 +204,17 @@ func terminalOptions(user string) core.ExecOptions {
 	}
 }
 
+// unattendedOptions runs a command that reads nothing from the keyboard: a terminal for its output
+// when there is one, and no stdin. A command that holds stdin leaves the docker CLI's copy of it
+// reading the terminal after the command ends, and whatever is typed next — the answer to the
+// next question — goes to that copy instead of to hm.
+func unattendedOptions(user string) core.ExecOptions {
+	return core.ExecOptions{
+		User: user,
+		Tty:  isTerminal(os.Stdout),
+	}
+}
+
 func writesDependencies(args []string) bool {
 	if len(args) == 0 {
 		return false
