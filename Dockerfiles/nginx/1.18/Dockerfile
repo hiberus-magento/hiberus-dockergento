@@ -2,7 +2,7 @@ FROM nginx:1.18-alpine
 MAINTAINER "Hiberus Tecnologia <dabad@hiberus.com>"
 
 RUN apk update && \
-    apk add --no-cache sudo curl nss-tools bash
+    apk add --no-cache sudo curl nss-tools bash shadow
 
 RUN addgroup -g 1000 app && adduser -G app -g 1000 -u 1000 -h /var/www -s /bin/bash -S app
 RUN touch /var/run/nginx.pid
