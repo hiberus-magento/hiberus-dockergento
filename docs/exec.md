@@ -1,25 +1,29 @@
 # hm exec
 
-Execute an action on the container.
+Execute a command on the container.
 
 ## Usage
 
 ```bash
-hm exec [OPTIONS]
+hm exec [-r] <command> [arguments]
 ```
-
-Refer to the [options section](#options) for an overview of available `OPTIONS` for this command.
 
 ## Description
 
-The `exec` command is used to execute an action on the `phpfpm` container.
+The `exec` command runs a command in the `phpfpm` container and returns that command's exit code.
+A terminal is allocated only when stdin and stdout are terminals, so the same line works by hand
+and in CI.
 
 ```bash
-hm exec -r
+hm exec ls -lah
+hm exec -r chown -R app:app var
 ```
+
+Without a command it is a usage error (`missing_command`, exit 2). Everything after `exec`
+belongs to the command, so the tool's own flags go before it: `hm --json exec ...`.
 
 ## Options
 
-| Name                    | Description                                 | Example             |
-| ----------------------- | ------------------------------------------- | ------------------- |
-| `-r`, `--root`          | Execute with root user.                     | `hm exec -r`        |
+| Name                    | Description                                         | Example                  |
+| ----------------------- | --------------------------------------------------- | ------------------------ |
+| `-r`                    | Execute with root user. Only as the first argument. | `hm exec -r whoami`      |

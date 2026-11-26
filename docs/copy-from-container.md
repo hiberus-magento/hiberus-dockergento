@@ -5,7 +5,7 @@ Copy files or folders to host from container.
 ## Usage
 
 ```bash
-hm copy-from-container [ file1, ..., fileN | folder, ...f, olderN ]
+hm copy-from-container <path>...    # files or folders, relative to the workdir
 ```
 
 ## Description

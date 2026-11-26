@@ -10,7 +10,10 @@ hm masquerade
 
 ## Description
 
-The `masquerade` command is used to anonymise the database of a local Magento project.
+The `masquerade` command is used to anonymise the database of a local Magento project. It asks
+for confirmation first, because it cannot be undone (`--yes` answers it). It runs the
+`hiberusmagento/masquerade` image as a one-off container on the database's network, with the
+database credentials read from the db container.
 
 Internally, the masquerade tool has default configuration files that we find useful across the board for Magento projects, but you can include project-specific settings: 
 
@@ -18,4 +21,6 @@ To add proyect config files create the following folder: config/docker/masquerad
 
 ## Transfer DB
 
-In addition to being able to manually execute the anonymisation via the masquerade command, this anonymisation has also been included in the [transfer-db](transfer-db.md) command flow with no option to skip it, to ensure that data transferred from an external environment does not contain sensitive information in development environments.
+The same anonymisation is offered by [transfer-db](transfer-db.md): it asks whether to anonymise
+the transferred database (yes by default), and `--anonymise=true` or `--anonymise=false` answers
+it on the command line. `hm mysql -a -i dump.sql` anonymises after an import.

@@ -10,7 +10,9 @@ hm purge
 
 ## Description
 
-The `purge` command is used to clean static content in `./var`, `./pub`, `./generate` and `./dev`.
+The `purge` command removes, inside the php container, what Magento can generate again:
+`var/cache`, `generated`, `pub/static`, `var/view_preprocessed`, `var/page_cache`,
+`var/generation` and `dev/tests/integration/tmp`. `var/log` is never touched.
 
 ## JSON output
 

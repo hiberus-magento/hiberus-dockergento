@@ -112,14 +112,20 @@ Every run writes a log to `~/.hm/logs/transfer-db-<project>-<date>-<time>.log` (
 
 ## Options
 
+The connection options take their value after `=` only (`--ssh-host=<host>`); one given as
+`--ssh-host <host>` is read as empty and the next word is ignored. The questions are still asked,
+with the option's value offered as the answer, or the Magento Cloud default when it was not given
+(`ssh.eu-3.magento.cloud` for the SSH host); under `--yes` the offered answers are taken.
+
 | Name              | Description                                  | Example           |
 | ----------------- | ------------------ | ------------------------------------------- |
-| `--ssh-host`      | Ssh host name.     | `hm transfer-db --ssh-host <host-name>`     |
-| `--ssh-user`      | Ssh host name.     | `hm transfer-db --ssh-user <host-user>`     |
-| `--sql-host`      | Database host      | `hm transfer-db --sql-host <host-name>`     |
-| `--sql-user`      | Database user      | `hm transfer-db --sql-user <user>`          |
-| `--sql-db`        | Database name      | `hm transfer-db --sql-db <db-name>`         |
-| `--sql-password`  | Database password  | `hm transfer-db --sql-password <password>`  |
+| `--ssh-host`      | SSH host name.     | `hm transfer-db --ssh-host=<host-name>`     |
+| `--ssh-user`      | SSH user.          | `hm transfer-db --ssh-user=<host-user>`     |
+| `--sql-host`      | Database host      | `hm transfer-db --sql-host=<host-name>`     |
+| `--sql-port`      | Database port      | `hm transfer-db --sql-port=<port>`          |
+| `--sql-user`      | Database user      | `hm transfer-db --sql-user=<user>`          |
+| `--sql-db`        | Database name      | `hm transfer-db --sql-db=<db-name>`         |
+| `--sql-password`  | Database password  | `hm transfer-db --sql-password=<password>`  |
 | `--anonymise`     | Anonymise database. Values: `true`, `false`. If omitted, prompts user | `hm transfer-db --anonymise=true` or `hm transfer-db --anonymise=false` |
 | `--structure-only` | Also dump these tables without data: `@groups`, names and `*` patterns, added to `TRANSFER_DB_STRUCTURE_ONLY` | `hm transfer-db --structure-only=@log,@sessions` |
 | `--full`          | Dump every table with its data, ignoring `TRANSFER_DB_STRUCTURE_ONLY` and `--structure-only` | `hm transfer-db --full` |

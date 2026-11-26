@@ -29,7 +29,7 @@ hm create-project
 #### Create a Magento project with default settings.
 
 ```bash
-hm create-project -d
+hm create-project -u
 ```
 - **Project name**: folder name in lowercase.
 - **Domain**: folder name in lowercase plus suffix `.local`.
@@ -43,13 +43,17 @@ hm create-project -d
 hm create-project -e community -v 2.4.5 -p project-name
 ```
 
-> You can combine it with -d option
+> You can combine it with the `-u` option: an option given explicitly wins over its default.
+
 ## Options
+
+Each takes its value as the next word or, in the long form, after `=` (`--version=2.4.7`). Any
+other option, or an argument that is not an option's value, is a usage error (exit 2).
 
 | Name                     | Description                                             | Example                            |
 | ------------------------ | ------------------------------------------------------- | ---------------------------------- |
-| `-d`, `--default`        | Use default settings.                                   | `hm create-project -d`             |
+| `-u`, `--use-default`    | Use default settings (see above).                       | `hm create-project -u`             |
 | `-e`, `--edition`        | Define Magento edition (community \| enterprise).       | `hm create-project -e community`   |
-| `-p`, `--project-name`   | Project path. Use relative path.                        | `hm create-project -p ./my_project`|
+| `-p`, `--project-name`   | Project name; the domain is `<project-name>.local`.     | `hm create-project -p my_project`  |
 | `-r`, `--root-directory` | Path to root directory where Magento project is.        | `hm create-project -r "./project"` |
-| `-v`, `--version`        | Define Magento version,                                 | `hm create-project -v 2.4.5-p1`    |
+| `-v`, `--version`        | Define Magento version (`hm compatibility` lists them). | `hm create-project -v 2.4.5-p1`    |

@@ -28,8 +28,19 @@ The check only runs when you name a service: `hm logs` on its own has nothing to
 
 ## Options
 
-Everything Compose accepts for logs works, because it is passed straight through: `-f`,
-`--tail`, `--since`, `--until`, `-t`, `--no-color`, `--no-log-prefix`.
+The options of `docker compose logs`, read by `hm` and handed to Compose as a library:
+
+| Option | Meaning |
+|---|---|
+| `-f`, `--follow` | Follow the output |
+| `-n N`, `--tail N` | The last N lines of each container |
+| `--since T`, `--until T` | A time window: a timestamp or a duration such as `10m` |
+| `-t`, `--timestamps` | Show timestamps |
+| `--index N` | One replica of a scaled service |
+| `--no-color` | No colour |
+| `--no-log-prefix` | No service name in front of each line |
+
+A value goes in the next word (`--tail 100`). Any other option is a usage error (exit 2).
 
 ## Flags before and after the command name
 
@@ -38,7 +49,7 @@ Everything Compose accepts for logs works, because it is passed straight through
 
 ```bash
 hm --json logs db     # the CLI's flag — and the logs still come out raw, never wrapped
-hm logs --json db     # Compose's flag, and it has none: it says so
+hm logs --json db     # logs' flag, and it has none: a usage error
 ```
 
 The logs are never wrapped in the JSON envelope in either case. See

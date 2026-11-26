@@ -5,7 +5,8 @@ Copy files or folders to container from host.
 ## Usage
 
 ```bash
-hm copy-to-container [ file1, ..., fileN | folder, ...f, olderN ]
+hm copy-to-container <path>...      # files or folders, relative to the project
+hm copy-to-container --all          # the whole project
 ```
 
 ## Description

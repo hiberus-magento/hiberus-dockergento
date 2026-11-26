@@ -1,9 +1,16 @@
 # hm cloud
 
-Login in Magento Cloud to use `magento-cloud` CLI.
+Run the `magento-cloud` CLI inside the php container.
 
 ## Usage
 
 ```bash
-hm cloud
+hm cloud [ARGUMENTS]
+```
+
+The arguments are handed to `magento-cloud` as typed. Log in first with
+[`hm cloud-login`](cloud-login.md).
+
+```bash
+hm cloud environment:list
 ```

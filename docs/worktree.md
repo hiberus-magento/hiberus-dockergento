@@ -33,6 +33,8 @@ This gives it one.
 5. Clones the database from a [template](db.md#templates-the-same-data-without-the-import).
 6. Starts it, unless `--no-start`.
 
+The worktree goes next to the project unless `--path=<dir>` says where.
+
 From then on, `hm` commands run in that directory act on that environment. Nothing else changes:
 the main environment keeps its name, its containers and its address.
 
@@ -147,8 +149,9 @@ hm worktree remove feature-checkout
 ```
 
 Destroys the environment with its volumes, removes the git worktree and deletes the registration.
-It refuses while there is uncommitted work in the worktree: the containers and the database can be
-rebuilt in seconds, and the code cannot be rebuilt at all.
+It refuses while there is uncommitted work in the worktree (`uncommitted_changes`, exit 6): the
+containers and the database can be rebuilt in seconds, and the code cannot be rebuilt at all. At a
+terminal it asks you to type the name to confirm. `--force` removes it anyway, without asking.
 
 ## What this is not
 

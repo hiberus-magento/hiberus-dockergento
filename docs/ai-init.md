@@ -5,6 +5,7 @@ Configures a project's AI tooling and installs it for the first time.
 ```bash
 hm ai-init                                    # the wizard
 hm ai-init --platforms=claude,codex --types=magento --resources=skills,agents
+hm ai-init --repository=https://github.com/org/repo --branch=main   # a repository of your own too (HTTPS only)
 hm ai-init --plugin                           # only a Claude Code plugin, in ~/.hm/claude-plugin
 hm ai-init --plugin=./tools/hm-plugin         # the same, somewhere else
 ```

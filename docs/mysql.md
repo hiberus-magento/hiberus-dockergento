@@ -36,17 +36,27 @@ hm mysql -i /.../dump.sql
 hm mysql -d -i /.../dump.sql
 ```
 
+#### Import database and anonymise it
+
+```bash
+hm mysql -a -i /.../dump.sql
+```
+
 #### Make a query
 
 ```bash
 hm mysql -q "SELECT * FROM core_config_data"
 ```
 
-> You can combine with -d option
+Without options and with a terminal on stdin, it opens an interactive client.
+
 ## Options
 
-| Name                     | Description                                                                                                                     | Example                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `-d`, `--definers`       | Clean DEFINER in sql file and create a new file in the same path with name <original_name>_cleaned.sql. Must be used with `-i`. | `hm mysql -d`                    |
-| `-i`, `--import`         | Import database and set configs for local environment.                                                                          | `hm mysql -i /dump.sql`          |
-| `-q`, `--query`          | It is used to make queries.                                                                                                     | `hm mysql -q "SELECT * FORM ..."`|
+Only the short forms are accepted; any other option is a usage error (exit 2).
+
+| Name   | Description                                                                                                       | Example                           |
+| ------ | ----------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `-i`   | Import a dump and set configs for local environment (`config/docker/local_settings.json`, see [config-env](config-env.md)). | `hm mysql -i /dump.sql`           |
+| `-d`   | With `-i`: remove the `DEFINER` clauses while importing. The dump is filtered as it streams; no second file is written. | `hm mysql -d -i /dump.sql`        |
+| `-a`   | With `-i`: anonymise the database after importing ([masquerade](masquerade.md)).                                  | `hm mysql -a -i /dump.sql`        |
+| `-q`   | Run one statement and print its output.                                                                           | `hm mysql -q "SELECT * FROM ..."` |
