@@ -40,6 +40,11 @@ type sshRun struct {
 	Output string
 }
 
+// Destination and Command are ssh's last two arguments: user@host and what runs there. The
+// options come before them.
+func (r sshRun) Destination() string { return r.Args[len(r.Args)-2] }
+func (r sshRun) Command() string     { return r.Args[len(r.Args)-1] }
+
 // dbLab is a project whose phpfpm and db are running, with a recording ssh.
 func dbLab(t *testing.T) (*fakeEngine, *[]sshRun) {
 	t.Helper()
@@ -144,7 +149,7 @@ func TestTransferDBDumpsOverSSHAndRestoresIntoTheDbContainer(t *testing.T) {
 		t.Fatalf("transfer-db = %d, want exitOK", code)
 	}
 
-	wantSSH := []sshRun{{Args: []string{"abc@ssh.eu-3.magento.cloud", tunnelledDump},
+	wantSSH := []sshRun{{Args: append(sshOptions(), "abc@ssh.eu-3.magento.cloud", tunnelledDump),
 		Output: filepath.Join(here(), "db.sql.gz")}}
 	if diff := cmp.Diff(wantSSH, *ran); diff != "" {
 		t.Fatalf("ssh (-want +got):\n%s", diff)
@@ -173,7 +178,7 @@ func TestEveryOptionReachesTheCommandsItBuilds(t *testing.T) {
 
 	want := strings.NewReplacer("'database.internal'", "'db.remote'", "'mysql'", "'shop'", "3306", "3307",
 		"'pw' main", "'secret' live").Replace(tunnelledDump)
-	if len(*ran) != 1 || (*ran)[0].Args[0] != "abc@ssh.example.cloud" || (*ran)[0].Args[1] != want {
+	if len(*ran) != 1 || (*ran)[0].Destination() != "abc@ssh.example.cloud" || (*ran)[0].Command() != want {
 		t.Fatalf("ssh ran %v, want abc@ssh.example.cloud with %s", *ran, want)
 	}
 }
@@ -184,8 +189,8 @@ func TestWithoutAPasswordThereIsNoPasswordFlag(t *testing.T) {
 
 	transferDB([]string{"--ssh-user=abc"}, io.Discard, io.Discard, false)
 
-	if len(*ran) != 1 || !strings.Contains((*ran)[0].Args[1], "-P 3306  main ") ||
-		strings.Contains((*ran)[0].Args[1], "-p'") {
+	if len(*ran) != 1 || !strings.Contains((*ran)[0].Command(), "-P 3306  main ") ||
+		strings.Contains((*ran)[0].Command(), "-p'") {
 		t.Fatalf("ssh ran %v, want no -p", *ran)
 	}
 }
@@ -254,7 +259,7 @@ func TestTheAnswersReplaceTheDefaults(t *testing.T) {
 
 	want := strings.NewReplacer("'database.internal'", "'db.other'", "'mysql'", "'reader'", "3306", "3310",
 		"'pw' main", "'pw' shop").Replace(tunnelledDump)
-	if len(*ran) != 1 || (*ran)[0].Args[0] != "me@ssh.other" || (*ran)[0].Args[1] != want {
+	if len(*ran) != 1 || (*ran)[0].Destination() != "me@ssh.other" || (*ran)[0].Command() != want {
 		t.Fatalf("ssh ran %v", *ran)
 	}
 }
@@ -544,7 +549,7 @@ func TestAQuoteInAConnectionValueStaysInsideItsWord(t *testing.T) {
 		"--sql-password=it's; rm -rf ~", "--anonymise=false"}, io.Discard, io.Discard, false)
 
 	want := `-h'db'\''h' -u'o'\''neil' -P 3306 -p'it'\''s; rm -rf ~' main `
-	if len(*ran) != 1 || !strings.Contains((*ran)[0].Args[1], want) {
+	if len(*ran) != 1 || !strings.Contains((*ran)[0].Command(), want) {
 		t.Fatalf("ssh ran %v, want it to contain %s", *ran, want)
 	}
 }

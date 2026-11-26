@@ -8,8 +8,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 	"golang.org/x/term"
@@ -260,7 +262,13 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	inDB := func(step, command string) (string, int, error) {
 		log.step(step, "db: bash -o pipefail -c '"+command+"'")
 
+		done := func() {}
+		if transferAnimates(stderr, jsonOutput) {
+			done = working(stderr, func(elapsed time.Duration) string { return stepLabel(step, elapsed) })
+		}
+
 		said, status, err := engine.Capture(project.Root, "db", []string{"bash", "-o", "pipefail", "-c", command})
+		done()
 		if err == nil {
 			log.ended(said, status)
 		}
@@ -281,12 +289,21 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			return inDB(step+attempt, "{ "+dump+" > /tmp/db.sql.gz; } 2>&1")
 		}
 
-		args := []string{sshUser + "@" + sshHost, dump}
+		args := append(slices.Clone(transferSSHOptions), sshUser+"@"+sshHost, dump)
 		log.step(step+attempt, "ssh "+strings.Join(args, " ")+" > "+local)
+
+		// What a previous run left would be counted as arrived before ssh has even connected
+		os.Remove(local) //nolint:errcheck
+
+		done := func() {}
+		if transferAnimates(stderr, jsonOutput) {
+			done = working(stderr, downloadLabel(local))
+		}
 
 		var said strings.Builder
 
 		status, err := runSSH(args, local, &said)
+		done()
 		if err == nil {
 			log.ended(said.String(), status)
 		}

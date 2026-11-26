@@ -174,7 +174,7 @@ func TestADumpTheDatabaseAsksToRetryIsRetried(t *testing.T) {
 		t.Fatalf("transfer-db retried = %d, want exitOK", code)
 	}
 
-	if len(*ran) != 2 || (*ran)[1].Args[len((*ran)[1].Args)-1] != tunnelledDump {
+	if len(*ran) != 2 || (*ran)[1].Command() != tunnelledDump {
 		t.Fatalf("ssh ran %v, want the same dump twice", *ran)
 	}
 
