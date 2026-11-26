@@ -155,3 +155,88 @@ func TestAFailedLocalDumpStopsBeforeTheRestore(t *testing.T) {
 		"Creating the database dump in the db container failed (the dump exited with status 2)",
 		"Access denied for user")
 }
+
+const tableChanged = "mariadb-dump: Error 1412: Table definition has changed, please retry transaction when dumping table `sales_data_exporter_orders_v2_sync_batches` at row: 0\n" +
+	"hm-transfer-db: the dump exited with status 2\n"
+
+// TestADumpTheDatabaseAsksToRetryIsRetried: 1412 is the server saying "try again", which is what
+// happens on a live database while a table is being altered; the second dump goes through.
+func TestADumpTheDatabaseAsksToRetryIsRetried(t *testing.T) {
+	fake, ran := dbLab(t)
+	sshAnswering(t, ran, sshOutcome{said: tableChanged}, sshOutcome{})
+
+	var stdout bytes.Buffer
+
+	if code := transferDB([]string{"--ssh-user=abc", "--sql-password=pw"}, &stdout, io.Discard, false); code != exitOK {
+		t.Fatalf("transfer-db retried = %d, want exitOK", code)
+	}
+
+	if len(*ran) != 2 || (*ran)[1].Args[len((*ran)[1].Args)-1] != tunnelledDump {
+		t.Fatalf("ssh ran %v, want the same dump twice", *ran)
+	}
+
+	mustContain(t, "stdout", stdout.String(), "The table definition changed during the dump, retrying (2/3)...\n")
+
+	if got := steps(fake); len(got) == 0 || got[0] != "CopyIntoService db "+(*ran)[0].Output+" /tmp" {
+		t.Fatalf("steps after the retry = %v, want the dump copied once", got)
+	}
+}
+
+// TestADumpThatKeepsAskingToRetryGivesUp after three attempts, with the database's own words.
+func TestADumpThatKeepsAskingToRetryGivesUp(t *testing.T) {
+	fake, ran := dbLab(t)
+	sshAnswering(t, ran, sshOutcome{said: tableChanged})
+
+	var stdout, stderr bytes.Buffer
+
+	if code := transferDB([]string{"--ssh-user=abc", "--sql-password=pw"}, &stdout, &stderr, false); code != 2 {
+		t.Fatalf("transfer-db giving up = %d, want the dump's 2", code)
+	}
+
+	if len(*ran) != 3 || len(steps(fake)) != 0 {
+		t.Fatalf("ssh ran %d times and then %v, want three dumps and nothing else", len(*ran), steps(fake))
+	}
+
+	mustContain(t, "stdout", stdout.String(), "retrying (2/3)...\n", "retrying (3/3)...\n")
+	mustContain(t, "stderr", stderr.String(),
+		"Creating the database dump on ssh.eu-3.magento.cloud failed after 3 attempts (the dump exited with status 2)",
+		"Error 1412: Table definition has changed, please retry transaction")
+}
+
+// TestOtherDumpErrorsAreNotRetried: a lost connection or a refused password will not fix itself.
+func TestOtherDumpErrorsAreNotRetried(t *testing.T) {
+	_, ran := dbLab(t)
+	sshAnswering(t, ran, sshOutcome{said: lostConnection + "hm-transfer-db: the dump exited with status 2\n"}, sshOutcome{})
+
+	var stdout bytes.Buffer
+
+	if code := transferDB([]string{"--ssh-user=abc"}, &stdout, io.Discard, false); code != 2 {
+		t.Fatalf("transfer-db = %d, want 2", code)
+	}
+
+	if len(*ran) != 1 {
+		t.Fatalf("ssh ran %d times, want one: only 1412 is retried", len(*ran))
+	}
+
+	mustNotContain(t, "stdout", stdout.String(), "retrying")
+}
+
+// TestTheLocalDumpIsRetriedToo: the same database error without a tunnel, re-running only the
+// dump in the db container.
+func TestTheLocalDumpIsRetriedToo(t *testing.T) {
+	fake, _ := dbLab(t)
+	answeringWith(t, "n")
+
+	// Resolve, Describe, the first dump
+	fake.outcomes = []outcome{{}, {}, {captured: tableChanged}}
+
+	if code := transferDB([]string{"--sql-password=pw"}, io.Discard, io.Discard, false); code != exitOK {
+		t.Fatalf("transfer-db = %d, want exitOK", code)
+	}
+
+	got := steps(fake)
+	if len(got) < 3 || got[0] != got[1] || !strings.Contains(got[0], "/tmp/db.sql.gz") ||
+		strings.Contains(got[2], "/tmp/db.sql.gz") {
+		t.Fatalf("steps = %v, want the dump twice and then the rest", got)
+	}
+}

@@ -202,9 +202,9 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	dump := dumpPipeline(sqlHost, sqlUser, sqlPort, passwordFlag, sqlDB)
 
-	// fail stops the transfer naming the step that failed, why, and the last of what it said
-	fail := func(code int, step, why, said string) int {
-		message := step + " failed (" + why + ")"
+	// fail stops the transfer with what failed and why, and the last of what the step said
+	fail := func(code int, headline, said string) int {
+		message := headline
 		if tail := stepTail(said, transferTailLines); tail != "" {
 			message += ":\n" + tail
 		}
@@ -226,34 +226,58 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return report(stderr, jsonOutput, "transfer-db", err)
 	}
 
-	if sshHost == "" {
-		step := "Creating the database dump in the db container"
+	step, runner := "Creating the database dump in the db container", ""
+	local := filepath.Join(here(), "db.sql.gz")
 
-		said, status, err := engine.Capture(project.Root, "db",
-			[]string{"bash", "-o", "pipefail", "-c", "{ " + dump + " > /tmp/db.sql.gz; } 2>&1"})
-		if err != nil {
-			return report(stderr, jsonOutput, "transfer-db", err)
-		}
+	if sshHost != "" {
+		step, runner = "Creating the database dump on "+sshHost, "ssh"
+	}
 
-		if why, code, failed := dumpFailed(said, status, ""); failed {
-			return fail(code, step, why, said)
+	// takeDump runs the dump once, and answers what it said and how it ended
+	takeDump := func() (string, int, error) {
+		if sshHost == "" {
+			return engine.Capture(project.Root, "db",
+				[]string{"bash", "-o", "pipefail", "-c", "{ " + dump + " > /tmp/db.sql.gz; } 2>&1"})
 		}
-	} else {
-		step := "Creating the database dump on " + sshHost
-		local := filepath.Join(here(), "db.sql.gz")
 
 		var said strings.Builder
 
 		status, err := runSSH([]string{sshUser + "@" + sshHost, dump}, local, &said)
 		if err != nil {
-			return failure(stderr, jsonOutput, "transfer-db", exitError, "transfer_failed",
-				"The database dump could not be taken over SSH: "+err.Error(), "")
+			err = refusal("transfer_failed", exitError, "The database dump could not be taken over SSH: "+err.Error(), "")
 		}
 
-		if why, code, failed := dumpFailed(said.String(), status, "ssh"); failed {
-			return fail(code, step, why, said.String())
+		return said.String(), status, err
+	}
+
+	for attempt := 1; ; attempt++ {
+		said, status, err := takeDump()
+		if err != nil {
+			return report(stderr, jsonOutput, "transfer-db", err)
 		}
 
+		why, code, failed := dumpFailed(said, status, runner)
+		if !failed {
+			break
+		}
+
+		// Only the dump is taken again: nothing after it has run yet
+		if attempt < transferDumpAttempts && askedToRetry(said) {
+			say(fmt.Sprintf("The table definition changed during the dump, retrying (%d/%d)...\n",
+				attempt+1, transferDumpAttempts))
+
+			continue
+		}
+
+		headline := step + " failed (" + why + ")"
+		if attempt > 1 {
+			headline = fmt.Sprintf("%s failed after %d attempts (%s)", step, attempt, why)
+		}
+
+		return fail(code, headline, said)
+	}
+
+	if sshHost != "" {
 		if err := engine.CopyIntoService(project.Root, "db", local, "/tmp"); err != nil {
 			return report(stderr, jsonOutput, "transfer-db", err)
 		}
@@ -326,6 +350,9 @@ func anonymiseOrWarn(engine commands, dir string, stderr io.Writer) {
 // almost always the last line, and the few before it say where.
 const transferTailLines = 10
 
+// transferDumpAttempts is how many times a dump the database asks to retry is taken.
+const transferDumpAttempts = 3
+
 // transferMarker starts the line a part of a pipeline prints on stderr when it fails.
 const transferMarker = "hm-transfer-db: "
 
@@ -371,6 +398,14 @@ func dumpFailed(said string, status int, runner string) (string, int, bool) {
 	}
 
 	return fmt.Sprintf("it exited with status %d", status), status, true
+}
+
+// askedToRetry is whether the dump failed with MariaDB's and MySQL's error 1412, "Table
+// definition has changed, please retry transaction": a table altered while a consistent
+// snapshot was being read, which a live Magento does all the time. Nothing else is retried — a
+// refused password or a lost connection is not fixed by asking again.
+func askedToRetry(said string) bool {
+	return strings.Contains(said, "Error 1412") || strings.Contains(said, "Table definition has changed")
 }
 
 // stepTail is the end of what a step said, indented under the failure, without the markers:
