@@ -447,6 +447,17 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		if len(missing) > 0 {
 			say("Not in the local database, so not kept: " + strings.Join(missing, ", ") + "\n")
 		}
+
+		// The put-back names what was saved, not the three it tried
+		var saved []string
+
+		for _, table := range []string{"core_config_data", "admin_user", "tfa_user_config"} {
+			if !slices.Contains(missing, table) {
+				saved = append(saved, table)
+			}
+		}
+
+		kept = andList(saved)
 	}
 
 	restoring := "Restoring the dump into the local database"
@@ -470,7 +481,8 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		return fail(code, restoring+" failed ("+why+")", said)
 	}
 
-	if exclude {
+	// Nothing saved, nothing to put back
+	if exclude && kept != "" {
 		if code := inDBOr("Putting "+kept+" back", putConfigBackCommand); code != exitOK {
 			return code
 		}
@@ -701,4 +713,16 @@ func stepTail(said string, count int) string {
 // replaced by one that closes the quoting, an escaped literal quote, and one that opens it again.
 func insideQuotes(value string) string {
 	return strings.ReplaceAll(value, "'", `'\''`)
+}
+
+// andList is names the way a sentence lists them: "a", "a and b", "a, b and c"; nothing for none.
+func andList(names []string) string {
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	}
+
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }

@@ -558,6 +558,15 @@ func TestATableToKeepThatTheLocalDatabaseLacksIsNamedAndSkipped(t *testing.T) {
 
 	mustContain(t, "stdout", stdout.String(),
 		"Not in the local database, so not kept: tfa_user_config\n", "Restoring database dump into localhost...\n")
+
+	// The put-back names what was saved, not the three it tried
+	logged, err := os.ReadFile(transferLogPath(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mustContain(t, "log", string(logged), "Putting core_config_data and admin_user back\n")
+	mustNotContain(t, "log", string(logged), "tfa_user_config back")
 }
 
 // The save keeps only the tables the local database has, found in one query before the dump, and
