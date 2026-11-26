@@ -49,6 +49,7 @@ FORCE=false
 DRY_RUN=false
 CLEANUP=false
 FILTERS=()
+ARGS=("$@")    # as given, to repeat them in a hint
 
 # ---- colours (fallback to plain if not a tty) --------------------------------
 if [ -t 1 ]; then C_OK=$'\033[32m'; C_SKIP=$'\033[33m'; C_ERR=$'\033[31m'; C_INFO=$'\033[36m'; C_RST=$'\033[0m'
@@ -119,13 +120,16 @@ build_and_publish() {
         suffix="${plat##*/}"                 # linux/amd64 -> amd64
         aref="${ref}-${suffix}"
         info "build ${aref}  (${plat})"
-        docker buildx build --builder "$BUILDER" --platform "$plat" --load -t "$aref" "$ctx"
-        docker push "$aref"
+        # Each step returns on failure by itself: this function is called as an `if` condition,
+        # where set -e does not apply, and a failed build used to go on to push a stale local
+        # image and report it published
+        docker buildx build --builder "$BUILDER" --platform "$plat" --load -t "$aref" "$ctx" || return 1
+        docker push "$aref" || return 1
         arch_refs+=("$aref")
     done
 
     info "merge -> ${ref}"
-    docker buildx imagetools create -t "$ref" "${arch_refs[@]}"
+    docker buildx imagetools create -t "$ref" "${arch_refs[@]}" || return 1
     ok "published ${ref}"
 
     if $CLEANUP; then
@@ -138,6 +142,21 @@ command -v docker >/dev/null || { err "docker not found in PATH"; exit 1; }
 docker buildx version >/dev/null 2>&1 || { err "docker buildx not available"; exit 1; }
 if ! $DRY_RUN && ! docker buildx inspect "$BUILDER" >/dev/null 2>&1; then
     err "buildx builder '$BUILDER' not found. Create it or pass --builder."; exit 1
+fi
+
+# A builder with the docker driver builds on the daemon of its own context, and --load puts the
+# image there; docker push then reads the current context's daemon. Different contexts: buildx
+# refuses, and the push finds no image or an old one.
+if ! $DRY_RUN; then
+    builder_info="$(docker buildx inspect "$BUILDER" 2>/dev/null)"
+    builder_driver="$(printf '%s\n' "$builder_info" | awk '/^Driver:/ {print $2; exit}')"
+    builder_context="$(printf '%s\n' "$builder_info" | awk '/^Endpoint:/ {print $2; exit}')"
+    current_context="$(docker context show 2>/dev/null || true)"
+    if [ "$builder_driver" = "docker" ] && [ -n "$builder_context" ] && [ "$builder_context" != "$current_context" ]; then
+        err "builder '$BUILDER' builds on the Docker context '$builder_context', but the current context is '${current_context:-unknown}'."
+        err "Run it on that context: DOCKER_CONTEXT=$builder_context $0 ${ARGS[*]}"
+        exit 1
+    fi
 fi
 
 info "registry=$REGISTRY  builder=$BUILDER  platforms=$PLATFORMS  force=$FORCE  dry-run=$DRY_RUN"
