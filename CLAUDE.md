@@ -249,7 +249,7 @@ Docker services defined in `docker-compose.template.yml`:
 - **mail catcher** - Mailhog or Mailpit (`hm setup --mail=`), web UI on port 8025
 - **rabbitmq** - Message queue (ports 5672, 15672)
 
-`data/requirements.json` is the authoritative version matrix; the README lists the images.
+`data/requirements.json` is the authoritative version matrix; `docs/versions.md` lists the images.
 
 ## Important Notes
 
