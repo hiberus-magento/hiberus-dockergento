@@ -14,6 +14,9 @@ import (
 type files struct {
 	into []string
 
+	// intoSources is what each copy in sent, beside the target it went to
+	intoSources []string
+
 	// from is every copy out, as source and target: what the daemon was asked for, and where on
 	// this machine it lands.
 	from [][2]string
@@ -21,6 +24,7 @@ type files struct {
 
 func (f *files) Into(container, source, target string) error {
 	f.into = append(f.into, target)
+	f.intoSources = append(f.intoSources, source)
 
 	return nil
 }
@@ -516,4 +520,24 @@ func (f *containerFiles) From(container, _, _ string) error {
 	f.from = append(f.from, container)
 
 	return nil
+}
+
+// copy-to-container . sends the contents of the project into the workdir itself, the way
+// `docker cp ./. container:/var/www/html` does: not the project directory into the workdir's
+// parent, where it would land as /var/www/<project>, outside the workdir.
+func TestCopyingDotInSendsTheProjectsContentsToTheWorkdir(t *testing.T) {
+	transfer, project := transferencia(t, &runner{}, &runner{})
+
+	if err := transfer.Into(project, []string{"."}, "app:app"); err != nil {
+		t.Fatal(err)
+	}
+
+	sent := transfer.Files.(*files)
+	if len(sent.into) != 1 || sent.into[0] != "/var/www/html" {
+		t.Fatalf("copied into %v, want the workdir itself", sent.into)
+	}
+
+	if !strings.HasSuffix(sent.intoSources[0], string(filepath.Separator)+".") {
+		t.Fatalf("sent %q, want the contents of the project (ending in /.)", sent.intoSources[0])
+	}
 }

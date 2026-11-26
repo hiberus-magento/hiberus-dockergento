@@ -106,6 +106,9 @@ func topOf(source string) string {
 
 // pack writes a path into a tar stream, as the daemon expects to receive it.
 func pack(out io.Writer, source string, meter ports.CopyMeter) error {
+	// "dir/." is what is in dir, as `docker cp dir/.` reads it; Clean would turn it into dir
+	// itself, and its contents would land one level down, under dir's own name
+	contents := strings.HasSuffix(filepath.ToSlash(source), "/.")
 	source = filepath.Clean(source)
 
 	info, err := os.Stat(source)
@@ -121,6 +124,9 @@ func pack(out io.Writer, source string, meter ports.CopyMeter) error {
 	// A file is sent under its own name; a directory is sent as itself with everything under it,
 	// which is what makes the two behave the way `docker cp` behaves
 	base := filepath.Dir(source)
+	if contents && info.IsDir() {
+		base = source
+	}
 
 	if !info.IsDir() {
 		return add(archive, source, filepath.Base(source), count)
@@ -144,6 +150,11 @@ func pack(out io.Writer, source string, meter ports.CopyMeter) error {
 		name, err := filepath.Rel(base, path)
 		if err != nil {
 			return err
+		}
+
+		// The directory whose contents are sent is the target itself: it has no entry of its own
+		if name == "." {
+			return nil
 		}
 
 		return add(archive, path, name, count)

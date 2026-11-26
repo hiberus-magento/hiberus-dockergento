@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -322,8 +323,9 @@ func TestCopyingEverythingInSendsNoRepository(t *testing.T) {
 	found := names(t, bytes.NewReader(fake.put))
 	fake.mu.Unlock()
 
-	if !endsWith(found, "/composer.json") {
-		t.Fatalf("sent %v, want the project", found)
+	// The contents of the project, named as they land in the workdir, not under the project's name
+	if !slices.Contains(found, "composer.json") {
+		t.Fatalf("sent %v, want the project's composer.json at the top", found)
 	}
 
 	if hasGitAtTop(found, "shop") {
@@ -331,12 +333,54 @@ func TestCopyingEverythingInSendsNoRepository(t *testing.T) {
 	}
 }
 
+// endsWith is whether a name ends at a path boundary with wanted ("/x"): "shop/x" and "x" both do.
 func endsWith(values []string, wanted string) bool {
 	for _, value := range values {
-		if strings.HasSuffix(value, wanted) {
+		if strings.HasSuffix("/"+value, wanted) {
 			return true
 		}
 	}
 
 	return false
+}
+
+// "dir/." sends what is in dir, the way `docker cp dir/. container:/target` does: copy-to-container
+// --all extracts it into the workdir, so names carrying the project directory's own name would
+// land in workdir/<project>/ instead.
+func TestPackingTheContentsOfADirectorySendsNamesWithoutIt(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "commerce")
+	if err := os.MkdirAll(filepath.Join(root, "app", "etc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "app", "etc", "env.php"), []byte("<?php"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var contents, itself bytes.Buffer
+
+	if err := pack(&contents, root+string(filepath.Separator)+".", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := pack(&itself, root, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range names(t, &contents) {
+		if strings.HasPrefix(strings.TrimPrefix(name, "./"), "commerce") {
+			t.Fatalf("packing %s/. sent %q: the contents carry the directory's own name", root, name)
+		}
+	}
+
+	found := false
+	for _, name := range names(t, &itself) {
+		if name == "commerce/app/etc/env.php" {
+			found = true
+		}
+	}
+
+	if !found {
+		t.Fatalf("packing %s itself no longer sends commerce/…: %v", root, names(t, &itself))
+	}
 }

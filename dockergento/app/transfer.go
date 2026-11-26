@@ -74,6 +74,13 @@ func (t Transfer) Into(project core.Project, paths []string, owner string) error
 		// makes a file land beside its neighbours rather than inside itself
 		target := path.Dir(path.Join(t.workdir(), one))
 
+		// "." is the whole project: its contents go into the workdir itself, as `docker cp ./.`
+		// sends them, and not the project directory into the workdir's parent
+		if path.Clean(filepath.ToSlash(one)) == "." {
+			source += string(filepath.Separator) + "."
+			target = t.workdir()
+		}
+
 		// Made first, because the daemon's copy needs somewhere to put it and answers "could not
 		// find the file" about the destination when there is none — which reads as though what
 		// was being copied did not exist

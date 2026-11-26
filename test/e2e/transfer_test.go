@@ -90,6 +90,30 @@ func TestCopyIntoTheContainer(t *testing.T) {
 	}
 }
 
+// Everything goes into the workdir itself: the project's own files at its top, not under a
+// directory named after the project, and its repository left behind.
+func TestCopyEverythingIntoTheContainer(t *testing.T) {
+	t.Parallel()
+
+	session, project := mounted(t)
+
+	project.Write(t, "en-la-raiz.txt", "raiz\n")
+	project.Write(t, ".git/HEAD", "ref: refs/heads/main\n")
+
+	got := session.Run(t, project.Root, "copy-to-container", "--all")
+	if got.Code != 0 {
+		t.Fatalf("copy-to-container --all = %d, want 0\n%s", got.Code, got.Output())
+	}
+
+	if inside := e2e.Inside(t, session, project, "cat en-la-raiz.txt"); inside != "raiz" {
+		t.Errorf("cat en-la-raiz.txt inside = %q, want %q", inside, "raiz")
+	}
+
+	if inside := e2e.Inside(t, session, project, "test -e .git && echo there || echo absent"); inside != "absent" {
+		t.Errorf(".git inside = %q, want it left on the host", inside)
+	}
+}
+
 // The two sides are already the same file there, and copying one onto the other is a way to lose
 // whichever was newer.
 func TestCopyingABindMountIsRefused(t *testing.T) {
