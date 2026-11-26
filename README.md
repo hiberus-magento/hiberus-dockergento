@@ -1,12 +1,6 @@
 <div align="center">
 
-<!-- logo: add docs/assets/logo-light.svg and logo-dark.svg, then uncomment -->
-<!--
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
-  <img alt="Hiberus Dockergento" src="docs/assets/logo-light.svg" width="360">
-</picture>
--->
+<img alt="hiberus dockergento logo: a ship whose containers stack into an M" src="docs/assets/logo.svg" width="160">
 
 # Hiberus Dockergento
 

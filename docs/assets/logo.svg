@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256" role="img" aria-labelledby="title">
+  <title id="title">hiberus dockergento</title>
+  <!--
+    A ship moored at the quay, its containers stacked into an M: Docker's containers and Magento's
+    initial, in the hiberus palette (navy #19255A, blue #0135F4, cyan #00CDE2). One file for both
+    themes: the colours follow prefers-color-scheme.
+  -->
+  <style>
+    .ink { fill: #19255A; stroke: #19255A; }
+    .ink2 { fill: #0135F4; }
+    .accent { fill: #00CDE2; }
+    .quay { fill: none; stroke: #0135F4; }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #F2F2F7; stroke: #F2F2F7; }
+      .ink2 { fill: #9DB0FF; }
+      .quay { stroke: #9DB0FF; }
+    }
+  </style>
+  <rect class="ink2" x="12" y="8" width="11" height="9.5" rx="2"/>
+  <rect class="ink2" x="12" y="19.75" width="11" height="9.5" rx="2"/>
+  <rect class="ink2" x="12" y="31.5" width="11" height="9.5" rx="2"/>
+  <rect class="accent" x="26.5" y="19.75" width="11" height="9.5" rx="2"/>
+  <rect class="ink2" x="26.5" y="31.5" width="11" height="9.5" rx="2"/>
+  <rect class="ink2" x="41" y="8" width="11" height="9.5" rx="2"/>
+  <rect class="ink2" x="41" y="19.75" width="11" height="9.5" rx="2"/>
+  <rect class="ink2" x="41" y="31.5" width="11" height="9.5" rx="2"/>
+  <path class="ink" d="M5 43 H59 L52.5 54 H11.5 Z" stroke-width="2" stroke-linejoin="round"/>
+  <path class="quay" d="M4 59 H60" stroke-width="2.6" stroke-linecap="round"/>
+</svg>
