@@ -70,6 +70,7 @@ that are there (the ones its Compose files declare, Compose's default one includ
 network, such as the proxy's, is not the project's and stays), each list in alphabetical order.
 Nothing is asked.
 It is refused where the real `down` would be, from a git worktree with no environment of its own.
+When the Compose files cannot be read, it fails with that error instead of listing no networks.
 
 ```console
 $ hm down -v --dry-run

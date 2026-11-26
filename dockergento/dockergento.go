@@ -361,15 +361,29 @@ func (e *Engine) DownPreview(dir string, options core.DownOptions) (core.DownPre
 		return core.DownPreview{}, err
 	}
 
-	return e.operator(project).DownPreview(project, options, e.presentVolumes(project), e.presentNetworks(project))
+	networks, networksErr := e.presentNetworks(project)
+
+	preview, err := e.operator(project).DownPreview(project, options, e.presentVolumes(project), networks)
+	if err != nil {
+		// A refusal, or Docker not answering, says more than the networks could, as it did
+		// before they were listed
+		return preview, err
+	}
+
+	// Networks that could not be read are no answer, and an empty list would read as "none"
+	if networksErr != nil {
+		return core.DownPreview{}, networksErr
+	}
+
+	return preview, nil
 }
 
 // presentNetworks is the networks a down of the project removes — its own, from the Compose
 // configuration — that are actually there, for the reason presentVolumes asks Docker too.
-func (e *Engine) presentNetworks(project core.Project) []string {
+func (e *Engine) presentNetworks(project core.Project) ([]string, error) {
 	declared, err := e.orchestrator(project).Networks(project, e.ComposeFiles(project))
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("could not read the networks the Compose files declare: %w", err)
 	}
 
 	networks := dockerd.Networks{}
@@ -381,7 +395,7 @@ func (e *Engine) presentNetworks(project core.Project) []string {
 		}
 	}
 
-	return present
+	return present, nil
 }
 
 // presentVolumes is the project's own volumes that are actually there.
