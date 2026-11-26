@@ -440,3 +440,45 @@ func writeTool(t *testing.T, dir, name, body string) {
 		t.Fatal(err)
 	}
 }
+
+// The rules given with a space (--structure-only my_log) are read like those given with "=",
+// rather than ending up as an empty value and an ignored word: the tables would be dumped with
+// their data although the run asked otherwise.
+func TestStructureOnlyTakesItsValueAfterASpace(t *testing.T) {
+	fake, ran := dbLab(t)
+	fake.properties = map[string]string{"TRANSFER_DB_STRUCTURE_ONLY": "@saas"}
+	sshAnswering(t, ran, sshOutcome{said: structureOnlyLines("my_log")})
+
+	var stdout bytes.Buffer
+
+	code := transferDB([]string{"--ssh-user=abc", "--sql-password=pw", "--structure-only", "my_log", "--anonymise=false"},
+		&stdout, io.Discard, false)
+	if code != exitOK {
+		t.Fatalf("transfer-db = %d, want exitOK", code)
+	}
+
+	mustContain(t, "stdout", stdout.String(), "Tables to dump without data: @saas, my_log (--full dumps them with their data)\n")
+}
+
+// --structure-only with nothing after it is a mistake, refused before anything is asked or run.
+func TestStructureOnlyWithoutAValueIsRefused(t *testing.T) {
+	for _, args := range [][]string{{"--ssh-user=abc", "--structure-only"}, {"--ssh-user=abc", "--structure-only="}} {
+		fake, ran := dbLab(t)
+		asked := answeringWith(t)
+
+		var stderr bytes.Buffer
+
+		if code := transferDB(args, io.Discard, &stderr, true); code != exitUsage {
+			t.Fatalf("%v = %d, want exitUsage\n%s", args, code, stderr.String())
+		}
+
+		if len(*ran) != 0 || len(steps(fake)) != 0 || len(*asked) != 0 {
+			t.Fatalf("%v: asked %v, ran %v and %v after refusing", args, *asked, *ran, steps(fake))
+		}
+
+		kind, message := failureIn(t, stderr.Bytes())
+		if kind != "invalid_argument" || !strings.Contains(message, "--structure-only") {
+			t.Errorf("%v: failure = %q %q, want invalid_argument naming --structure-only", args, kind, message)
+		}
+	}
+}

@@ -85,8 +85,9 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 	structureOnly, full := []string{}, false
 
 	// Anything else is ignored, as the shell's catch-all case ignored it
-	for _, argument := range args {
-		name, value, _ := strings.Cut(argument, "=")
+	for at := 0; at < len(args); at++ {
+		argument := args[at]
+		name, value, given := strings.Cut(argument, "=")
 
 		switch name {
 		case "--ssh-host":
@@ -106,6 +107,19 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 		case "--anonymise":
 			anonymise = value
 		case "--structure-only":
+			// Its value after "=" or as the next word: given with a space, the shell's habit of
+			// ignoring what it does not know would drop the rules without a word
+			if !given && at+1 < len(args) && !strings.HasPrefix(args[at+1], "-") {
+				at++
+				value = args[at]
+			}
+
+			if strings.TrimSpace(value) == "" {
+				return failure(stderr, jsonOutput, "transfer-db", exitUsage, "invalid_argument",
+					"--structure-only needs the tables or groups to dump without data",
+					binaryName()+" transfer-db --structure-only=<table,pattern_*,@group>")
+			}
+
 			structureOnly = append(structureOnly, core.SplitTableRules(value)...)
 		case "--full":
 			full = true

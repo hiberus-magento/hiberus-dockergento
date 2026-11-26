@@ -28,7 +28,7 @@ Some tables are dumped with their structure but without their rows: nobody needs
    "TRANSFER_DB_STRUCTURE_ONLY": "@saas,@log,@sessions,my_vendor_import_*"
    ```
 
-3. **The run.** `--structure-only=<list>` adds to the project's list for one run; `--full` dumps every table with its data, ignoring both.
+3. **The run.** `--structure-only=<list>` (or `--structure-only <list>`) adds to the project's list for one run, and is refused when it is given nothing; `--full` dumps every table with its data, ignoring both.
 
 The patterns are matched on the server the dump is taken from, against the tables `information_schema` lists for the database, in the same SSH session as the dump (no second connection, no second password prompt). The dump is then two passes into one file: the structure of the matched tables, and every other table with its data. Without SSH the same happens in the `db` container. A pattern may use letters, digits, `_`, `$` and `*` (any run of characters); anything else, or an unknown group, stops the transfer before it asks anything.
 
