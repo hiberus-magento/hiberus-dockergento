@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
 
+	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/ports"
 )
 
@@ -74,7 +76,17 @@ func (Files) FromMetered(id, source, target string, meter ports.CopyMeter) error
 	}
 	defer stream.Close()
 
-	return unpack(stream, target, filepath.Base(strings.TrimSuffix(source, "/.")), meter)
+	return unpack(stream, target, topOf(source), meter)
+}
+
+// topOf is the name the daemon gives the top of the tree it sends for source: the path's own name,
+// or "." for a copy of a directory's contents (`/var/www/html/.`), whose entries come as `./…`.
+func topOf(source string) string {
+	if strings.HasSuffix(source, "/.") {
+		return "."
+	}
+
+	return filepath.Base(source)
 }
 
 // pack writes a path into a tar stream, as the daemon expects to receive it.
@@ -102,6 +114,16 @@ func pack(out io.Writer, source string, meter ports.CopyMeter) error {
 	return filepath.Walk(source, func(path string, entry os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		// Judged against the tree being sent, not the directory that holds it: copying `.git`
+		// itself by name is still a copy of what was named
+		if under, err := filepath.Rel(source, path); err == nil && core.LeftOutOfCopies(filepath.ToSlash(under)) {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+
+			return nil
 		}
 
 		name, err := filepath.Rel(base, path)
@@ -181,6 +203,10 @@ func unpack(stream io.Reader, target, top string, meter ports.CopyMeter) error {
 			name = strings.TrimPrefix(strings.TrimPrefix(name, top), "/")
 		}
 
+		if core.LeftOutOfCopies(underTop(name, top, strip)) {
+			continue
+		}
+
 		path := filepath.Join(target, filepath.Clean("/"+name))
 
 		// Nothing is written outside the target, whatever the stream says its entries are called
@@ -194,6 +220,20 @@ func unpack(stream io.Reader, target, top string, meter ports.CopyMeter) error {
 			return err
 		}
 	}
+}
+
+// underTop is an entry's name relative to the top of the copied tree. A stream whose top was not
+// already stripped carries it as the first element, unless it is ".", which path.Clean removes.
+func underTop(name, top string, stripped bool) string {
+	under := pathpkg.Clean(name)
+
+	if !stripped && top != "." {
+		if first, rest, _ := strings.Cut(under, "/"); first == top {
+			return rest
+		}
+	}
+
+	return under
 }
 
 func restore(archive io.Reader, header *tar.Header, path string) error {

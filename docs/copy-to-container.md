@@ -12,6 +12,8 @@ hm copy-to-container [ file1, ..., fileN | folder, ...f, olderN ]
 
 The `copy-to-container` command is used to copy files or folder to container from host.
 
+The project's repository is never sent: a `.git` directory, or a worktree's `.git` file, at the top of a copied folder (or of the whole project, with `--all`) stays on the host. A `.git` deeper in the tree, such as a package Composer installed from source under `vendor`, is copied like any other file.
+
 ## Progress
 
 On a terminal, a line under each `Copying …` line shows how far the copy has got, redrawn in place:

@@ -12,6 +12,8 @@ hm copy-from-container [ file1, ..., fileN | folder, ...f, olderN ]
 
 The `copy-from-container` command is used to copy files or folder to host from container.
 
+The container's `.git` is never written onto the host: a `.git` directory or file at the top of a copied folder (`hm copy-from-container .` included) is skipped, so a stale repository left in the container cannot overwrite the host's. A `.git` deeper in the tree, such as a package Composer installed from source under `vendor`, is copied like any other file.
+
 ## Progress
 
 On a terminal, a line under each `Copying …` line shows how far the copy has got, redrawn in place:
