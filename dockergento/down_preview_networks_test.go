@@ -137,3 +137,31 @@ func TestDownPreviewFailsWhenTheNetworksCannotBeRead(t *testing.T) {
 		t.Errorf("error = %q, want it to say it was the networks that could not be read", err)
 	}
 }
+
+// TestDownWithVolumesFailsWhenTheVolumesCannotBeRead: the volumes a down -v deletes are what the
+// question before it is about, and none read as "nothing to lose" — it destroyed without asking.
+// Compose files that cannot be read stop it before anything is removed.
+func TestDownWithVolumesFailsWhenTheVolumesCannotBeRead(t *testing.T) {
+	engine, dir := shopProject(t, "services:\n  phpfpm: [\n")
+	fakeDaemon(t)
+
+	_, err := engine.Down(dir, core.DownOptions{Volumes: true}, true)
+	if err == nil {
+		t.Fatal("Down(-v) = nil, want the error reading the volumes")
+	}
+
+	if !strings.Contains(err.Error(), "volumes") {
+		t.Errorf("error = %q, want it to say it was the volumes that could not be read", err)
+	}
+}
+
+// TestDownPreviewFailsWhenTheVolumesCannotBeRead: a preview that listed no volumes would read as
+// though none would go.
+func TestDownPreviewFailsWhenTheVolumesCannotBeRead(t *testing.T) {
+	engine, dir := shopProject(t, "services:\n  phpfpm: [\n")
+	fakeDaemon(t)
+
+	if preview, err := engine.DownPreview(dir, core.DownOptions{Volumes: true}); err == nil {
+		t.Fatalf("DownPreview() = %+v, want the error reading the Compose files", preview)
+	}
+}

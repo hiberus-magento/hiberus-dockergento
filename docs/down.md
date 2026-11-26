@@ -45,6 +45,9 @@ would end up with a pile of them that nobody looks at.
 In a script, in CI, or with `--yes`, nothing is asked and `-v` destroys as it always did. Somebody
 who automates `hm down -v` wrote it on purpose.
 
+When the Compose files cannot be read, `-v` fails with that error before anything is removed:
+the volumes it would delete are what the question is about, and none would read as nothing to lose.
+
 ## JSON output
 
 With `--json`, stdout holds one envelope (see [JSON output](json.md)):
@@ -70,7 +73,8 @@ that are there (the ones its Compose files declare, Compose's default one includ
 network, such as the proxy's, is not the project's and stays), each list in alphabetical order.
 Nothing is asked.
 It is refused where the real `down` would be, from a git worktree with no environment of its own.
-When the Compose files cannot be read, it fails with that error instead of listing no networks.
+When the Compose files cannot be read, it fails with that error instead of listing no networks
+or volumes.
 
 ```console
 $ hm down -v --dry-run

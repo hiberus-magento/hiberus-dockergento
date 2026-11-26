@@ -350,8 +350,16 @@ func (e *Engine) Down(dir string, options core.DownOptions, interactive bool) (s
 		return "", err
 	}
 
-	return e.operator(project).Down(project, e.ComposeFiles(project), options,
-		e.presentVolumes(project), interactive)
+	// Only a down that deletes them needs the volumes: they are what the question before it is
+	// about, and none read as "nothing to lose", which destroyed without asking
+	var volumes []string
+	if options.Volumes {
+		if volumes, err = e.presentVolumes(project); err != nil {
+			return "", err
+		}
+	}
+
+	return e.operator(project).Down(project, e.ComposeFiles(project), options, volumes, interactive)
 }
 
 // DownPreview is what Down would remove, asked of Docker and changing nothing.
@@ -362,8 +370,9 @@ func (e *Engine) DownPreview(dir string, options core.DownOptions) (core.DownPre
 	}
 
 	networks, networksErr := e.presentNetworks(project)
+	volumes, volumesErr := e.presentVolumes(project)
 
-	preview, err := e.operator(project).DownPreview(project, options, e.presentVolumes(project), networks)
+	preview, err := e.operator(project).DownPreview(project, options, volumes, networks)
 	if err != nil {
 		// A refusal, or Docker not answering, says more than the networks could, as it did
 		// before they were listed
@@ -373,6 +382,11 @@ func (e *Engine) DownPreview(dir string, options core.DownOptions) (core.DownPre
 	// Networks that could not be read are no answer, and an empty list would read as "none"
 	if networksErr != nil {
 		return core.DownPreview{}, networksErr
+	}
+
+	// Nor are volumes that could not be read
+	if volumesErr != nil {
+		return core.DownPreview{}, volumesErr
 	}
 
 	return preview, nil
@@ -403,10 +417,10 @@ func (e *Engine) presentNetworks(project core.Project) ([]string, error) {
 // Asked of Docker rather than of the file: naming a volume that was already removed would make
 // the warning read as though more were at stake than there is, and the whole point of the warning
 // is that it is exact.
-func (e *Engine) presentVolumes(project core.Project) []string {
+func (e *Engine) presentVolumes(project core.Project) ([]string, error) {
 	configuration, err := e.Configuration(project)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("could not read the volumes the Compose files declare: %w", err)
 	}
 
 	volumes := dockerd.Volumes{}
@@ -420,7 +434,7 @@ func (e *Engine) presentVolumes(project core.Project) []string {
 
 	sort.Strings(present)
 
-	return present
+	return present, nil
 }
 
 // Restart is a stop and a start, so that a change to the configuration is running afterwards. The
