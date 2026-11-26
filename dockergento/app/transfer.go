@@ -125,8 +125,20 @@ func (t Transfer) From(project core.Project, paths []string) error {
 
 	container, running := found.ID, found.Running
 
+	// What this call has already copied, by the name at the top of the workdir: the whole workdir
+	// asked after vendor — Composer's dance, vendor first so that a failure later in the tree does
+	// not leave the host's emptied vendor empty — leaves vendor out rather than writing it twice
+	var copied []string
+
 	for _, one := range paths {
 		one = strings.TrimSuffix(one, "/")
+
+		var skip []string
+		if path.Clean(one) == "." {
+			skip = copied
+		} else {
+			copied = append(copied, strings.SplitN(path.Clean(one), "/", 2)[0])
+		}
 
 		source := path.Join(t.workdir(), one)
 		target := filepath.Join(project.Root, project.MagentoDir, one)
@@ -139,12 +151,19 @@ func (t Transfer) From(project core.Project, paths []string) error {
 
 		t.say(fmt.Sprintf("Copying phpfpm:%s -> %s\n", one, one))
 
-		if err := t.from(container, source, target, running); err != nil {
+		if err := t.from(container, source, target, running, skip); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// skippingFileTransfer is a copy out that can leave entries at the top of the copied tree
+// unwritten. Optional, like the metered copy: a transfer without it copies the tree whole, which
+// is slower and still right.
+type skippingFileTransfer interface {
+	FromSkipping(container, source, target string, skip []string, meter ports.CopyMeter) error
 }
 
 // into copies one path in, shown while it happens when somebody is watching, against the total
@@ -164,10 +183,25 @@ func (t Transfer) into(container, source, target string) error {
 
 // from copies one path out, shown while it happens when somebody is watching. The total is asked
 // of the container only while it runs; a stopped one cannot run du, and is shown as a counter.
-func (t Transfer) from(container, source, target string, running bool) error {
-	metered, ok := t.Files.(ports.MeteredFileTransfer)
-	if t.Watch == nil || !ok {
+func (t Transfer) from(container, source, target string, running bool, skip []string) error {
+	carry := func(meter ports.CopyMeter) error {
+		return t.Files.(ports.MeteredFileTransfer).FromMetered(container, source, target, meter)
+	}
+
+	skipping, skips := t.Files.(skippingFileTransfer)
+	_, metered := t.Files.(ports.MeteredFileTransfer)
+
+	switch {
+	case skips && len(skip) > 0:
+		carry = func(meter ports.CopyMeter) error {
+			return skipping.FromSkipping(container, source, target, skip, meter)
+		}
+	case t.Watch == nil || !metered:
 		return t.Files.From(container, source, target)
+	}
+
+	if t.Watch == nil {
+		return carry(nil)
 	}
 
 	var total int64
@@ -176,7 +210,7 @@ func (t Transfer) from(container, source, target string, running bool) error {
 	}
 
 	meter, end := t.Watch(total)
-	err := metered.FromMetered(container, source, target, meter)
+	err := carry(meter)
 	end(err != nil)
 
 	return err

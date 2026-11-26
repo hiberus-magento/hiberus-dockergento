@@ -22,6 +22,12 @@ hm composer [ install | update | ... ]
 
 ## On macOS
 
-`install`, `update`, `require` and `remove` copy the host's `vendor` into the php container, run Composer there, then stop phpfpm, empty the host's `vendor` and copy the project back out. The project's `.git` is never part of either copy.
+`install`, `update`, `require` and `remove` copy the host's `vendor` into the php container, run Composer there, then stop phpfpm, empty the host's `vendor` and copy the project back out: `vendor` first, then the rest of the project without it. The project's `.git` is never part of either copy.
+
+If the copy back out fails and leaves the host's `vendor` empty, the error says so and how to get it back from the container:
+
+```text
+the host's vendor is empty; the container has it: hm copy-from-container vendor
+```
 
 Once phpfpm has been stopped for the copy back out, it is started again whatever happens next. When a step after the stop fails, that step's error is what is reported; if phpfpm could not be started again either, the way out says so and names `hm start`.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -118,12 +119,15 @@ func composerMirroringVendor(project core.Project, args []string,
 	// and the next `hm exec` answered "service phpfpm is not running" on top of the real failure
 	err = tool.Stop(dir, core.StopOptions{Services: []string{phpService}})
 
-	if err == nil {
+	cleared := err == nil
+	if cleared {
 		err = tool.ClearVendor(dir)
 	}
 
+	// Vendor first, then the rest of the workdir without it: a copy that fails later in the tree
+	// then leaves the host with the vendor it just emptied already back
 	if err == nil {
-		err = tool.CopyFrom(dir, []string{"."})
+		err = tool.CopyFrom(dir, []string{"vendor", "."})
 	}
 
 	started := tool.Start(dir, dockergento.StartOptions{Services: []string{phpService}})
@@ -133,11 +137,34 @@ func composerMirroringVendor(project core.Project, args []string,
 
 	// What failed first is what is reported; a start that failed too is said beside it
 	var hints []string
+	if cleared && vendorIsEmpty(project) {
+		hints = append(hints, fmt.Sprintf("the host's vendor is empty; the container has it: %s copy-from-container vendor",
+			binaryName()))
+	}
+
 	if started != nil {
 		hints = append(hints, fmt.Sprintf("phpfpm could not be started again: %v; run %s start", started, binaryName()))
 	}
 
 	return failHinted(stderr, jsonOutput, "composer", err, hints)
+}
+
+// vendorIsEmpty reports whether the host's vendor holds nothing ClearVendor would have removed.
+// Judged on the disk rather than on which copy failed: vendor and the rest go in one call, and
+// what to say is what is there.
+func vendorIsEmpty(project core.Project) bool {
+	entries, err := os.ReadDir(filepath.Join(project.Root, project.MagentoDir, "vendor"))
+	if err != nil {
+		return os.IsNotExist(err)
+	}
+
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), ".") {
+			return false
+		}
+	}
+
+	return true
 }
 
 // failHinted reports err as report does, with hints added to whatever way out it already had.

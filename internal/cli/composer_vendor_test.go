@@ -58,7 +58,7 @@ func dance(dir string, project core.Project, files []string, args ...string) []c
 		{Method: "CopyInto", Dir: dir, Paths: files},
 		{Method: "Stop", Dir: dir, Services: []string{phpService}},
 		{Method: "ClearVendor", Dir: dir},
-		{Method: "CopyFrom", Dir: dir, Paths: []string{"."}},
+		{Method: "CopyFrom", Dir: dir, Paths: []string{"vendor", "."}},
 		{Method: "Start", Dir: dir, Services: []string{phpService}},
 	}
 }
@@ -189,6 +189,78 @@ func TestAStartThatAlsoFailsDoesNotHideWhatFailedFirst(t *testing.T) {
 				t.Errorf("stderr (json %v) = %q, want it to contain %q", jsonOutput, stderr.String(), wanted)
 			}
 		}
+	}
+}
+
+// A copy back out that fails once the host's vendor was emptied says so, and how to get it back:
+// the container still has the vendor Composer wrote.
+func TestAFailedCopyBackThatLeftVendorEmptySaysHowToGetItBack(t *testing.T) {
+	onPlatform(t, "darwin")
+
+	const recovery = "the host's vendor is empty; the container has it: hm copy-from-container vendor"
+
+	cases := []struct {
+		name   string
+		vendor []string // what the host's vendor holds once the copy failed
+		hinted bool
+	}{
+		{"nothing came back", nil, true},
+		{"only what ClearVendor keeps", []string{".keep"}, true},
+		{"vendor came back first, the rest failed", []string{"autoload.php"}, false},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := answering(t)
+			root := t.TempDir()
+			fake.project = core.Project{Name: "tienda", Root: root, MagentoDir: "."}
+
+			if err := os.MkdirAll(root+"/vendor", 0o755); err != nil {
+				t.Fatal(err)
+			}
+
+			for _, name := range tt.vendor {
+				if err := os.WriteFile(root+"/vendor/"+name, nil, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			fake.outcomes = make([]outcome, 9)
+			fake.outcomes[8] = outcome{err: errors.New("copy failed")}
+
+			for _, jsonOutput := range []bool{false, true} {
+				var stderr bytes.Buffer
+				if code := composer([]string{"install"}, io.Discard, &stderr, jsonOutput); code != exitDocker {
+					t.Fatalf("composer install = %d, want %d", code, exitDocker)
+				}
+
+				if !strings.Contains(stderr.String(), "copy failed") {
+					t.Errorf("stderr = %q, want the copy's own error", stderr.String())
+				}
+
+				if got := strings.Contains(stderr.String(), recovery); got != tt.hinted {
+					t.Errorf("stderr (json %v) = %q, recovery said: %v, want %v", jsonOutput, stderr.String(), got, tt.hinted)
+				}
+
+				fake.calls = nil
+			}
+		})
+	}
+}
+
+// A stop that fails clears nothing, so it says nothing about vendor.
+func TestAFailedStopSaysNothingAboutVendor(t *testing.T) {
+	onPlatform(t, "darwin")
+	fake := answering(t)
+	fake.project = composerShop()
+	fake.outcomes = make([]outcome, 7)
+	fake.outcomes[6] = outcome{err: errors.New("stop failed")}
+
+	var stderr bytes.Buffer
+	composer([]string{"install"}, io.Discard, &stderr, false)
+
+	if strings.Contains(stderr.String(), "vendor") {
+		t.Fatalf("stderr = %q, want nothing said about vendor", stderr.String())
 	}
 }
 

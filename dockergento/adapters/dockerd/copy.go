@@ -8,6 +8,7 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
@@ -28,6 +29,12 @@ import (
 type Files struct{}
 
 var _ ports.MeteredFileTransfer = Files{}
+
+// The skipping copy out app.Transfer looks for; said here so that a changed signature is a build
+// error rather than a copy that quietly writes vendor twice.
+var _ interface {
+	FromSkipping(id, source, target string, skip []string, meter ports.CopyMeter) error
+} = Files{}
 
 // Into copies a file or a directory from this machine into a container.
 //
@@ -63,7 +70,13 @@ func (f Files) From(id, source, target string) error {
 }
 
 // FromMetered is From, telling meter how far it has got; a nil meter is From.
-func (Files) FromMetered(id, source, target string, meter ports.CopyMeter) error {
+func (f Files) FromMetered(id, source, target string, meter ports.CopyMeter) error {
+	return f.FromSkipping(id, source, target, nil, meter)
+}
+
+// FromSkipping is FromMetered leaving unwritten the entries named in skip at the top of the
+// copied tree: the daemon still sends them, but nothing of them lands on this machine.
+func (Files) FromSkipping(id, source, target string, skip []string, meter ports.CopyMeter) error {
 	docker, err := connect()
 	if err != nil {
 		return err
@@ -76,7 +89,7 @@ func (Files) FromMetered(id, source, target string, meter ports.CopyMeter) error
 	}
 	defer stream.Close()
 
-	return unpack(stream, target, topOf(source), meter)
+	return unpackSkipping(stream, target, topOf(source), skip, meter)
 }
 
 // topOf is the name the daemon gives the top of the tree it sends for source: the path's own name,
@@ -184,6 +197,11 @@ func add(archive *tar.Writer, path, name string, count *tally) error {
 // The stream carries the copied path as its top-level entry. When the target is where that entry
 // should land, its own name is stripped: `docker cp container:/x/y ./y` writes `./y`, not `./y/y`.
 func unpack(stream io.Reader, target, top string, meter ports.CopyMeter) error {
+	return unpackSkipping(stream, target, top, nil, meter)
+}
+
+// unpackSkipping is unpack leaving out the entries whose first name under the top is in skip.
+func unpackSkipping(stream io.Reader, target, top string, skip []string, meter ports.CopyMeter) error {
 	archive := tar.NewReader(stream)
 	strip := filepath.Base(target) == top
 	count := newTally(meter)
@@ -203,7 +221,8 @@ func unpack(stream io.Reader, target, top string, meter ports.CopyMeter) error {
 			name = strings.TrimPrefix(strings.TrimPrefix(name, top), "/")
 		}
 
-		if core.LeftOutOfCopies(underTop(name, top, strip)) {
+		under := underTop(name, top, strip)
+		if first, _, _ := strings.Cut(under, "/"); core.LeftOutOfCopies(under) || slices.Contains(skip, first) {
 			continue
 		}
 
