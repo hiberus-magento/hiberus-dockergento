@@ -2,9 +2,10 @@
 
 ## 2.0: migración completada
 
-La migración ha terminado. `hm` 2.0 es un binario de Go (`cmd/hm`) que responde los 65 comandos,
+La migración ha terminado. `hm` 2.0 es un binario de Go (`cmd/hm`) que responde los 67 comandos,
 la ayuda, `--version` y los comandos que un proyecto añade en `config/hm/commands`; `bin/run` y el
-árbol `console/` están borrados (sólo queda `console/hm-completion.bash`, generado). La
+árbol `console/` están borrados, y el autocompletado lo imprime el propio binario
+(`hm completion bash|zsh`). La
 arquitectura hexagonal se sostiene: `dockergento/core` no importa nada de la herramienta,
 `dockergento/app` sólo `core`, `ports` y `contract`, y la CLI, la TUI, MCP y HTTP entran por la
 misma fachada.
