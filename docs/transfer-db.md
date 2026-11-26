@@ -97,7 +97,12 @@ The whole transfer is logged in /home/me/.hm/logs/transfer-db-shop-20261126-1015
 The exit code is the failed step's status, and under `--json` the same message is the `error.message` of the failure document, with type `transfer_failed`.
 
 - **The dump.** Each part of the dump pipeline (`mariadb-dump | sed | gzip`) reports its own failure, which works in any login shell on the remote server, `sh` included. A failed dump is never copied or restored.
-- **Error 1412.** When the dump fails with `Error 1412: Table definition has changed, please retry transaction` (a table altered on the live database while it was being read), only the dump is taken again, up to three attempts in all, saying `The table definition changed during the dump, retrying (2/3)...`. Any other error stops at once.
+- **Error 1412.** When the dump fails with `Error 1412: Table definition has changed, please retry transaction` (a table altered on the live database while it was being read), only the dump is taken again, up to three attempts in all, saying `The table definition changed during the dump, retrying (2/3)...`. Any other error stops at once. When the third attempt fails too, the failure names the table and gives the line that would dump it [without data](#tables-without-data), with the project's current list kept in front of it; nothing is excluded until you add it:
+
+  ```text
+  → To dump `vendor_import_queue` without its data from now on, set this in config/docker/properties.json:
+  "TRANSFER_DB_STRUCTURE_ONLY": "@saas,vendor_import_queue"
+  ```
 - **The restore.** The restore runs the client with `--force`, so a statement this server refuses does not leave half a database. The statements it skipped are counted and reported at the end (`The restore skipped 2 SQL errors; the first: ERROR 1146 (42S02) at line 12: ...`), and all of them are in the log. A dump that cannot be read to the end, or a client that cannot connect, stops the transfer.
 - **`bin/magento` steps** print on the terminal as they run; when one fails, the failure names it and its status.
 

@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
+	"regexp"
 	"strings"
 
 	"github.com/hiberus-magento/hiberus-dockergento/dockergento/core"
@@ -82,6 +84,54 @@ func structureOnlyDump(host, user, port, passwordFlag, database string, patterns
 			`{ sed -e 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' || echo "` + transferMarker + `sed exited with status $?" >&2; } | gzip -9; ` +
 			`else echo "` + transferMarker + `listing the tables exited with status $?" >&2; fi`,
 	}, "; ")
+}
+
+// changedTableIn is where error 1412 names its table: "... please retry transaction when dumping
+// table `name` at row: 0", as mariadb-dump and mysqldump both word it.
+var changedTableIn = regexp.MustCompile("when dumping table `([^`]+)`")
+
+// changedTable is the table the last error 1412 of a dump named, or nothing.
+func changedTable(said string) string {
+	found := changedTableIn.FindAllStringSubmatch(said, -1)
+	if len(found) == 0 {
+		return ""
+	}
+
+	return found[len(found)-1][1]
+}
+
+// structureOnlySuggestion is what to do about a table the database kept changing under the dump:
+// the exact line for config/docker/properties.json that dumps it without data, the project's own
+// list kept in front of it (the run's --structure-only is not the project's, so it is left out).
+// Nothing when there is no table, or when the rules already take it without data and the failure
+// came from somewhere else; under --full, that the rules already name it.
+func structureOnlySuggestion(table, projectRules string, rules []string, full bool) string {
+	// A name the rules could not carry would make a line the next run refuses
+	if _, err := core.StructureOnlyPatterns(nil, []string{table}); table == "" || err != nil {
+		return ""
+	}
+
+	if patterns, err := structureOnlyPatterns(rules, false); err == nil {
+		for _, pattern := range patterns {
+			if !core.TableMatches(pattern, table) {
+				continue
+			}
+
+			if full {
+				return "`" + table + "` is in " + structureOnlyProperty + " already: run without --full to dump it without its data"
+			}
+
+			return ""
+		}
+	}
+
+	value := strings.Join(append(core.SplitTableRules(projectRules), table), ",")
+
+	key, _ := json.Marshal(structureOnlyProperty)
+	quoted, _ := json.Marshal(value)
+
+	return "To dump `" + table + "` without its data from now on, set this in config/docker/properties.json:\n" +
+		string(key) + ": " + string(quoted)
 }
 
 // dumpedWithoutData is the tables the dump script said it took without data, in its order.

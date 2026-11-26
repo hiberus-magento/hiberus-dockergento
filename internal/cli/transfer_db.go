@@ -133,7 +133,8 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	// A rule that cannot be resolved would dump with its data the very tables it names: refused
 	// before a single question is asked
-	rules := append(core.SplitTableRules(engine.Property(project, structureOnlyProperty)), structureOnly...)
+	projectRules := engine.Property(project, structureOnlyProperty)
+	rules := append(core.SplitTableRules(projectRules), structureOnly...)
 
 	patterns, err := structureOnlyPatterns(rules, full)
 	if err != nil {
@@ -248,8 +249,9 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 	dump := dumpPipeline(sqlHost, sqlUser, sqlPort, passwordFlag, sqlDB, patterns)
 
-	// fail stops the transfer with what failed and why, and the last of what the step said
-	fail := func(code int, headline, said string) int {
+	// failWith stops the transfer with what failed and why, the last of what the step said, and
+	// what could be done about it
+	failWith := func(code int, headline, said, hint string) int {
 		message := headline
 		if tail := stepTail(said, transferTailLines); tail != "" {
 			message += ":\n" + tail
@@ -261,8 +263,10 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 
 		log.printf("\nFAILED: %s\n", headline)
 
-		return failure(stderr, jsonOutput, "transfer-db", code, "transfer_failed", log.redact(message)+log.where(), "")
+		return failure(stderr, jsonOutput, "transfer-db", code, "transfer_failed", log.redact(message)+log.where(), hint)
 	}
+
+	fail := func(code int, headline, said string) int { return failWith(code, headline, said, "") }
 
 	// broke stops the transfer at a step that could not even be run, keeping the refusal's kind
 	broke := func(step string, err error) int {
@@ -367,7 +371,12 @@ func transferDB(args []string, stdout, stderr io.Writer, jsonOutput bool) int {
 			headline = fmt.Sprintf("%s failed after %d attempts (%s)", step, attempt, why)
 		}
 
-		return fail(code, headline, said)
+		hint := ""
+		if askedToRetry(said) {
+			hint = structureOnlySuggestion(changedTable(said), projectRules, rules, full)
+		}
+
+		return failWith(code, headline, said, hint)
 	}
 
 	if len(patterns) > 0 {
