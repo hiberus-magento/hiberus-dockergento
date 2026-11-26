@@ -225,8 +225,8 @@ hm update
 
 ### Mac
 
-- Uses `docker-compose.dev.mac.yml` overlay with delegated volume mounts for performance
-- Composer operations (`install`, `update`, `require`, `remove`) copy vendor to container, run inside, then sync back to host
+- Uses `docker-compose.dev.mac.yml` overlay: the code lives in a named volume, with `:cached` bind mounts only for `config/`, `app/`, `.git/` and `composer.json`/`composer.lock`
+- Composer operations (`install`, `update`, `require`, `remove`) copy vendor to container, run inside, then sync back to host (`composerMirroringVendor` in `internal/cli/php.go`)
 - Commands `copy-to-container` and `copy-from-container` available for manual syncing
 
 ### Linux
@@ -241,7 +241,7 @@ Docker services defined in `docker-compose.template.yml`:
 
 - **phpfpm** - PHP-FPM (7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5)
 - **nginx** - Nginx (1.18, 1.28, 1.30)
-- **db** - MariaDB (10.2, 10.3, 10.4, 10.6, 11.4, 11.8, 12.3)
+- **db** - MariaDB (10.2, 10.3, 10.4, 10.6, 11.4, 12.3)
 - **search** - Elasticsearch (5.6, 6.5, 7.17) or OpenSearch (1.2, 2.5, 3)
 - **redis** - Redis (5.0, 6.2, 7.0) or Valkey 9
 - **varnish** - Varnish (6.0, 7.1)
@@ -253,7 +253,7 @@ Docker services defined in `docker-compose.template.yml`:
 
 ## Important Notes
 
-- All containers use images from `hiberusmagento/` on Docker Hub
+- Images come from `hiberusmagento/` on Docker Hub, built and published locally with `build-publish.sh` (no CI publishes them); MariaDB 11.4/12.3 and Valkey use the official images
 - Database credentials: root password is "password", magento user/pass is "magento"/"magento"
 - RabbitMQ credentials: user/password
 - Magento root directory defaults to `.` but can be configured in properties
