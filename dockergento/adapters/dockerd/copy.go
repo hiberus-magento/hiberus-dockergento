@@ -10,7 +10,6 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
@@ -235,7 +234,7 @@ func unpackSkipping(stream io.Reader, target, top string, skip []string, meter p
 		}
 
 		under := underTop(name, top, strip)
-		if first, _, _ := strings.Cut(under, "/"); core.LeftOutOfCopies(under) || slices.Contains(skip, first) {
+		if core.LeftOutOfCopies(under) || skipped(under, skip) {
 			continue
 		}
 
@@ -252,6 +251,18 @@ func unpackSkipping(stream io.Reader, target, top string, skip []string, meter p
 			return err
 		}
 	}
+}
+
+// skipped is whether an entry is one of the paths in skip or under one: a name at the top, such as
+// vendor, or a nested path, such as a bind mount at dev/tests/unit, which leaves its siblings alone.
+func skipped(under string, skip []string) bool {
+	for _, one := range skip {
+		if one = pathpkg.Clean(one); under == one || strings.HasPrefix(under, one+"/") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // underTop is an entry's name relative to the top of the copied tree. A stream whose top was not

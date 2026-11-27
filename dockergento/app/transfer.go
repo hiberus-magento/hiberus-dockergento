@@ -137,14 +137,29 @@ func (t Transfer) From(project core.Project, paths []string) error {
 	// not leave the host's emptied vendor empty — leaves vendor out rather than writing it twice
 	var copied []string
 
+	// What is bind mounted from this machine is this machine's own files, seen from inside: copied
+	// out, they were written onto themselves while the daemon read them, and the copy died halfway
+	bound := t.boundUnderWorkdir(container)
+
 	for _, one := range paths {
 		one = strings.TrimSuffix(one, "/")
+
+		if path.Clean(one) != "." {
+			if mount := t.boundAt(container, path.Join(t.workdir(), one)); mount != "" {
+				return core.Refusal{
+					Kind:    "path_is_bound",
+					Code:    6,
+					Message: fmt.Sprintf("'%s' cannot be copied: it is a bind mount inside the container", one),
+					Hint:    "The two sides are already the same file, at " + mount,
+				}
+			}
+		}
 
 		// Only what was copied whole at the top is left out: after app/code, the workdir still
 		// carries app, whose app/etc the first copy never brought
 		var skip []string
 		if clean := path.Clean(one); clean == "." {
-			skip = copied
+			skip = append(append(skip, copied...), bound...)
 		} else if !strings.Contains(clean, "/") {
 			copied = append(copied, clean)
 		}
@@ -346,6 +361,31 @@ func (t Transfer) boundAt(container, target string) string {
 	}
 
 	return ""
+}
+
+// boundUnderWorkdir is every bind mount under the workdir, as a path relative to it, in the order
+// the container lists them: what a copy of the whole workdir leaves where it is.
+func (t Transfer) boundUnderWorkdir(container string) []string {
+	containers, err := t.Engine.Containers()
+	if err != nil {
+		return nil
+	}
+
+	var bound []string
+
+	for _, candidate := range containers {
+		if candidate.ID != container {
+			continue
+		}
+
+		for _, mount := range candidate.Mounts {
+			if under, found := strings.CutPrefix(path.Clean(mount.Destination), t.workdir()+"/"); mount.Type == "bind" && found {
+				bound = append(bound, under)
+			}
+		}
+	}
+
+	return bound
 }
 
 // container is this project's php container, refusing when it is not running: copying in ends

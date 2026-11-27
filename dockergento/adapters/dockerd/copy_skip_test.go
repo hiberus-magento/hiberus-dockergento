@@ -51,3 +51,33 @@ func TestSkippingCopiesStillLeaveTheRepositoryOut(t *testing.T) {
 		t.Fatalf(".git on the host: %v, want it not written", err)
 	}
 }
+
+// A nested path in skip — a bind mount under the workdir, such as dev/tests/unit — leaves that
+// subtree unwritten and nothing else: its siblings and the directory holding it still land.
+func TestANestedPathInSkipLeavesOnlyThatSubtreeOut(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "shop")
+
+	stream := archived(t, [][2]string{
+		{"./dev/tests/unit/phpunit.xml", "bound"}, {"./dev/tests/unit-extra/a.php", "sibling"},
+		{"./dev/tools/grunt.js", "kept"}, {"./composer.json", "bound file"}, {"./composer.lock", "kept"},
+	})
+	if err := unpackSkipping(stream, target, ".", []string{"dev/tests/unit", "composer.json"}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, want := range map[string]string{
+		"dev/tests/unit-extra/a.php": "sibling",
+		"dev/tools/grunt.js":         "kept",
+		"composer.lock":              "kept",
+	} {
+		if got, _ := os.ReadFile(filepath.Join(target, name)); string(got) != want {
+			t.Errorf("%s = %q, want %q", name, got, want)
+		}
+	}
+
+	for _, gone := range []string{"dev/tests/unit", "composer.json"} {
+		if _, err := os.Stat(filepath.Join(target, gone)); !os.IsNotExist(err) {
+			t.Errorf("%s on the host: %v, want it left unwritten", gone, err)
+		}
+	}
+}
